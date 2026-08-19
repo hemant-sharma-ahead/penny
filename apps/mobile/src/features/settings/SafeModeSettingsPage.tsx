@@ -138,9 +138,8 @@ export function SafeModeSettingsPage() {
           <Banner variant="info">
             Safe Mode shows your everyday numbers so you can check things at a glance in public — toggle on the
             accounts, categories, and modules you'd rather keep hidden there. Everyday spending stays visible by
-            default; income, transfers, family support, legal, sin goods, and investments default to hidden. Privacy
-            Mode always hides everything; Open Mode always shows everything — these toggles only change what Safe Mode
-            does.
+            default; income, transfers, family support, legal, sin goods, and investments default to hidden. Open Mode
+            always shows everything — these toggles only change what Safe Mode does.
           </Banner>
 
           <View>

@@ -140,7 +140,10 @@ transactions-date-header-inline-tight-v3.html` and its predecessors).
   `txnIdsByGoal` map; each Goal pill also shows the goal's own resolved icon (tinted by risk colour),
   matching the colour dot Event pills already had. The Account/Category tile grids in this same Filter
   popup now auto-fit 4–6 columns to the modal's actual measured width instead of a fixed-width tile that
-  left unused space on a wider screen.
+  left unused space on a wider screen. **2026-08-18:** a dedicated **Tag** chip section was added to
+  `FilterModal.tsx` (right after Account, before Category) — multi-select, OR match (a transaction
+  matches if it carries any of the selected tags), same chip pattern as Event/Goal above, backed by a
+  new `tagFilters: string[]` on `FilterState`.
 - View spending analytics: pie chart and bar chart by category, month-over-month comparison, and a spending trend line
 - Set monthly budgets per category — opened from the **🎯 budget icon in the Transactions toolbar** (centred modal), not a separate tab — and see real-time progress bars; receive alerts when close to or over budget
 - Mark an expense **Lent to** / an income **Borrowed from** a person to seed an IOU ledger entry; conversely, recording from the IOU screen creates the matching expense/income on a chosen account (see the IOU feature doc)
@@ -158,7 +161,21 @@ transactions-date-header-inline-tight-v3.html` and its predecessors).
 - Organise categories into parent groups (e.g. "Food & Drink" → "Dining Out", "Groceries") and use hashtags for a third level of detail
 - Manage categories from inside the Select Category popup: create/edit/rename, pick an icon from a curated visual grid **or search the full Tabler set**, recolor, move transactions to another category, delete empty custom categories (single or bulk), and create your own parent groups (creating a group requires ≥1 category under it). Income has the same category + group concept as expense.
 - The category picker leads with a horizontally-scrollable **Frequent** row (your top 8 categories by actual usage) above the grouped list, so the common pick rarely needs a scroll. While a **Vacation** (immersive) event is active, Frequent is replaced by **Travel picks** (the Travel group's categories) plus a short note on why trip spend is tracked separately — a soft default, not a restriction: every other group stays one scroll away for the non-travel spend (medicine, EMI, a subscription) that still happens on a trip.
-- Select multiple transactions in the Transactions tab (the list-check button → tap rows) and bulk-update them: change **category**, change **account + payment mode together** (coupled like the entry form — a cash account forces the cash mode), or **delete** the selection
+- Select multiple transactions in the Transactions tab (the list-check button → tap rows) and bulk-update them: change **category**, change **account + payment mode together** (coupled like the entry form — a cash account forces the cash mode), **delete** the selection, add a tag (`BulkHashtagModal`), or (2026-08-18) **remove** a tag — a new Add/Remove toggle on the same modal; Remove mode only lists tags actually present across the current selection (no free-text entry), symmetric to `useExpenses.ts`'s existing `bulkAddHashtag`/new `bulkRemoveHashtag`. **2026-08-18:** the selection date header (previously blank while in multi-select mode) now shows correctly, and the toolbar order changed to **Budget → Month → Search → Filter → Select**.
+- **Bulk-add existing transactions into a person's IOU ledger (2026-08-18)** — from the same multi-select, route the batch into a person's ledger instead: pick one person for the whole selection, Penny auto-splits by expense vs. income and asks one category choice per direction present, then applies category + person + creates the matching ledger entries. See [`docs/features/iou.md`](iou.md).
+- **Switch a transaction's type after saving (2026-08-18)** — editing an existing expense/income now
+  re-enables the type `SegmentedControl` (add-only before), scoped to expense ⟷ income (Transfer excluded
+  — it structurally needs two accounts); switching clears the type-scoped category and is blocked if the
+  transaction has an IOU ledger link, is shared to a Group, or is linked to a Goal contribution.
+- **Cash-negative warning (2026-08-18)** — a non-blocking warning already existed on the Expense form when
+  a save would push a cash account negative; extended to the IOU lend/borrow entry form and the Settle Up
+  modal, using the same `projectedBalance()` check.
+- **Tag case is normalized everywhere (2026-08-18)** — manual entry, `BulkHashtagModal`, and bulk-add
+  already lowercased on save; CSV/bank-import's `parseTags()` and Analytics' `buildHashtagSummary()` now
+  do too, closing the last two gaps. A one-time, idempotent boot-time repair
+  (`packages/core/src/core/db/normalizeHashtagCase.ts`) lowercases every existing `Hashtag.name`/
+  `Expense.hashtags[]` entry and merges any that collapse to the same lowercase form (usage counts
+  summed) — follows the same pattern as `repairCategoryIcons()`/`reconcileDefaultCategories()`.
 
 ## How it works
 
@@ -167,6 +184,21 @@ Transactions are stored in the encrypted `expenses` Dexie store. Each record inc
 The category system has three levels: intentGroup (parent group), ExpenseCategory (child category), and hashtags (free-form tags). Default categories are seeded from `defaultCategories.ts` at first run. A **Legal** intent group (Advocate Fee, Court Fee, Stamp Duty, Notary, Filing & Documentation, Affidavit, Typing & Printing, Exemption Fee, Legal Transport/Food, Other Legal Fees) ships as defaults and is back-filled to existing users via the additive `penny_cats_v4` seed in `useExpenses`.
 
 **Daily-routine vs set-aside (analytics separation).** Each intent group carries a `routine` flag in `INTENT_GROUP_META` (`isRoutineGroup()` in `defaultCategories.ts`). The monthly Analytics tab leads with an **all-inclusive "Total spent this month"** (daily-routine + set-aside + events — `monthTotal`), then shows only **daily-routine** groups in the donut + "Daily-routine spending" list, so a vacation, family support, legal matter, financial move, or money lent never distorts the everyday picture. Travel carries **Trip Prep, Trip Shopping, Trip Fuel, Vehicle Service**; Daily Living adds **Fuel** (everyday) and **Salon & Grooming**; Home & Utilities adds **Home Services**; a new set-aside **Renovation** intent group ships Materials, Labour & Contractor, Furniture, Fixtures & Fittings, Painting, Interior & Design, Appliances, Other Renovation; Education adds **Transportation Fee, School Trip, Competition**. **Income** splits Dividends/Interest into two and adds **Capital Gains, Bonus & Incentive, Reimbursements**. Definition changes that must reach already-seeded records (renames/regroups, blank-icon repairs) are applied by once-flagged migrations in `dedupeDemoCategories.ts` (`repairCategoryIcons`, `reconcileDefaultCategories`); new categories arrive via the additive `penny_cats_v6` seed. Everything non-routine is summarised in a separate **"Set aside · not daily-routine"** card. Non-routine = the set-aside intent groups (**Financial, Travel, Family & Giving, Legal, Other**) **+ money you lent** (any IOU-linked transaction, regardless of its category) under a synthetic **Lending & IOU** bucket **+ (2026-07)** any expense shared into a **Family-type group** (its own **"Shared with family"** line) **+** any expense carrying a **Set Aside tag** (its own `#tagname` line, per tag — see below). Event/vacation-tagged transactions remain excluded from categories and shown under their own **Events** card (unchanged). Recap, anomalies, spend-velocity and the previous-month comparison all run on the daily-routine basis. Family support is a category (`cat-family-support` under `family_giving`), alongside **Occasions, Religious & Cultural, Donations,** and **Miscellaneous** (2026-07) — no IOU-model change. Legal categories are also wired into the Tax Footprint band map (`core/tax/categoryTaxMap.ts`): advocate/court/government fees are GST-exempt; ancillary spend (typing/printing, transport, food) carries GST.
+
+**Analytics section order and Set Aside expand/collapse (2026-08-18).** The Monthly/Annual/All-time
+Analytics tabs now render `CashFlowTile` last (previously mid-page) and `DailyRoutineSection` before
+`SetAsideSection` (previously the reverse) — no other section moved. `SetAsideSection` was also rebuilt
+to mirror `DailyRoutineSection`'s exact expand/collapse pattern (a lifted `expandedGroup` state,
+nested categories) — it used to tap straight through to the transactions modal with no way to expand a
+group first, the one Analytics section that behaved differently from its sibling.
+
+**Subscriptions "seen N times" opens the real transaction list (2026-08-18).** `DetectedSubCard.tsx`'s
+"Seen N times" text is now pressable — it filters `expenses` by `normalize(description) ===
+candidate.merchantCategory` (reusing the subscription detector's own `normalize()`) and opens the shared
+`EntityTransactionsModal` already used for Analytics' tag/category drill-down, rather than a dead label.
+Every `EntityTransactionsModal` caller (Analytics' group/category/tag views, plus this new one) now
+passes the transaction count consistently via `subtitle` (e.g. "12 transactions") instead of only some
+callers using the `statLabel`/`statValue` slot. See [`docs/features/subscriptions.md`](subscriptions.md).
 
 **Three new default categories (2026-08-03)**, back-filled via the additive `penny_cats_v8` seed: **Food & Drinks** (`cat-food-drinks`, Daily Living — alongside the existing Groceries/Dining & Café, kept deliberately distinct despite the overlap), **Lending** (`cat-lending`, Family & Giving, expense), and **Borrowed Money** (`cat-inc-borrowed`, Income). The latter two exist for `ExpenseForm`'s Lent/Borrowed panel and bank-import's bulk equivalent, but are **free choice, not auto-assigned/locked** — a shared-bill split with a friend is often deliberately kept under its real category (e.g. Dining) for future reference, so forcing a generic category would lose that context; the existing Lending & IOU exclusion from daily-routine analytics (above) already works off the transaction's IOU link, not its category, so this doesn't weaken that separation. `cat-food-drinks` is `gst-5` and `cat-lending` is `exempt` (and excluded from the spend base entirely, alongside `cat-sip`/`cat-savings`) in `categoryTaxMap.ts`.
 

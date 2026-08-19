@@ -32,7 +32,7 @@ const STATUS_TEXT: Record<string, string> = {
  * to do); Drive pushes through the sync engine's real native Google Sign-In-backed provider
  * (googleDriveProvider.native.ts); iCloud stays disabled (no native bridge yet).
  */
-export function AutoBackupCard() {
+export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => void }) {
   const theme = useThemeColors();
   const { status, target, lastBackupAt, error, setTarget, runNow, connect } = useBackupStatus();
   const { showToast } = useToast();
@@ -143,7 +143,19 @@ export function AutoBackupCard() {
         </Text>
       )}
 
-      {status === 'quota_exceeded' || status === 'error' ? (
+      {status === 'foreign_blob' ? (
+        // Distinct from the plain 'error' banner below — this is always fixable with the same action
+        // (restore with your passphrase), so it gets an explanation plus a direct CTA into that flow
+        // instead of a dead-end error message (real-device testing feedback, 2026-08-18).
+        <View className="gap-2">
+          <Banner variant="danger" title="This backup needs a manual restore">
+            {error ?? "This device's data doesn't match the key your Drive backup was encrypted with."}
+          </Banner>
+          <Button variant="secondary" fullWidth onPress={() => onFixForeignBlob?.()}>
+            Restore with my passphrase
+          </Button>
+        </View>
+      ) : status === 'quota_exceeded' || status === 'error' ? (
         <Banner variant="danger">{error ?? STATUS_TEXT[status]}</Banner>
       ) : status === 'needs_reconnect' ? (
         <Banner variant="warning">{STATUS_TEXT.needs_reconnect}</Banner>

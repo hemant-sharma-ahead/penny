@@ -7,6 +7,7 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 import { useToast } from '~/context/ToastContext';
 import { ErrorBoundary } from '~/components/shared/ErrorBoundary';
+import { WizardProgress } from '~/components/shared/WizardProgress';
 import type { ExpensesStackParamList } from '~/navigation/ExpensesStack';
 import { useImport } from './useImport';
 import { UploadStep } from './UploadStep';
@@ -15,7 +16,6 @@ import { AccountsStage } from './AccountsStage';
 import { CategoriesStage } from './CategoriesStage';
 import { TransactionsStage } from './TransactionsStage';
 import { ImportProgressStep } from './ImportProgressStep';
-import { WizardProgress } from './WizardProgress';
 
 /**
  * RN port of apps/web-react/src/features/import/ImportPage.tsx, rebuilt for the 2026-08-14 CSV-import

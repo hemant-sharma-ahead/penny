@@ -146,11 +146,13 @@ Track all asset classes in one place:
 
 ### Privacy system
 
-Three privacy modes accessible from the top header:
+Two privacy modes accessible from the top header (collapsed from three, 2026-08-18 — a
+middle "Privacy" mode and Open's fixed-duration countdown were both removed as overkill
+found via real-device testing):
 
-- **Safe** (amber, default) — amounts masked as ••••
-- **Privacy** (violet) — module names only, no amounts
-- **Open** (red) — all data visible, PIN required to switch to
+- **Safe** (amber, default) — only amounts explicitly flagged sensitive are masked as ••••
+- **Open** (red) — all data visible, PIN + warning screen required to switch to; auto-reverts
+  to Safe when the app backgrounds
 
 PIN lockout with exponential backoff. 21-day PIN rotation reminder.
 

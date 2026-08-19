@@ -62,7 +62,7 @@ Transfers are recorded as a single transaction with both a source `accountId` an
 
 The Home dashboard's accounts strip reads all accounts and computes their live balances in a single pass.
 
-Each `Account` carries an optional `hideInSafeMode` flag (undefined/false = visible, the default). Both `AccountList` (this page) and `AccountsStrip` (Home) resolve masking per account via `usePrivacy().shouldMask(acc.hideInSafeMode)` — Open never masks, Privacy always masks, Safe masks only flagged accounts. The Total Balance card is an aggregate and stays visible in Safe (hidden only in Privacy). See `docs/ARCHITECTURE.md` → Context providers.
+Each `Account` carries an optional `hideInSafeMode` flag (undefined/false = visible, the default). Both `AccountList` (this page) and `AccountsStrip` (Home) resolve masking per account via `usePrivacy().shouldMask(acc.hideInSafeMode)` — Open never masks, Safe masks only flagged accounts. The Total Balance card is an aggregate, never flagged sensitive, so it always stays visible in Safe. See `docs/ARCHITECTURE.md` → Context providers.
 
 Key files:
 

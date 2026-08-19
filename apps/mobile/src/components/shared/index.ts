@@ -17,9 +17,11 @@ export { IconGridPicker } from './IconGridPicker';
 export { ListRow } from './ListRow';
 export { PaymentModeChips } from './PaymentModeChips';
 export { PaymentModeFormModal } from './PaymentModeFormModal';
+export { PersonTypeahead } from './PersonTypeahead';
 export { PossibleMatchPickerModal } from './PossibleMatchPickerModal';
 export { RowCheckbox } from './RowCheckbox';
 export { TipNudgeBanner } from './TipNudgeBanner';
+export { WizardProgress } from './WizardProgress';
 export {
   DEFAULT_PAYMENT_MODES,
   generatePaymentModeId,

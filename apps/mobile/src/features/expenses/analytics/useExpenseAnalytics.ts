@@ -114,6 +114,10 @@ export interface SetAsideSegment {
   label: string;
   color: string;
   icon: string;
+  /** Category drill-down within this group (item 24) — same shape `GroupSegment.cats` uses minus
+   *  `budgetLimit` (Set Aside groups aren't budget-tracked), so `SetAsideSection` can mirror
+   *  `DailyRoutineSection`'s exact expand/collapse pattern. */
+  cats: Array<{ catId: string; name: string; icon: string; color: string; amount: number }>;
 }
 
 /** "Set aside" breakdown for an arbitrary scope — same grouping `buildGroupData` uses, non-routine only. */
@@ -121,32 +125,55 @@ function buildSetAsideData(
   expenses: Expense[],
   inScope: Scope,
   classify: Classify,
+  categoryMap: Map<string, ExpenseCategory>,
   parentCategoryMap: ReturnType<typeof buildParentCategoryMap>
 ): SetAsideSegment[] {
-  const byGroup = new Map<string, number>();
+  const byGroup = new Map<string, { amount: number; categories: Map<string, number> }>();
   for (const e of expenses) {
     if (!inScope(e)) continue;
     if (e.type && e.type !== 'expense') continue;
     const c = classify(e);
     if (c.kind !== 'setAside') continue;
-    byGroup.set(c.group, (byGroup.get(c.group) ?? 0) + e.amount);
+    const slot = byGroup.get(c.group) ?? { amount: 0, categories: new Map<string, number>() };
+    slot.amount += e.amount;
+    slot.categories.set(e.categoryId, (slot.categories.get(e.categoryId) ?? 0) + e.amount);
+    byGroup.set(c.group, slot);
   }
   return Array.from(byGroup.entries())
-    .map(([group, amount]) => {
+    .map(([group, { amount, categories }]) => {
+      const cats = Array.from(categories.entries())
+        .map(([catId, catAmount]) => {
+          const cat = categoryMap.get(catId);
+          return {
+            catId,
+            name: cat?.name ?? catId,
+            icon: cat?.icon ?? 'ti-dots',
+            color: cat?.color ?? '#6b7280',
+            amount: catAmount
+          };
+        })
+        .sort((a, b) => b.amount - a.amount);
       if (group === IOU_LENDING_GROUP) {
-        return { group, amount, label: 'Lending & IOU', color: '#64748b', icon: 'ti-arrow-up-right' };
+        return { group, amount, label: 'Lending & IOU', color: '#64748b', icon: 'ti-arrow-up-right', cats };
       }
       if (group === GOAL_CONTRIBUTION_GROUP) {
-        return { group, amount, label: 'Goal contributions', color: '#10b981', icon: 'ti-target' };
+        return { group, amount, label: 'Goal contributions', color: '#10b981', icon: 'ti-target', cats };
       }
       if (group === FAMILY_SHARE_GROUP) {
-        return { group, amount, label: 'Shared with family', color: '#ec4899', icon: 'ti-users-group' };
+        return { group, amount, label: 'Shared with family', color: '#ec4899', icon: 'ti-users-group', cats };
       }
       if (group.startsWith(TAG_GROUP_PREFIX)) {
-        return { group, amount, label: `#${group.slice(TAG_GROUP_PREFIX.length)}`, color: '#ec4899', icon: 'ti-hash' };
+        return {
+          group,
+          amount,
+          label: `#${group.slice(TAG_GROUP_PREFIX.length)}`,
+          color: '#ec4899',
+          icon: 'ti-hash',
+          cats
+        };
       }
       const meta = groupMeta(group, parentCategoryMap);
-      return { group, amount, label: meta.label, color: meta.color, icon: 'ti-bookmark' };
+      return { group, amount, label: meta.label, color: meta.color, icon: 'ti-bookmark', cats };
     })
     .sort((a, b) => b.amount - a.amount);
 }
@@ -226,7 +253,9 @@ function buildGroupTotals(
   return byGroup;
 }
 
-/** Top-5 non-event hashtag summary for an arbitrary scope. */
+/** Top-5 non-event hashtag summary for an arbitrary scope. Groups by the lowercased tag (2026-08-18
+ *  fix) so any mixed-case history still lingering from before the case-normalization fix/migration
+ *  (or a not-yet-repaired database) collapses into one row instead of splitting "Trip"/"trip" into two. */
 function buildHashtagSummary(
   expenses: Expense[],
   inScope: Scope,
@@ -237,9 +266,10 @@ function buildHashtagSummary(
     if (!inScope(e)) continue;
     if (e.type && e.type !== 'expense') continue;
     for (const tag of e.hashtags) {
-      if (tag === 'sample') continue;
+      const key = tag.toLowerCase();
+      if (key === 'sample') continue;
       if (allEventHashtags.has(normalizeHashtag(tag))) continue;
-      byTag.set(tag, (byTag.get(tag) ?? 0) + e.amount);
+      byTag.set(key, (byTag.get(key) ?? 0) + e.amount);
     }
   }
   return Array.from(byTag.entries())
@@ -316,8 +346,8 @@ export function useExpenseAnalytics({
   // "Set aside" — non-routine spend (travel, family support, legal, financial moves) + money lent,
   // summarised separately so it never distorts the daily-living picture. One row per bucket.
   const setAsideData = useMemo(
-    () => buildSetAsideData(expenses, inSelectedMonth, classify, parentCategoryMap),
-    [expenses, inSelectedMonth, classify, parentCategoryMap]
+    () => buildSetAsideData(expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap),
+    [expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap]
   );
 
   const setAsideTotal = useMemo(() => setAsideData.reduce((s, seg) => s + seg.amount, 0), [setAsideData]);
@@ -439,8 +469,8 @@ export function useExpenseAnalytics({
   const annualGroupTotal = useMemo(() => annualGroupData.reduce((s, seg) => s + seg.amount, 0), [annualGroupData]);
 
   const annualSetAsideData = useMemo(
-    () => buildSetAsideData(expenses, inAnalyticsYear, classify, parentCategoryMap),
-    [expenses, inAnalyticsYear, classify, parentCategoryMap]
+    () => buildSetAsideData(expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap),
+    [expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap]
   );
   const annualSetAsideTotal = useMemo(
     () => annualSetAsideData.reduce((s, seg) => s + seg.amount, 0),
@@ -522,8 +552,8 @@ export function useExpenseAnalytics({
   const allTimeGroupTotal = useMemo(() => allTimeGroupData.reduce((s, seg) => s + seg.amount, 0), [allTimeGroupData]);
 
   const allTimeSetAsideData = useMemo(
-    () => buildSetAsideData(expenses, inAllTime, classify, parentCategoryMap),
-    [expenses, inAllTime, classify, parentCategoryMap]
+    () => buildSetAsideData(expenses, inAllTime, classify, categoryMap, parentCategoryMap),
+    [expenses, inAllTime, classify, categoryMap, parentCategoryMap]
   );
   const allTimeSetAsideTotal = useMemo(
     () => allTimeSetAsideData.reduce((s, seg) => s + seg.amount, 0),

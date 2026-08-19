@@ -188,7 +188,7 @@ Seen state is tracked per-story by a `freshnessKey` in `localStorage` (`penny_st
 - Scroll through a horizontal strip of all your accounts and their live balances; credit cards show how much credit has been used
 - View live prices for market tickers (Sensex, Nifty 50, Gold, Silver, USD/INR, Crude Oil) with the day's change, in a slim top ticker; customise the set from a preset list
 - Jump directly to any module from shortcut tiles
-- Control what's visible based on your privacy mode: **Open** shows everything, **Privacy** hides every amount, **Safe** shows everything except the specific accounts/categories/modules you've chosen to hide (Settings → Safe Mode)
+- Control what's visible based on your privacy mode: **Open** shows everything; **Safe** (the default) shows everything except the specific accounts/categories/modules you've chosen to hide (Settings → Safe Mode)
 
 ## How it works
 
@@ -206,7 +206,7 @@ snapshots into the `RetirementProjectionResult` + chart points `GlanceHeader` re
 
 Market data is fetched from external price feeds via `marketDataClient.ts` and cached for 15 minutes in the `price_cache` Dexie store to avoid excessive network calls. The market strip reads from this cache first and refreshes in the background when the cache is stale.
 
-Privacy mode (Safe / Privacy / Open) is read via `usePrivacy().shouldMask(sensitive)` — the single source of truth for amount masking app-wide (see `docs/ARCHITECTURE.md` → Context providers). Open never masks; Privacy always masks. Safe masks only what's flagged sensitive: net worth and every Retirement Corpus figure are aggregates and stay visible in Safe (hidden only in Privacy — percent-funded stays visible even in Privacy, same as a score), while each account's balance in the Accounts strip respects that account's own `hideInSafeMode` flag (Settings → Safe Mode → Accounts).
+Privacy mode (Safe / Open, 2026-08-18 — a third "Privacy" mode was removed as overkill) is read via `usePrivacy().shouldMask(sensitive)` — the single source of truth for amount masking app-wide (see `docs/ARCHITECTURE.md` → Context providers). Open never masks. Safe masks only what's flagged sensitive: net worth and every Retirement Corpus figure are aggregates and stay visible in Safe, while each account's balance in the Accounts strip respects that account's own `hideInSafeMode` flag (Settings → Safe Mode → Accounts).
 
 Key files:
 

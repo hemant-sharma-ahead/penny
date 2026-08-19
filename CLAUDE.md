@@ -177,6 +177,14 @@ of the below are done exactly **once per task, right before committing** — not
 along the way. This has been stated many times; treat it as absolute, not a default that
 can slip back to "after each step" over a long session.
 
+**The decision that "we've reached a commit point" is never yours to infer.** Finishing a
+large piece of work — even a multi-file feature that feels done — is not itself a signal to
+run the sweep, touch docs, or run `git commit`. Wait for the user to explicitly say
+"commit"/"let's commit" (or explicitly ask for verification/docs as their own standalone
+request, separate from a commit). If genuinely unsure whether something like "let's ship
+this" counts as that explicit ask, treat it as not sufficient — ask, or wait, rather than
+proceeding.
+
 **Verification sweep (once, right before commit):** `tsc -b` for every touched package
 (`packages/core`, `apps/mobile`), `eslint` scoped to the files actually touched, `prettier
 --write` on those files, the full `vitest` suite, and the PII gate (`node

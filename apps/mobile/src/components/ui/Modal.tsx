@@ -1,7 +1,8 @@
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, type ReactNode, type RefObject } from 'react';
 import { Modal as RNModal, View, Pressable, ScrollView, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { registerModalOpen, unregisterModalOpen } from '~/lib/modalStack';
 
 interface ModalProps {
   onClose: () => void;
@@ -41,6 +42,15 @@ export function Modal({
 }: ModalProps) {
   const theme = useThemeColors();
   const body = <View className="px-5 pt-5 pb-5 gap-4">{children}</View>;
+
+  // Registers this real native Modal as "open" for the lifetime of the mount — read by
+  // `~/context/ToastContext.tsx` (via `~/lib/modalStack.ts`) to decide whether a toast needs its own
+  // native-Modal layer to stack above this one, or can render as a plain overlay. See that file's doc
+  // comment for why this distinction matters on Android specifically.
+  useEffect(() => {
+    registerModalOpen();
+    return unregisterModalOpen;
+  }, []);
 
   return (
     <RNModal transparent animationType="fade" onRequestClose={onClose} onShow={onShow}>

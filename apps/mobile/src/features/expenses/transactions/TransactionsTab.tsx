@@ -266,27 +266,38 @@ const TransactionRow = memo(function TransactionRow({
     [onDuplicate, onShare, txnType, isShared, onDelete, txn, theme.info, theme.primary, theme.danger]
   );
 
-  // Select mode: flat tappable row with a checkbox; no rail, so it needs its own icon badge.
+  // Select mode: flat tappable row with a checkbox; no rail, so it needs its own icon badge. The date
+  // header below is the same block normal mode renders further down (~line 320) — hoisted up here too
+  // rather than left to only that branch, which used to make the date disappear entirely while
+  // multi-selecting (found via real-device testing, 2026-08-18): the select-mode branch returned before
+  // ever reaching it.
   if (selectMode) {
     return (
-      <Pressable
-        onPress={() => onToggleSelect?.(txn.id)}
-        className="w-full flex-row items-center gap-3 px-4 py-3"
-        style={isSelected ? { backgroundColor: theme.surfaceSecondary } : undefined}
-      >
-        <Icon
-          name={isSelected ? 'ti-circle-check-filled' : 'ti-circle'}
-          size={20}
-          color={isSelected ? theme.primary : theme.textTertiary}
-        />
-        <View
-          className="w-9 h-9 rounded-xl items-center justify-center shrink-0"
-          style={{ backgroundColor: tint(accent, 12) }}
+      <View>
+        {dateLabel && (
+          <View className="pl-4 pr-4 pt-2 pb-0.5">
+            <Text className="text-[9px] font-extrabold uppercase tracking-wide text-tertiary">{dateLabel}</Text>
+          </View>
+        )}
+        <Pressable
+          onPress={() => onToggleSelect?.(txn.id)}
+          className="w-full flex-row items-center gap-3 px-4 py-3"
+          style={isSelected ? { backgroundColor: theme.surfaceSecondary } : undefined}
         >
-          <Icon name={icon} size={18} color={accent} />
-        </View>
-        {content}
-      </Pressable>
+          <Icon
+            name={isSelected ? 'ti-circle-check-filled' : 'ti-circle'}
+            size={20}
+            color={isSelected ? theme.primary : theme.textTertiary}
+          />
+          <View
+            className="w-9 h-9 rounded-xl items-center justify-center shrink-0"
+            style={{ backgroundColor: tint(accent, 12) }}
+          >
+            <Icon name={icon} size={18} color={accent} />
+          </View>
+          {content}
+        </Pressable>
+      </View>
     );
   }
 

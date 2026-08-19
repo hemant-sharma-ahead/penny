@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  computeShares,
-  equalSplit,
-  foldGroupBalances,
-  whoOwesWhom,
-  type FoldEvent
-} from '@/core/groups/split';
+import { computeShares, equalSplit, foldGroupBalances, whoOwesWhom, type FoldEvent } from '@/core/groups/split';
 
 const sum = (r: Record<string, number>) => Object.values(r).reduce((s, v) => s + v, 0);
 
@@ -42,7 +36,12 @@ describe('computeShares', () => {
   });
 
   it('splits by shares proportionally', () => {
-    const r = computeShares({ total: 900, method: 'shares', participants: ['a', 'b', 'c'], values: { a: 2, b: 1, c: 0 } });
+    const r = computeShares({
+      total: 900,
+      method: 'shares',
+      participants: ['a', 'b', 'c'],
+      values: { a: 2, b: 1, c: 0 }
+    });
     expect(r.valid).toBe(true);
     expect(r.shares).toEqual({ a: 600, b: 300, c: 0 });
   });
@@ -60,7 +59,10 @@ describe('computeShares', () => {
 describe('foldGroupBalances', () => {
   it('credits the payer and debits participants for a shared expense', () => {
     const events: FoldEvent[] = [
-      { type: 'shared_expense', payload: { expenseId: 'e1', amount: 1200, payer: 'a', shares: { a: 400, b: 400, c: 400 } } }
+      {
+        type: 'shared_expense',
+        payload: { expenseId: 'e1', amount: 1200, payer: 'a', shares: { a: 400, b: 400, c: 400 } }
+      }
     ];
     const bal = foldGroupBalances(events);
     expect(bal.a).toBeCloseTo(800, 5); // paid 1200, owed 400
@@ -89,6 +91,49 @@ describe('foldGroupBalances', () => {
     const bal = foldGroupBalances(events);
     expect(bal.a).toBeCloseTo(0, 5);
     expect(bal.b).toBeCloseTo(0, 5);
+  });
+
+  it('write-off settlements move the balance exactly like a real repayment', () => {
+    const events: FoldEvent[] = [
+      { type: 'shared_expense', payload: { expenseId: 'e1', amount: 1000, payer: 'a', shares: { a: 500, b: 500 } } },
+      { type: 'settlement', payload: { id: 's1', from: 'b', to: 'a', amount: 500, kind: 'write_off' } }
+    ];
+    const bal = foldGroupBalances(events);
+    expect(bal.a).toBeCloseTo(0, 5);
+    expect(bal.b).toBeCloseTo(0, 5);
+  });
+
+  it('a settlement_void reverses an earlier settlement (undo write-off) — item 17', () => {
+    const events: FoldEvent[] = [
+      { type: 'shared_expense', payload: { expenseId: 'e1', amount: 1000, payer: 'a', shares: { a: 500, b: 500 } } },
+      { type: 'settlement', payload: { id: 's1', from: 'b', to: 'a', amount: 500, kind: 'write_off' } },
+      { type: 'settlement_void', settlementId: 's1' }
+    ];
+    const bal = foldGroupBalances(events);
+    // Back to exactly where it was before the write-off — b still owes a 500.
+    expect(bal.a).toBeCloseTo(500, 5);
+    expect(bal.b).toBeCloseTo(-500, 5);
+  });
+
+  it('a settlement_void only affects the settlement with the matching id', () => {
+    const events: FoldEvent[] = [
+      { type: 'settlement', payload: { id: 's1', from: 'a', to: 'b', amount: 100 } },
+      { type: 'settlement', payload: { id: 's2', from: 'a', to: 'b', amount: 200 } },
+      { type: 'settlement_void', settlementId: 's1' }
+    ];
+    const bal = foldGroupBalances(events);
+    expect(bal.a).toBeCloseTo(200, 5); // only s2 counts
+    expect(bal.b).toBeCloseTo(-200, 5);
+  });
+
+  it('an id-less (older) settlement is never affected by voids', () => {
+    const events: FoldEvent[] = [
+      { type: 'settlement', payload: { from: 'a', to: 'b', amount: 100 } },
+      { type: 'settlement_void', settlementId: 'does-not-exist' }
+    ];
+    const bal = foldGroupBalances(events);
+    expect(bal.a).toBeCloseTo(100, 5);
+    expect(bal.b).toBeCloseTo(-100, 5);
   });
 });
 

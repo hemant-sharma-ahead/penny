@@ -212,10 +212,16 @@ export async function seedDemoData(employmentType: EmploymentType = 'salaried'):
         })
       );
     }
-    // Transport staple (kept across all history).
+    // Transport staple (kept across all history). The wobble must be run through `scale()` too, not
+    // added flat — a flat 0-1199 addition is a fixed ₹ amount regardless of persona, so it doesn't
+    // shrink for a low-`expenseScale` persona the way the rest of the row does. That mismatch let the
+    // Student persona's (`expenseScale` 0.35) wobbled spend (up to ~₹1514) exceed the ATM withdrawal
+    // below (~₹875 at that scale) often enough to drive Cash negative — confirmed by simulation
+    // (`docs/plans/real-device-testing-pass.md` item 17). Scaling the wobble too keeps its ratio to the
+    // withdrawal constant across every persona.
     if (due(15)) {
       expenses.push(
-        exp(daysAgoOn(mb, 15), grow(scale(900), mb) + (wobble(mb) % 1200), 'transport', 'Cabs & fuel', [], {
+        exp(daysAgoOn(mb, 15), grow(scale(900), mb) + scale(wobble(mb) % 1200), 'transport', 'Cabs & fuel', [], {
           accountId: CASH,
           paymentMode: 'cash'
         })

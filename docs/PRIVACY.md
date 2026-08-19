@@ -152,21 +152,22 @@ The following are not PII and may be sent to Chip:
 
 ## Privacy modes
 
-Three modes control what's visible on-screen. These are independent of encryption — all data is always encrypted at rest regardless of mode.
+Two modes control what's visible on-screen. These are independent of encryption — all data is always encrypted at rest regardless of mode.
 
 ```ts
-type PrivacyMode = 'safe' | 'privacy' | 'open';
+type PrivacyMode = 'safe' | 'open';
 ```
 
-| Mode      | Display                       | Colour           | Default |
-| --------- | ----------------------------- | ---------------- | ------- |
-| `safe`    | Amounts masked as ••••        | Amber (#f59e0b)  | Yes     |
-| `privacy` | Module names only, no amounts | Violet (#7c3aed) | No      |
-| `open`    | All data visible              | Red (#dc2626)    | No      |
+| Mode   | Display                                                     | Colour          | Default |
+| ------ | ------------------------------------------------------------ | --------------- | ------- |
+| `safe` | Only amounts explicitly flagged sensitive are masked as •••• | Amber (#f59e0b) | Yes     |
+| `open` | All data visible                                            | Red (#dc2626)   | No      |
 
-**Switching to `open` mode requires PIN verification.** This is a deliberate friction point — Open mode shows all data on screen, which is a shoulder-surfing risk.
+**Switching to `open` mode requires PIN verification** (plus a one-time shoulder-surfing warning screen). This is a deliberate friction point — Open mode shows all data on screen. Open has no persisted default and no visible countdown — it auto-reverts to Safe the moment the app backgrounds (an `AppState` safety net), or stays until the user switches back manually.
 
-The default mode can be changed in Settings. The privacy badge in the header shows the current mode. Users can tap it to switch modes (with PIN gate for switching to Open).
+**2026-08-18 — a third mode, `privacy` (mask every amount app-wide regardless of sensitivity), and Open mode's fixed-duration countdown were both removed** (real-device testing found the three-mode picker + timer overkill for what people actually used day to day). `apps/web-react`'s frozen `privacyModeColors.ts` type still carries the old 3-mode union for historical-reference purposes only — `apps/mobile` (the only actively-developed app) now only ever constructs `'safe' | 'open'`. Safe Mode's own masking granularity (which amounts count as "sensitive") is unchanged — see "IOU privacy" below and each feature doc's own Safe Mode section.
+
+There is no longer a default-mode picker in Settings — Safe is always the starting mode. The privacy badge in the header shows the current mode; users tap it to switch (PIN + warning gate for Open).
 
 ---
 

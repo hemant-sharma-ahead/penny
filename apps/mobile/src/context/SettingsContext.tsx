@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getItem, setItem, removeItem, getJSON, setJSON } from '~/lib/storage';
-import { type PersistedPrivacyMode } from './PrivacyContext';
 
 /**
  * RN port of apps/web-react/src/context/SettingsContext.tsx. Ported in full (not just the
@@ -50,8 +49,6 @@ const SAFE_MODE_VISIBILITY_KEY = 'penny_settings_safe_mode_visibility';
  *  off — same privacy-first precedent as Safe Mode. */
 const SMS_TRACKING_ENABLED_KEY = 'penny_settings_sms_tracking_enabled';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
-export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
-const OPEN_MODE_DURATION_KEY = 'penny_settings_open_mode_duration';
 const LOCK_ON_BACKGROUND_KEY = 'penny_settings_lock_on_background';
 const CASHFLOW_BUFFER_KEY = 'penny_settings_cashflow_buffer';
 const TAX_GROSS_INCOME_KEY = 'penny_settings_tax_gross_income';
@@ -95,34 +92,11 @@ async function loadFontScale(): Promise<FontScale> {
   return 'default';
 }
 
-/** Open can never be a persisted default — it's only ever a temporary elevation (see PrivacyContext).
- *  A legacy stored value of 'open' (from before this rule existed) silently coerces to 'safe'. */
-export async function loadDefaultPrivacyMode(): Promise<PersistedPrivacyMode> {
-  const raw = await getItem(DEFAULT_PRIVACY_KEY);
-  if (raw === 'safe' || raw === 'privacy') return raw;
-  return 'safe';
-}
-
-/** Allowed Open-mode auto-revert durations, in minutes. */
-export const OPEN_MODE_DURATIONS = [1, 5, 10, 15, 30] as const;
-export type OpenModeDuration = (typeof OPEN_MODE_DURATIONS)[number];
-const DEFAULT_OPEN_MODE_DURATION: OpenModeDuration = 1;
-
-/** Read directly (no React) — used by PrivacyContext's auto-revert timer. */
-export async function loadOpenModeDurationMinutes(): Promise<OpenModeDuration> {
-  const raw = Number(await getItem(OPEN_MODE_DURATION_KEY));
-  return (OPEN_MODE_DURATIONS as readonly number[]).includes(raw)
-    ? (raw as OpenModeDuration)
-    : DEFAULT_OPEN_MODE_DURATION;
-}
-
 interface SettingsContextValue {
   safeModeVisibility: SafeModeVisibility;
   /** SMS Tracking master on/off (docs/plans/sms-transaction-tracking.md §7) — default off. */
   smsTrackingEnabled: boolean;
   fontScale: FontScale;
-  defaultPrivacyMode: PersistedPrivacyMode;
-  openModeDurationMinutes: OpenModeDuration;
   lockOnBackground: boolean;
   cashflowBuffer: number;
   /** Manual annual gross income for the tax footprint; null = derive from income transactions. */
@@ -136,8 +110,6 @@ interface SettingsContextValue {
   setSafeModeVisibility: (key: keyof SafeModeVisibility, visible: boolean) => void;
   setSmsTrackingEnabled: (value: boolean) => void;
   setFontScale: (scale: FontScale) => void;
-  setDefaultPrivacyMode: (mode: PersistedPrivacyMode) => void;
-  setOpenModeDurationMinutes: (minutes: OpenModeDuration) => void;
   setLockOnBackground: (value: boolean) => void;
   setCashflowBuffer: (value: number) => void;
   setTaxGrossIncomeOverride: (value: number | null) => void;
@@ -152,9 +124,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [safeModeVisibility, setSafeModeVisibilityState] = useState<SafeModeVisibility>(DEFAULT_SAFE_MODE_VISIBILITY);
   const [smsTrackingEnabled, setSmsTrackingEnabledState] = useState(false);
   const [fontScale, setFontScaleState] = useState<FontScale>('default');
-  const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PersistedPrivacyMode>('safe');
-  const [openModeDurationMinutes, setOpenModeDurationMinutesState] =
-    useState<OpenModeDuration>(DEFAULT_OPEN_MODE_DURATION);
   const [lockOnBackground, setLockOnBackgroundState] = useState(false);
   const [cashflowBuffer, setCashflowBufferState] = useState(DEFAULT_CASHFLOW_BUFFER);
   const [taxGrossIncomeOverride, setTaxGrossIncomeOverrideState] = useState<number | null>(null);
@@ -168,8 +137,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       loadSafeModeVisibility(),
       loadSmsTrackingEnabled(),
       loadFontScale(),
-      loadDefaultPrivacyMode(),
-      loadOpenModeDurationMinutes(),
       loadLockOnBackground(),
       loadCashflowBuffer(),
       loadOptionalAmount(TAX_GROSS_INCOME_KEY),
@@ -181,8 +148,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         loadedSafeMode,
         loadedSmsTrackingEnabled,
         loadedFontScale,
-        loadedDefaultPrivacy,
-        loadedOpenModeDuration,
         loadedLockOnBackground,
         loadedCashflowBuffer,
         loadedTaxGross,
@@ -194,8 +159,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setSafeModeVisibilityState(loadedSafeMode);
         setSmsTrackingEnabledState(loadedSmsTrackingEnabled);
         setFontScaleState(loadedFontScale);
-        setDefaultPrivacyModeState(loadedDefaultPrivacy);
-        setOpenModeDurationMinutesState(loadedOpenModeDuration);
         setLockOnBackgroundState(loadedLockOnBackground);
         setCashflowBufferState(loadedCashflowBuffer);
         setTaxGrossIncomeOverrideState(loadedTaxGross);
@@ -225,16 +188,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setFontScale = useCallback((scale: FontScale) => {
     void setItem(FONT_SCALE_KEY, scale);
     setFontScaleState(scale);
-  }, []);
-
-  const setDefaultPrivacyMode = useCallback((m: PersistedPrivacyMode) => {
-    void setItem(DEFAULT_PRIVACY_KEY, m);
-    setDefaultPrivacyModeState(m);
-  }, []);
-
-  const setOpenModeDurationMinutes = useCallback((minutes: OpenModeDuration) => {
-    void setItem(OPEN_MODE_DURATION_KEY, String(minutes));
-    setOpenModeDurationMinutesState(minutes);
   }, []);
 
   const setLockOnBackground = useCallback((value: boolean) => {
@@ -297,8 +250,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       safeModeVisibility,
       smsTrackingEnabled,
       fontScale,
-      defaultPrivacyMode,
-      openModeDurationMinutes,
       lockOnBackground,
       cashflowBuffer,
       taxGrossIncomeOverride,
@@ -308,8 +259,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSafeModeVisibility,
       setSmsTrackingEnabled,
       setFontScale,
-      setDefaultPrivacyMode,
-      setOpenModeDurationMinutes,
       setLockOnBackground,
       setCashflowBuffer,
       setTaxGrossIncomeOverride,
@@ -321,8 +270,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       safeModeVisibility,
       smsTrackingEnabled,
       fontScale,
-      defaultPrivacyMode,
-      openModeDurationMinutes,
       lockOnBackground,
       cashflowBuffer,
       taxGrossIncomeOverride,
@@ -332,8 +279,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSafeModeVisibility,
       setSmsTrackingEnabled,
       setFontScale,
-      setDefaultPrivacyMode,
-      setOpenModeDurationMinutes,
       setLockOnBackground,
       setCashflowBuffer,
       setTaxGrossIncomeOverride,

@@ -851,6 +851,10 @@ export interface Person {
   linkedMemberId?: string;
   /** Soft-archive when a person still has ledger entries but should drop off the active list. */
   isArchived?: boolean;
+  /** Set when this person's ledger was promoted to a real Group (real-device-testing-pass.md Phase 3,
+   *  item 17) — the personal ledger is archived (never deleted) and the Archived section shows a
+   *  "→ Now in {group}" link instead of the usual Restore/Trash pair. */
+  promotedToGroupId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -981,11 +985,21 @@ export interface Group {
 export interface GroupMember {
   id: string; // composite `${groupId}:${userId}`
   groupId: string;
-  userId: string;
+  userId: string; // for `accountless` members, a locally-generated pseudo id (e.g. `static:<uuid>`)
   displayName: string;
   role: GroupRole;
   status: GroupMemberStatus;
   linkedPersonId?: string;
+  /** True for a static/placeholder member (real-device-testing-pass.md Phase 3, item 17) — a
+   *  name-only participant with no real account, added by another member on their behalf (or seeded
+   *  by a personal-ledger→Group promotion). Can never sync/confirm anything itself; every action on
+   *  their behalf (splitting them in, settling their balance) is performed by a real member. */
+  accountless?: boolean;
+  /** Reserved upgrade hook: once an `accountless` member's real counterpart joins the group normally
+   *  (gets their own real `userId`), this should be set to that real id so future balance/display
+   *  logic can attribute historical shares recorded under the placeholder's pseudo `userId` to them —
+   *  not built yet, but reserved now so adding it later needs no schema migration. */
+  upgradedToUserId?: string;
   joinedAt: number;
   leftAt?: number;
   createdAt: number;
@@ -996,7 +1010,10 @@ export type GroupEventType =
   | 'shared_expense'
   | 'expense_edit'
   | 'expense_delete'
+  | 'expense_flag'
+  | 'expense_flag_clear'
   | 'settlement'
+  | 'settlement_void'
   | 'member_joined'
   | 'member_left'
   | 'group_closed'

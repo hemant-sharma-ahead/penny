@@ -26,3 +26,4 @@ track/step breakdown, and a verification section.
 | [Mobile Migration — React Native (Expo)](mobile-migration.md)           | Mobile    | 🚧 Track 0 + 1 + 2 ✅ committed. Track 3 (UI component library) ✅ verified (bundle inspection, tests, lint), on-device visual check owed. Track 4 (feature-by-feature, pilot: Subscriptions) next (living doc) |
 | [CSV / Manual Expense Import — Redesign](csv-expense-import-redesign.md) | TBD       | ✅ Shipped (2026-08-14) — 3-stage wizard, direction/counterparty-aware categories, IOU integration, Import Progress screen |
 | [SMS-Based Expense Auto-Tracking (Android)](sms-transaction-tracking.md) | TBD       | 🚧 Built 2026-08-15 (core, mobile UI, native capture layer) — pending real-device verification before rollout |
+| [Real-Device Testing Pass — Fixes & Feature Gaps](real-device-testing-pass.md) | TBD       | 🚧 In progress — Phase 1 (10/24 items) ✅ done; Phase 2 starting |

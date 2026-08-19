@@ -167,16 +167,22 @@ export function AccountDetailModal({
       </Button>
     ) : undefined;
 
+  const accountTxns = txns.filter((t) => t.accountId === account.id || t.toAccountId === account.id);
+
   return (
     <EntityTransactionsModal
       title={account.name}
+      // Item 22/23 (docs/plans/real-device-testing-pass.md) — every `EntityTransactionsModal` caller
+      // shows a transaction count; this one had no `subtitle` at all before, so it's added fresh
+      // (nothing existing to append to, unlike Analytics' three callers).
+      subtitle={`${accountTxns.length} transaction${accountTxns.length !== 1 ? 's' : ''}`}
       statLabel="Current balance"
       statValue={
         shouldMask(account.hideInSafeMode)
           ? '••••'
           : formatCurrency(computeBalance(account.id, account.openingBalance, txns))
       }
-      expenses={txns.filter((t) => t.accountId === account.id || t.toAccountId === account.id)}
+      expenses={accountTxns}
       categoryMap={categoryMap}
       accountMap={accountMap}
       hashtags={hashtags}

@@ -68,8 +68,16 @@ async function getAccessToken(interactive: boolean): Promise<string> {
     }
   }
 
-  const { accessToken } = await GoogleSignin.getTokens();
-  return accessToken;
+  // Unguarded, this rejects with whatever the native bridge throws — on some devices/states that's a
+  // bare native error with no readable `message` at all, which surfaced to users as a toast literally
+  // reading "undefined" (found via real-device testing, 2026-08-18). Translate it into a real message
+  // so the caller (backupEngine.ts) always has something legible to show.
+  try {
+    const { accessToken } = await GoogleSignin.getTokens();
+    return accessToken;
+  } catch {
+    throw new Error('Could not get a Google Drive access token — try signing in again.');
+  }
 }
 
 interface DriveMeta {

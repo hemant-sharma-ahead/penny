@@ -423,6 +423,73 @@ For the mobile migration's own tech-stack rationale and porting lessons, see
 [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) — its narrative progress log has been
 distilled into a migration playbook there rather than duplicated here.
 
+**Real-device-testing pass, Phases 1–3 (2026-08-18) — `apps/mobile` + `packages/core` + `workers/groups`
+only** (`apps/web-react` is frozen, so it does not get any of this; see
+[`docs/plans/real-device-testing-pass.md`](plans/real-device-testing-pass.md) for the full punch list):
+
+- **Phase 1 — quick fixes:** Privacy mode collapsed from three states to two (Safe/Open, no Open-mode
+  timer — see `docs/PRIVACY.md`); Google Drive restore's "undefined" error now a real message
+  (`getAccessToken()` wrapped); a new `foreign_blob` backup status with reworded copy + a "Restore with
+  my passphrase" CTA (see `docs/features/backup.md`); toast no longer blocks app interactivity
+  (`apps/mobile/src/lib/modalStack.ts`); transaction date restored in multi-select mode; Expenses top
+  icon bar + Analytics section order reordered; Financial Health prefills take-home from actual income
+  data; bulk "remove tag" added (symmetric to bulk-add).
+- **Phase 2 — moderate fixes:** tag case normalized everywhere (manual entry, bulk actions, CSV/bank
+  import, Analytics) plus a one-time idempotent repair pass (`normalizeHashtagCase.ts`, mirrors
+  `repairCategoryIcons()`/`reconcileDefaultCategories()`); tag filtering added to the transactions Filter
+  modal; duplicate-person-on-repeat-name-entry bug fixed by consolidating three independent
+  `getOrCreatePerson` implementations into one `packages/core` `personResolver.ts`; person-name
+  type-ahead suggestions while logging a lend/borrow; a real delete/archive confirmation for an IOU
+  person with history (`RemovePersonDialog.tsx`) — fixed a real cascade-delete bug where purging a
+  person used to delete their linked `Expense` rows too; bulk-add existing transactions into a person's
+  IOU ledger (`BulkAddToIouModal.tsx`); switching a transaction's type (expense ⟷ income) after save;
+  cash-negative-balance warnings added to every IOU form; Analytics' "Set Aside" section rebuilt to
+  match "Daily Routine"'s expand/collapse; Subscriptions' "seen N times" now opens the shared
+  `EntityTransactionsModal` with a transaction count.
+- **Phase 3 — Groups (Track E) redesign:** see "Groups (Track E) redesign — Phase 3 of the real-
+  device-testing pass" below and [`docs/features/iou.md`](../features/iou.md) /
+  [`docs/features/groups.md`](../features/groups.md) for the full detail.
+- Also found and fixed a real bug in `packages/core/src/core/db/seedDemoData.ts`: the Student persona's
+  simulated Cash account actually went to −₹920 on a seeded date (an unscaled "wobble" term breaking
+  proportionally at low expense scale) — fixed, with a new regression test covering all 5
+  employment-type personas (`packages/core/tests/db/seedCash.test.ts`).
+- Three cross-feature shared-component extractions in this pass (`PersonTypeahead.tsx`,
+  `WizardProgress.tsx`, `useServerActionError.ts` — see `docs/ARCHITECTURE.md`'s matching decision-log
+  entry) reinforce the existing "no cross-feature imports" rule: a component two features both need
+  belongs in `components/shared`/`hooks/`, never one feature importing from another's folder.
+
+### Groups (Track E) redesign — Phase 3 of the real-device-testing pass (2026-08-18)
+
+Extends the Track E feature set (see above) with a batch of gaps found via real-device testing —
+detailed in `docs/plans/real-device-testing-pass.md`'s Phase 3 and now the authoritative behavior (the
+original Track E plan docs' data model/event-type lists are superseded by `docs/SCHEMA.md`):
+
+- **Orphaned shared transactions, fixed:** deleting a personal `Expense` now emits `expense_delete` to
+  every group it was shared to (`notifyExpenseDeletedToGroups`) — previously the event schema supported
+  the tombstone but no caller ever emitted one.
+- **Real bug fixed in `groupFeed()`:** an edited shared expense used to render as two separate feed rows
+  instead of collapsing to one — now deduped by `expenseId`, latest edit wins, same feed position.
+- **New `expense_flag`/`expense_flag_clear` event types** — "flag as not needed" on someone else's
+  shared expense, balance-inert, folded via `groupFlags()`.
+- **New `settlement_void` event type** — reversible write-off/undo-write-off marking
+  (`voidSettlement()`); `SettlementPayload` gained optional `id`/`kind`.
+- **Static (accountless) members** — `GroupMember.accountless` + reserved `upgradedToUserId` (mirrors
+  the existing `linkedPersonId`/`linkedMemberId` reservation pattern); `addStaticMember()` +
+  `syncGroupMembers()` materializes `member_joined` events cross-device.
+- **Personal ledger → Group promotion** — `PromoteToGroupWizard.tsx`: creates a Group, adds the person
+  as a placeholder/static member, seeds it from ledger history (full or opening-balance only, user's
+  choice), generates an invite, then archives (never deletes) the superseded personal `Person`
+  (`promotedToGroupId`).
+- **Delete-when-empty for the creator** — new `DELETE /group/:id` (creator-only, only when zero
+  non-deleted shared-expense events) — `deleteGroup()` in `groupsStore.ts`/`groupsClient.ts`/
+  `groupsService.ts`.
+- **Server-side last-admin/owner protection** — `wouldLeaveGroupAdminless()` in `workers/groups/src/lib/
+membership.ts` blocks a leave/remove/`set_role` that would leave zero admins (HTTP 409 `last_admin`),
+  unless the actor is the group's sole remaining member.
+- **Settled/closed groups already lock out edits** — `GroupDashboard.tsx`'s existing `canAct` gate
+  (`group.status === 'active'`) covers the "once settled, keep history but make it immutable" ask with
+  no new code needed.
+
 ---
 
 # Part 2 — Decided / In Progress
@@ -839,12 +906,17 @@ first.** (The chrome consolidation and Penny Blue removal from that same discuss
 since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes" entry and
 `docs/DESIGN_GUIDELINES.md` §4.)
 
-- **Open mode timer** — still open, not decided.
-- **Privacy mode switching itself** — the ambient mode-driven screen tinting (Safe/
-  Private/Open repainting the background) was removed 2026-07-31 (see
-  `docs/DESIGN_GUIDELINES.md` §4), but the mode _itself_ (masking, PIN-gated Open mode,
-  the switcher) is untouched. Whether privacy mode should be removed as a feature
-  entirely is still open.
+- ~~**Open mode timer**~~ — **resolved 2026-08-18**: removed. Open mode no longer has a
+  visible countdown or fixed-duration auto-expiry — it persists until the user switches
+  back manually or the app backgrounds (`AppState` safety net). See the real-device-testing
+  entry below.
+- ~~**Privacy mode switching itself**~~ — **partially resolved 2026-08-18**: the middle
+  `'privacy'` mode (mask every amount regardless of sensitivity) was removed outright —
+  `PrivacyMode` is now `'safe' | 'open'` on `apps/mobile`. The ambient mode-driven screen
+  tinting (Safe/Private/Open repainting the background) had already been removed
+  2026-07-31 (see `docs/DESIGN_GUIDELINES.md` §4). What remains of the original question —
+  whether Safe/Open masking should be removed as a feature *entirely* — is still open, but
+  narrower than before.
 - **Settings' "Modules" visibility-toggle section** — still open; tied to the Portfolio
   redesign below (once Home's News/Calculators tiles are removed, this section may no
   longer be needed).
@@ -880,25 +952,28 @@ since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes
   link itself has since shipped, see `docs/features/goals.md`) — not a frequent action, so
   don't over-index the design on it. Goal suggestions should surface on Home too, not just
   in Goals.
-- **Groups & IOU** — a way to mark a personal-ledger/group amount as "never coming back"
-  (write-off); promoting a personal ledger to a full group; adding _static_
-  (non-app, un-invitable) members to a group; warn/highlight if an expense or IOU entry
-  would push a cash account negative (likely a forgotten cash-income entry or wrong
-  account/payment-mode pick), including in the demo/simulated data; once a group is fully
-  settled, keep historical records visible but make them **immutable** (no further edits
-  post-settlement).
+- ~~**Groups & IOU**~~ — **shipped 2026-08-18** (real-device-testing-pass Phase 3 — see
+  Part 1's "Groups (Track E) redesign" entry and [`docs/features/iou.md`](../features/iou.md)):
+  write-off/undo-write-off (`settlement_void`), promoting a personal ledger to a full group
+  (`PromoteToGroupWizard.tsx`), static/accountless members, cash-negative warnings in every
+  IOU form (+ a seed-data regression test), and settled/closed groups already disable every
+  edit/flag/delete action (`GroupDashboard.tsx`'s `canAct` gate).
 - **Future features (roadmap awareness only, not urgent):** CIBIL score; importing stocks
   via Account Aggregator, mutual funds via MFCentral (PAN + phone); automatic Google Drive
-  backup via the Drive API; Financial Health popup auto-picking the latest monthly
-  take-home from expenses/income (summed if multiple sources), staying user-editable;
-  auto-categorizing stocks/mutual funds by performance (the way INDmoney/Dezerv/
-  PowerUpMoney do); whether/how Penny could do AI-driven market research privately,
+  backup via the Drive API; auto-categorizing stocks/mutual funds by performance (the way
+  INDmoney/Dezerv/PowerUpMoney do); whether/how Penny could do AI-driven market research privately,
   on-device; a pre-onboarding (and pricing-page-reusable) screen explaining what's free
   vs. server-dependent/paid. (Android SMS-based auto transaction tracking, formerly listed
   here, moved out to a real status line above — it's built, not just an idea; see "SMS
   transaction parsing" above and [`docs/features/sms-tracking.md`](../features/sms-tracking.md).)
 - **Known bug, not yet fixed:** the Penny app icon is not actually set as the app's real
   icon.
+- **SMS tracking optimization** — flagged (not scoped) during the 2026-08-18 real-device-testing
+  pass; logged so it isn't lost. See `docs/plans/real-device-testing-pass.md`'s Backlog section and
+  [`docs/features/sms-tracking.md`](../features/sms-tracking.md).
+- **App-wide auto-refresh / stale-data audit, mobile gesture survey, new-user/progressive home
+  experience** — real-device-testing-pass Phases 4–6, not started; see
+  `docs/plans/real-device-testing-pass.md`.
 
 ## Phase 2 ideas (AI + Cloud)
 

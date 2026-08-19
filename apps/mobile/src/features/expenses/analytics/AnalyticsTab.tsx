@@ -567,16 +567,33 @@ function EventsSection({
   );
 }
 
-/** "Set aside" (non-routine spend) breakdown — shared by monthly and annual (2026-08-02). */
+/** "Set aside" (non-routine spend) breakdown — shared by monthly and annual (2026-08-02).
+ *
+ *  Item 24 (docs/plans/real-device-testing-pass.md Phase 2): rebuilt to mirror
+ *  `DailyRoutineSection`'s exact expand/collapse pattern (tap a row → nested category breakdown +
+ *  "View all transactions" link) instead of tapping straight through to the transactions modal.
+ *  `expandedGroup` is the SAME lifted state `DailyRoutineSection` uses, not a second one — a Set Aside
+ *  group's key and a Daily Routine group's key are guaranteed disjoint by `classify()` (a group is
+ *  exclusively 'routine' or 'setAside'), so sharing it is safe and keeps this screen to "only one
+ *  expanded group open at a time" overall, matching Daily Routine's own single-expansion design intent
+ *  rather than letting both sections balloon open independently. The compact row keeps its own existing
+ *  icon-square look (distinct from Daily Routine's colored dot) — only the interaction/expand behavior
+ *  needs to match, not the row's visual style. */
 function SetAsideSection({
   data,
   total,
+  expandedGroup,
+  onChangeExpandedGroup,
   masked,
+  onViewCategory,
   onViewGroup
 }: {
   data: SetAsideSegment[];
   total: number;
+  expandedGroup: string | null;
+  onChangeExpandedGroup: (g: string | null) => void;
   masked: boolean;
+  onViewCategory: (catId: string, label: string) => void;
   onViewGroup: (group: string, label: string) => void;
 }) {
   const theme = useThemeColors();
@@ -585,27 +602,81 @@ function SetAsideSection({
     <>
       <SectionLabel className="-mb-2">Set aside · not daily-routine</SectionLabel>
       <ListContainer>
-        {data.map((seg) => (
-          <Pressable
-            key={seg.group}
-            onPress={() => onViewGroup(seg.group, seg.label)}
-            className="px-4 py-3 flex-row items-center gap-3"
-          >
-            <View
-              className="w-7 h-7 rounded-lg items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: tint(seg.color, 12) }}
-            >
-              <Icon name={seg.icon} size={14} color={seg.color} />
+        {data.map((seg) => {
+          const isExpanded = expandedGroup === seg.group;
+          return (
+            <View key={seg.group}>
+              {/* Compact row */}
+              <Pressable
+                className="px-4 py-3 flex-row items-center gap-3"
+                onPress={() => onChangeExpandedGroup(isExpanded ? null : seg.group)}
+              >
+                <View
+                  className="w-7 h-7 rounded-lg items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: tint(seg.color, 12) }}
+                >
+                  <Icon name={seg.icon} size={14} color={seg.color} />
+                </View>
+                <Text className="text-sm font-medium text-primary flex-1" numberOfLines={1}>
+                  {seg.label}
+                </Text>
+                <Text className="text-sm font-semibold text-primary flex-shrink-0">
+                  {!masked ? formatCurrency(seg.amount) : '••••'}
+                </Text>
+                <Icon name={isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} size={13} color={theme.textTertiary} />
+              </Pressable>
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <View className="px-4 pb-3 bg-surface-2 border-t border-theme">
+                  <View className="mt-1 gap-1">
+                    {seg.cats.map((cat) => {
+                      const catPct = seg.amount > 0 ? (cat.amount / seg.amount) * 100 : 0;
+                      return (
+                        <Pressable
+                          key={cat.catId}
+                          onPress={() => onViewCategory(cat.catId, cat.name)}
+                          className="gap-1 py-2 border-t border-theme"
+                        >
+                          <View className="flex-row items-center gap-2">
+                            <View
+                              className="w-5 h-5 rounded-md items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: tint(cat.color, 12) }}
+                            >
+                              <Icon name={cat.icon} size={11} color={cat.color} />
+                            </View>
+                            <Text className="text-xs text-secondary flex-1" numberOfLines={1}>
+                              {cat.name}
+                            </Text>
+                            <Text className="text-xs font-semibold text-primary flex-shrink-0">
+                              {!masked ? formatCurrency(cat.amount) : '••••'}
+                            </Text>
+                            <Icon name="ti-chevron-right" size={11} color={theme.textTertiary} />
+                          </View>
+                          <View className="h-1 rounded-full bg-surface-3">
+                            <View
+                              className="h-1 rounded-full"
+                              style={{ width: `${catPct}%`, backgroundColor: cat.color }}
+                            />
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Pressable
+                    onPress={() => onViewGroup(seg.group, seg.label)}
+                    className="flex-row items-center gap-1 pt-2.5 self-start"
+                  >
+                    <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+                      View all transactions in {seg.label}
+                    </Text>
+                    <Icon name="ti-chevron-right" size={12} color={theme.primary} />
+                  </Pressable>
+                </View>
+              )}
             </View>
-            <Text className="text-sm font-medium text-primary flex-1" numberOfLines={1}>
-              {seg.label}
-            </Text>
-            <Text className="text-sm font-semibold text-primary flex-shrink-0">
-              {!masked ? formatCurrency(seg.amount) : '••••'}
-            </Text>
-            <Icon name="ti-chevron-right" size={13} color={theme.textTertiary} />
-          </Pressable>
-        ))}
+          );
+        })}
         <View className="px-4 py-2.5 flex-row items-center gap-3 bg-surface-2 border-t border-theme">
           <Text className="text-xs text-secondary flex-1">Total set aside</Text>
           <Text className="text-xs font-semibold text-secondary flex-shrink-0">
@@ -1144,8 +1215,6 @@ export function AnalyticsTab({
                 avgPerDay={annualAvgPerDay}
               />
 
-              <CashFlowTile periodLabel={String(analyticsYear)} summaries={annualCashFlowSummaries} masked={masked} />
-
               {/* Biggest movers */}
               {annualMovers.length > 0 && (
                 <View>
@@ -1178,24 +1247,29 @@ export function AnalyticsTab({
                 </View>
               )}
 
-              {/* Events / Set aside / Daily-routine detail / hashtags — annual scope (2026-08-02), same
-                  sections the monthly view shows below its own Pulse Card + Cash Flow. */}
+              {/* Events / Daily-routine / Set-aside detail / hashtags — annual scope (2026-08-02), same
+                  sections the monthly view shows below its own Pulse Card. Daily Routine ahead of Set
+                  Aside, and Cash Flow moved to the very end (2026-08-18 reorder, per real-device testing
+                  feedback) — nothing else in this list moved. */}
               <EventsSection
                 events={annualEvents}
                 expandedEventId={expandedEventId}
                 onChangeExpandedEventId={onChangeExpandedEventId}
                 masked={masked}
               />
-              <SetAsideSection
-                data={annualSetAsideData}
-                total={annualSetAsideTotal}
-                masked={masked}
-                onViewGroup={onViewGroup}
-              />
               <DailyRoutineSection
                 data={annualGroupData}
                 total={annualGroupTotal}
                 prevGroupData={prevYearGroupData}
+                expandedGroup={expandedGroup}
+                onChangeExpandedGroup={onChangeExpandedGroup}
+                masked={masked}
+                onViewCategory={onViewCategory}
+                onViewGroup={onViewGroup}
+              />
+              <SetAsideSection
+                data={annualSetAsideData}
+                total={annualSetAsideTotal}
                 expandedGroup={expandedGroup}
                 onChangeExpandedGroup={onChangeExpandedGroup}
                 masked={masked}
@@ -1208,6 +1282,7 @@ export function AnalyticsTab({
                 onViewTag={onViewTag}
                 promoteHashtagToEvent={promoteHashtagToEvent}
               />
+              <CashFlowTile periodLabel={String(analyticsYear)} summaries={annualCashFlowSummaries} masked={masked} />
 
               <Text className="text-[11px] text-center text-tertiary">
                 Tap any month in the chart to open its details.
@@ -1256,24 +1331,27 @@ export function AnalyticsTab({
                 avgPerDay={allTimeAvgPerDay}
               />
 
-              <CashFlowTile periodLabel="All time" summaries={allTimeCashFlowSummaries} masked={masked} />
-
+              {/* 2026-08-18 reorder (real-device testing feedback): Daily Routine ahead of Set Aside,
+                  Cash Flow moved to the very end — nothing else here moved. */}
               <EventsSection
                 events={allTimeEvents}
                 expandedEventId={expandedEventId}
                 onChangeExpandedEventId={onChangeExpandedEventId}
                 masked={masked}
               />
-              <SetAsideSection
-                data={allTimeSetAsideData}
-                total={allTimeSetAsideTotal}
-                masked={masked}
-                onViewGroup={onViewGroup}
-              />
               <DailyRoutineSection
                 data={allTimeGroupData}
                 total={allTimeGroupTotal}
                 prevGroupData={EMPTY_PREV_GROUP_DATA}
+                expandedGroup={expandedGroup}
+                onChangeExpandedGroup={onChangeExpandedGroup}
+                masked={masked}
+                onViewCategory={onViewCategory}
+                onViewGroup={onViewGroup}
+              />
+              <SetAsideSection
+                data={allTimeSetAsideData}
+                total={allTimeSetAsideTotal}
                 expandedGroup={expandedGroup}
                 onChangeExpandedGroup={onChangeExpandedGroup}
                 masked={masked}
@@ -1286,6 +1364,7 @@ export function AnalyticsTab({
                 onViewTag={onViewTag}
                 promoteHashtagToEvent={promoteHashtagToEvent}
               />
+              <CashFlowTile periodLabel="All time" summaries={allTimeCashFlowSummaries} masked={masked} />
             </>
           )}
         </>
@@ -1324,8 +1403,6 @@ export function AnalyticsTab({
             anomalies={anomalies}
           />
 
-          <CashFlowTile periodLabel={monthLabel(selectedMonth)} summaries={cashFlowSummaries} masked={masked} />
-
           {/* Spend velocity — current month only */}
           {spendVelocity && (
             <View className="bg-surface border border-theme rounded-xl p-3.5 flex-row items-center gap-4">
@@ -1357,17 +1434,27 @@ export function AnalyticsTab({
             </View>
           )}
 
+          {/* 2026-08-18 reorder (real-device testing feedback): Daily Routine ahead of Set Aside, Cash
+              Flow moved to the very end — nothing else here moved. */}
           <EventsSection
             events={eventsThisMonth}
             expandedEventId={expandedEventId}
             onChangeExpandedEventId={onChangeExpandedEventId}
             masked={masked}
           />
-          <SetAsideSection data={setAsideData} total={setAsideTotal} masked={masked} onViewGroup={onViewGroup} />
           <DailyRoutineSection
             data={analyticsData}
             total={analyticsTotal}
             prevGroupData={prevMonthData}
+            expandedGroup={expandedGroup}
+            onChangeExpandedGroup={onChangeExpandedGroup}
+            masked={masked}
+            onViewCategory={onViewCategory}
+            onViewGroup={onViewGroup}
+          />
+          <SetAsideSection
+            data={setAsideData}
+            total={setAsideTotal}
             expandedGroup={expandedGroup}
             onChangeExpandedGroup={onChangeExpandedGroup}
             masked={masked}
@@ -1380,6 +1467,7 @@ export function AnalyticsTab({
             onViewTag={onViewTag}
             promoteHashtagToEvent={promoteHashtagToEvent}
           />
+          <CashFlowTile periodLabel={monthLabel(selectedMonth)} summaries={cashFlowSummaries} masked={masked} />
         </>
       ) : null}
 

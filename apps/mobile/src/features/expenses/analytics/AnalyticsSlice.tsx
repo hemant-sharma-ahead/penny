@@ -136,10 +136,18 @@ export function AnalyticsSlice({
       return inScope && predicate(e);
     });
 
+  // Item 22/23 (docs/plans/real-device-testing-pass.md) — every `EntityTransactionsModal` caller shows
+  // a transaction count in `subtitle`. These three already had a scope-describing subtitle, so the
+  // count is appended to it rather than overwriting what was already there.
+  function withCount(subtitle: string, count: number): string {
+    return `${subtitle} · ${count} transaction${count !== 1 ? 's' : ''}`;
+  }
+
   function viewGroup(group: string, label: string) {
+    const list = inScopeExpenses((e) => classify(e).group === group);
     setViewing({
       title: label,
-      subtitle:
+      subtitle: withCount(
         analyticsView === 'allTime'
           ? 'All time'
           : analyticsView === 'annual'
@@ -147,34 +155,42 @@ export function AnalyticsSlice({
             : selectedMonth === toMonthYearKey()
               ? 'This month'
               : 'Selected month',
-      list: inScopeExpenses((e) => classify(e).group === group)
+        list.length
+      ),
+      list
     });
   }
 
   function viewCategory(catId: string, label: string) {
+    const list = inScopeExpenses((e) => e.categoryId === catId);
     setViewing({
       title: label,
-      subtitle:
+      subtitle: withCount(
         analyticsView === 'allTime'
           ? 'This category · all time'
           : analyticsView === 'annual'
             ? `This category · ${analyticsYear}`
             : 'This category · selected month',
-      list: inScopeExpenses((e) => e.categoryId === catId)
+        list.length
+      ),
+      list
     });
   }
 
   function viewTag(tag: string) {
     const norm = normalizeHashtag(tag);
+    const list = inScopeExpenses((e) => e.hashtags.some((t) => normalizeHashtag(t) === norm));
     setViewing({
       title: `#${tag}`,
-      subtitle:
+      subtitle: withCount(
         analyticsView === 'allTime'
           ? 'Tagged · all time'
           : analyticsView === 'annual'
             ? `Tagged · ${analyticsYear}`
             : 'Tagged · selected month',
-      list: inScopeExpenses((e) => e.hashtags.some((t) => normalizeHashtag(t) === norm))
+        list.length
+      ),
+      list
     });
   }
 

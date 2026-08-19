@@ -26,9 +26,14 @@ interface WizardProgressProps {
  * Cross-stage wizard chrome (2026-08-14, CSV-import redesign Chunk B — mockup's "Wizard stage progress"
  * section, §3.1). A slim segmented bar (reusing `ReviewStep.tsx`'s former `ProgressBar` visual weight,
  * now generalized across all 6 steps instead of just Preview's own 2 internal sections) + a plain-
- * language "Step N of M · Stage" line. Lives in `ImportPage.tsx` itself (cross-stage chrome, not
- * stage-specific content) — rendered above whichever step component is currently showing, for every
- * mid-flow stage (mapColumns through transactions; never upload/done, which have nothing to caveat).
+ * language "Step N of M · Stage" line. Originally lived in `features/import/` (rendered above whichever
+ * step component is currently showing, for every mid-flow stage — mapColumns through transactions; never
+ * upload/done, which have nothing to caveat) — moved to `components/shared/` 2026-08-18 (item 11, the
+ * bulk-add-to-IOU wizard in `features/expenses/transactions/BulkAddToIouModal.tsx`) so a second feature
+ * module could reuse this exact chrome without a disallowed feature-to-feature import (`features/*` may
+ * only import from `core/`/`components/`/`context/`/`hooks/`/`lib/`, never from another feature module —
+ * see `CLAUDE.md`'s architecture rules). `ImportPage.tsx` still owns rendering it for its own flow, just
+ * imports it from here now.
  */
 export function WizardProgress({ stepIndex, totalSteps, stepLabel, countLabel, showDraftBadge }: WizardProgressProps) {
   const theme = useThemeColors();

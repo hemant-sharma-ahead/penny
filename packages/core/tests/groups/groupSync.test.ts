@@ -13,7 +13,10 @@ const serverEvents: Array<{
 }> = [];
 
 vi.mock('@/core/groups/groupsClient', () => ({
-  appendEvents: async (_groupId: string, events: Array<{ eventId: string; ciphertext: string; keyEpoch: number; lamport: number }>) => {
+  appendEvents: async (
+    _groupId: string,
+    events: Array<{ eventId: string; ciphertext: string; keyEpoch: number; lamport: number }>
+  ) => {
     const assigned = events.map((e) => {
       const seq = ++assignedSeq;
       serverEvents.push({
@@ -35,9 +38,17 @@ vi.mock('@/core/groups/groupsClient', () => ({
 import { db } from '@/core/db/schema';
 import { keystore } from '@/core/crypto/keystore';
 import { initialize } from '@/core/crypto/securityManager';
-import { profileRepo, groupsRepo, groupEventsRepo } from '@/core/db/repositories';
+import { profileRepo, groupsRepo, groupEventsRepo, groupMembersRepo } from '@/core/db/repositories';
 import { createGroupKey } from '@/core/groups/keys';
-import { appendGroupEvent, pullGroupEvents, groupBalances, groupFeed } from '@/core/groups/groupSync';
+import {
+  appendGroupEvent,
+  pullGroupEvents,
+  groupBalances,
+  groupFeed,
+  groupFlags,
+  groupVoidedSettlementIds,
+  syncGroupMembers
+} from '@/core/groups/groupSync';
 import type { Group } from '@/core/db/types';
 
 const GID = 'g1';
@@ -64,6 +75,7 @@ async function reset() {
     db.security.clear(),
     db.profile.clear(),
     db.groups.clear(),
+    db.group_members.clear(),
     db.group_events.clear(),
     db.group_keys.clear(),
     db.sync_cursor.clear()
@@ -71,7 +83,16 @@ async function reset() {
   keystore.lock();
   await initialize('correct horse battery staple', '123456');
   const now = Date.now();
-  await profileRepo.put({ id: 'p', displayName: 'A', currency: 'INR', locale: 'en-IN', onboardingComplete: true, userId: 'u1', createdAt: now, updatedAt: now });
+  await profileRepo.put({
+    id: 'p',
+    displayName: 'A',
+    currency: 'INR',
+    locale: 'en-IN',
+    onboardingComplete: true,
+    userId: 'u1',
+    createdAt: now,
+    updatedAt: now
+  });
   await groupsRepo.put(group());
   await createGroupKey(GID, 1);
   assignedSeq = 0;
@@ -95,7 +116,12 @@ describe('groupSync append + push', () => {
   });
 
   it('folds balances from the local ledger', async () => {
-    await appendGroupEvent(GID, 'shared_expense', { expenseId: 'x1', amount: 1200, payer: 'u1', shares: { u1: 400, b: 400, c: 400 } });
+    await appendGroupEvent(GID, 'shared_expense', {
+      expenseId: 'x1',
+      amount: 1200,
+      payer: 'u1',
+      shares: { u1: 400, b: 400, c: 400 }
+    });
     const bal = await groupBalances(GID);
     expect(bal.u1).toBeCloseTo(800, 5);
     expect(bal.b).toBeCloseTo(-400, 5);
@@ -108,7 +134,12 @@ describe('groupSync pull + merge', () => {
   it('decrypts an incoming event authored elsewhere and merges it', async () => {
     // Simulate another member's event by appending (which pushes it to the mock server), then wiping
     // the local mirror + cursor so the pull re-materialises it from the "server".
-    await appendGroupEvent(GID, 'shared_expense', { expenseId: 'x2', amount: 900, payer: 'b', shares: { u1: 300, b: 300, c: 300 } });
+    await appendGroupEvent(GID, 'shared_expense', {
+      expenseId: 'x2',
+      amount: 900,
+      payer: 'b',
+      shares: { u1: 300, b: 300, c: 300 }
+    });
     await db.group_events.clear();
     await db.sync_cursor.clear();
 
@@ -127,5 +158,136 @@ describe('groupSync pull + merge', () => {
     const before = (await groupEventsRepo.getAll()).length;
     await pullGroupEvents(GID);
     expect((await groupEventsRepo.getAll()).length).toBe(before);
+  });
+});
+
+describe('groupFeed', () => {
+  beforeEach(reset);
+
+  it('collapses an edited expense to ONE feed row holding the latest content (item 9)', async () => {
+    await appendGroupEvent(GID, 'shared_expense', {
+      expenseId: 'x1',
+      amount: 1000,
+      payer: 'u1',
+      shares: { u1: 500, b: 500 },
+      description: 'Dinner'
+    });
+    await appendGroupEvent(GID, 'expense_edit', {
+      expenseId: 'x1',
+      amount: 2000,
+      payer: 'u1',
+      shares: { u1: 1000, b: 1000 },
+      description: 'Dinner (updated)'
+    });
+    const feed = await groupFeed(GID);
+    expect(feed).toHaveLength(1);
+    expect((feed[0]?.payload as { amount: number; description?: string }).amount).toBe(2000);
+    expect((feed[0]?.payload as { amount: number; description?: string }).description).toBe('Dinner (updated)');
+  });
+});
+
+describe('groupFlags', () => {
+  beforeEach(reset);
+
+  it('reports a pending flag with who raised it and the optional note', async () => {
+    await appendGroupEvent(GID, 'shared_expense', {
+      expenseId: 'x1',
+      amount: 640,
+      payer: 'u1',
+      shares: { u1: 320, b: 320 }
+    });
+    await appendGroupEvent(GID, 'expense_flag', { expenseId: 'x1', note: 'already refunded' });
+    const flags = await groupFlags(GID);
+    expect(flags).toHaveLength(1);
+    expect(flags[0]).toMatchObject({ expenseId: 'x1', byAuthorId: 'u1', note: 'already refunded' });
+  });
+
+  it('an expense_flag_clear ("Keep") resolves the flag', async () => {
+    await appendGroupEvent(GID, 'shared_expense', {
+      expenseId: 'x1',
+      amount: 640,
+      payer: 'u1',
+      shares: { u1: 320, b: 320 }
+    });
+    await appendGroupEvent(GID, 'expense_flag', { expenseId: 'x1' });
+    await appendGroupEvent(GID, 'expense_flag_clear', { expenseId: 'x1' });
+    expect(await groupFlags(GID)).toEqual([]);
+  });
+
+  it('deleting the flagged expense also resolves the flag', async () => {
+    await appendGroupEvent(GID, 'shared_expense', {
+      expenseId: 'x1',
+      amount: 640,
+      payer: 'u1',
+      shares: { u1: 320, b: 320 }
+    });
+    await appendGroupEvent(GID, 'expense_flag', { expenseId: 'x1' });
+    await appendGroupEvent(GID, 'expense_delete', { expenseId: 'x1' });
+    expect(await groupFlags(GID)).toEqual([]);
+  });
+
+  it('a fresh flag re-opens even a previously-cleared one on the same expense', async () => {
+    await appendGroupEvent(GID, 'shared_expense', {
+      expenseId: 'x1',
+      amount: 640,
+      payer: 'u1',
+      shares: { u1: 320, b: 320 }
+    });
+    await appendGroupEvent(GID, 'expense_flag', { expenseId: 'x1' });
+    await appendGroupEvent(GID, 'expense_flag_clear', { expenseId: 'x1' });
+    await appendGroupEvent(GID, 'expense_flag', { expenseId: 'x1', note: 'second look' });
+    const flags = await groupFlags(GID);
+    expect(flags).toHaveLength(1);
+    expect(flags[0]?.note).toBe('second look');
+  });
+});
+
+describe('groupVoidedSettlementIds', () => {
+  beforeEach(reset);
+
+  it('collects settlement ids reversed by a settlement_void event', async () => {
+    await appendGroupEvent(GID, 'settlement', { id: 's1', from: 'b', to: 'u1', amount: 500, kind: 'write_off' });
+    await appendGroupEvent(GID, 'settlement_void', { settlementId: 's1' });
+    const voided = await groupVoidedSettlementIds(GID);
+    expect(voided.has('s1')).toBe(true);
+  });
+});
+
+describe('syncGroupMembers', () => {
+  beforeEach(reset);
+
+  it('materializes a placeholder member from a member_joined event this device has not seen', async () => {
+    await appendGroupEvent(GID, 'member_joined', {
+      userId: 'static:grandma',
+      displayName: 'Grandma',
+      accountless: true
+    });
+    await syncGroupMembers(GID);
+    const member = await groupMembersRepo.get(`${GID}:static:grandma`);
+    expect(member?.displayName).toBe('Grandma');
+    expect(member?.accountless).toBe(true);
+  });
+
+  it('never overwrites an already-known member (e.g. a real member with their own row)', async () => {
+    const now = Date.now();
+    await groupMembersRepo.put({
+      id: `${GID}:u1`,
+      groupId: GID,
+      userId: 'u1',
+      displayName: 'Real Name',
+      role: 'owner',
+      status: 'active',
+      joinedAt: now,
+      createdAt: now,
+      updatedAt: now
+    });
+    await appendGroupEvent(GID, 'member_joined', { userId: 'u1', displayName: 'Stale Duplicate' });
+    await syncGroupMembers(GID);
+    expect((await groupMembersRepo.get(`${GID}:u1`))?.displayName).toBe('Real Name');
+  });
+
+  it('silently ignores an empty-payload member_joined (old seed-fixture shape)', async () => {
+    await appendGroupEvent(GID, 'member_joined', {});
+    await expect(syncGroupMembers(GID)).resolves.toBeUndefined();
   });
 });

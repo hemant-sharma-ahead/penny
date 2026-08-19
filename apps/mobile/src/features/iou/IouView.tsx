@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, ScrollView, RefreshControl, Pressable, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
 import { useToast } from '~/context/ToastContext';
@@ -10,6 +12,7 @@ import { accountsRepo, expensesRepo, ledgerEntriesRepo, personsRepo } from '@/co
 import { logActivity, restoreActivity } from '@/core/db/activityLog';
 import type { Account, Expense, LedgerEntry, Person } from '@/core/db/types';
 import { reconcileLinkedTxn } from '@/core/iou/expenseLink';
+import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -22,7 +25,9 @@ import { PersonListView } from './PersonListView';
 import { PersonLedgerView } from './PersonLedgerView';
 import { EntryForm, type EntryTxnOption } from './EntryForm';
 import { PersonForm } from './PersonForm';
+import { RemovePersonDialog } from './RemovePersonDialog';
 import { SettleUpModal, type SettleResult } from './SettleUpModal';
+import { PromoteToGroupWizard } from './PromoteToGroupWizard';
 
 interface EntryFormState {
   presetPerson?: Person;
@@ -45,7 +50,7 @@ export function IouView() {
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.iou);
-  const { groups, claimed } = useGroupContext();
+  const { groups, claimed, setContext } = useGroupContext();
   const showGroupNote = hasEntitlement('sync') && claimed && groups.length > 0;
   const { showToast } = useToast();
   const {
@@ -69,6 +74,13 @@ export function IouView() {
   } = useIou();
   const { items: accounts } = useRepository<Account>(accountsRepo);
   const { items: expenses } = useRepository<Expense>(expensesRepo);
+  // Current balance per account — powers the cash-negative guard in `EntryForm`/`SettleUpModal`
+  // (item 17, Track E), same pattern as `useExpenses.ts`'s own `accountBalances`.
+  const accountBalances = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const a of accounts) map[a.id] = computeBalance(a.id, a.openingBalance, expenses);
+    return map;
+  }, [accounts, expenses]);
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await Promise.all([reloadEntries(), reloadPersons()]);
   });
@@ -78,6 +90,14 @@ export function IouView() {
   const [settlePerson, setSettlePerson] = useState<Person | null>(null);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  // Item 8 (docs/plans/real-device-testing-pass.md Phase 2) — the ONE consolidated delete/archive
+  // warning popup both `PersonForm.tsx`'s "Remove" and the Archived section's trash icon route through.
+  // Only ever set for a person with real ledger history (zero-history stays today's direct hard-delete,
+  // decided by each entry point below before setting this).
+  const [removingPerson, setRemovingPerson] = useState<Person | null>(null);
+  // Item 17 (Phase 3) — personal ledger → Group promotion wizard.
+  const [promotingPerson, setPromotingPerson] = useState<Person | null>(null);
+  const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
 
   const openPerson = openPersonId ? (persons.find((p) => p.id === openPersonId) ?? null) : null;
 
@@ -194,29 +214,32 @@ export function IouView() {
   // ── Archived persons (soft-archived on delete; kept for ledger integrity) ────────────
   const archivedPersons = persons.filter((p) => p.isArchived);
 
-  // Permanently delete an archived person: drop their ledger entries + any linked cash transactions,
-  // then the person — with one Undo that restores all of it (cascade), mirroring deleteEntryAndTxn.
+  // Permanently delete a person: drop only their ledger entries, then the person — with one Undo that
+  // restores both atomically (cascade), mirroring deleteEntryAndTxn. Item 8 bug fix
+  // (docs/plans/real-device-testing-pass.md Phase 2): this used to also cascade-delete any linked
+  // `Expense` row, directly violating "a recorded transaction is never removed" — the IOU link only
+  // ever lived on the `LedgerEntry` side (`linkedTxnId`), so deleting the ledger entry alone already
+  // fully unlinks the transaction; the Expense itself needs no change and must survive, keeping its
+  // category. Reachable from both `PersonForm.tsx`'s "Remove" and the Archived section's trash icon, via
+  // `RemovePersonDialog`.
   async function purgePerson(person: Person) {
     const entries = ledgerEntries.filter((e) => e.personId === person.id);
-    const linkedTxns = entries
-      .map((e) => (e.linkedTxnId ? (expenses.find((x) => x.id === e.linkedTxnId) ?? null) : null))
-      .filter((x): x is Expense => x !== null);
+    const hadLinkedTxn = entries.some((e) => !!e.linkedTxnId);
     await Promise.all(entries.map((e) => ledgerEntriesRepo.delete(e.id)));
-    await Promise.all(linkedTxns.map((t) => expensesRepo.delete(t.id)));
     await personsRepo.delete(person.id);
     reloadEntries();
     reloadPersons();
-    if (linkedTxns.length) notifyTxnChanged();
+    // The Transactions tab's "linked to <person>'s IOU ledger" badge/edit-form state is derived off
+    // `ledgerEntries` in a separate `useExpenses.ts` hook instance — it only needs telling when a
+    // deleted entry actually carried a `linkedTxnId` (nothing to refresh there otherwise).
+    if (hadLinkedTxn) notifyTxnChanged();
     const logId = logActivity({
       action: 'DELETE',
       entityType: 'person',
       entityId: person.id,
       summary: `Deleted ${person.name}`,
       snapshot: JSON.stringify(person),
-      cascade: JSON.stringify([
-        ...entries.map((e) => ({ entityType: 'ledgerEntry', record: e })),
-        ...linkedTxns.map((t) => ({ entityType: 'expense', record: t }))
-      ])
+      cascade: JSON.stringify(entries.map((e) => ({ entityType: 'ledgerEntry', record: e })))
     });
     showToast({
       message: `Deleted ${person.name}`,
@@ -225,7 +248,7 @@ export function IouView() {
         await restoreActivity(logId);
         reloadEntries();
         reloadPersons();
-        if (linkedTxns.length) notifyTxnChanged();
+        if (hadLinkedTxn) notifyTxnChanged();
       }
     });
   }
@@ -299,18 +322,44 @@ export function IouView() {
                           </Text>
                         )}
                       </View>
-                      <Button variant="ghost" onPress={() => void restorePerson(p.id)}>
-                        <Text className="text-xs font-bold" style={{ color: theme.primary }}>
-                          Restore
-                        </Text>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        icon="ti-trash"
-                        accessibilityLabel={`Delete ${p.name} permanently`}
-                        className="w-8 h-8"
-                        onPress={() => void purgePerson(p)}
-                      />
+                      {p.promotedToGroupId ? (
+                        // Promoted (item 17) — Restore/Trash no longer make sense; link into the new
+                        // Group instead of a destructive action.
+                        <Pressable
+                          onPress={() => {
+                            if (!p.promotedToGroupId) return;
+                            setContext(p.promotedToGroupId);
+                            navigation.navigate('MainTabs', { screen: 'Home' });
+                          }}
+                          className="rounded-lg border px-2.5 py-1.5"
+                          style={{ borderColor: theme.primary }}
+                        >
+                          <Text className="text-[11px] font-semibold" style={{ color: theme.primary }}>
+                            → Now in "{groups.find((g) => g.id === p.promotedToGroupId)?.name ?? 'group'}"
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <>
+                          <Button variant="ghost" onPress={() => void restorePerson(p.id)}>
+                            <Text className="text-xs font-bold" style={{ color: theme.primary }}>
+                              Restore
+                            </Text>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            icon="ti-trash"
+                            accessibilityLabel={`Delete ${p.name} permanently`}
+                            className="w-8 h-8"
+                            onPress={() => {
+                              // Item 8 — zero-history stays today's direct hard-delete (no popup); real
+                              // history routes through the one consolidated `RemovePersonDialog`, which
+                              // also catches the balance-check gap `purgePerson` used to have entirely.
+                              if (entriesFor(p.id).length === 0) void purgePerson(p);
+                              else setRemovingPerson(p);
+                            }}
+                          />
+                        </>
+                      )}
                     </View>
                   );
                 })}
@@ -340,9 +389,37 @@ export function IouView() {
           onAddEntry={() => setEntryForm({ presetPerson: openPerson })}
           onSettle={() => setSettlePerson(openPerson)}
           onEditPerson={() => setEditingPerson(openPerson)}
+          // Gated the same way as the informational Groups banner above — Groups needs a claimed
+          // account with a username (item 17).
+          onPromote={
+            hasEntitlement('sync') && claimed
+              ? () => {
+                  setOpenPersonId(null);
+                  setPromotingPerson(openPerson);
+                }
+              : undefined
+          }
           onEditEntry={(entry) => setEntryForm({ editing: entry })}
           onDeleteEntry={(id) => void deleteEntryAndTxn(id)}
           onClose={() => setOpenPersonId(null)}
+        />
+      )}
+
+      {promotingPerson && (
+        <PromoteToGroupWizard
+          person={promotingPerson}
+          entries={entriesFor(promotingPerson.id)}
+          net={netFor(promotingPerson.id)}
+          onClose={() => setPromotingPerson(null)}
+          onPromoted={async ({ groupId }) => {
+            await savePerson({
+              ...promotingPerson,
+              isArchived: true,
+              promotedToGroupId: groupId,
+              updatedAt: Date.now()
+            });
+            setPromotingPerson(null);
+          }}
         />
       )}
 
@@ -354,6 +431,7 @@ export function IouView() {
           presetPerson={entryForm.presetPerson}
           editing={entryForm.editing ?? null}
           linkedTxn={expenses.find((e) => e.id === entryForm.editing?.linkedTxnId) ?? null}
+          accountBalances={accountBalances}
           onSave={handleSaveEntry}
           onDelete={async (id) => {
             await deleteEntryAndTxn(id);
@@ -369,6 +447,7 @@ export function IouView() {
           person={settlePerson}
           net={netFor(settlePerson.id)}
           accounts={accounts}
+          accountBalances={accountBalances}
           onSettle={(result) => handleSettle(settlePerson, result)}
           onClose={() => setSettlePerson(null)}
         />
@@ -381,12 +460,44 @@ export function IouView() {
             await savePerson(person);
             setEditingPerson(null);
           }}
-          onDelete={async (id) => {
-            await removePerson(id);
+          onDelete={(id) => {
+            // Item 8 — zero-history stays today's direct hard-delete (no popup, matches
+            // `removePerson`'s own existing behavior for that branch); real history routes through the
+            // one consolidated `RemovePersonDialog` instead of silently auto-archiving.
+            const person = persons.find((p) => p.id === id) ?? editingPerson;
             setEditingPerson(null);
-            setOpenPersonId(null);
+            if (!person) return Promise.resolve();
+            if (entriesFor(person.id).length === 0) return removePerson(person.id);
+            setRemovingPerson(person);
+            return Promise.resolve();
           }}
           onClose={() => setEditingPerson(null)}
+        />
+      )}
+
+      {removingPerson && (
+        <RemovePersonDialog
+          person={removingPerson}
+          net={netFor(removingPerson.id)}
+          onArchive={
+            removingPerson.isArchived
+              ? undefined
+              : async () => {
+                  await removePerson(removingPerson.id); // has entries ⇒ archives, per `removePerson`'s own logic
+                  setRemovingPerson(null);
+                  setOpenPersonId(null);
+                }
+          }
+          onDeletePermanently={async () => {
+            await purgePerson(removingPerson);
+            setRemovingPerson(null);
+            setOpenPersonId(null);
+          }}
+          onSettleUp={() => {
+            setRemovingPerson(null);
+            setSettlePerson(removingPerson);
+          }}
+          onClose={() => setRemovingPerson(null)}
         />
       )}
     </>

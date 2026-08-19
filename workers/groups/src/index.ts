@@ -20,11 +20,13 @@ import {
   isHistoryVisibility,
   isInviteRedeemable,
   isRole,
+  wouldLeaveGroupAdminless,
   type GroupRole
 } from './lib/membership';
 import {
   appendEvent,
   bumpGroupEpoch,
+  deleteGroup,
   getDeviceSigningKey,
   getGroup,
   getInvite,
@@ -78,6 +80,7 @@ export default {
       if (seg[0] === 'group' && seg[1]) {
         const groupId = seg[1];
         if (req.method === 'GET' && seg.length === 2) return await handleGetGroup(req, env, url, groupId);
+        if (req.method === 'DELETE' && seg.length === 2) return await handleDeleteGroup(req, env, url, groupId);
         if (req.method === 'POST' && seg[2] === 'invite') return await handleCreateInvite(req, env, url, groupId);
         if (req.method === 'GET' && seg[2] === 'members') return await handleListMembers(req, env, url, groupId);
         if (req.method === 'POST' && seg[2] === 'member') return await handleMemberChange(req, env, url, groupId);
@@ -164,7 +167,8 @@ async function handleCreateInvite(req: Request, env: Env, url: URL, groupId: str
     return json({ error: 'bad_request', message: 'token_hash (sha256 hex) + expires_at required' }, 400);
   }
   // An admin can never mint an invite that grants a role above their own reach.
-  if (!canAssignRole(member.role, role)) return json({ error: 'forbidden', message: 'cannot invite at that role' }, 403);
+  if (!canAssignRole(member.role, role))
+    return json({ error: 'forbidden', message: 'cannot invite at that role' }, 403);
 
   await insertInvite(env.DB, { tokenHash, groupId, role, expiresAt, maxUses, createdBy: auth.userId, now: Date.now() });
   return json({ ok: true });
@@ -237,6 +241,16 @@ async function handleListMembers(req: Request, env: Env, url: URL, groupId: stri
   return json({ members: withKeys });
 }
 
+/** Active members' (user_id, role) pairs, roles narrowed to `GroupRole` — DB rows only ever carry a
+ *  valid role string (every write path validates via `isRole` first), so this narrowing is safe. */
+async function activeMemberRoles(env: Env, groupId: string): Promise<{ user_id: string; role: GroupRole }[]> {
+  const members = await listMembers(env.DB, groupId);
+  return members.filter((m) => m.status === 'active').map((m) => ({ user_id: m.user_id, role: m.role as GroupRole }));
+}
+
+const LAST_ADMIN_MESSAGE =
+  "This would leave the group with no admin — promote another member to admin first, or close the group if you're done with it.";
+
 async function handleMemberChange(req: Request, env: Env, url: URL, groupId: string): Promise<Response> {
   const bodyText = await req.text();
   const auth = await authenticate(req, env, url, bodyText);
@@ -249,8 +263,17 @@ async function handleMemberChange(req: Request, env: Env, url: URL, groupId: str
   const action = str(body?.action); // 'leave' | 'set_role' | 'remove'
   const targetUserId = str(body?.user_id) || auth.userId;
 
+  // Admin-less group protection (item 9): block a leave/remove/demotion that would leave the group with
+  // active members but zero owner/admin among them — UNLESS it's the lone-remaining-member edge case
+  // (nobody left to be "admin-less" for), which `wouldLeaveGroupAdminless` itself never blocks. See that
+  // function's doc comment (lib/membership.ts) for the exact rule.
+
   if (action === 'leave') {
     if (targetUserId !== auth.userId) return json({ error: 'forbidden' }, 403);
+    const active = await activeMemberRoles(env, groupId);
+    if (wouldLeaveGroupAdminless(active, auth.userId, null)) {
+      return json({ error: 'last_admin', message: LAST_ADMIN_MESSAGE }, 409);
+    }
     await setMemberStatus(env.DB, groupId, auth.userId, 'left', Date.now());
     return json({ ok: true });
   }
@@ -258,12 +281,20 @@ async function handleMemberChange(req: Request, env: Env, url: URL, groupId: str
   // Managing another member requires an admin/owner, and role changes obey the hierarchy.
   if (!canManageMembers(myRole)) return json({ error: 'forbidden' }, 403);
   if (action === 'remove') {
+    const active = await activeMemberRoles(env, groupId);
+    if (wouldLeaveGroupAdminless(active, targetUserId, null)) {
+      return json({ error: 'last_admin', message: LAST_ADMIN_MESSAGE }, 409);
+    }
     await setMemberStatus(env.DB, groupId, targetUserId, 'left', Date.now());
     return json({ ok: true });
   }
   if (action === 'set_role') {
     const role = body?.role;
     if (!isRole(role) || !canAssignRole(myRole, role)) return json({ error: 'forbidden' }, 403);
+    const active = await activeMemberRoles(env, groupId);
+    if (wouldLeaveGroupAdminless(active, targetUserId, role)) {
+      return json({ error: 'last_admin', message: LAST_ADMIN_MESSAGE }, 409);
+    }
     await setMemberRole(env.DB, groupId, targetUserId, role);
     return json({ ok: true });
   }
@@ -280,7 +311,8 @@ async function handleGrant(req: Request, env: Env, url: URL, groupId: string): P
   const body = safeParse(bodyText);
   const userId = str(body?.user_id);
   const grants = Array.isArray(body?.grants) ? (body?.grants as unknown[]) : [];
-  if (!userId || grants.length === 0) return json({ error: 'bad_request', message: 'user_id + grants[] required' }, 400);
+  if (!userId || grants.length === 0)
+    return json({ error: 'bad_request', message: 'user_id + grants[] required' }, 400);
 
   const group = await getGroup(env.DB, groupId);
   if (!group) return json({ error: 'not_found' }, 404);
@@ -364,7 +396,13 @@ async function handleGetEvents(req: Request, env: Env, url: URL, groupId: string
   return json({ events });
 }
 
-async function handleClose(req: Request, env: Env, url: URL, groupId: string, status: 'closed' | 'active'): Promise<Response> {
+async function handleClose(
+  req: Request,
+  env: Env,
+  url: URL,
+  groupId: string,
+  status: 'closed' | 'active'
+): Promise<Response> {
   const bodyText = await req.text();
   const auth = await authenticate(req, env, url, bodyText);
   if ('error' in auth) return auth.error;
@@ -374,6 +412,26 @@ async function handleClose(req: Request, env: Env, url: URL, groupId: string, st
   // A close/reopen bumps the epoch on close so post-close membership can't decrypt new activity later.
   if (status === 'closed') await bumpGroupEpoch(env.DB, groupId, Date.now());
   return json({ ok: true, status });
+}
+
+/**
+ * Delete a group for every member (real-device-testing-pass.md Phase 3, item 9) — creator-only,
+ * stricter than close/reopen's owner-or-admin (`canCloseGroup`), since this is irreversible for
+ * everyone, not just a freeze. The client is expected to have already confirmed the group has no
+ * non-deleted shared-expense history before offering this action; the server can't re-derive that from
+ * ciphertext it never sees (Model B), so it only enforces who may call it, not whether it's "empty".
+ */
+async function handleDeleteGroup(req: Request, env: Env, url: URL, groupId: string): Promise<Response> {
+  const bodyText = await req.text();
+  const auth = await authenticate(req, env, url, bodyText);
+  if ('error' in auth) return auth.error;
+  const group = await getGroup(env.DB, groupId);
+  if (!group) return json({ error: 'not_found' }, 404);
+  if (group.owner_id !== auth.userId) {
+    return json({ error: 'forbidden', message: 'Only the group creator can delete it' }, 403);
+  }
+  await deleteGroup(env.DB, groupId);
+  return json({ ok: true });
 }
 
 /**

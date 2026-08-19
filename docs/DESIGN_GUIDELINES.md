@@ -59,7 +59,7 @@ The product direction is: _appealing, minimalistic, modern, inviting, user-frien
 
 Use these shared building blocks so a new screen feels familiar. Cohesion across screens is a feature.
 
-> **Keep shared controls in sync.** When you introduce or change a control that appears in more than one place (icon, colour, label, behaviour), update **every** instance — or flag it. Example: the privacy-mode iconography (eye-off = Safe · shield = Private · eye = Open, on `--color-safe/privacy/open`) lives in both the header switcher and the Settings "default mode" control; they must match.
+> **Keep shared controls in sync.** When you introduce or change a control that appears in more than one place (icon, colour, label, behaviour), update **every** instance — or flag it. Example: the privacy-mode iconography (eye-off = Safe · eye = Open, on `--color-safe`/`--color-open` — a third "shield = Private" mode was removed 2026-08-18, see §4) lives in the header `PrivacyModeSwitcher`; there's no separate Settings "default mode" control anymore either (removed alongside Private mode — Safe is always the fixed starting mode now).
 
 - **Identity hero** — avatar (photo → initials fallback, with a camera affordance) + name + `@handle · Plan` + a status pill (e.g. "✓ Claimed" / "Not claimed yet"). Used on Settings and Edit Profile.
 - **Grouped cards + section labels** — an uppercase tertiary section label, then a `bg-surface` rounded card of **hairline-separated rows** (icon + label + trailing control/chevron); the first row in a card skips its own top divider so it doesn't double up with the card's outer border. `apps/mobile`'s Settings (redesigned 2026-08-01) is the reference implementation — one accent colour per **section**, not per row (`theme.warning`/`privacy`/`info`/`neutral`/`danger` for Frequent/Security/Appearance/Data/Danger), since these rows don't carry distinct app-wide meaning the way, say, income/expense colours do — see "Colour is wayfinding, not decoration" in §1.
@@ -109,6 +109,12 @@ deliberate decision so the app reads as one consistent Light/Dark palette regard
 mode itself is unchanged (masking, the PIN-gated Open mode, `PrivacyModeSwitcher`'s icon) — it just no
 longer repaints the screen. See `packages/core/src/theme/privacyModeColors.ts`'s
 `getPrivacyModeColors()`.
+
+**Privacy Mode collapsed from three states to two** (2026-08-18) — real-device testing found the
+three-mode picker (Safe/Private/Open) plus Open mode's fixed-duration countdown badge overkill for
+what people actually used. `apps/mobile`'s `PrivacyModeSwitcher` is now a plain Safe/Open toggle with
+no countdown; `packages/core/src/theme/privacyModeColors.ts`'s 3-mode type is left untouched since
+`apps/web-react` (frozen) still legitimately constructs `'privacy'`.
 
 ---
 

@@ -31,6 +31,33 @@ splits in Phase 1.5 Track E.
   offsets the cash movement so your net worth stays correct end-to-end.
 - Overdue highlighting when a lend/borrow's due date has passed
 - Totals strip: total owed to you vs total you owe
+- **Person-name type-ahead (2026-08-18)** — logging a lend/borrow suggests matching existing people as
+  you type (pills below the field, single-select), same pattern `EntryForm.tsx` already used elsewhere
+  in the app — backed by a fix that makes person matching always consistent (see "How it works").
+- **A real delete/archive choice for a person with history (2026-08-18)** — removing a person who still
+  has ledger entries with a settled (≈₹0) balance now shows an explicit **Archive** or **Delete
+  permanently** warning dialog (`RemovePersonDialog.tsx`), instead of a silent auto-archive. Deleting
+  permanently only removes the `Person` + their `ledger_entries` — any linked `Expense`/`Income`
+  transactions survive (they just lose the IOU person link). A person with an outstanding (non-zero)
+  balance is blocked from permanent deletion.
+- **Bulk-add existing transactions to a person's ledger (2026-08-18)** — from the Transactions
+  multi-select, pick a person once for the whole batch; Penny auto-splits the selection by expense vs.
+  income, asks one category choice per direction present (Lending/Return Borrowed for expenses,
+  Borrowed Money/Collected Money for income), then applies the category + person + creates the matching
+  `ledger_entries` for each (`BulkAddToIouModal.tsx`).
+- **Switch a transaction's type after saving (2026-08-18)** — from `ExpenseForm.tsx`'s edit mode,
+  expense ⟷ income can now be changed (Transfer excluded — it structurally needs two accounts);
+  switching clears the (type-scoped) category and blocks if the transaction has an IOU ledger link, is
+  shared to a Group, or is linked to a Goal contribution.
+- **Cash-negative warnings everywhere money leaves an account (2026-08-18)** — the lend/borrow entry
+  form and the Settle Up modal now show the same non-blocking `projectedBalance()`-based warning
+  `ExpenseForm.tsx` already had, so a lend/settle that would push a cash account negative is flagged
+  before saving, not discovered later.
+- **Promote a person's ledger to a real Group (2026-08-18)** — a guided wizard (`PromoteToGroupWizard.tsx`)
+  creates a Group, adds the person as a placeholder member, seeds it from the ledger (full history or a
+  single opening balance, your choice), and generates an invite — then archives (never deletes) the
+  personal ledger with a `promotedToGroupId` link and a "→ Now in {group}" shortcut in the Archived
+  section. One-way; not designed to be reversed. See [`docs/features/groups.md`](groups.md).
 
 > **Settle-up never touches money.** Penny stores no UPI VPA and generates no payee QR — the actual
 > payment happens in whatever UPI/bank app you already trust; Penny only records the settlement.
@@ -66,10 +93,30 @@ it and `IouPage.tsx` were removed. The Net Worth "IOU" line on Home navigates to
 **Soft-archive on delete.** Deleting a person who still has ledger entries **soft-archives** them
 (`isArchived`) rather than hard-deleting, so their history stays intact (`useIou.removePerson`; a person
 with no entries is hard-deleted). `IouView` shows a collapsible **"Archived (n)"** section where you can
-**Restore** (`restorePerson`) or **permanently delete** (`purgePerson`) an archived person — the purge
-cascades their ledger entries and any linked cash transactions, all reversible with a single **Undo**
-(mirrors `deleteEntryAndTxn`). Logging a new lend/borrow for an archived name **revives** them
-(`getOrCreatePerson` un-archives a matching person).
+**Restore** (`restorePerson`) or **permanently delete** (`purgePerson`) an archived person, or (2026-08-18)
+**promote them to a real Group** (`PromoteToGroupWizard.tsx`). Logging a new lend/borrow for an archived
+name **revives** them (`getOrCreatePerson` un-archives a matching person).
+
+**Delete/archive confirmation (2026-08-18).** `purgePerson` used to unconditionally cascade-delete a
+person's `ledger_entries` **and any linked `Expense` rows** — a real bug, since a recorded transaction
+should never be silently removed just because its IOU person link is being deleted. Fixed: it now
+deletes only the `Person` + their `ledger_entries`; linked transactions survive (they keep their
+category, just lose the person link). `RemovePersonDialog.tsx` is the one place both `PersonForm.tsx`'s
+"Remove" button and the Archived section's trash icon route through — for a person with settled
+(≈₹0) history it shows an explicit Archive-or-Delete-permanently choice instead of the old silent
+auto-archive; a person with a real outstanding balance is blocked from permanent deletion entirely. A
+person with zero ledger entries is unaffected — still a direct hard delete, no dialog.
+
+**Person resolution consolidated (2026-08-18).** `getOrCreatePerson` — "resolve a typed name to a
+Person, case-insensitively, creating one if needed" — used to be independently reimplemented three
+times (`useIou.ts`, `useExpenses.ts`, and `useBankImport.ts`'s `resolvePerson`), each matching against
+its own hook instance's possibly-stale in-memory `persons` array. A person created via one screen (e.g.
+the Expense form's Lent/Borrowed panel) could be invisible to another already-mounted screen (e.g. the
+IOU tab) until that screen's hook happened to reload — typing the same name in both created two separate
+`Person` rows instead of resolving to one. Consolidated into a single `packages/core` function,
+`core/iou/personResolver.ts`, that always re-reads `personsRepo` fresh (never a caller-supplied array,
+generalizing the pattern `useBankImport.ts`'s own `resolvePerson` already used correctly) — all three
+call sites now point at it. Backs both the person-name type-ahead above and the duplicate-name fix.
 
 **Totals and Net Worth exclude archived persons.** The "Owed to you" / "You owe" strip is computed from
 `activeBalances` (`useIou` filters `!isArchived`), and Home's `netIou` sums only `activePersonIds`
@@ -84,7 +131,7 @@ Key files:
 - `src/features/iou/EntryForm.tsx` / `SettleUpModal.tsx` / `PersonForm.tsx` / `PersonPicker.tsx`
 - `src/core/iou/` — `ledger.ts` (balance math), `expenseLink.ts` (both-way reconcile: `reconcileExpenseLink` expense→IOU + `reconcileLinkedTxn` IOU→transaction), `aiLabels.ts`, `migration.ts`
 
-**Mobile (`apps/mobile`):** ported in Track 4 (fourth module) — `apps/mobile/src/features/iou/` mirrors the web files above 1:1 (`useIou.ts` unchanged beyond import paths and swapping `localStorage` for AsyncStorage in the one-time legacy-migration flag check). **Scoped as personal-only IOU for this port:** web's `IouView` reads `GroupContext` only to show one informational banner when the user has claimed a username and belongs to groups ("Your personal IOUs. Group balances live in each group."); since `GroupContext` (Phase 1.5's sync/multi-device machinery) isn't ported to mobile yet, that banner and its dependency are dropped entirely — the underlying ledger data model was already personal-only regardless, so no ledger behavior changes. Revisit once Groups lands on mobile. `PersonPicker`'s web version renders its suggestion list as a DOM-positioned overlay; the mobile port renders suggestions inline (normal document flow, pushes the form down) since RN has no absolute-overlay-over-siblings equivalent without a portal. Mobile also adds `IouPage.tsx`, a thin `PageHeader` wrapper — web never gives IOU its own page (always embedded as the Expenses module's IOU tab via `IouSlice.tsx`), but Expenses hasn't been ported yet, so this exists purely to make IOU a coherent standalone screen for the interim `AuthGuard` stand-in stage.
+**Mobile (`apps/mobile`):** ported in Track 4 (fourth module) — `apps/mobile/src/features/iou/` mirrors the web files above 1:1 (`useIou.ts` unchanged beyond import paths and swapping `localStorage` for AsyncStorage in the one-time legacy-migration flag check). All 2026-08-18 items above are `apps/mobile`-only (`apps/web-react` is frozen) — the person-suggestion pills live in a new shared `apps/mobile/src/components/shared/PersonTypeahead.tsx` (extracted out of `PersonPicker.tsx` since `ExpenseForm.tsx`'s Lent/Borrowed panel — a different feature folder — needed the same suggestion behavior, and `features/` modules can't import each other; see `docs/ARCHITECTURE.md`'s feature-module-isolation decision). **Scoped as personal-only IOU for this port:** web's `IouView` reads `GroupContext` only to show one informational banner when the user has claimed a username and belongs to groups ("Your personal IOUs. Group balances live in each group."); since `GroupContext` (Phase 1.5's sync/multi-device machinery) isn't ported to mobile yet, that banner and its dependency are dropped entirely — the underlying ledger data model was already personal-only regardless, so no ledger behavior changes. Revisit once Groups lands on mobile. `PersonPicker`'s web version renders its suggestion list as a DOM-positioned overlay; the mobile port renders suggestions inline (normal document flow, pushes the form down) since RN has no absolute-overlay-over-siblings equivalent without a portal. Mobile also adds `IouPage.tsx`, a thin `PageHeader` wrapper — web never gives IOU its own page (always embedded as the Expenses module's IOU tab via `IouSlice.tsx`), but Expenses hasn't been ported yet, so this exists purely to make IOU a coherent standalone screen for the interim `AuthGuard` stand-in stage.
 
 ## Current limitations
 
@@ -107,13 +154,19 @@ Key files:
   `ExtraCircle` toggle becomes unresponsive to taps while one of these is selected — see `IOU_MANDATORY_CATEGORY_IDS`
   in `packages/core/src/core/db/defaultCategories.ts`) instead of leaving it as a manual toggle someone
   might never open before an otherwise-silent validation failure on Save/Apply.
-- Person names are local free text — not yet linked to real group members (`linkedMemberId` reserved)
+- Person names are local free text — an **existing** personal-IOU person still isn't linkable to an
+  **existing** real group member (`linkedMemberId` reserved, unused); the one bridge that does exist is
+  one-way and only for a brand-new Group (`promotedToGroupId` — see "Promote a person's ledger to a real
+  Group" above), not a reconciliation between two already-independent ledgers.
 - No push/OS reminders for due dates (in-app only)
 
 ## Planned improvements
 
-- Phase 1.5 Track E: link a person to a real group member (`linkedMemberId`) so two ledgers reconcile
-- Phase 1.5 Track E: N-party split engine (shared expense → shares → who-paid → multi-party settle)
+- Phase 1.5 Track E: link an **existing** person to an **existing** real group member (`linkedMemberId`)
+  so two independently-tracked ledgers reconcile — distinct from the promote-to-new-group flow shipped
+  2026-08-18, which only ever creates a brand-new Group.
+- Phase 1.5 Track E's N-party split engine (shared expense → shares → who-paid → multi-party settle) has
+  shipped — see [`docs/features/groups.md`](groups.md).
 
 **2026-08-01 — this exact two-way link pattern was reused for Goals:** `core/goals/goalLink.ts`
 (`reconcileGoalLink`/`reconcileLinkedGoalTxn`) mirrors `expenseLink.ts` field-for-field —

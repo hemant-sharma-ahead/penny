@@ -1623,7 +1623,7 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 
 | Context                  | Stored in                    | Key values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PrivacyContext`         | React state + localStorage   | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding |
+| `PrivacyContext`         | React state + localStorage   | **`apps/web-react` (frozen) — unchanged:** `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding. **`apps/mobile` diverged 2026-08-18** — `PrivacyMode` is `'safe' \| 'open'` only (no `'privacy'`, no `openModeExpiresAt`/timer); `shouldMask` behavior for Safe/Open is unchanged; `mode` always starts at `'safe'`; Open auto-reverts to Safe on `AppState` backgrounding instead of `visibilitychange`. See `docs/PRIVACY.md`. |
 | `SettingsContext`        | localStorage                 | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()`                                                                                                                                  |
 | `EventModeContext`       | Dexie (`hashtags` store)     | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it.                                                                                                                            |
@@ -2046,6 +2046,8 @@ potential.
 
 **Rationale:** Keeps each feature independently testable and understandable. Prevents the "everything imports everything" antipattern. Also necessary for React Native migration — each feature can be ported independently since it only depends on `core/`.
 
+**Reinforced 2026-08-18:** the same rule tripped 3 separate times in one pass (`PersonTypeahead.tsx`, `WizardProgress.tsx`, `useServerActionError.ts` — see the real-device-testing-pass decision entry below) when a second feature needed a component/hook that had only ever lived inside another feature's own folder. The fix was identical each time: promote the file out into `components/shared/` or `hooks/`, never let one feature import from another's folder. If two features need the same component, it belongs in `components/shared`/`hooks/` from the start — not a special case, the expected outcome of this rule.
+
 ### Decision: buildUserContext() as the only Anthropic path
 
 **Rationale:** The PII pipeline cannot be bypassed by accident. Any developer who wants to call the Anthropic API must go through `buildUserContext()`, which enforces all PII stripping rules. The `@anthropic-ai/sdk` import restriction in ESLint makes it impossible to call the SDK from anywhere else.
@@ -2464,6 +2466,69 @@ names (`accountLast4`, `cardLast4`, `referenceNumber`, `date`) are a separate, a
 (explicitly mapped inside `traceSms()`) and were not touched, so no consumer of a parsed candidate
 needed any change. `workers/api-proxy/src/smsPatterns.ts` was updated identically (confirmed
 byte-identical `pattern` strings against the core file) and redeployed live.
+
+**Real bug found via this same on-device pass, not yet fixed:** rolling out the HDFC/IndusInd/HSBC
+templates above to a real device that already had an earlier Penny install exposed that
+`getSmsPatternBundle()`'s local cache (`penny_sms_patterns_v1`, `smsPatterns.ts`) has **no version/hash
+check** — it trusts anything under 7 days old regardless of whether it matches what the current build
+actually ships, so an APK update-in-place (not uninstall/reinstall) can silently keep running a
+pre-update template set for up to a week. See `docs/features/sms-tracking.md`'s "Current limitations"
+for the full detail and the intended fix (stamp the cache with a version/hash of the shipped bundle,
+invalidate on mismatch).
+
+### Decision: Real-device-testing-pass Phases 1–3 (2026-08-18) — `apps/mobile` + `packages/core` + `workers/groups` only
+
+**Rationale:** a batch of real-device testing findings, fully detailed in
+[`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md). `apps/web-react` is
+frozen, so none of this touches it — mobile diverges further from web on every item below, by design.
+A few pieces worth a durable architectural note beyond what the feature docs (`docs/features/iou.md`,
+`docs/features/groups.md`, `docs/features/backup.md`, `docs/features/sms-tracking.md`) already cover:
+
+- **`apps/mobile/src/lib/modalStack.ts` (new)** — a tiny module-level open-modal counter fixing "toast
+  blocks app interactivity." Root cause: Android's Dialog-backed `Modal` window intercepts every touch
+  within its bounds at the OS level, before RN's own `pointerEvents` logic ever runs — no prop can opt a
+  Modal's window out of this, it's inherent to how Android dispatches touches. `~/components/ui/Modal.tsx`
+  registers itself here on mount/unmount; `ToastContext.tsx` only wraps a toast in a real `<Modal>` when
+  another modal is already open (the one case that still needs to stack above it) — otherwise it renders
+  as a plain high-`zIndex` sibling `View`, letting taps and the hardware back button reach whatever's
+  underneath with zero interception.
+- **`packages/core/src/core/db/normalizeHashtagCase.ts` (new)** — a boot-time idempotent repair pass
+  lowercasing every `Hashtag.name`/`Expense.hashtags[]` entry and merging any that collapse to the same
+  lowercase form, following the exact same pattern as `repairCategoryIcons()`/`reconcileDefaultCategories()`
+  in `dedupeDemoCategories.ts` (safe to run every app start, cheap no-op once already normalized) rather
+  than a versioned Dexie migration — chosen because encrypted stores can't use Dexie's `.upgrade()`
+  hooks at all (same reasoning as the pre-existing IOU `personal_ious` migration).
+- **`packages/core/src/core/iou/personResolver.ts` (new)** — consolidates three independent
+  reimplementations of "resolve a typed name to a Person, creating one if needed"
+  (`useIou.ts`/`useExpenses.ts`/`useBankImport.ts`'s own `resolvePerson`) into one function that always
+  re-reads `personsRepo` fresh rather than matching against a caller's possibly-stale in-memory array —
+  the real root cause of a duplicate-person bug (typing the same name in two different, already-mounted
+  screens created two `Person` rows instead of resolving to one). `useBankImport.ts`'s own
+  `resolvePerson` already did this correctly; this generalizes from that reference rather than inventing
+  a new approach.
+- **Three cross-feature shared-component extractions, same underlying pattern each time** —
+  `apps/mobile/src/components/shared/PersonTypeahead.tsx` (out of `features/iou/PersonPicker.tsx`, needed
+  by `components/shared/ExpenseForm.tsx`'s Lent/Borrowed panel), `apps/mobile/src/components/shared/
+WizardProgress.tsx` (moved from `features/import/`, needed by the new `BulkAddToIouModal.tsx` and
+  `PromoteToGroupWizard.tsx`), and `apps/mobile/src/hooks/useServerActionError.ts` (moved from
+  `features/groups/`, needed by `PromoteToGroupWizard.tsx`, an `features/iou/` file). All three hit the
+  exact same wall: **a `features/` module cannot be imported by `components/shared` or by another
+  `features/` module** (the existing "Feature module isolation" decision above) — confirmed 3 times in
+  one pass that this rule holds and that the fix is always the same (promote the shared file out of
+  whichever feature folder it happened to be born in), not a new rule.
+- **A real bug found via audit, not a bug report:** `packages/core/src/core/db/seedDemoData.ts`'s Student
+  persona's simulated Cash account actually went to **−₹920** on a seeded date — an unscaled "wobble"
+  term in the simulation broke proportionally at the Student persona's low expense scale (a term sized
+  for a salaried persona's larger numbers became disproportionately large relative to a student's small
+  ones). Fixed, plus a new regression test covering all 5 employment-type personas
+  (`packages/core/tests/db/seedCash.test.ts`) so this can't silently regress again.
+- **Groups (Track E) redesign — the largest single piece of this pass:** see
+  [`docs/features/groups.md`](../features/groups.md) for the full detail (new event types, static
+  members, admin-less server-side protection, delete-when-empty, orphaned-shared-transaction
+  tombstoning, the `groupFeed()` dedup bug fix, write-off/undo-write-off) and
+  [`docs/features/iou.md`](../features/iou.md) for the personal-ledger-side changes (duplicate-person
+  fix, person type-ahead, real delete/archive confirmation, bulk-add-to-ledger, edit-mode type toggle,
+  cash-negative warnings, promote-to-group).
 
 ---
 

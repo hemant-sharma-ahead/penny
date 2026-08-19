@@ -16,7 +16,8 @@ import { getProvider } from './providers';
 import { NeedsConsentError, QuotaExceededError } from './providers/types';
 import { saveLocalSnapshot } from './providers/localBackup';
 
-export type BackupStatus = 'idle' | 'syncing' | 'offline' | 'error' | 'quota_exceeded' | 'needs_reconnect';
+export type BackupStatus =
+  'idle' | 'syncing' | 'offline' | 'error' | 'quota_exceeded' | 'needs_reconnect' | 'foreign_blob';
 
 export interface BackupEngineState {
   status: BackupStatus;
@@ -141,9 +142,17 @@ export async function runNow(): Promise<void> {
     else if (err instanceof NeedsConsentError)
       setState({ status: 'needs_reconnect', error: 'Reconnect to keep syncing.' });
     else if (err instanceof ForeignBlobError)
+      // Real cause: this device's vault key doesn't match the one the existing Drive backup was
+      // encrypted with — normal after a reinstall/new device, not a sign anything is actually wrong
+      // with the account. `status: 'foreign_blob'` (not plain 'error') so the UI can show a distinct
+      // banner with a CTA into the passphrase-restore flow that actually fixes it, rather than a dead-
+      // end error message (found confusing/undiscoverable via real-device testing, 2026-08-18).
       setState({
-        status: 'error',
-        error: 'This cloud backup belongs to another account — restore with your passphrase.'
+        status: 'foreign_blob',
+        error:
+          "This device's data doesn't match the key your existing Google Drive backup was encrypted with yet " +
+          '(normal after reinstalling or setting up a new device). Restore from that backup with your ' +
+          'passphrase below to pick it back up.'
       });
     else setState({ status: 'error', error: err instanceof Error ? err.message : 'Backup failed.' });
   } finally {

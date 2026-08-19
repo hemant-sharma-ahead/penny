@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { Modal, Button, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -8,48 +8,38 @@ import { verifyPin } from '@/core/crypto/securityManager';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { tint } from '~/lib/color';
 
-const MODE_ORDER: PrivacyMode[] = ['safe', 'privacy', 'open'];
+const MODE_ORDER: PrivacyMode[] = ['safe', 'open'];
 
 type Step = null | 'pin' | 'warning';
 
-function formatCountdown(ms: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const mins = Math.floor(totalSeconds / 60);
-  const secs = totalSeconds % 60;
-  return `${mins}:${String(secs).padStart(2, '0')}`;
-}
-
 /**
- * RN port of apps/web-react/src/components/privacy/PrivacyModeSwitcher.tsx — same three-mode
- * (Safe/Private/Open) icon button + dropdown, PIN-gated Open mode, and pre-Open warning modal.
- * The mode-picker dropdown renders on the shared `Modal` component (not a hand-rolled
- * absolutely-positioned overlay) — this component lives inside `MainNavigator`'s native-stack
- * *header*, which (like every RN native header) commonly clips overflowing absolutely-positioned
- * children entirely, so a custom overlay silently never appeared/received touches at all (found via
- * on-device testing, 2026-07-25 — not a hypothetical: `ContextSwitcher`'s dropdown hit this identical
- * problem earlier in the migration and was fixed the same way, see its own file/the plan doc). Real
- * `Modal` renders in RN's own top-level layer, immune to any ancestor's clipping.
+ * RN port of apps/web-react/src/components/privacy/PrivacyModeSwitcher.tsx — same icon button +
+ * dropdown, PIN-gated Open mode, and pre-Open warning modal. The mode-picker dropdown renders on the
+ * shared `Modal` component (not a hand-rolled absolutely-positioned overlay) — this component lives
+ * inside `MainNavigator`'s native-stack *header*, which (like every RN native header) commonly clips
+ * overflowing absolutely-positioned children entirely, so a custom overlay silently never
+ * appeared/received touches at all (found via on-device testing, 2026-07-25 — not a hypothetical:
+ * `ContextSwitcher`'s dropdown hit this identical problem earlier in the migration and was fixed the
+ * same way, see its own file/the plan doc). Real `Modal` renders in RN's own top-level layer, immune
+ * to any ancestor's clipping.
+ *
+ * 2026-08-18: Private mode and Open mode's fixed-duration countdown badge were both removed (real-
+ * device testing found the three-mode picker + timer overkill) — this is now a plain Safe/Open toggle.
+ * Open still has no persisted default and always auto-reverts to Safe on backgrounding
+ * (`PrivacyContext.tsx`'s `AppState` handler) — it just no longer has a visible countdown or a
+ * fixed-duration auto-expiry on top of that.
  */
 export function PrivacyModeSwitcher() {
   const theme = useThemeColors();
-  const { mode, setMode, openModeExpiresAt } = usePrivacy();
+  const { mode, setMode } = usePrivacy();
   const [step, setStep] = useState<Step>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [verifying, setVerifying] = useState(false);
-  const [tickNow, setTickNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!openModeExpiresAt) return;
-    const id = setInterval(() => setTickNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [openModeExpiresAt]);
-  const openCountdown = openModeExpiresAt ? formatCountdown(openModeExpiresAt - tickNow) : null;
 
   const MODE: Record<PrivacyMode, { label: string; icon: string; color: string }> = {
     safe: { label: 'Safe', icon: 'ti-eye-off', color: theme.warning },
-    privacy: { label: 'Private', icon: 'ti-shield-lock', color: theme.privacy },
     open: { label: 'Open', icon: 'ti-eye', color: theme.open }
   };
   const active = MODE[mode];
@@ -108,20 +98,10 @@ export function PrivacyModeSwitcher() {
           onPress={() => setMenuOpen(true)}
           className="w-8 h-8 rounded-full items-center justify-center"
           style={{ backgroundColor: tint(active.color, 14) }}
-          accessibilityLabel={`Privacy mode: ${active.label}${openCountdown ? `, reverts in ${openCountdown}` : ''}. Tap to change.`}
+          accessibilityLabel={`Privacy mode: ${active.label}. Tap to change.`}
         >
           <Icon name={active.icon} size={17} color={active.color} />
         </Pressable>
-        {openCountdown && (
-          <View
-            className="absolute -bottom-1.5 self-center px-1 rounded-full"
-            style={{ backgroundColor: theme.open, left: 4 }}
-          >
-            <Text className="font-bold text-white" style={{ fontSize: 8 }}>
-              {openCountdown}
-            </Text>
-          </View>
-        )}
       </View>
 
       {menuOpen && (

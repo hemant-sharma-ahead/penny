@@ -34,6 +34,7 @@ import {
 import { parseXlsxToGrid, XlsxParseError } from '@/core/bank-import/xlsxParser';
 import type { BankPresetId, ColumnMapping, ParsedStatementRow, StatementParseResult } from '@/core/bank-import/types';
 import { normalizeNarration } from '@/core/bank-import/normalization';
+import { getOrCreatePerson } from '@/core/iou/personResolver';
 import {
   matchStatementRows,
   deriveLoneWolves,
@@ -945,20 +946,12 @@ export function useBankImport(accountId: string) {
       }
     }
 
-    // IOU (Lent/Borrowed) — `BulkCategorizeModal`'s optional bulk-shared person field. Resolved the
-    // same way `useExpenses.ts`'s `getOrCreatePerson` does (case-insensitive match, un-archive if
-    // needed), against a fresh read + local cache so the same name across many rows in one batch
-    // resolves to one `Person`, not one per row.
-    const personCache = new Map((await personsRepo.getAll()).map((p) => [p.name.toLowerCase(), p]));
+    // IOU (Lent/Borrowed) — `BulkCategorizeModal`'s optional bulk-shared person field. Resolved via the
+    // shared `getOrCreatePerson` in packages/core (2026-08-18 dedup fix — see personResolver.ts's
+    // header), same case-insensitive-match + un-archive-if-needed logic every other IOU-person entry
+    // point uses now, instead of this commit's own local cache reimplementing it.
     async function resolvePerson(name: string): Promise<Person> {
-      const key = name.trim().toLowerCase();
-      const cached = personCache.get(key);
-      if (cached && !cached.isArchived) return cached;
-      const person: Person = cached
-        ? { ...cached, isArchived: false, updatedAt: now }
-        : { id: crypto.randomUUID(), name: name.trim(), createdAt: now, updatedAt: now };
-      await personsRepo.put(person);
-      personCache.set(key, person);
+      const { person } = await getOrCreatePerson(name);
       return person;
     }
 

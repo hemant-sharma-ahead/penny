@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text } from 'react-native';
 import type { Account, Expense, LedgerEntry, LedgerKind, Person } from '@/core/db/types';
-import { epochToDateInput } from '@/lib/formatters';
+import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { dateInputToEpoch } from '@/lib/date';
-import { TextInput, OptionButton, AmountInput, SelectInput, Toggle, DateInput } from '~/components/ui';
+import { projectedBalance } from '@/core/accounts/balanceCalculator';
+import { TextInput, OptionButton, AmountInput, SelectInput, Toggle, DateInput, Banner } from '~/components/ui';
 import { FormModal } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { PersonPicker } from './PersonPicker';
@@ -30,6 +31,8 @@ interface EntryFormProps {
   editing?: LedgerEntry | null | undefined;
   /** The account transaction currently linked to the entry being edited, if any (to prefill the account). */
   linkedTxn?: Expense | null | undefined;
+  /** Current balance per account — powers the cash-negative guard below (same pattern as `ExpenseForm.tsx`). */
+  accountBalances?: Record<string, number>;
   onSave: (entry: LedgerEntry, txn?: EntryTxnOption) => Promise<void>;
   onDelete?: ((id: string) => Promise<void>) | undefined;
   onClose: () => void;
@@ -44,6 +47,7 @@ export function EntryForm({
   presetPerson,
   editing,
   linkedTxn,
+  accountBalances,
   onSave,
   onDelete,
   onClose,
@@ -73,6 +77,26 @@ export function EntryForm({
   );
   // Expense-origin entries are owned by their expense (edit there); manual entries can re-sync here.
   const canRecord = (!editing || editing.origin === 'manual') && usableAccounts.length > 0;
+
+  // Soft cash-negative guard (Track E / item 17), mirroring `ExpenseForm.tsx`'s `cashWarningBalance`.
+  // "Lent" records an expense (money out) against `accountId`; "borrowed" records income (money in),
+  // which only raises the balance, so there's nothing to warn about there.
+  const payingAccount = usableAccounts.find((a) => a.id === accountId);
+  const cashWarningBalance = useMemo(() => {
+    if (!canRecord || !recordTxn || kind === 'borrowed' || !accountBalances || !payingAccount) return null;
+    if (payingAccount.type !== 'cash') return null;
+    const amt = parseFloat(amount);
+    if (isNaN(amt) || amt <= 0) return null;
+    let base = accountBalances[payingAccount.id] ?? payingAccount.openingBalance;
+    if (linkedTxn) base -= projectedBalance(payingAccount.id, 0, [], linkedTxn);
+    const projected = projectedBalance(payingAccount.id, base, [], {
+      accountId: payingAccount.id,
+      toAccountId: undefined,
+      amount: amt,
+      type: 'expense'
+    });
+    return projected < 0 ? projected : null;
+  }, [canRecord, recordTxn, kind, accountBalances, payingAccount, amount, linkedTxn]);
 
   async function handleSave() {
     const parsed = parseFloat(amount);
@@ -198,6 +222,13 @@ export function EntryForm({
             />
           )}
         </View>
+      )}
+
+      {cashWarningBalance !== null && (
+        <Banner variant="warning">
+          This makes {payingAccount?.name ?? 'Cash'} go to {formatCurrency(cashWarningBalance)} — did you miss a cash
+          withdrawal or pick the wrong account? You can still save.
+        </Banner>
       )}
     </FormModal>
   );

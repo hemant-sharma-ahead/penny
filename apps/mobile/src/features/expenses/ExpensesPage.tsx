@@ -65,6 +65,7 @@ export function ExpensesPage() {
     removeTemplate,
     saveExpenseWithHashtags,
     seedIouFromExpense,
+    bulkAddToIou,
     persons,
     iouLinkByTxn,
     iouLinkedTxnIds,
@@ -81,6 +82,7 @@ export function ExpensesPage() {
     patchExpenses,
     removeExpenses,
     bulkAddHashtag,
+    bulkRemoveHashtag,
     saveCategory,
     moveTransactions,
     deleteCategory,
@@ -144,6 +146,10 @@ export function ExpensesPage() {
   const setAsideTagNames = useMemo(() => new Set(hashtags.filter((h) => h.setAside).map((h) => h.name)), [hashtags]);
   const handleShareToGroup = (expense: Expense, groupId: string, participants?: string[]): Promise<void> =>
     shareExpenseToGroup(groupId, {
+      // Keys the group event's logical expenseId to this personal Expense's own id, so a later delete
+      // (`useExpenses.ts`'s `deleteExpense`/`removeExpenses`) can tombstone this exact event — see
+      // `shareExpenseToGroup`'s doc comment in packages/core/src/core/groups/groupsService.ts.
+      expenseId: expense.id,
       amount: expense.amount,
       description: expense.description,
       categoryId: expense.categoryId,
@@ -229,7 +235,9 @@ export function ExpensesPage() {
               onOpenBudgets={() => setShowBudgets(true)}
               iouPersons={persons}
               onSeedIou={seedIouFromExpense}
+              onBulkAddToIou={bulkAddToIou}
               iouLinkByTxn={iouLinkByTxn}
+              iouLinkedTxnIds={iouLinkedTxnIds}
               goals={goals}
               onSeedGoal={seedGoalFromExpense}
               goalLinkByTxn={goalLinkByTxn}
@@ -244,6 +252,7 @@ export function ExpensesPage() {
               onPatchExpenses={patchExpenses}
               onRemoveExpenses={removeExpenses}
               onBulkAddHashtag={bulkAddHashtag}
+              onBulkRemoveHashtag={bulkRemoveHashtag}
               searchMerchant={searchMerchant}
               dueRecurring={dueRecurring}
               onPostRecurring={postRecurring}
@@ -258,7 +267,14 @@ export function ExpensesPage() {
 
         {visitedTabs.has('subscriptions') && (
           <View style={{ flex: 1, display: activeTab === 'subscriptions' ? 'flex' : 'none' }}>
-            <SubscriptionsSlice expenses={expenses} masked={shouldMask(!safeModeVisibility.subscriptions)} />
+            <SubscriptionsSlice
+              expenses={expenses}
+              categoryMap={categoryMap}
+              accountMap={accountMap}
+              hashtags={hashtags}
+              shouldMask={shouldMask}
+              masked={shouldMask(!safeModeVisibility.subscriptions)}
+            />
           </View>
         )}
 

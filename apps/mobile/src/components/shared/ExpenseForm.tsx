@@ -45,6 +45,7 @@ import { CategoryPickerModal } from '~/features/expenses/categories/CategoryPick
 import type { CategoryManager } from '~/features/expenses/categories/types';
 import { AccountFormModal } from './AccountFormModal';
 import { ExtraCircle } from './ExtraCircle';
+import { PersonTypeahead } from './PersonTypeahead';
 import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
@@ -82,6 +83,18 @@ interface Props {
   onSeedGoal?: (expenseId: string, intent: ExpenseGoalIntent | null) => Promise<void>;
   /** When editing: the existing expense-seeded goal link for this transaction. */
   linkedGoal?: { goalId: string; goalName: string } | null | undefined;
+  /** When editing (and not a Transfer, and not `goalPreset`/`statementPreset`): enables the type
+   *  `SegmentedControl` restricted to Expense ⟷ Income (item 6, docs/plans/real-device-testing-pass.md
+   *  Phase 2 — Transfer is excluded from edit-mode switching entirely, it structurally needs two
+   *  accounts, so a Transfer being edited keeps today's static-title behavior no matter what this prop
+   *  says). When set to a non-empty string, the switch is blocked instead — both segments render dimmed
+   *  and a `Banner` shows this exact explanatory sentence (e.g. "this transaction is linked to Raj's IOU
+   *  ledger. Remove the link first if you need to switch it."). The caller (`TransactionsSlice.tsx`)
+   *  computes this from whether the transaction has an IOU ledger link (any `ledger_entries` row with a
+   *  matching `linkedTxnId`, not just expense-seeded ones), is shared to a Group (`shareWith.length > 0`),
+   *  or backs a Goal contribution — checking all three since any one of them makes an in-place type
+   *  switch unsafe (the linked record would silently disagree with the transaction's new type). */
+  typeSwitchBlockReason?: string | null;
   /** When editing: this transaction was resolved from a bank-statement import — shows a small audit-
    *  trail caption ("Matched from bank statement: `<raw narration>`, `<date>`"), mirroring the
    *  `goalPreset` caption below (docs/plans/bank-statement-import.md §10a's purpose #1). Read-only —
@@ -238,6 +251,7 @@ export function ExpenseForm({
   goals,
   onSeedGoal,
   linkedGoal,
+  typeSwitchBlockReason,
   linkedBankStatementLines,
   saveAccount,
   searchMerchant,
@@ -791,7 +805,37 @@ export function ExpenseForm({
             [statementPreset.type, 'transfer'] rather than the full 3-way switch. */}
         <View className="flex-row items-center gap-2">
           {editing ? (
-            <Text className="text-base font-semibold text-primary flex-1">{titleText}</Text>
+            // Transfer stays static-title always (structurally needs two accounts — never offered as a
+            // switch target). `goalPreset`/`statementPreset` editing (goal-contribution edit, bank-import
+            // lone-wolf edit) also keeps the static title — both already have their own fixed type
+            // semantics unrelated to this Expense⟷Income toggle. Otherwise (item 6): a real 2-option
+            // toggle, dimmed + blocked with an explanatory `Banner` below when `typeSwitchBlockReason` is set.
+            editing.type === 'transfer' || goalPreset || statementPreset ? (
+              <Text className="text-base font-semibold text-primary flex-1">{titleText}</Text>
+            ) : (
+              <View className="flex-1">
+                <SegmentedControl
+                  options={[
+                    {
+                      value: 'expense' as const,
+                      label: 'Expense',
+                      icon: 'ti-arrow-down-circle',
+                      color: '#ef4444',
+                      disabled: !!typeSwitchBlockReason
+                    },
+                    {
+                      value: 'income' as const,
+                      label: 'Income',
+                      icon: 'ti-arrow-up-circle',
+                      color: '#10b981',
+                      disabled: !!typeSwitchBlockReason
+                    }
+                  ]}
+                  value={type}
+                  onChange={handleTypeChange}
+                />
+              </View>
+            )
           ) : statementPreset ? (
             <View className="flex-1">
               <SegmentedControl
@@ -833,6 +877,16 @@ export function ExpenseForm({
             <Icon name="ti-x" size={18} color={theme.textTertiary} />
           </Pressable>
         </View>
+
+        {/* Blocked-switch explanation (item 6) — shown whenever the caller determined this transaction's
+            type can't safely be switched (IOU-linked / shared-to-group / goal-linked), mirroring this
+            file's own audit-trail/payment-mode-mismatch `Banner` convention above, just one level up
+            (type, not a field). */}
+        {editing && editing.type !== 'transfer' && !goalPreset && !statementPreset && typeSwitchBlockReason && (
+          <Banner variant="info" icon="ti-info-circle">
+            Type can&apos;t be changed — {typeSwitchBlockReason}
+          </Banner>
+        )}
 
         {statementPreset?.suggestionNote && type === 'transfer' && (
           <View className="flex-row items-center gap-1.5 -mt-1.5">
@@ -899,51 +953,61 @@ export function ExpenseForm({
             reuses the real form's own layout instead of a separate compact "locked fields" list, per
             explicit user feedback that the statement-preset form "should look like the expense popup". */}
         {type !== 'transfer' ? (
-          <View className="flex-row items-center gap-2.5 mb-1">
-            <Pressable
-              onPress={() => !goalPreset && setShowCategoryPicker(true)}
-              disabled={!!goalPreset}
-              className="items-start gap-1.5 rounded-2xl border px-3 py-3"
-              style={{
-                width: 108,
-                borderColor: errors.cat ? theme.danger : selectedCat ? selectedCat.color : theme.border,
-                borderStyle: selectedCat ? 'solid' : 'dashed',
-                backgroundColor: theme.surfaceSecondary
-              }}
-            >
-              <View
-                className="w-8 h-8 rounded-lg items-center justify-center"
-                style={{ backgroundColor: selectedCat ? tint(selectedCat.color, 15) : theme.surfaceTertiary }}
+          <View className="mb-1">
+            <View className="flex-row items-center gap-2.5">
+              <Pressable
+                onPress={() => !goalPreset && setShowCategoryPicker(true)}
+                disabled={!!goalPreset}
+                className="items-start gap-1.5 rounded-2xl border px-3 py-3"
+                style={{
+                  width: 108,
+                  borderColor: errors.cat ? theme.danger : selectedCat ? selectedCat.color : theme.border,
+                  borderStyle: selectedCat ? 'solid' : 'dashed',
+                  backgroundColor: theme.surfaceSecondary
+                }}
               >
-                <Icon
-                  name={selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}
-                  size={16}
-                  color={selectedCat ? selectedCat.color : theme.textTertiary}
+                <View
+                  className="w-8 h-8 rounded-lg items-center justify-center"
+                  style={{ backgroundColor: selectedCat ? tint(selectedCat.color, 15) : theme.surfaceTertiary }}
+                >
+                  <Icon
+                    name={selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}
+                    size={16}
+                    color={selectedCat ? selectedCat.color : theme.textTertiary}
+                  />
+                </View>
+                <Text
+                  className="text-xs font-medium"
+                  numberOfLines={1}
+                  style={{ color: selectedCat ? theme.textPrimary : theme.textTertiary }}
+                >
+                  {selectedCat?.name ?? 'Select category'}
+                </Text>
+              </Pressable>
+
+              <View style={{ flex: 1 }}>
+                <AmountInput
+                  hero
+                  heroAlign="right"
+                  accentColor={accent}
+                  value={amount}
+                  onChange={(v) => {
+                    setAmount(v);
+                    if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
+                  }}
+                  error={errors.amount ? 'Enter an amount' : undefined}
+                  disabled={!!statementPreset}
                 />
               </View>
-              <Text
-                className="text-xs font-medium"
-                numberOfLines={1}
-                style={{ color: selectedCat ? theme.textPrimary : theme.textTertiary }}
-              >
-                {selectedCat?.name ?? 'Select category'}
-              </Text>
-            </Pressable>
-
-            <View style={{ flex: 1 }}>
-              <AmountInput
-                hero
-                heroAlign="right"
-                accentColor={accent}
-                value={amount}
-                onChange={(v) => {
-                  setAmount(v);
-                  if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
-                }}
-                error={errors.amount ? 'Enter an amount' : undefined}
-                disabled={!!statementPreset}
-              />
             </View>
+            {/* Category-cleared caption (item 6) — categories are type-scoped, so switching Expense⟷Income
+                in edit mode clears the category and lands on the tile's own pre-existing dashed-border
+                empty state above; this just names why. Derived, not stored — naturally disappears once a
+                new category is picked (`categoryId` becomes truthy again) or the type is switched back to
+                what it was originally (`editing.type`). */}
+            {editing && editing.type !== 'transfer' && type !== editing.type && !categoryId && (
+              <Text className="text-[11px] text-tertiary italic mt-1">Category cleared — pick one for {typeLabel}</Text>
+            )}
           </View>
         ) : (
           <AmountInput
@@ -1363,7 +1427,16 @@ export function ExpenseForm({
 
         {/* Lent / Borrowed panel — auto-opens (and can't be collapsed, see the `ExtraCircle` above)
             whenever `iouMandatory`, since Lending/Borrowed Money/Collected Money/Return Borrowed exist
-            specifically to record a money movement with a person (2026-08-06). */}
+            specifically to record a money movement with a person (2026-08-06).
+            Person field (2026-08-18, item 12): now `PersonTypeahead` — the same type-ahead-dropdown
+            pattern `PersonPicker.tsx` (the standalone IOU add-flow) uses, instead of a plain `TextInput`
+            plus an always-visible row of plain-pill matches. The dropdown now only appears while the
+            field is focused/typing (gated on internal `focused` state, not on `iouPerson` being
+            non-empty), matches are live-filtered, and a "Create '<name>'" row shows when nothing exact
+            matches — see `docs/mockups/proposals/iou-quick-fixes-v1.html` §2. Doesn't call
+            `getOrCreatePerson` itself — selecting or typing here only sets `iouPerson`; the actual
+            resolve-or-create still happens later, in `seedIouFromExpense` (`useExpenses.ts`), once the
+            expense itself saves — unchanged architecture, purely a selection-UI change. */}
         {showIouSection && iouPanelOpen && (
           <View
             ref={iouPanelRef}
@@ -1373,49 +1446,33 @@ export function ExpenseForm({
               backgroundColor: theme.surfaceTertiary
             }}
           >
-            <TextInput
-              value={iouPerson}
-              onChange={(v) => {
+            <PersonTypeahead
+              persons={iouPersons ?? []}
+              query={iouPerson}
+              onQueryChange={(v) => {
                 setIouPerson(v);
                 if (errors.iouPerson) setErrors((e) => ({ ...e, iouPerson: false }));
               }}
+              onSelect={(p) => {
+                setIouPerson(p.name);
+                if (errors.iouPerson) setErrors((e) => ({ ...e, iouPerson: false }));
+              }}
               placeholder="Person's name"
-              error={
-                errors.iouPerson
-                  ? iouMandatory
-                    ? 'Enter who this is with — required for this category'
-                    : 'Enter who this is with — you turned this on'
-                  : undefined
-              }
+              error={errors.iouPerson}
             />
-            {!errors.iouPerson && (
+            {errors.iouPerson ? (
+              <Text className="text-xs" style={{ color: theme.danger }}>
+                {iouMandatory
+                  ? 'Enter who this is with — required for this category'
+                  : 'Enter who this is with — you turned this on'}
+              </Text>
+            ) : (
               <Text className="text-xs text-tertiary">
                 {iouKind === 'lent'
                   ? "Adds a they-owe-you entry to this person's ledger."
                   : "Adds a you-owe-them entry to this person's ledger."}
               </Text>
             )}
-            {/* RN has no `<datalist>` — web's native browser autocomplete only surfaces options that
-             *  match what's typed, invisible until then; this filters the same way (case-insensitive,
-             *  hidden while empty) instead of always showing every known person. */}
-            {iouPerson.trim().length > 0 &&
-              (() => {
-                const q = iouPerson.trim().toLowerCase();
-                const matches = (iouPersons ?? [])
-                  .filter((p) => !p.isArchived && p.name.toLowerCase().includes(q) && p.name.toLowerCase() !== q)
-                  .slice(0, 6);
-                return (
-                  matches.length > 0 && (
-                    <View className="flex-row flex-wrap gap-1">
-                      {matches.map((p) => (
-                        <Button key={p.id} variant="secondary" size="sm" onPress={() => setIouPerson(p.name)}>
-                          {p.name}
-                        </Button>
-                      ))}
-                    </View>
-                  )
-                );
-              })()}
           </View>
         )}
 

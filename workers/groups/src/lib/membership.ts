@@ -38,6 +38,30 @@ export function canAssignRole(actor: GroupRole, target: GroupRole): boolean {
   return actor === 'admin' && target === 'member';
 }
 
+/**
+ * Admin-less group protection (real-device-testing-pass.md Phase 3, item 9): would a leave/remove/
+ * role-change leave the group with active members but ZERO owner/admin among them?
+ *
+ * `resultingRole` is `targetUserId`'s role AFTER the action: `null` for a leave/remove (they're no
+ * longer an active member afterward), or the new `GroupRole` for a `set_role` change (promotions never
+ * trip this — only a demotion away from owner/admin can).
+ *
+ * Deliberately does NOT block the one case with no way out: a lone remaining member leaving (or being
+ * removed, the self-removal edge case) empties the group entirely rather than leaving it "admin-less
+ * but populated" — that member should be told to close/delete the group instead, but this guard must
+ * never trap them with no way to leave at all.
+ */
+export function wouldLeaveGroupAdminless(
+  activeMembers: readonly { user_id: string; role: GroupRole }[],
+  targetUserId: string,
+  resultingRole: GroupRole | null
+): boolean {
+  const remainingRoles = activeMembers.filter((m) => m.user_id !== targetUserId).map((m) => m.role);
+  if (resultingRole !== null) remainingRoles.push(resultingRole);
+  if (remainingRoles.length === 0) return false; // group would be empty — not this guard's concern
+  return !remainingRoles.some((r) => r === 'owner' || r === 'admin');
+}
+
 export interface InviteRow {
   token_hash: string;
   group_id: string;

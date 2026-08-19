@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode
+} from 'react';
 import { Modal as RNModal, Pressable, View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, Easing } from 'react-native-reanimated';
@@ -7,6 +16,7 @@ import { BANNER_DEFAULT_ICON, type BannerVariant } from '~/components/ui/Banner.
 import { tint, ink } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { navigationRef } from '~/navigation/navigationRef';
+import { isAnyModalOpen, subscribeModalOpen } from '~/lib/modalStack';
 
 /**
  * RN port of apps/web-react/src/context/ToastContext.tsx. Same API (`showToast`), same one-toast-
@@ -57,6 +67,27 @@ import { navigationRef } from '~/navigation/navigationRef';
  * wanted, not just the former (previously requiring a second back-press to actually navigate).
  * `handleRequestClose` below does exactly that via `navigationRef` (React Navigation's documented
  * outside-any-navigator handle, already used by `SessionGate.tsx`), rather than only calling `dismiss`.
+ *
+ * **Forward taps to content behind the toast no longer blocked either** (2026-08-18 follow-up, real
+ * user report: "toast blocks app interactivity"). The back-button fix above only ever addressed the
+ * hardware-back case — a plain tap elsewhere on screen while a toast was showing was still silently
+ * swallowed on Android, for the identical underlying reason: a native `<Modal>` there is backed by an
+ * Android `Dialog`, and that Dialog's *window* intercepts every touch within its (full-screen) bounds
+ * at the OS level before RN's own `pointerEvents="box-none"` logic ever runs — `pointerEvents` only
+ * arbitrates which view *within* a single window's tree receives a touch, it has no say over whether a
+ * touch reaches a window behind the front one at all. There's no prop that opts a Modal's window out of
+ * this; it's inherent to how Android dispatches touches to Dialog-backed windows.
+ *
+ * The real Modal was only ever needed here for one reason — stacking above an *already-open* modal
+ * (`~/components/ui/Modal.tsx`, itself also `Dialog`-backed) — so the fix is to only pay that "blocks
+ * everything behind it" cost when that's actually true. `~/lib/modalStack.ts` is a tiny shared
+ * open-modal counter that `ui/Modal.tsx` registers itself in on mount/unmount; when nothing else is
+ * open, the toast renders as a plain absolutely-positioned `View` (a real sibling in the normal RN view
+ * tree, not a separate native window) with a high `zIndex` instead of a `<Modal>` — taps at any point
+ * outside the toast's own card then behave exactly like any other overlapping sibling views, i.e. they
+ * reach whatever's underneath with zero interception, and the hardware back button reaches the screen's
+ * own navigator directly (no `handleRequestClose` forwarding hack needed in that path at all). The
+ * `<Modal>`-wrapped path is kept, unchanged, for the one case that still needs it.
  */
 
 export interface ToastOptions {
@@ -118,6 +149,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const theme = useThemeColors();
   const insets = useSafeAreaInsets();
+  // Whether a real `~/components/ui/Modal.tsx` is currently open elsewhere — see this file's own
+  // 2026-08-18 doc comment above for why that's the only case a toast still needs its own native
+  // `<Modal>` layer at all.
+  const anyOtherModalOpen = useSyncExternalStore(subscribeModalOpen, isAnyModalOpen, isAnyModalOpen);
 
   const dismiss = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -150,43 +185,56 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const color = theme[variant];
   const durationMs = toast?.durationMs ?? 5000;
 
+  // Shared between both render paths below — only the wrapper (native `<Modal>` vs. plain `View`)
+  // differs, not the card itself.
+  const toastCard = toast && (
+    <View
+      className="absolute left-0 right-0 items-center px-4"
+      // insets.top + 54 clears MainTabs' persistent header (see that file's own header-row height) the
+      // same way the old bottom position cleared the tab bar — plus a small gap below it. zIndex only
+      // matters on the no-Modal path below, but is harmless to always set.
+      style={{ top: insets.top + 54, zIndex: 9999 }}
+      pointerEvents="box-none"
+    >
+      <View
+        className="w-full rounded-xl border shadow-lg overflow-hidden"
+        style={{ backgroundColor: ink(color, theme.surface, 14), borderColor: tint(color, 30) }}
+      >
+        <View className="flex-row items-center gap-3 px-4 pt-3 pb-3.5">
+          <Icon name={BANNER_DEFAULT_ICON[variant]} size={17} color={color} />
+          <Text className="flex-1 text-sm" style={{ color: ink(color, theme.textPrimary) }}>
+            {toast.message}
+          </Text>
+          {toast.actionLabel && (
+            <Pressable onPress={() => void handleAction()}>
+              <Text className="text-sm font-semibold" style={{ color }}>
+                {toast.actionLabel}
+              </Text>
+            </Pressable>
+          )}
+          <Pressable onPress={dismiss} accessibilityLabel="Dismiss">
+            <Icon name="ti-x" size={15} color={theme.textTertiary} />
+          </Pressable>
+        </View>
+        <ToastCountdown toastId={toast.id} durationMs={durationMs} color={color} />
+      </View>
+    </View>
+  );
+
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {toast && (
-        <RNModal transparent visible animationType="none" statusBarTranslucent onRequestClose={handleRequestClose}>
-          {/* insets.top + 46 clears MainTabs' persistent header (see that file's own header-row height)
-              the same way the old bottom position cleared the tab bar — plus a small gap below it. */}
-          <View
-            className="absolute left-0 right-0 items-center px-4"
-            style={{ top: insets.top + 54 }}
-            pointerEvents="box-none"
-          >
-            <View
-              className="w-full rounded-xl border shadow-lg overflow-hidden"
-              style={{ backgroundColor: ink(color, theme.surface, 14), borderColor: tint(color, 30) }}
-            >
-              <View className="flex-row items-center gap-3 px-4 pt-3 pb-3.5">
-                <Icon name={BANNER_DEFAULT_ICON[variant]} size={17} color={color} />
-                <Text className="flex-1 text-sm" style={{ color: ink(color, theme.textPrimary) }}>
-                  {toast.message}
-                </Text>
-                {toast.actionLabel && (
-                  <Pressable onPress={() => void handleAction()}>
-                    <Text className="text-sm font-semibold" style={{ color }}>
-                      {toast.actionLabel}
-                    </Text>
-                  </Pressable>
-                )}
-                <Pressable onPress={dismiss} accessibilityLabel="Dismiss">
-                  <Icon name="ti-x" size={15} color={theme.textTertiary} />
-                </Pressable>
-              </View>
-              <ToastCountdown toastId={toast.id} durationMs={durationMs} color={color} />
-            </View>
-          </View>
-        </RNModal>
-      )}
+      {toast &&
+        (anyOtherModalOpen ? (
+          <RNModal transparent visible animationType="none" statusBarTranslucent onRequestClose={handleRequestClose}>
+            {toastCard}
+          </RNModal>
+        ) : (
+          // No other modal open — a plain sibling view, not a separate native window, so taps outside
+          // the card reach whatever's underneath exactly like any other overlapping view, and the
+          // hardware back button needs no forwarding hack (it never left the screen's own navigator).
+          toastCard
+        ))}
     </ToastContext.Provider>
   );
 }

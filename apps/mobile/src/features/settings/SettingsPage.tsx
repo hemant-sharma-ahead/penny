@@ -9,7 +9,7 @@ import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import { useProfile } from '@/hooks/useProfile';
-import { useSettings, OPEN_MODE_DURATIONS, type FontScale } from '~/context/SettingsContext';
+import { useSettings, type FontScale } from '~/context/SettingsContext';
 import { type PersistedPrivacyMode } from '~/context/PrivacyContext';
 import { useTheme, type ThemePreference } from '~/theme/ThemeProvider';
 import { useToast } from '~/context/ToastContext';
@@ -82,7 +82,7 @@ const FONT_SCALE_NAMES: Record<FontScale, string> = {
   xl: 'Extra large'
 };
 
-/** One accent colour per section (not per row) — reused by that section's `Row`/`InlineBlock` icons
+/** One accent colour per section (not per row) — reused by that section's `Row` icons
  *  *and* the matching status pill above, so the pill visually cross-references where its control lives.
  *  Decorative variety per-row would fight "colour is wayfinding, not decoration" (`DESIGN_GUIDELINES.md`
  *  §1) since these rows don't carry distinct app-wide meaning the way, say, income/expense colours do. */
@@ -93,16 +93,12 @@ function useSectionColors() {
 
 // Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync. Open is deliberately
 // excluded — it can never be a persisted default, only a temporary elevation (see PrivacyContext).
+// 2026-08-18: Private mode was removed app-wide, so the persisted default is always 'safe' now — this
+// still returns a (single-item) list rather than a hardcoded object so the `StatusPill` lookup below
+// didn't need reshaping.
 function usePrivacyModes(): { mode: PersistedPrivacyMode; label: string; icon: string; color: string }[] {
   const theme = useThemeColors();
-  // Same colors `~/components/privacy/PrivacyModeSwitcher.tsx`'s own `MODE` record uses (its header
-  // switcher amber/violet/red) — these two previously used unrelated colors (`textSecondary`/`danger`),
-  // a mismatch found via the 2026-07-25 parity sweep. `theme.privacy` is real now too (added the same
-  // sweep, see tokens.ts) — no more `theme.info` standing in for violet.
-  return [
-    { mode: 'safe', label: 'Safe', icon: 'ti-eye-off', color: theme.warning },
-    { mode: 'privacy', label: 'Private', icon: 'ti-shield-lock', color: theme.privacy }
-  ];
+  return [{ mode: 'safe', label: 'Safe', icon: 'ti-eye-off', color: theme.warning }];
 }
 
 /** Local section label — mirrors web's own inline `SectionLabel` (not the shared `components/ui` one,
@@ -119,7 +115,7 @@ function SectionLabel({ children, danger }: { children: ReactNode; danger?: bool
   );
 }
 
-/** A `bg-surface` rounded card grouping `Row`/`InlineBlock` children — the "Grouped cards + section
+/** A `bg-surface` rounded card grouping `Row` children — the "Grouped cards + section
  *  labels" pattern from `docs/DESIGN_GUIDELINES.md` §3. */
 function Card({ children, borderColor }: { children: ReactNode; borderColor?: string }) {
   const theme = useThemeColors();
@@ -182,11 +178,6 @@ function Row({
   ) : (
     <View className={cls}>{inner}</View>
   );
-}
-
-/** Non-row content inside a `Card` (button groups, swatch grids) — same first-child divider rule as `Row`. */
-function InlineBlock({ children, first }: { children: ReactNode; first?: boolean }) {
-  return <View className={`p-3 ${first ? '' : 'border-t border-theme'}`}>{children}</View>;
 }
 
 /** Display-only summary chip — deliberately has no `onPress`. It's a glance at current state (Privacy/
@@ -256,16 +247,7 @@ export function SettingsPage() {
   const theme = useThemeColors();
   const sectionColor = useSectionColors();
   const { profile } = useProfile();
-  const {
-    fontScale,
-    defaultPrivacyMode,
-    openModeDurationMinutes,
-    lockOnBackground,
-    setFontScale,
-    setDefaultPrivacyMode,
-    setOpenModeDurationMinutes,
-    setLockOnBackground
-  } = useSettings();
+  const { fontScale, lockOnBackground, setFontScale, setLockOnBackground } = useSettings();
   const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const { showToast } = useToast();
   const privacyModes = usePrivacyModes();
@@ -311,7 +293,7 @@ export function SettingsPage() {
     .filter(Boolean)
     .join(' · ');
 
-  const activePrivacyMode = privacyModes.find((m) => m.mode === defaultPrivacyMode) ?? privacyModes[0];
+  const activePrivacyMode = privacyModes[0];
   const activeTheme = THEMES.find((t) => t.value === themePreference) ?? THEMES[0];
 
   return (
@@ -392,58 +374,12 @@ export function SettingsPage() {
           {/* Frequent — the controls you actually touch often, right after Profile */}
           <SectionLabel>Frequent</SectionLabel>
           <Card>
-            <InlineBlock first>
-              <Text className="text-xs text-secondary mb-2">Default privacy mode when the app opens</Text>
-              <View className="flex-row gap-2">
-                {privacyModes.map(({ mode, label, icon, color }) => {
-                  const on = defaultPrivacyMode === mode;
-                  return (
-                    <Pressable
-                      key={mode}
-                      onPress={() => setDefaultPrivacyMode(mode)}
-                      className="flex-1 py-2.5 rounded-xl border flex-row items-center justify-center gap-1.5"
-                      style={{ backgroundColor: on ? color : 'transparent', borderColor: on ? color : theme.border }}
-                    >
-                      <Icon name={icon} size={16} color={on ? '#fff' : theme.textSecondary} />
-                      <Text className="text-xs font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </InlineBlock>
-
-            <InlineBlock>
-              <Text className="text-xs text-secondary mb-2">
-                Open mode auto-reverts after — it's never a starting state, always a temporary switch (from the header)
-                that resets on its own, on backgrounding, or on relaunch.
-              </Text>
-              <View className="flex-row gap-1.5">
-                {OPEN_MODE_DURATIONS.map((minutes) => {
-                  const on = openModeDurationMinutes === minutes;
-                  return (
-                    <Pressable
-                      key={minutes}
-                      onPress={() => setOpenModeDurationMinutes(minutes)}
-                      className="flex-1 py-2 rounded-xl border items-center"
-                      style={{
-                        // Open mode is a distinct destructive-red risk indicator on web (`var(--color-open)`),
-                        // not a plain warning — `theme.open` is the matching token (see PrivacyModeSwitcher.tsx).
-                        backgroundColor: on ? theme.open : 'transparent',
-                        borderColor: on ? theme.open : theme.border
-                      }}
-                    >
-                      <Text className="text-xs font-bold" style={{ color: on ? '#fff' : theme.textSecondary }}>
-                        {minutes}m
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </InlineBlock>
-
+            {/* 2026-08-18: the default-privacy-mode picker and Open-mode auto-revert-duration picker
+             *  were both removed here — Private mode is gone app-wide and the persisted default is
+             *  always 'safe' now, and Open mode no longer has a fixed-duration timer to configure (see
+             *  PrivacyContext.tsx's doc comment) — only the header's Safe/Open switcher remains. */}
             <Row
+              first
               icon="ti-eye-off"
               color={sectionColor.frequent}
               label="Manage Safe Mode visibility"

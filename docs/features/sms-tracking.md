@@ -263,6 +263,18 @@ couldn't be mistaken for one, rather than bypassed.
   it (e.g. `159***660960`, `XXXXXX1234`) — never trimmed to match the matcher's expectation. A parsed
   transaction still gets created and is fully usable, it just won't auto-link to an existing account/
   card the way other banks' transactions do until the matcher itself is made mask-tolerant.
+- **The local pattern cache has no version/hash check (confirmed 2026-08-18, not yet fixed).**
+  `getSmsPatternBundle()` (`packages/core/src/core/sms-import/smsPatterns.ts`) checks the persisted
+  `penny_sms_patterns_v1` AsyncStorage cache before ever attempting a network fetch or the baked-in
+  fallback, and treats anything under 7 days old (`REFRESH_INTERVAL_MS`) as good enough — nothing
+  compares it against what the current build actually ships. Installing an updated APK over an existing
+  install (not uninstall-then-reinstall) preserves AsyncStorage, so a stale cached bundle from before an
+  update can silently keep running against real messages for up to a week with no signal to the user.
+  Reproduced directly on-device: HDFC/IndusInd/HSBC's real-verified templates (above) landed real
+  messages in "Unparsed" on a device whose earlier install had cached the pre-fix bundle; uninstalling
+  and reinstalling (clearing AsyncStorage) fixed it immediately. Fix (not yet done): stamp the cache with
+  something that changes whenever the bundle's shape does (a `version` bump on `SMS_PATTERNS_FALLBACK`,
+  or a hash) and invalidate on mismatch, instead of trusting age alone.
 
 ## Planned improvements
 
@@ -272,6 +284,8 @@ couldn't be mistaken for one, rather than bypassed.
   loop; `tools/sms-parser-verifier/` is the equivalent offline, no-device discovery loop for hardening
   the library upfront against testers' own historical messages.
 - Possible future: a refund/reversal hint in the review UI (plan §8).
+- **SMS tracking optimization** (flagged during the 2026-08-18 real-device-testing pass, not yet
+  scoped) — captured so it isn't lost; see `docs/plans/real-device-testing-pass.md`'s Backlog section.
 
 ## Ideas welcome
 

@@ -1,13 +1,24 @@
-import type { Expense } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { useSubscriptions } from '~/features/subscriptions/useSubscriptions';
 import { SubscriptionsView } from '~/features/subscriptions/SubscriptionsView';
 
 interface SubscriptionsSliceProps {
   expenses: Expense[];
+  categoryMap: Map<string, ExpenseCategory>;
+  accountMap: Map<string, Account>;
+  hashtags: Hashtag[];
+  shouldMask: (sensitive: boolean | undefined) => boolean;
   masked: boolean;
 }
 
-export function SubscriptionsSlice({ expenses, masked }: SubscriptionsSliceProps) {
+export function SubscriptionsSlice({
+  expenses,
+  categoryMap,
+  accountMap,
+  hashtags,
+  shouldMask,
+  masked
+}: SubscriptionsSliceProps) {
   const {
     detectedSubs,
     activeSubs,
@@ -37,6 +48,11 @@ export function SubscriptionsSlice({ expenses, masked }: SubscriptionsSliceProps
       onAdd={addSubscription}
       reload={reload}
       contentBottomPadding={96}
+      expenses={expenses}
+      categoryMap={categoryMap}
+      accountMap={accountMap}
+      hashtags={hashtags}
+      shouldMask={shouldMask}
     />
   );
 }

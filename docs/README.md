@@ -67,6 +67,7 @@ Each feature file follows a standard template: **What it is → User-facing capa
 | [`features/loans.md`](features/loans.md)                                   | Loans: amortization, payoff planner, XLSX download                                                                |
 | [`features/accounts.md`](features/accounts.md)                             | Accounts: income entries, transfers, live balances                                                                |
 | [`features/iou.md`](features/iou.md)                                       | IOU tracker: lent/borrowed, ageing alerts                                                                         |
+| [`features/groups.md`](features/groups.md)                                 | Groups (Household OS): N-party shared expenses, splits, settle-up/write-off, static members                       |
 | [`features/subscriptions.md`](features/subscriptions.md)                   | Subscription detection: 3-pass algorithm                                                                          |
 | [`features/calculators.md`](features/calculators.md)                       | 10 financial calculators: FIRE, tax regime, HRA, SIP/SWP, FD/RD, lumpsum, capital gains, gratuity, SSY, inflation |
 | [`features/chip.md`](features/chip.md)                                     | Chip AI: mock vs real, insights, prompt architecture, PII pipeline                                                |
@@ -81,7 +82,7 @@ Each feature file follows a standard template: **What it is → User-facing capa
 | [`features/news-sentiment.md`](features/news-sentiment.md)                 | On-device, no-AI news sentiment: headline tone chips + "news mood" gauge                                          |
 | [`features/feedback.md`](features/feedback.md)                             | Contact/Feedback: `mailto:` deep-link                                                                             |
 
-Not yet documented here (a known gap, not yet closed): Groups, Import, Profile, Security,
+Not yet documented here (a known gap, not yet closed): Import, Profile, Security,
 Settings — functional in both apps but without a dedicated `docs/features/` file yet.
 
 ### Claude Code tooling

@@ -40,6 +40,9 @@ export function useTransactionFilters(
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
   const [eventFilters, setEventFilters] = useState<Set<string>>(new Set());
   const [goalFilters, setGoalFilters] = useState<Set<string>>(new Set());
+  // Item 26 (docs/plans/real-device-testing-pass.md Phase 2) — multi-select, OR match, same shape as
+  // `eventFilters` above.
+  const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
   const [monthFilter, setMonthFilter] = useState<string | null>(null);
   const [paymentModeMismatchOnly, setPaymentModeMismatchOnly] = useState(false);
 
@@ -50,6 +53,7 @@ export function useTransactionFilters(
     (parentCategoryFilters.size > 0 || categoryFilters.size > 0 ? 1 : 0) +
     (eventFilters.size > 0 ? 1 : 0) +
     (goalFilters.size > 0 ? 1 : 0) +
+    (tagFilters.size > 0 ? 1 : 0) +
     (paymentModeMismatchOnly ? 1 : 0);
 
   const filteredExpenses = useMemo(() => {
@@ -74,6 +78,10 @@ export function useTransactionFilters(
         const matchesAnyGoal = [...goalFilters].some((goalId) => txnIdsByGoal.get(goalId)?.has(e.id));
         if (!matchesAnyGoal) return false;
       }
+      if (tagFilters.size > 0) {
+        const hasAnyTag = e.hashtags.some((t) => tagFilters.has(t));
+        if (!hasAnyTag) return false;
+      }
       if (monthFilter && toMonthYearKey(new Date(e.date)) !== monthFilter) return false;
       if (paymentModeMismatchOnly && !mismatchedTxnIds.has(e.id)) return false;
       if (q) {
@@ -93,6 +101,7 @@ export function useTransactionFilters(
     categoryFilters,
     eventFilters,
     goalFilters,
+    tagFilters,
     txnIdsByGoal,
     monthFilter,
     paymentModeMismatchOnly,
@@ -116,6 +125,7 @@ export function useTransactionFilters(
     categoryFilters,
     eventFilters,
     goalFilters,
+    tagFilters: [...tagFilters],
     paymentModeMismatchOnly
   };
 
@@ -127,6 +137,7 @@ export function useTransactionFilters(
     setCategoryFilters(filters.categoryFilters);
     setEventFilters(filters.eventFilters);
     setGoalFilters(filters.goalFilters);
+    setTagFilters(new Set(filters.tagFilters));
     setPaymentModeMismatchOnly(filters.paymentModeMismatchOnly);
   }
 
@@ -137,6 +148,7 @@ export function useTransactionFilters(
     setCategoryFilters(new Set());
     setEventFilters(new Set());
     setGoalFilters(new Set());
+    setTagFilters(new Set());
     setPaymentModeMismatchOnly(false);
   }
 
@@ -153,6 +165,8 @@ export function useTransactionFilters(
     setCategoryFilters,
     eventFilters,
     setEventFilters,
+    tagFilters,
+    setTagFilters,
     monthFilter,
     setMonthFilter,
     paymentModeMismatchOnly,

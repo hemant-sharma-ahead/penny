@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { TabStrip, DetailRow, Button, EmptyState } from '~/components/ui';
+import { EntityTransactionsModal } from '~/components/shared';
 import { formatCurrency } from '@/lib/formatters';
-import type { Subscription } from '@/core/db/types';
-import type { DetectedSubscription } from '@/core/subscriptions/detector';
+import type { Account, Expense, ExpenseCategory, Hashtag, Subscription } from '@/core/db/types';
+import { normalize, type DetectedSubscription } from '@/core/subscriptions/detector';
+import { displayName } from '@/core/subscriptions/format';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { DetectedSubCard } from './DetectedSubCard';
@@ -28,6 +30,15 @@ interface SubscriptionsViewProps {
   /** Bottom padding for the owned scroll container — callers differ (standalone page vs. an Expenses
    *  sub-tab sitting above other chrome), so this stays caller-supplied rather than hardcoded here. */
   contentBottomPadding?: number;
+  /** Powers the "Seen N times" drill-down (item 22/23, docs/plans/real-device-testing-pass.md) — a
+   *  `DetectedSubscription` carries only its normalized `merchantCategory` group key, not a
+   *  transaction-id list, so this component re-filters the caller's own `expenses` by
+   *  `normalize(e.description) === candidate.merchantCategory` at tap time. */
+  expenses: Expense[];
+  categoryMap: Map<string, ExpenseCategory>;
+  accountMap: Map<string, Account>;
+  hashtags: Hashtag[];
+  shouldMask: (sensitive: boolean | undefined) => boolean;
 }
 
 /** Shared subscriptions body: detected/active sub-tabs, lists, empty states, monthly + annual summary.
@@ -48,13 +59,26 @@ export function SubscriptionsView({
   onCancel,
   onAdd,
   reload,
-  contentBottomPadding = 24
+  contentBottomPadding = 24,
+  expenses,
+  categoryMap,
+  accountMap,
+  hashtags,
+  shouldMask
 }: SubscriptionsViewProps) {
   const theme = useThemeColors();
   const [tab, setTab] = useState<'detected' | 'active'>('detected');
   const [nowMs] = useState(() => Date.now());
   const [showAdd, setShowAdd] = useState(false);
+  // "Seen N times" drill-down (item 22/23) — holds the tapped candidate; its matching transactions are
+  // re-derived below rather than stored, so they stay live if `expenses` changes while the modal is open.
+  const [viewingSub, setViewingSub] = useState<DetectedSubscription | null>(null);
   const { refreshing, onRefresh } = usePullToRefresh(reload);
+
+  const viewingTxns = useMemo(
+    () => (viewingSub ? expenses.filter((e) => normalize(e.description) === viewingSub.merchantCategory) : []),
+    [viewingSub, expenses]
+  );
 
   return (
     <ScrollView
@@ -96,6 +120,7 @@ export function SubscriptionsView({
                   masked={masked}
                   onConfirm={onConfirm}
                   onDismiss={onDismiss}
+                  onViewTransactions={setViewingSub}
                 />
               ))}
             </>
@@ -132,6 +157,19 @@ export function SubscriptionsView({
       )}
 
       {showAdd && <SubscriptionForm onAdd={onAdd} onClose={() => setShowAdd(false)} />}
+
+      {viewingSub && (
+        <EntityTransactionsModal
+          title={displayName(viewingSub.merchantCategory)}
+          subtitle={`${viewingTxns.length} transaction${viewingTxns.length !== 1 ? 's' : ''}`}
+          expenses={viewingTxns}
+          categoryMap={categoryMap}
+          accountMap={accountMap}
+          hashtags={hashtags}
+          shouldMask={shouldMask}
+          onClose={() => setViewingSub(null)}
+        />
+      )}
     </ScrollView>
   );
 }

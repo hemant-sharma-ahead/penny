@@ -180,7 +180,7 @@ Default and user-created categories for classifying expenses.
 
 > **Tax-footprint overrides (Track 7):** stored in `localStorage`, not Dexie — `penny_settings_tax_gross_income`, `penny_settings_tax_direct`, `penny_settings_tax_epf`, `penny_settings_tax_statutory` (optional manual gross-income, income-tax correction, EPF/PF, and professional-tax+LWF overrides for the income waterfall; absent = derive automatically). See `SettingsContext`.
 
-> **Safe Mode visibility:** per-category (`hideInSafeMode` above) and per-account (`accounts.hideInSafeMode`) flags cover Expenses/Income/Accounts. Loans, IOU, Portfolio, Goals, Insurance, and Subscriptions don't have a natural per-item category to hang a flag on, so they use simple module-level toggles stored in `localStorage` under `penny_settings_safe_mode_visibility` (`SafeModeVisibility` in `SettingsContext` — `loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`; these already store "visible" directly, default `true`). `usePrivacy().shouldMask(sensitive)` is the single source of truth: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Aggregates (totals, net worth, "Total spent this month", the cash-flow forecast, the Activity Timeline) always pass `sensitive: false` — Safe Mode's premise is that the big picture stays visible and only specific flagged items hide.
+> **Safe Mode visibility:** per-category (`hideInSafeMode` above) and per-account (`accounts.hideInSafeMode`) flags cover Expenses/Income/Accounts. Loans, IOU, Portfolio, Goals, Insurance, and Subscriptions don't have a natural per-item category to hang a flag on, so they use simple module-level toggles stored in `localStorage` under `penny_settings_safe_mode_visibility` (`SafeModeVisibility` in `SettingsContext` — `loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`; these already store "visible" directly, default `true`). `usePrivacy().shouldMask(sensitive)` is the single source of truth: Open never masks, Safe masks only when `sensitive` is true (a third "Privacy" mode that used to always mask was removed 2026-08-18 — see `docs/PRIVACY.md`). Aggregates (totals, net worth, "Total spent this month", the cash-flow forecast, the Activity Timeline) always pass `sensitive: false` — Safe Mode's premise is that the big picture stays visible and only specific flagged items hide.
 >
 > **Category defaults are smart, not blank.** An explicit `hideInSafeMode` on a category always wins; when it's `undefined`, `isHiddenInSafeMode()` (`core/expenses/categoryGroups.ts`) falls back to a per-intent-group default — `income`, `transfers`, `family_giving`, `legal`, `sin_goods`, and `financial` default **hidden**; every other default category (daily living, home & utilities, lifestyle, etc.) and any custom category default **visible**. The Settings → Safe Mode toggle matches the field directly (ON = hidden, `hideInSafeMode: true`). Accounts have no group concept and simply default visible (`undefined` → shown).
 
@@ -401,6 +401,7 @@ Counterparties in the IOU ledger (a pairwise "you ↔ them" relationship). Encry
 | notes                 | string?       | Free text                                                   |
 | linkedMemberId        | string?       | Future group-sync hook (Phase 1.5 Track E); null in Track 1 |
 | isArchived            | boolean?      | Soft-archived when a person with history is removed         |
+| promotedToGroupId     | string?       | Set when this person's ledger was promoted to a real Group (`PromoteToGroupWizard.tsx`, real-device-testing-pass.md Phase 3) — the personal ledger stays archived (never deleted); the Archived section shows a "→ Now in {group}" link instead of Restore/Trash |
 | createdAt / updatedAt | number        | Epoch ms                                                    |
 
 ### `ledger_entries`
@@ -608,17 +609,19 @@ A group the user belongs to. `role`/`status` are **this user's own** membership.
 
 | Field          | Type    | Notes                                              |
 | -------------- | ------- | -------------------------------------------------- |
-| id             | string  | Composite `${groupId}:${userId}`                   |
-| groupId        | string  | FK → `groups.id`                                   |
-| userId         | string  | Member's account `userId`                          |
-| displayName    | string  | Decrypted display name                             |
-| role           | string  | `owner` \| `admin` \| `member`                     |
-| status         | string  | `active` \| `left` \| `muted` (mute is local-only) |
-| linkedPersonId | string? | Bridges to a local `Person` (reuses Track 1 IOU)   |
-| joinedAt       | number  | Epoch ms                                           |
-| leftAt         | number? | Epoch ms                                           |
-| createdAt      | number  | Epoch ms                                           |
-| updatedAt      | number  | Epoch ms                                           |
+| id               | string   | Composite `${groupId}:${userId}`                   |
+| groupId          | string   | FK → `groups.id`                                   |
+| userId           | string   | Member's account `userId` — for an `accountless` member, a locally-generated pseudo id (`static:<uuid>`) |
+| displayName      | string   | Decrypted display name                             |
+| role             | string   | `owner` \| `admin` \| `member`                     |
+| status           | string   | `active` \| `left` \| `muted` (mute is local-only) |
+| linkedPersonId   | string?  | Bridges to a local `Person` (reuses Track 1 IOU)   |
+| accountless      | boolean? | **(2026-08-18)** True for a static/placeholder member — name-only, no real account, can't sync/confirm anything itself; a real member manages splits/settlements on their behalf. Added via `addStaticMember()`; materialized on other devices via `syncGroupMembers()` folding `member_joined` events. |
+| upgradedToUserId | string?  | **(2026-08-18)** Reserved upgrade hook: once an `accountless` member's real counterpart joins normally, set to their real `userId` so historical shares can be reattributed. Not built yet — reserved so adding it later needs no migration. |
+| joinedAt         | number   | Epoch ms                                           |
+| leftAt           | number?  | Epoch ms                                           |
+| createdAt        | number   | Epoch ms                                           |
+| updatedAt        | number   | Epoch ms                                           |
 
 ### `group_events`
 
@@ -632,10 +635,20 @@ Append-only shared ledger (local mirror of the server's event rows). Balances fo
 | lamport   | number  | Client logical clock (tie-break)                                                   |
 | authorId  | string  | `userId` of the author                                                             |
 | keyEpoch  | number  | Group-Key epoch the payload was encrypted under                                    |
-| type      | string  | `shared_expense`/`expense_edit`/`expense_delete`/`settlement`/`member_*`/`group_*` |
+| type      | string  | `shared_expense`/`expense_edit`/`expense_delete`/`expense_flag`/`expense_flag_clear`/`settlement`/`settlement_void`/`member_*`/`group_*` (last two added 2026-08-18 — see below) |
 | payload   | unknown | Type-specific (e.g. payer/participants/split); decrypted from the epoch key        |
 | createdAt | number  | Epoch ms                                                                           |
 | updatedAt | number  | Epoch ms                                                                           |
+
+> **`expense_flag`/`expense_flag_clear` and `settlement_void` (2026-08-18, real-device-testing-pass.md
+> Phase 3)** — `expense_flag` lets another member flag someone else's `shared_expense` as "not needed"
+> (balance-inert, resolved by a later `expense_flag_clear` = the recorder "Keep"s it, or `expense_delete`
+> = they delete it); folded via `groupFlags()` in `groupSync.ts`. `settlement_void` reverses a
+> `settlement` (real repayment or write-off) — the fold engine excludes the voided settlement entirely,
+> restoring the balance to what it was before. `expense_edit` reuses `shared_expense`'s exact payload
+> shape (keyed by the same `expenseId`) — no schema change needed for it; the fold engine's "latest
+> wins" is a plain `Map` overwrite, and `groupFeed()` now dedupes an edited expense to one feed row
+> (fixed a real bug where it used to show as two).
 
 ---
 

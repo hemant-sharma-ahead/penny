@@ -4,6 +4,7 @@ import type { LedgerEntry, Person, SettleDirection } from '@/core/db/types';
 import { useLoggedRepository } from '~/hooks/useLoggedRepository';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { getItem, setItem } from '~/lib/storage';
+import { logActivity } from '@/core/db/activityLog';
 import {
   balanceByPerson,
   isSettled,
@@ -12,6 +13,7 @@ import {
   totalYouOwe as sumYouOwe
 } from '@/core/iou/ledger';
 import { migrateLegacyIous } from '@/core/iou/migration';
+import { getOrCreatePerson as resolvePerson } from '@/core/iou/personResolver';
 
 const summarizePerson = (p: Person) => `person: ${p.name}`;
 const summarizeEntry = (e: LedgerEntry) =>
@@ -137,24 +139,32 @@ export function useIou() {
 
   const netFor = useCallback((personId: string) => balances.get(personId) ?? 0, [balances]);
 
-  /** Find an existing (case-insensitive) person or create one. Revives a soft-archived match. */
+  /** Find an existing (case-insensitive) person or create one. Revives a soft-archived match.
+   *  Delegates the actual resolution to the shared `getOrCreatePerson` in packages/core (2026-08-18
+   *  dedup fix — see personResolver.ts's header) instead of matching against this hook's own,
+   *  possibly-stale `persons` snapshot; only the logging + reload here are hook-local concerns. */
   const getOrCreatePerson = useCallback(
     async (name: string): Promise<Person> => {
-      const trimmed = name.trim();
-      const existing = persons.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
-      if (existing) {
-        if (existing.isArchived) {
-          const revived: Person = { ...existing, isArchived: false, updatedAt: Date.now() };
-          await savePerson(revived);
-          return revived;
-        }
-        return existing;
+      const { person, created, revived } = await resolvePerson(name);
+      if (created) {
+        logActivity({
+          action: 'CREATE',
+          entityType: 'person',
+          entityId: person.id,
+          summary: `Added ${summarizePerson(person)}`
+        });
+      } else if (revived) {
+        logActivity({
+          action: 'UPDATE',
+          entityType: 'person',
+          entityId: person.id,
+          summary: `Updated ${summarizePerson(person)}`
+        });
       }
-      const person: Person = { id: crypto.randomUUID(), name: trimmed, createdAt: Date.now(), updatedAt: Date.now() };
-      await savePerson(person);
+      if (created || revived) reloadPersons();
       return person;
     },
-    [persons, savePerson]
+    [reloadPersons]
   );
 
   /** Record a (partial or full) settlement against a person. */

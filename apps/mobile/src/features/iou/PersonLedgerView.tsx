@@ -19,6 +19,9 @@ interface PersonLedgerViewProps {
   onAddEntry: () => void;
   onSettle: () => void;
   onEditPerson: () => void;
+  /** Opens the "promote this ledger to a Group" wizard (item 17) — omitted when Groups isn't usable
+   *  yet (no claimed username), matching the entry point's own gating in `IouView.tsx`. */
+  onPromote?: () => void;
   onEditEntry: (entry: LedgerEntry) => void;
   onDeleteEntry: (id: string) => void;
   onClose: () => void;
@@ -43,6 +46,7 @@ export function PersonLedgerView({
   onAddEntry,
   onSettle,
   onEditPerson,
+  onPromote,
   onEditEntry,
   onDeleteEntry,
   onClose
@@ -83,13 +87,24 @@ export function PersonLedgerView({
               </Text>
             )}
           </View>
-          <Pressable
-            onPress={onEditPerson}
-            className="w-9 h-9 items-center justify-center rounded-lg"
-            accessibilityLabel="Edit person"
-          >
-            <Icon name="ti-pencil" size={16} color={theme.textTertiary} />
-          </Pressable>
+          <View className="flex-row">
+            {onPromote && (
+              <Pressable
+                onPress={onPromote}
+                className="w-9 h-9 items-center justify-center rounded-lg"
+                accessibilityLabel="Promote to a group"
+              >
+                <Icon name="ti-users-plus" size={16} color={theme.primary} />
+              </Pressable>
+            )}
+            <Pressable
+              onPress={onEditPerson}
+              className="w-9 h-9 items-center justify-center rounded-lg"
+              accessibilityLabel="Edit person"
+            >
+              <Icon name="ti-pencil" size={16} color={theme.textTertiary} />
+            </Pressable>
+          </View>
         </View>
 
         <View className="gap-2">

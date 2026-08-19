@@ -19,13 +19,16 @@ import type {
   ExpenseCategory,
   Goal,
   GoalContribution,
+  LedgerEntry,
   MerchantMemory,
   Person,
   TransactionTemplate,
   TransactionType
 } from '@/core/db/types';
 import { reconcileExpenseLink, type ExpenseIouIntent, type ExpenseSeedIntent } from '@/core/iou/expenseLink';
+import { getOrCreatePerson as resolvePerson } from '@/core/iou/personResolver';
 import { reconcileGoalLink, type ExpenseGoalIntent } from '@/core/goals/goalLink';
+import { notifyExpenseDeletedToGroups } from '@/core/groups/groupsService';
 import { useRepository } from '@/hooks/useRepository';
 import { useTxnRefresh, notifyTxnChanged } from '@/hooks/useTxnRefresh';
 import {
@@ -39,6 +42,7 @@ import { CHECKPOINT_ELIGIBLE, computeAccountVerificationStatus } from '@/core/ba
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { ALL_DEFAULT_CATEGORIES, CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
 import { dedupeDemoCategories, reconcileDefaultCategories, repairCategoryIcons } from '@/core/db/dedupeDemoCategories';
+import { normalizeHashtagCase } from '@/core/db/normalizeHashtagCase';
 import { calcSpendByCategory, calcTxnCountByCategory } from '@/core/expenses/filterAndAggregate';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { buildParentCategoryMap } from '@/core/expenses/categoryGroups';
@@ -390,6 +394,22 @@ export function useExpenses() {
     })().catch(() => {});
   }, [categoriesLoading, reloadCategories]);
 
+  // Tag-case repair (2026-08-18, item 21): lowercase any tag still carrying mixed case from before
+  // manual entry, BulkHashtagModal, and CSV/bank-import all normalized on save — merges any Hashtag
+  // rows that collapse to the same lowercase form and lowercases every Expense.hashtags[] entry. Cheap
+  // and idempotent (a second run finds nothing to change), so unlike the repair passes above this
+  // doesn't need an AsyncStorage "already ran" flag — just gated to run once per mount.
+  const tagCaseRepairRef = useRef(false);
+  useEffect(() => {
+    if (expensesLoading || tagCaseRepairRef.current) return;
+    tagCaseRepairRef.current = true;
+    (async () => {
+      const { hashtagsRenamed, hashtagsMerged, expensesUpdated } = await normalizeHashtagCase();
+      if (hashtagsRenamed > 0 || hashtagsMerged > 0) reloadHashtags();
+      if (expensesUpdated > 0) reloadExpenses();
+    })().catch(() => {});
+  }, [expensesLoading, reloadHashtags, reloadExpenses]);
+
   // One-time merchant-memory backfill from existing transactions, so suggestions
   // work immediately on upgrade. v2 re-keys records by merchant + category, so on
   // migration we clear any v1 records and rebuild.
@@ -516,6 +536,15 @@ export function useExpenses() {
       await Promise.all(expenseIds.map((id) => removeExpense(id)));
       for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
       if (linkedEntries.length > 0) reloadLedger();
+      // Tombstone any Group(s) this transaction was shared to (item 9, 2026-08-18) — without this, a
+      // group's `group_events` log kept a `shared_expense` referencing a personal transaction that no
+      // longer exists, forever. Best-effort per group (never blocks/fails the personal delete) — see
+      // `notifyExpenseDeletedToGroups`'s own doc comment.
+      await Promise.all(
+        removed
+          .filter((e) => e.shareWith?.length)
+          .map((e) => notifyExpenseDeletedToGroups(e.id, e.shareWith as string[]))
+      );
       // Unconditional — any transaction delete can change account balances/net worth, not just
       // IOU-linked ones (found 2026-08-04: Home's net-worth figure went stale after deleting ordinary,
       // non-IOU-linked transactions, since this used to only fire inside the linked-entries branch).
@@ -590,7 +619,46 @@ export function useExpenses() {
     [saveExpense, saveHashtag, hashtags]
   );
 
-  /** Delete a single transaction, with Undo. Cascade-deletes linked IOU entries and restores both atomically. */
+  /** Bulk-remove one hashtag from every selected transaction that actually carries it — the symmetric
+   *  counterpart to `bulkAddHashtag` above (2026-08-18, real user report: only bulk-add existed). Same
+   *  shape: only rows that actually carry the tag are written + counted down, so this is a safe no-op
+   *  for any row that never had it. Goes through `saveExpense` per affected row for the same reason
+   *  `bulkAddHashtag` does — this must only touch this one tag's membership, not re-bump every other
+   *  tag already on the row via `saveExpenseWithHashtags`. */
+  const bulkRemoveHashtag = useCallback(
+    async (expenseIds: string[], rawTag: string) => {
+      const tag = rawTag.replace(/^#/, '').trim().toLowerCase();
+      if (!tag) return;
+      const ids = new Set(expenseIds);
+      const now = Date.now();
+      const targets = expensesRef.current.filter((e) => ids.has(e.id));
+      const toUpdate = targets.filter((e) => e.hashtags.includes(tag));
+      await Promise.all(
+        toUpdate.map((e) => saveExpense({ ...e, hashtags: e.hashtags.filter((t) => t !== tag), updatedAt: now }))
+      );
+      if (toUpdate.length === 0) return;
+      const existingTag = hashtags.find((h) => h.name === tag);
+      if (existingTag) {
+        await saveHashtag({ ...existingTag, usageCount: Math.max(0, existingTag.usageCount - toUpdate.length) });
+      }
+      logActivity({
+        action: 'BULK_UPDATE',
+        entityType: 'expense',
+        entityId: toUpdate[0]?.id ?? '',
+        summary: `Removed #${tag} from ${toUpdate.length} transaction${toUpdate.length === 1 ? '' : 's'}`,
+        entityCount: toUpdate.length
+      });
+    },
+    [saveExpense, saveHashtag, hashtags]
+  );
+
+  /** Delete a single transaction, with Undo. Cascade-deletes linked IOU entries and restores both
+   *  atomically. Known limitation (item 9, 2026-08-18): Undo restores the personal `Expense` row but does
+   *  NOT un-tombstone it on the group side — the `expense_delete` event already appended below stays in
+   *  that group's log, so an undone-then-restored shared transaction shows up locally again but stays
+   *  gone from the group. Re-sharing (tap "Share with a group" again) is the workaround; fixing Undo to
+   *  re-emit a fresh `shared_expense` is out of this fix's scope (see Phase 3's other, bigger Groups
+   *  items — this fix is deliberately just the emit wiring, not new fold logic). */
   const deleteExpense = useCallback(
     async (id: string) => {
       const exp = expensesRef.current.find((e) => e.id === id);
@@ -599,6 +667,8 @@ export function useExpenses() {
       const linkedEntries = (await ledgerEntriesRepo.getAll()).filter((le) => le.linkedTxnId === id);
       for (const le of linkedEntries) await ledgerEntriesRepo.delete(le.id);
       if (linkedEntries.length > 0) reloadLedger();
+      // Tombstone any Group(s) this transaction was shared to — see removeExpenses' identical note above.
+      if (exp?.shareWith?.length) await notifyExpenseDeletedToGroups(exp.id, exp.shareWith);
       // Unconditional — see removeExpenses' own note above; this used to only fire for IOU-linked
       // deletes, leaving Home's net-worth figure stale after an ordinary transaction delete.
       notifyTxnChanged();
@@ -781,26 +851,25 @@ export function useExpenses() {
     [saveExpense, saveHashtag, hashtags, merchantMemoryMap, reloadMerchantMemory]
   );
 
-  // Resolve a typed name to an existing (case-insensitive) or freshly created person.
+  // Resolve a typed name to an existing (case-insensitive) or freshly created person. Delegates the
+  // actual resolution to the shared `getOrCreatePerson` in packages/core (2026-08-18 dedup fix — see
+  // personResolver.ts's header) instead of matching against this hook's own, possibly-stale `persons`
+  // snapshot; only the logging + reload here are hook-local concerns.
   const getOrCreatePerson = useCallback(
     async (name: string): Promise<Person> => {
-      const trimmed = name.trim();
-      const existing = persons.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
-      if (existing && !existing.isArchived) return existing;
-      const now = Date.now();
-      const person: Person = existing
-        ? { ...existing, isArchived: false, updatedAt: now }
-        : { id: crypto.randomUUID(), name: trimmed, createdAt: now, updatedAt: now };
-      await personsRepo.put(person);
-      logActivity({
-        action: existing ? 'UPDATE' : 'CREATE',
-        entityType: 'person',
-        entityId: person.id,
-        summary: `${existing ? 'Updated' : 'Added'} person: ${person.name}`
-      });
+      const { person, created, revived } = await resolvePerson(name);
+      if (created || revived) {
+        logActivity({
+          action: created ? 'CREATE' : 'UPDATE',
+          entityType: 'person',
+          entityId: person.id,
+          summary: `${created ? 'Added' : 'Updated'} person: ${person.name}`
+        });
+        reloadPersons();
+      }
       return person;
     },
-    [persons]
+    [reloadPersons]
   );
 
   // Seed / reconcile the IOU ledger entry an expense produces. Called by the form after the
@@ -832,6 +901,66 @@ export function useExpenses() {
       for (const delId of toDelete) await ledgerEntriesRepo.delete(delId);
     },
     [getOrCreatePerson]
+  );
+
+  /** Bulk-add-to-IOU (item 11, 2026-08-18): assigns a whole multi-select batch of existing transactions
+   *  to one person's ledger in one go — `TransactionsSlice.tsx`'s new "Person" bulk-bar action. Only
+   *  expense/income-type rows in the selection are eligible (a Transfer has no IOU direction); any
+   *  transfer rows in the selection are silently skipped, not erred on. `categoryByType` supplies the one
+   *  category choice made per direction actually present in the selection (Lending/Return Borrowed for
+   *  expense-type rows, Borrowed Money/Collected Money for income-type rows — the wizard only asks about
+   *  a direction if at least one selected row is that type) — a direction with zero selected rows simply
+   *  has no key here and every row of that type is skipped (there are none).
+   *
+   *  Reuses the exact same linking primitive `seedIouFromExpense` above uses (`reconcileExpenseLink`),
+   *  just resolving the person ONCE for the whole batch (via this hook's own `getOrCreatePerson`) instead
+   *  of once per row — the ledger entries this produces are identical in shape to ones created through
+   *  the normal single-transaction Lent/Borrowed flow. Categorization and ledger-entry creation both go
+   *  through `saveExpense`/`ledgerEntriesRepo.put` directly (not `patchExpenses`, which doesn't know about
+   *  ledger entries) — a single combined mutation rather than two separate bulk calls, so the two can't
+   *  desync (e.g. a category change applied but its ledger entry failing to write, or vice versa). */
+  const bulkAddToIou = useCallback(
+    async (expenseIds: string[], personName: string, categoryByType: { expense?: string; income?: string }) => {
+      const ids = new Set(expenseIds);
+      const now = Date.now();
+      const targets = expensesRef.current.filter((e) => ids.has(e.id) && (e.type === 'expense' || e.type === 'income'));
+      if (targets.length === 0) return;
+      const person = await getOrCreatePerson(personName);
+      const allEntries = await ledgerEntriesRepo.getAll();
+      const updatedExpenses: Expense[] = [];
+      const entriesToPut: LedgerEntry[] = [];
+      const entryIdsToDelete: string[] = [];
+      for (const e of targets) {
+        const categoryId = e.type === 'income' ? categoryByType.income : categoryByType.expense;
+        if (!categoryId) continue; // No choice made for this direction — leave this row untouched.
+        const kind: 'lent' | 'borrowed' = e.type === 'income' ? 'borrowed' : 'lent';
+        const intent: ExpenseIouIntent = {
+          personId: person.id,
+          kind,
+          amount: e.amount,
+          date: e.date,
+          ...(e.description ? { description: e.description } : {})
+        };
+        const { toPut, toDelete } = reconcileExpenseLink(e.id, allEntries, intent, now);
+        entriesToPut.push(...toPut);
+        entryIdsToDelete.push(...toDelete);
+        updatedExpenses.push({ ...e, categoryId, updatedAt: now });
+      }
+      if (updatedExpenses.length === 0) return;
+      await Promise.all(updatedExpenses.map((e) => saveExpense(e)));
+      for (const entry of entriesToPut) await ledgerEntriesRepo.put(entry);
+      for (const delId of entryIdsToDelete) await ledgerEntriesRepo.delete(delId);
+      reloadLedger();
+      notifyTxnChanged();
+      logActivity({
+        action: 'BULK_UPDATE',
+        entityType: 'expense',
+        entityId: updatedExpenses[0]?.id ?? '',
+        summary: `Added ${updatedExpenses.length} transaction${updatedExpenses.length === 1 ? '' : 's'} to ${person.name}'s IOU ledger`,
+        entityCount: updatedExpenses.length
+      });
+    },
+    [getOrCreatePerson, saveExpense, reloadLedger]
   );
 
   // For the edit form: which transactions have an expense-seeded IOU entry, and with whom.
@@ -1051,6 +1180,7 @@ export function useExpenses() {
     deleteExpense,
     persons,
     seedIouFromExpense,
+    bulkAddToIou,
     iouLinkByTxn,
     iouLinkedTxnIds,
     goals,
@@ -1065,6 +1195,7 @@ export function useExpenses() {
     patchExpenses,
     removeExpenses,
     bulkAddHashtag,
+    bulkRemoveHashtag,
     saveCategory,
     moveTransactions,
     deleteCategory,

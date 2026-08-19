@@ -41,7 +41,7 @@ shared pure function — `useGoals.ts` (this module's own progress bars) and `~/
 `goalReservations`/`totalGoalReserved` turn a goal list + its `countsTowardSafeToSpend` flag into the
 total Safe-to-spend should subtract.
 
-Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.goals)` — Safe Mode hides goal amounts only if the "Goals" toggle in Settings → Safe Mode is switched off (visible by default); Privacy always masks; Open never does. A single module-wide toggle, not per-goal.
+Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.goals)` — Safe Mode hides goal amounts only if the "Goals" toggle in Settings → Safe Mode is switched off (visible by default); Open never masks. A single module-wide toggle, not per-goal.
 
 The SIP calculator uses the standard future value of a series formula: it works backwards from the target corpus to calculate the required monthly investment given the expected return rate and time horizon. The calculation happens entirely on-device.
 

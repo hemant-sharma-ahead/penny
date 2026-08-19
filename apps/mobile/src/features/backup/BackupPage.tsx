@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View, Pressable, ScrollView, Text, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
@@ -44,6 +44,13 @@ export function BackupPage() {
   useDefaultHeaderBack('Backup');
 
   // ── Import ──────────────────────────────────────────────────────────────────
+  const scrollRef = useRef<ScrollView>(null);
+  const restoreCardRef = useRef<View>(null);
+  // Bumped by `focusRestorePassphrase` below to force the passphrase `TextInput` to remount with
+  // `autoFocus` — the shared `~/components/ui/TextInput` doesn't forward a ref (nothing else in the app
+  // needs one), so this is the same "change `key`, let `autoFocus` do the work on the fresh mount"
+  // approach rather than adding ref-forwarding to a primitive used everywhere else in the app.
+  const [restoreFocusRequest, setRestoreFocusRequest] = useState(0);
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [passphrase, setPassphrase] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
@@ -85,6 +92,20 @@ export function BackupPage() {
       setImportError(err instanceof Error ? err.message : 'Restore failed');
       setImportState('error');
     }
+  }
+
+  /** The AutoBackupCard's "belongs to another account" (`foreign_blob`) banner's CTA — jumps down to
+   *  and focuses the passphrase field on the restore card below, since that's the one thing that
+   *  actually resolves that state. Both cards already live on this same screen, so this is a same-page
+   *  scroll+focus rather than a navigation — same `measureLayout` pattern `ExpenseForm.tsx`'s
+   *  `focusPanel` already uses to scroll a child into view relative to a `ScrollView` ref. */
+  function focusRestorePassphrase() {
+    restoreCardRef.current?.measureLayout(
+      scrollRef.current as unknown as View,
+      (_x, y) => scrollRef.current?.scrollTo({ y: Math.max(0, y - 16), animated: true }),
+      () => {}
+    );
+    setRestoreFocusRequest((n) => n + 1);
   }
 
   // ── Restore from Google Drive (alongside file-restore above) ─────────────────
@@ -142,93 +163,108 @@ export function BackupPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView>
+      <ScrollView ref={scrollRef}>
         <View className="px-4 pt-4 pb-6 gap-5">
-          <AutoBackupCard />
+          <AutoBackupCard onFixForeignBlob={focusRestorePassphrase} />
 
-          <Card padding="lg" className="gap-4">
-            <View className="flex-row items-start gap-3">
-              <View
-                className="w-10 h-10 rounded-xl items-center justify-center"
-                style={{ backgroundColor: tint(theme.warning, 10) }}
-              >
-                <Icon name="ti-cloud-upload" size={20} color={theme.warning} />
+          {/* Plain `View` wrapper (not a ref on `Card` itself) so `focusRestorePassphrase`'s
+           *  `measureLayout` can target it — same precedent as `ExpenseForm.tsx`'s panel refs, which
+           *  wrap a raw `View` rather than adding ref-forwarding to a shared primitive. */}
+          <View ref={restoreCardRef}>
+            <Card padding="lg" className="gap-4">
+              <View className="flex-row items-start gap-3">
+                <View
+                  className="w-10 h-10 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: tint(theme.warning, 10) }}
+                >
+                  <Icon name="ti-cloud-upload" size={20} color={theme.warning} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-primary">Restore from backup</Text>
+                  <Text className="text-xs mt-0.5 leading-relaxed text-tertiary">
+                    Select a .penny file{cloudEnabled ? ', or restore straight from Google Drive' : ''} and enter your
+                    passphrase. Your current data will be replaced. Afterward, unlock with the PIN that was active when
+                    this backup was created — not necessarily this device's current one.
+                  </Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-primary">Restore from backup</Text>
-                <Text className="text-xs mt-0.5 leading-relaxed text-tertiary">
-                  Select a .penny file{cloudEnabled ? ', or restore straight from Google Drive' : ''} and enter your
-                  passphrase. Your current data will be replaced. Afterward, unlock with the PIN that was active when
-                  this backup was created — not necessarily this device's current one.
-                </Text>
+
+              <View>
+                <Text className="text-xs font-medium text-secondary">Backup file</Text>
+                <Pressable
+                  onPress={() => void pickFile()}
+                  className="mt-1.5 w-full rounded-xl border border-theme bg-surface-2 px-3 py-2.5 flex-row items-center gap-2"
+                >
+                  <Icon name="ti-file" size={16} color={theme.textTertiary} />
+                  <Text className="text-sm" style={{ color: selectedFile ? theme.textPrimary : theme.textTertiary }}>
+                    {selectedFile?.name ?? 'Choose .penny file…'}
+                  </Text>
+                </Pressable>
               </View>
-            </View>
 
-            <View>
-              <Text className="text-xs font-medium text-secondary">Backup file</Text>
-              <Pressable
-                onPress={() => void pickFile()}
-                className="mt-1.5 w-full rounded-xl border border-theme bg-surface-2 px-3 py-2.5 flex-row items-center gap-2"
-              >
-                <Icon name="ti-file" size={16} color={theme.textTertiary} />
-                <Text className="text-sm" style={{ color: selectedFile ? theme.textPrimary : theme.textTertiary }}>
-                  {selectedFile?.name ?? 'Choose .penny file…'}
+              <TextInput
+                key={`restore-passphrase-${restoreFocusRequest}`}
+                autoFocus={restoreFocusRequest > 0}
+                label="Passphrase"
+                secureTextEntry
+                value={passphrase}
+                onChange={setPassphrase}
+                placeholder="Your original passphrase"
+              />
+
+              {importState === 'done' && (
+                <View
+                  className="flex-row items-center gap-2 rounded-xl px-3 py-2"
+                  style={{ backgroundColor: tint(theme.success, 10) }}
+                >
+                  <Icon name="ti-circle-check" size={16} color={theme.success} />
+                  <Text className="text-xs font-medium" style={{ color: theme.success }}>
+                    Restored — relocking session…
+                  </Text>
+                </View>
+              )}
+              {importState === 'error' ? (
+                <Text className="text-xs" style={{ color: theme.danger }}>
+                  {importError}
                 </Text>
-              </Pressable>
-            </View>
-
-            <TextInput
-              label="Passphrase"
-              secureTextEntry
-              value={passphrase}
-              onChange={setPassphrase}
-              placeholder="Your original passphrase"
-            />
-
-            {importState === 'done' && (
-              <View
-                className="flex-row items-center gap-2 rounded-xl px-3 py-2"
-                style={{ backgroundColor: tint(theme.success, 10) }}
-              >
-                <Icon name="ti-circle-check" size={16} color={theme.success} />
-                <Text className="text-xs font-medium" style={{ color: theme.success }}>
-                  Restored — relocking session…
+              ) : null}
+              {cloudRestoreState === 'error' ? (
+                <Text className="text-xs" style={{ color: theme.danger }}>
+                  {cloudError}
                 </Text>
-              </View>
-            )}
-            {importState === 'error' ? (
-              <Text className="text-xs" style={{ color: theme.danger }}>
-                {importError}
-              </Text>
-            ) : null}
-            {cloudRestoreState === 'error' ? (
-              <Text className="text-xs" style={{ color: theme.danger }}>
-                {cloudError}
-              </Text>
-            ) : null}
+              ) : null}
 
-            <Button
-              variant="primary"
-              fullWidth
-              onPress={() => setShowConfirm(true)}
-              disabled={!selectedFile || !passphrase || importState === 'importing' || importState === 'done'}
-              loading={importState === 'importing'}
-            >
-              {importState === 'importing' ? 'Restoring…' : 'Restore backup'}
-            </Button>
-
-            {cloudEnabled && (
               <Button
-                variant="secondary"
+                variant="primary"
                 fullWidth
-                onPress={() => void handleCloudRestore()}
-                disabled={!passphrase}
-                loading={cloudRestoreState === 'restoring'}
+                onPress={() => setShowConfirm(true)}
+                disabled={!selectedFile || !passphrase || importState === 'importing' || importState === 'done'}
+                loading={importState === 'importing'}
               >
-                Restore from Google Drive
+                {importState === 'importing' ? 'Restoring…' : 'Restore backup'}
               </Button>
-            )}
-          </Card>
+
+              {cloudEnabled && (
+                <View>
+                  <Button
+                    variant="secondary"
+                    fullWidth
+                    onPress={() => void handleCloudRestore()}
+                    disabled={!passphrase}
+                    loading={cloudRestoreState === 'restoring'}
+                  >
+                    Restore from Google Drive
+                  </Button>
+                  {/* The button above is disabled purely on `!passphrase` with no other reason — without
+                   *  this, it looks broken/permanently disabled rather than "waiting on the field above"
+                   *  (real-device testing feedback, 2026-08-18). */}
+                  {!passphrase && (
+                    <Text className="text-xs text-tertiary mt-1.5 text-center">Enter your passphrase above first</Text>
+                  )}
+                </View>
+              )}
+            </Card>
+          </View>
 
           <Card padding="lg" className="gap-4">
             <View className="flex-row items-start gap-3">

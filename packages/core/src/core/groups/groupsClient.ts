@@ -72,6 +72,12 @@ export function reopenGroup(groupId: string): Promise<{ ok: true; status: string
   return req(`/group/${groupId}/reopen`, post({}));
 }
 
+/** Creator-only, irreversible — see `groupsService.ts`'s `deleteGroup` for the eligibility contract
+ *  the caller must already have checked (item 9, real-device-testing-pass.md Phase 3). */
+export function deleteGroup(groupId: string): Promise<{ ok: true }> {
+  return req(`/group/${groupId}`, { method: 'DELETE', body: JSON.stringify({}) });
+}
+
 /** Rotate the Group-Key epoch (after a member leaves). `encName` re-encrypts the name under the new key. */
 export function rotateGroup(groupId: string, encName: string): Promise<{ ok: true; key_epoch: number }> {
   return req(`/group/${groupId}/rotate`, post({ enc_name: encName }));

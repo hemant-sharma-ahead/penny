@@ -147,21 +147,34 @@ export interface SharedExpensePayload {
   shares: Record<string, number>;
 }
 
+export type SettlementKind = 'repayment' | 'write_off';
+
 export interface SettlementPayload {
   from: string; // who paid the settlement
   to: string; // who received it
   amount: number;
+  /** Stable logical id of this settlement (an {@link FoldEvent} of type `settlement_void` references
+   *  it to reverse it). Optional for backward compatibility — older events without one simply can't
+   *  be voided (real-device-testing-pass.md Phase 3, item 17). */
+  id?: string;
+  /** `repayment` (default when absent, for backward compatibility) = real money moved.
+   *  `write_off` = a "never coming back" resolution — no money moved, distinct display everywhere,
+   *  and reversible via a `settlement_void` event referencing this settlement's `id`. */
+  kind?: SettlementKind;
 }
 
 export type FoldEvent =
   | { type: 'shared_expense'; payload: SharedExpensePayload }
   | { type: 'expense_edit'; payload: SharedExpensePayload }
   | { type: 'expense_delete'; expenseId: string }
-  | { type: 'settlement'; payload: SettlementPayload };
+  | { type: 'settlement'; payload: SettlementPayload }
+  | { type: 'settlement_void'; settlementId: string };
 
 /**
  * Fold an ordered event stream into a net balance per member (in rupees). Positive = the member is owed
  * money overall; negative = they owe. Edits supersede the referenced expense; deletes tombstone it.
+ * A voided settlement (by `id`) is excluded entirely, so "undo write-off" restores the balance to
+ * exactly what it was before that settlement — reversible, not just re-labeled.
  * The sum of all balances is always ~0 (money is conserved).
  */
 export function foldGroupBalances(events: FoldEvent[]): Record<string, number> {
@@ -169,12 +182,15 @@ export function foldGroupBalances(events: FoldEvent[]): Record<string, number> {
   const expenses = new Map<string, SharedExpensePayload>();
   const deleted = new Set<string>();
   const settlements: SettlementPayload[] = [];
+  const voidedSettlementIds = new Set<string>();
 
   for (const e of events) {
     if (e.type === 'shared_expense' || e.type === 'expense_edit') {
       expenses.set(e.payload.expenseId, e.payload);
     } else if (e.type === 'expense_delete') {
       deleted.add(e.expenseId);
+    } else if (e.type === 'settlement_void') {
+      voidedSettlementIds.add(e.settlementId);
     } else {
       settlements.push(e.payload);
     }
@@ -189,8 +205,10 @@ export function foldGroupBalances(events: FoldEvent[]): Record<string, number> {
     for (const [member, share] of Object.entries(exp.shares)) add(member, -toPaise(share)); // each owes their share
   }
 
-  // A settlement moves money: the payer's debt shrinks (+), the receiver's credit shrinks (−).
+  // A settlement moves money: the payer's debt shrinks (+), the receiver's credit shrinks (−). A
+  // voided one (undone write-off) never happened, so it's skipped entirely.
   for (const s of settlements) {
+    if (s.id && voidedSettlementIds.has(s.id)) continue;
     add(s.from, toPaise(s.amount));
     add(s.to, -toPaise(s.amount));
   }

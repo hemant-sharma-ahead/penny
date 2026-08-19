@@ -213,10 +213,15 @@ export function readHeader(text: string): string[] | null {
   return header ?? null;
 }
 
+// Lowercased to match every other tag entry point (manual entry in ExpenseForm.tsx,
+// BulkHashtagModal.tsx, useExpenses.ts's bulkAddHashtag/bulkRemoveHashtag) — found 2026-08-18 to be
+// the one gap: an imported CSV/bank statement's tag column kept its original case, silently splitting
+// e.g. "Groceries" and "groceries" into two different tags instead of the one the rest of the app
+// already treats as case-insensitive.
 function parseTags(s: string): string[] {
   return s
     .split(/[\s,]+/)
-    .map((t) => t.replace(/^#/, '').trim())
+    .map((t) => t.replace(/^#/, '').trim().toLowerCase())
     .filter(Boolean);
 }
 

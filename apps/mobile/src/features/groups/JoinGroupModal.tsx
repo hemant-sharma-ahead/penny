@@ -4,7 +4,7 @@ import { Modal, Button, TextInput } from '~/components/ui';
 import { useToast } from '~/context/ToastContext';
 import { parseJoinSecret, redeemInvite, syncGroupKeys } from '@/core/groups/groupsService';
 import { useGroupContext } from '~/context/GroupContext';
-import { useServerActionError } from './useServerActionError';
+import { useServerActionError } from '~/hooks/useServerActionError';
 
 /** RN port of apps/web-react/src/features/groups/JoinGroupModal.tsx — straightforward form port. */
 export function JoinGroupModal({ onClose }: { onClose: () => void }) {

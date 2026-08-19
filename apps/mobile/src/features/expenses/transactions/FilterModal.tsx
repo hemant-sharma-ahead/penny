@@ -3,7 +3,7 @@ import { View, Pressable, Text } from 'react-native';
 import { Modal, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { Account, ExpenseCategory, Goal } from '@/core/db/types';
+import type { Account, ExpenseCategory, Goal, Hashtag } from '@/core/db/types';
 import type { ActiveEvent } from '~/context/EventModeContext';
 import { MonthPickerModal } from './MonthPickerModal';
 import { monthLabel } from '@/lib/date';
@@ -21,6 +21,12 @@ export interface FilterState {
   categoryFilters: Set<string>;
   eventFilters: Set<string>;
   goalFilters: Set<string>;
+  /** Item 26 (docs/plans/real-device-testing-pass.md Phase 2) — multi-select, OR match (a transaction
+   *  matches if it has ANY of these tags), same semantics as `eventFilters` above. A plain array (not a
+   *  `Set` like every other multi-select field here) since that's how tags are already stored on
+   *  `Expense.hashtags` — kept as the local editable state's own `Set<string>` inside `FilterModal`,
+   *  same as the others, just serialized to/from an array at this boundary. */
+  tagFilters: string[];
   /** 2026-08-06 — single boolean, not a multi-select set like the others above (there's only one thing
    *  to filter by: mismatched vs. not). See `useTransactionFilters.ts`'s doc comment. */
   paymentModeMismatchOnly: boolean;
@@ -32,6 +38,10 @@ interface FilterModalProps {
   accounts: Account[];
   categories: ExpenseCategory[];
   goals: Goal[];
+  /** Item 26 — every known tag, chip-per-tag (same pattern as Event/Goal above). Source of truth is
+   *  `hashtagsRepo`, threaded down as a prop like every other reference list here rather than a direct
+   *  repo import (`FilterModal` stays a pure display component). */
+  hashtags: Hashtag[];
   /** Whether there's at least one payment-mode-mismatched transaction at all — the toggle below only
    *  renders when true, same "hide the section entirely rather than show a filter with zero possible
    *  results" convention already used for Event/Goal above. */
@@ -47,6 +57,7 @@ export function FilterModal({
   accounts,
   categories,
   goals,
+  hashtags,
   hasPaymentModeMismatches,
   initial,
   onApply,
@@ -62,6 +73,7 @@ export function FilterModal({
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set(initial.categoryFilters));
   const [eventFilters, setEventFilters] = useState<Set<string>>(new Set(initial.eventFilters));
   const [goalFilters, setGoalFilters] = useState<Set<string>>(new Set(initial.goalFilters));
+  const [tagFilters, setTagFilters] = useState<Set<string>>(new Set(initial.tagFilters));
   const [paymentModeMismatchOnly, setPaymentModeMismatchOnly] = useState(initial.paymentModeMismatchOnly);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
@@ -88,6 +100,7 @@ export function FilterModal({
       categoryFilters,
       eventFilters,
       goalFilters,
+      tagFilters: [...tagFilters],
       paymentModeMismatchOnly
     });
     onClose();
@@ -101,6 +114,7 @@ export function FilterModal({
     setCategoryFilters(new Set());
     setEventFilters(new Set());
     setGoalFilters(new Set());
+    setTagFilters(new Set());
     setPaymentModeMismatchOnly(false);
   }
 
@@ -352,6 +366,33 @@ export function FilterModal({
                     acc.id
                   )
                 )}
+            </View>
+          </View>
+        )}
+
+        {/* Tag (item 26) — right after Account, before Category group. Same chip pattern as Event/Goal
+            above; multi-select, OR match (see `useTransactionFilters.ts`). `ti-hash` for every chip,
+            same tag iconography as `ExtraCircle`'s Tags circle / the bulk-hashtag action — no per-tag
+            color exists on `Hashtag` to do what Account/Category's own dot-color does. */}
+        {hashtags.length > 0 && (
+          <View>
+            <Text className="text-xs font-medium text-secondary mb-2">Tag</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {chip(tagFilters.size === 0, 'All', () => setTagFilters(new Set()), { key: 'all-tags' })}
+              {hashtags.map((h) =>
+                chip(
+                  tagFilters.has(h.name),
+                  h.name,
+                  () =>
+                    setTagFilters((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(h.name)) next.delete(h.name);
+                      else next.add(h.name);
+                      return next;
+                    }),
+                  { icon: 'ti-hash', key: h.id }
+                )
+              )}
             </View>
           </View>
         )}

@@ -91,8 +91,8 @@ export function ImportProgressStep({
   const theme = useThemeColors();
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   // `Date.now()` is impure, so it can't be called directly during render (react-hooks/purity) — ticked
-  // into state instead, same pattern `PrivacyModeSwitcher.tsx`'s own countdown uses. Only needs to run
-  // while actually importing (the ETA is the only thing that reads it); 500ms is plenty smooth for a
+  // into state instead, same pattern `SessionGate.tsx`'s own PIN-lockout countdown uses. Only needs to
+  // run while actually importing (the ETA is the only thing that reads it); 500ms is plenty smooth for a
   // seconds-granularity "~N seconds left" label.
   const [tickNow, setTickNow] = useState(() => Date.now());
   useEffect(() => {
