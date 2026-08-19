@@ -182,66 +182,80 @@ if one doesn't exist) / `pnpm web` (via `react-native-web`, no native modules in
 `npx expo run:android` (above) builds and installs onto an emulator/device in one step, but
 doesn't leave you a standalone `.apk` file. To produce one, run these in order:
 
-**Step 0, non-negotiable — bump the version first.** Every APK checked into
+**Step 0, non-negotiable — bump the version, in ALL THREE places.** Every APK checked into
 `apps/mobile/builds/` (see below) MUST carry a version distinct from whatever was there
-before, reflecting what's actually changed since the last one. Before 2026-08-15, every
-rebuild left `"version"` at the original `"1.0.0"` in both `apps/mobile/app.json` and
-`apps/mobile/package.json` regardless of how much had changed since the last build (visible
-in git log as several `chore(mobile): rebuild debug/release APKs with latest features`
-commits, none of which bumped it) — meaning two APKs with completely different feature sets
-were indistinguishable by version number alone. Bump both files' `"version"` (semver:
-patch for a fix/small addition, minor for a real feature) before step 1 below, every time.
+before, reflecting what's actually changed since the last one. This has broken two different
+ways so far — fix all three files together, every time, not just the JSON ones:
+
+- Before 2026-08-15, every rebuild left `"version"` at the original `"1.0.0"` in both
+  `apps/mobile/app.json` and `apps/mobile/package.json` regardless of how much had changed
+  since the last build (visible in git log as several `chore(mobile): rebuild debug/release
+APKs with latest features` commits, none of which bumped it) — meaning two APKs with
+  completely different feature sets were indistinguishable by version number alone.
+- On 2026-08-19, the reverse happened: `app.json`/`package.json` were bumped to `1.3.1` in a
+  commit that _didn't_ rebuild the APK, and the next APK build used the stale
+  `android/app/build.gradle` `versionName`/`versionCode` (still `"1.3.0"`/`1`) — because
+  **step 2 below is skippable once `android/` already exists**, and nothing else re-syncs
+  that file from `app.json`. The committed release APK silently kept shipping the old
+  version string.
+
+So: bump `"version"` (semver: patch for a fix/small addition, minor for a real feature) in
+**`apps/mobile/app.json`** and **`apps/mobile/package.json`**, AND update
+**`android/app/build.gradle`**'s `defaultConfig { versionCode ...; versionName "..." }`
+to match (`versionName` = the same semver string, `versionCode` incremented by 1) — before
+step 1 below, every time. After building, verify the APK actually carries what you just set,
+don't assume it: `<Android-SDK>/build-tools/<ver>/aapt dump badging
+app-arm64-v8a-release.apk | grep version`.
 
 ```bash
 # 1. From the repo root — installs deps with the pnpm hoisting this build needs (see note below)
 pnpm install
 
-# 2. Regenerate the native android/ project from app.json + assets (skip if android/ already exists)
+# 2. Regenerate the native android/ project from app.json + assets (skip if android/ already
+#    exists — but if you skip this, step 0's build.gradle edit above is what keeps the version
+#    in sync instead; don't skip both)
 cd apps/mobile
 npx expo prebuild --platform android
 
-# 3. Build the debug variant
+# 3. Build the release variant (the only variant checked into apps/mobile/builds/ — see below)
 cd android
-./gradlew assembleDebug
-
-# 4. Build the release variant — as its OWN separate command, not combined with step 3 (see note below)
 ./gradlew assembleRelease
 ```
 
-Copy the resulting `arm64-v8a` APKs (the variant to actually install/test with — see the ABI
-note below) into `apps/mobile/builds/` as `app-arm64-v8a-debug.apk`/
-`app-arm64-v8a-release.apk`, overwriting the previous ones, and commit them alongside the
-version bump above in the same commit.
+Copy the resulting `arm64-v8a` APK (the variant to actually install/test with — see the ABI
+note below) into `apps/mobile/builds/` as `app-arm64-v8a-release.apk`, overwriting the
+previous one, and commit it alongside the version bump above in the same commit.
 
-Each command produces **four `.apk` files, one per CPU architecture**, not one combined
-file:
+**Release only, not debug — as of 2026-08-19.** This project used to also build and commit a
+debug APK, but it was never actually used for real-device testing (see the gotcha below on
+why it isn't self-contained), so it's no longer built or checked in. If you need a debug
+build for local development, `./gradlew assembleDebug` still works standalone — it's just not
+part of this checked-in-APK process anymore.
 
-| Variant | Output location                                               |
-| ------- | ------------------------------------------------------------- |
-| Debug   | `android/app/build/outputs/apk/debug/app-<abi>-debug.apk`     |
-| Release | `android/app/build/outputs/apk/release/app-<abi>-release.apk` |
-
-`<abi>` is one of `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`. **`arm64-v8a` is the one to
-install on a real device** — virtually every Android phone from the last several years uses
-it. `armeabi-v7a` is for older 32-bit devices; `x86`/`x86_64` are only for Intel-based
-emulators (an Apple Silicon Mac's emulator is `arm64-v8a` too).
+Each `gradlew` command produces **four `.apk` files, one per CPU architecture**, not one
+combined file, at `android/app/build/outputs/apk/release/app-<abi>-release.apk`. `<abi>` is
+one of `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`. **`arm64-v8a` is the one to install on a
+real device** — virtually every Android phone from the last several years uses it.
+`armeabi-v7a` is for older 32-bit devices; `x86`/`x86_64` are only for Intel-based emulators
+(an Apple Silicon Mac's emulator is `arm64-v8a` too).
 
 Notes / gotchas, if something above doesn't behave as expected:
 
-- **Don't combine steps 3 and 4 into one `./gradlew assembleDebug assembleRelease` call** —
-  that spawns two concurrent Metro bundler subprocesses that race each other and can fail
-  with an obscure `Cannot read properties of undefined (reading 'transformFile')` error. Two
-  separate `gradlew` invocations avoids it.
-- **The debug APK is not self-contained.** This project's debug build type doesn't embed a
-  JS bundle (`bundleInDebug` isn't set), so it loads JS from a Metro dev server (`npx expo
-start`) at runtime instead — sideloading it alone, with no Metro running nearby, installs
-  fine but shows a red-box "Could not connect to development server" error on launch. To
-  actually run it on a **real device**, Metro needs to be reachable from that device: either
-  **USB** (`adb reverse tcp:8081 tcp:8081` while it's connected to the machine running `npx
-expo start`) or **same WiFi** (the in-app dev menu — shake gesture — pointed at that
-  machine's LAN IP:8081). The **release APK** _is_ self-contained (JS bundled, minified,
-  resources shrunk) — that's the one to hand someone for standalone testing with no dev
-  server involved at all.
+- **If you do also build a local debug APK** (`./gradlew assembleDebug`, standalone dev use
+  only — not part of the checked-in process above), run it as its own separate `gradlew`
+  invocation, never combined with `assembleRelease` in one command — that spawns two
+  concurrent Metro bundler subprocesses that race each other and can fail with an obscure
+  `Cannot read properties of undefined (reading 'transformFile')` error.
+- **A debug APK is not self-contained**, which is exactly why it's no longer part of the
+  committed build process. This project's debug build type doesn't embed a JS bundle
+  (`bundleInDebug` isn't set), so it loads JS from a Metro dev server (`npx expo start`) at
+  runtime instead — sideloading it alone, with no Metro running nearby, installs fine but
+  shows a red-box "Could not connect to development server" error on launch. To run one on a
+  **real device**, Metro needs to be reachable from that device: either **USB** (`adb reverse
+tcp:8081 tcp:8081` while it's connected to the machine running `npx expo start`) or **same
+  WiFi** (the in-app dev menu — shake gesture — pointed at that machine's LAN IP:8081). The
+  **release APK** _is_ self-contained (JS bundled, minified, resources shrunk) — that's the
+  one to hand someone for standalone testing with no dev server involved at all.
 - **Release signing** falls back to the same auto-generated debug keystore as the debug
   build (`android/app/build.gradle`'s `release` block) — there's no dedicated release
   keystore configured. Fine for internal testing; **not** fine for actual Play Store

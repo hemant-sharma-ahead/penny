@@ -1,6 +1,6 @@
 # Real-device testing pass — fixes & feature gaps
 
-**Status:** 🚧 In progress — Phase 1 (10/24 items) ✅ done, Phase 2 (10/24 items) ✅ done, Phase 3 (Groups redesign) ✅ done. Phase 4 (auto-refresh audit) next.
+**Status:** 🚧 In progress — Phases 1-3 (21/24 items) ✅ done and committed (`e801e14`). Phase 4 (auto-refresh audit) next.
 
 This is a living punch-list doc, not a phase/track plan in the usual `docs/plans/` sense — it
 tracks a batch of real-device testing findings (bugs + feature gaps) rather than a single
