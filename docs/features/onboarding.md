@@ -117,6 +117,12 @@ Key files:
 
 - `src/features/onboarding/` — all screen components:
   - Intro flow: `SplashScreen`, `PrivacyPromiseScreen`, `PrivacyDemoScreen`, `ChipIntroScreen`, `SimulatedDashboardScreen` (the two-button fork)
+  - **`apps/mobile`, 2026-08-19:** `PrivacyPromiseScreen.tsx`'s mission statement + pillar content
+    moved into a new shared `privacyPillars.ts`, so the onboarding screen (no header/back button by
+    design) and a new, separate Settings-reachable `PrivacyPromisePage.tsx` (same content, with a real
+    back button, added alongside a new "About Penny" screen) read from one source instead of risking
+    drift between two copies. See `docs/ARCHITECTURE.md`'s matching real-device-testing-pass decision
+    entry.
   - Account start: `AccountStartScreen` (`/onboarding/start` — three doors), `AccountRecoveryScreen` (`/onboarding/account` — new/restore/reclaim tabs)
   - Demo Mode: `DemoVaultScreen` (`/onboarding/demo-vault` — shown throwaway credentials)
   - Shared real-setup sequence: `LetUsKnowYouScreen`, `LifeHouseholdScreen` (`/onboarding/life-household`), `AddAccountsScreen` (`/onboarding/add-accounts`), `BackupSetupScreen` (`/onboarding/backup-setup`), `SetupCredentialsScreen` (final vault step — branches `initialize()` vs `exitDemoMode()`)

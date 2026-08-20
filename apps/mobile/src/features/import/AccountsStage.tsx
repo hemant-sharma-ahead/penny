@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, ScrollView, Pressable, Text } from 'react-native';
 import { Button } from '~/components/ui';
+import { Icon } from '~/components/Icon';
+import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Account, AccountType } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
@@ -13,6 +15,8 @@ import type { RowTriage } from './useImport';
 import { AccountsSection } from './review/AccountsSection';
 import { BucketCard } from '~/components/shared/BucketCard';
 import { useBucketExpansion } from '~/hooks/useBucketExpansion';
+import { AccountFormModal } from '~/components/shared/AccountFormModal';
+import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 
 interface AccountsStageProps {
   accountResolutions: AccountResolutionOrSkip[];
@@ -38,11 +42,21 @@ interface AccountsStageProps {
   onAcknowledgeAccount: (sourceName: string) => void;
   accountsResolved: boolean;
   confirmedAccountCount: number;
+  /** Creates a real `Account` immediately (2026-08-20, item 41 flow redesign) — backs the "+ Create
+   *  Account" button below and `AccountsSection.tsx`'s same-file merge-accept action. See
+   *  `useImport.ts`'s `createAccount` doc comment. */
+  createAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   onNext: () => void;
 }
 
 type AccountBucketKey = 'needsReview' | 'ready' | 'skipped';
 
+/** 2026-08-20, item 41 flow redesign — Confirm is now a REQUIRED explicit tap for every row regardless
+ *  of kind, including a confident 'existing' auto-match (previously only an untouched 'create' guess
+ *  needed a confirm step; 'existing'/'skip' were decided the moment a plausible suggestion existed). The
+ *  per-row "New account" kind was dropped entirely, so a `'create'` kind can now only ever mean "no real
+ *  account picked yet" — never confirmable, always Needs Review until the user picks a real account from
+ *  the paired card's dropdown (or creates one). */
 function bucketForAccount(
   r: AccountResolutionOrSkip,
   touchedSourceNames: Set<string>,
@@ -52,8 +66,8 @@ function bucketForAccount(
   // A merged card fully tracks its target (see `cardMergeTargets`' own doc comment) — always decided,
   // regardless of whether IT was individually touched.
   if (cardMergeTargets.has(r.sourceName)) return 'ready';
-  if (r.suggestion.kind === 'create' && !touchedSourceNames.has(r.sourceName)) return 'needsReview';
-  return 'ready';
+  if (r.suggestion.kind === 'existing' && touchedSourceNames.has(r.sourceName)) return 'ready';
+  return 'needsReview';
 }
 
 /**
@@ -98,10 +112,26 @@ export function AccountsStage({
   onAcknowledgeAccount,
   accountsResolved,
   confirmedAccountCount,
+  createAccount,
   onNext
 }: AccountsStageProps) {
   const theme = useThemeColors();
   const sourceAccountCount = accountResolutions.length;
+
+  // "+ Create Account" (2026-08-20, item 41 flow redesign) — opens the real `AccountFormModal`, the
+  // exact same modal used everywhere else in the app to add an account. Mirrors `ExpenseForm.tsx`'s
+  // identical inline "+ Add account" pattern; `createAccount` already appends to `useImport.ts`'s own
+  // `accounts` state on save, so the new account is immediately available as a match candidate for any
+  // row below with no extra plumbing here.
+  const [accountFormSaving, setAccountFormSaving] = useState(false);
+  const accountForm = useAccountForm(async (data, editing) => {
+    setAccountFormSaving(true);
+    try {
+      return await createAccount(data, editing);
+    } finally {
+      setAccountFormSaving(false);
+    }
+  }, accounts);
 
   const buckets = useMemo(() => {
     const needsReview: string[] = [];
@@ -158,6 +188,7 @@ export function AccountsStage({
         touchedSourceNames={accountTouchedSourceNames}
         onAcknowledgeAccount={onAcknowledgeAccount}
         onlyRenderSourceNames={sourceNames}
+        createAccount={createAccount}
       />
     );
   }
@@ -176,6 +207,27 @@ export function AccountsStage({
       </View>
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 12, paddingBottom: 16, gap: 12 }}>
+        {/* "+ Create Account" (2026-08-20, item 41 flow redesign, docs/mockups/proposals/
+         *  fourth-batch-redesigns-v5.html §2) — sits above the bucket cards, opens the real
+         *  `AccountFormModal`; a newly-created account is immediately selectable from any row's dropdown
+         *  below. Shown regardless of `noAccountColumn` — useful there too, before picking/creating the
+         *  single whole-file account via that branch's own toggle. */}
+        <Pressable
+          onPress={accountForm.openAdd}
+          className="flex-row items-center justify-center gap-1.5 rounded-xl py-2.5"
+          style={{
+            borderWidth: 1.5,
+            borderStyle: 'dashed',
+            borderColor: tint(theme.success, 50),
+            backgroundColor: tint(theme.success, 8)
+          }}
+        >
+          <Icon name="ti-square-plus" size={14} color={theme.success} />
+          <Text className="text-[11.5px] font-extrabold" style={{ color: theme.success }}>
+            Create Account
+          </Text>
+        </Pressable>
+
         {noAccountColumn ? (
           renderSection(new Set())
         ) : (
@@ -230,6 +282,8 @@ export function AccountsStage({
           Continue
         </Button>
       </ScrollView>
+
+      {accountForm.showForm && <AccountFormModal form={accountForm} saving={accountFormSaving} />}
     </View>
   );
 }

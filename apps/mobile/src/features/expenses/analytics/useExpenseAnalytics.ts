@@ -178,6 +178,83 @@ function buildSetAsideData(
     .sort((a, b) => b.amount - a.amount);
 }
 
+export interface IncomeSegment {
+  group: string;
+  amount: number;
+  label: string;
+  color: string;
+  icon: string;
+  /** Category drill-down within this group — same shape `SetAsideSegment.cats` uses (income has no
+   *  budget concept either, so this mirrors `SetAsideSegment`'s shape, not `GroupSegment`'s). */
+  cats: Array<{ catId: string; name: string; icon: string; color: string; amount: number }>;
+}
+
+/** The group key an income-type transaction's category should render under. A category only ever
+ *  determines its own row when it's itself `applicableTo: 'income'` (matches every one of the 15
+ *  `DEFAULT_INCOME_CATEGORIES`, all `intentGroup: 'income'` with no `parentId`, so this collapses to
+ *  the single 'income' bucket in the common case — a user-created custom income category filed under
+ *  its own custom parent group still splits into its own row for free, exactly like a custom expense
+ *  parent group already does in `buildGroupData`/`buildSetAsideData`).
+ *
+ *  2026-08-20 (real-device testing, item 46 follow-up): a category whose `applicableTo` is NOT
+ *  'income' (e.g. `cat-loan-emi`/`cat-savings`, both `applicableTo: 'expense'`) can still end up on an
+ *  income-type transaction as pre-existing data (from before the category picker enforced this, or
+ *  from an import path that didn't) — `groupKey()` would return that category's *expense-side* fixed
+ *  intentGroup (e.g. 'financial'), the exact same string `buildSetAsideData` uses for its own
+ *  expense-side "Financial" row. Left alone this both mislabels the row (Income showing a "Financial"
+ *  sub-group makes no sense) and collides `expandedGroup` with the unrelated Set Aside row sharing that
+ *  string, so expanding one expands the other. Falling back to the fixed 'income' bucket for any
+ *  non-income-applicable category closes both bugs at the root — the mismatched transaction is still
+ *  fully visible (it lands in `cats[]` under whichever bucket it fell into), just never lets a
+ *  category that was never actually income-side own its own top-level row or key. */
+export function incomeGroupKey(cat: ExpenseCategory | undefined): string {
+  if (!cat) return 'income';
+  return cat.applicableTo === 'income' ? groupKey(cat) : 'income';
+}
+
+/** "Income" breakdown for an arbitrary scope — item 46 (docs/plans/real-device-testing-pass.md Phase
+ *  6b): income had zero category-wise visibility anywhere in Analytics (`buildGroupData`/
+ *  `buildSetAsideData` both explicitly skip `e.type !== 'expense'` before `classify()` ever runs, so
+ *  income wasn't misclassified into Set Aside, it was just silently dropped). Groups by
+ *  `incomeGroupKey()` (see its own doc comment above for why that's not the raw `groupKey()`
+ *  `buildGroupData`/`buildSetAsideData` use). */
+function buildIncomeData(
+  expenses: Expense[],
+  inScope: Scope,
+  categoryMap: Map<string, ExpenseCategory>,
+  parentCategoryMap: ReturnType<typeof buildParentCategoryMap>
+): IncomeSegment[] {
+  const byGroup = new Map<string, { amount: number; categories: Map<string, number> }>();
+  for (const e of expenses) {
+    if (!inScope(e)) continue;
+    if (e.type !== 'income') continue;
+    const cat = categoryMap.get(e.categoryId);
+    const group = incomeGroupKey(cat);
+    const slot = byGroup.get(group) ?? { amount: 0, categories: new Map<string, number>() };
+    slot.amount += e.amount;
+    slot.categories.set(e.categoryId, (slot.categories.get(e.categoryId) ?? 0) + e.amount);
+    byGroup.set(group, slot);
+  }
+  return Array.from(byGroup.entries())
+    .map(([group, { amount, categories }]) => {
+      const cats = Array.from(categories.entries())
+        .map(([catId, catAmount]) => {
+          const c = categoryMap.get(catId);
+          return {
+            catId,
+            name: c?.name ?? catId,
+            icon: c?.icon ?? 'ti-dots',
+            color: c?.color ?? '#6b7280',
+            amount: catAmount
+          };
+        })
+        .sort((a, b) => b.amount - a.amount);
+      const meta = groupMeta(group, parentCategoryMap);
+      return { group, amount, label: meta.label, color: meta.color, icon: 'ti-cash', cats };
+    })
+    .sort((a, b) => b.amount - a.amount);
+}
+
 export interface EventSegment {
   id: string;
   name: string;
@@ -352,6 +429,14 @@ export function useExpenseAnalytics({
 
   const setAsideTotal = useMemo(() => setAsideData.reduce((s, seg) => s + seg.amount, 0), [setAsideData]);
 
+  // Item 46 — income breakdown for the month, same "arbitrary scope, scope-generic builder" pattern
+  // as `setAsideData` above.
+  const incomeData = useMemo(
+    () => buildIncomeData(expenses, inSelectedMonth, categoryMap, parentCategoryMap),
+    [expenses, inSelectedMonth, categoryMap, parentCategoryMap]
+  );
+  const incomeTotal = useMemo(() => incomeData.reduce((s, seg) => s + seg.amount, 0), [incomeData]);
+
   const eventsThisMonth = useMemo(
     () => buildEventsData(expenses, inSelectedMonth, events, pastEvents, categoryMap),
     [expenses, inSelectedMonth, events, pastEvents, categoryMap]
@@ -477,6 +562,12 @@ export function useExpenseAnalytics({
     [annualSetAsideData]
   );
 
+  const annualIncomeData = useMemo(
+    () => buildIncomeData(expenses, inAnalyticsYear, categoryMap, parentCategoryMap),
+    [expenses, inAnalyticsYear, categoryMap, parentCategoryMap]
+  );
+  const annualIncomeTotal = useMemo(() => annualIncomeData.reduce((s, seg) => s + seg.amount, 0), [annualIncomeData]);
+
   const annualEvents = useMemo(
     () => buildEventsData(expenses, inAnalyticsYear, events, pastEvents, categoryMap),
     [expenses, inAnalyticsYear, events, pastEvents, categoryMap]
@@ -558,6 +649,15 @@ export function useExpenseAnalytics({
   const allTimeSetAsideTotal = useMemo(
     () => allTimeSetAsideData.reduce((s, seg) => s + seg.amount, 0),
     [allTimeSetAsideData]
+  );
+
+  const allTimeIncomeData = useMemo(
+    () => buildIncomeData(expenses, inAllTime, categoryMap, parentCategoryMap),
+    [expenses, inAllTime, categoryMap, parentCategoryMap]
+  );
+  const allTimeIncomeTotal = useMemo(
+    () => allTimeIncomeData.reduce((s, seg) => s + seg.amount, 0),
+    [allTimeIncomeData]
   );
 
   const allTimeEvents = useMemo(
@@ -647,6 +747,8 @@ export function useExpenseAnalytics({
     monthTotal,
     setAsideData,
     setAsideTotal,
+    incomeData,
+    incomeTotal,
     eventsThisMonth,
     prevMonthData,
     hashtagSummary,
@@ -670,6 +772,8 @@ export function useExpenseAnalytics({
     annualGroupTotal,
     annualSetAsideData,
     annualSetAsideTotal,
+    annualIncomeData,
+    annualIncomeTotal,
     annualEvents,
     annualHashtagSummary,
     prevYearGroupData,
@@ -680,6 +784,8 @@ export function useExpenseAnalytics({
     allTimeGroupTotal,
     allTimeSetAsideData,
     allTimeSetAsideTotal,
+    allTimeIncomeData,
+    allTimeIncomeTotal,
     allTimeEvents,
     allTimeHashtagSummary,
     allTimeCashFlowSummaries,

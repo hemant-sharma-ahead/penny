@@ -11,18 +11,23 @@ function toIndianGrouping(n: number): string {
   return [...groups, tail].join(',');
 }
 
+/**
+ * App-wide currency formatter — always shows 2 decimal places (changed 2026-08-20, item 33
+ * real-device testing pass; previously rounded to whole rupees). ~590 call sites already funnel
+ * through this one function, so changing its body here updates the whole app consistently rather
+ * than swapping every call site to a separate decimal variant.
+ */
 export function formatCurrency(amount: number): string {
-  const sign = amount < 0 ? '-' : '';
-  return `${sign}₹${toIndianGrouping(amount)}`;
-}
-
-export function formatCurrencyDecimal(amount: number): string {
   const sign = amount < 0 ? '-' : '';
   const abs = Math.abs(amount);
   const intPart = Math.floor(abs);
   const decPart = Math.round((abs - intPart) * 100);
   return `${sign}₹${toIndianGrouping(intPart)}.${String(decPart).padStart(2, '0')}`;
 }
+
+/** @deprecated Identical to `formatCurrency` now that it always shows 2 decimals — kept only for
+ *  any lingering import; prefer `formatCurrency` in new code. */
+export const formatCurrencyDecimal = formatCurrency;
 
 export function formatCompact(amount: number): string {
   const abs = Math.abs(amount);
@@ -53,5 +58,6 @@ export {
   toDateKey,
   dateLabel,
   offsetMonth,
-  monthLabel
+  monthLabel,
+  monthChipLabel
 } from './date';

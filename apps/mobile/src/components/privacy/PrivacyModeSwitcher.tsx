@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Pressable, Text, TextInput as RNTextInput } from 'react-native';
 import { Modal, Button, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -8,15 +8,13 @@ import { verifyPin } from '@/core/crypto/securityManager';
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { tint } from '~/lib/color';
 
-const MODE_ORDER: PrivacyMode[] = ['safe', 'open'];
-
 type Step = null | 'pin' | 'warning';
 
 /**
- * RN port of apps/web-react/src/components/privacy/PrivacyModeSwitcher.tsx — same icon button +
- * dropdown, PIN-gated Open mode, and pre-Open warning modal. The mode-picker dropdown renders on the
- * shared `Modal` component (not a hand-rolled absolutely-positioned overlay) — this component lives
- * inside `MainNavigator`'s native-stack *header*, which (like every RN native header) commonly clips
+ * RN port of apps/web-react/src/components/privacy/PrivacyModeSwitcher.tsx — a header icon button,
+ * PIN-gated Open mode, and pre-Open warning modal. The PIN/warning steps render on the shared `Modal`
+ * component (not a hand-rolled absolutely-positioned overlay) — this component lives inside
+ * `MainNavigator`'s native-stack *header*, which (like every RN native header) commonly clips
  * overflowing absolutely-positioned children entirely, so a custom overlay silently never
  * appeared/received touches at all (found via on-device testing, 2026-07-25 — not a hypothetical:
  * `ContextSwitcher`'s dropdown hit this identical problem earlier in the migration and was fixed the
@@ -28,15 +26,20 @@ type Step = null | 'pin' | 'warning';
  * Open still has no persisted default and always auto-reverts to Safe on backgrounding
  * (`PrivacyContext.tsx`'s `AppState` handler) — it just no longer has a visible countdown or a
  * fixed-duration auto-expiry on top of that.
+ *
+ * 2026-08-20: with only two modes left, a dropdown to pick "the other one" is a needless extra tap —
+ * tapping the header icon now directly toggles Safe↔Open (still gated by the same PIN + warning step
+ * on the Safe→Open direction; Open→Safe reverts immediately, unchanged, since reverting to the safer
+ * mode has never needed a PIN). The mode-picker `Modal` this used to open is gone entirely.
  */
 export function PrivacyModeSwitcher() {
   const theme = useThemeColors();
   const { mode, setMode } = usePrivacy();
   const [step, setStep] = useState<Step>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const pinInputRef = useRef<RNTextInput>(null);
 
   const MODE: Record<PrivacyMode, { label: string; icon: string; color: string }> = {
     safe: { label: 'Safe', icon: 'ti-eye-off', color: theme.warning },
@@ -44,16 +47,14 @@ export function PrivacyModeSwitcher() {
   };
   const active = MODE[mode];
 
-  const handleSelect = (target: PrivacyMode) => {
-    setMenuOpen(false);
-    if (target === mode) return;
-    if (target === 'open') {
-      setPinInput('');
-      setPinError('');
-      setStep('pin');
-    } else {
-      setMode(target);
+  const handleToggle = () => {
+    if (mode === 'open') {
+      setMode('safe');
+      return;
     }
+    setPinInput('');
+    setPinError('');
+    setStep('pin');
   };
 
   const handlePinConfirm = async () => {
@@ -95,39 +96,17 @@ export function PrivacyModeSwitcher() {
     <>
       <View className="relative">
         <Pressable
-          onPress={() => setMenuOpen(true)}
+          onPress={handleToggle}
           className="w-8 h-8 rounded-full items-center justify-center"
           style={{ backgroundColor: tint(active.color, 14) }}
-          accessibilityLabel={`Privacy mode: ${active.label}. Tap to change.`}
+          accessibilityLabel={`Privacy mode: ${active.label}. Tap to switch to ${MODE[mode === 'open' ? 'safe' : 'open'].label}.`}
         >
           <Icon name={active.icon} size={17} color={active.color} />
         </Pressable>
       </View>
 
-      {menuOpen && (
-        <Modal title="Privacy mode" onClose={() => setMenuOpen(false)} size="sm">
-          <View>
-            {MODE_ORDER.map((m) => {
-              const { label, icon, color } = MODE[m];
-              const isActive = mode === m;
-              return (
-                <Pressable
-                  key={m}
-                  onPress={() => handleSelect(m)}
-                  className={`flex-row items-center gap-2.5 px-3 py-3 rounded-xl ${isActive ? 'bg-surface-2' : ''}`}
-                >
-                  <Icon name={icon} size={16} color={color} />
-                  <Text className="flex-1 text-sm font-medium text-primary">{label}</Text>
-                  {isActive && <Icon name="ti-check" size={15} color={theme.primary} />}
-                </Pressable>
-              );
-            })}
-          </View>
-        </Modal>
-      )}
-
       {step === 'pin' && (
-        <Modal onClose={handleClose} size="sm">
+        <Modal onClose={handleClose} size="sm" onShow={() => pinInputRef.current?.focus()}>
           <View
             className="w-12 h-12 rounded-full items-center justify-center self-center mb-1"
             style={{ backgroundColor: tint(theme.primary, 13) }}
@@ -138,6 +117,7 @@ export function PrivacyModeSwitcher() {
           <Text className="text-sm text-center text-secondary">Enter your PIN to reveal all financial values.</Text>
 
           <TextInput
+            ref={pinInputRef}
             value={pinInput}
             onChange={(v) => setPinInput(v.replace(/\D/g, ''))}
             placeholder="6-digit PIN"
@@ -145,7 +125,6 @@ export function PrivacyModeSwitcher() {
             inputClassName="text-center tracking-widest text-2xl"
             keyboardType="number-pad"
             secureTextEntry
-            autoFocus
             error={pinError || undefined}
           />
 

@@ -169,6 +169,43 @@ export async function setTarget(target: BackupTarget): Promise<void> {
   await runNow();
 }
 
+/** Force-overwrites the current cloud target's backup with this device's current data, skipping the
+ *  pull/merge step entirely. The only way out of `foreign_blob` for someone who deliberately wants to
+ *  keep this device's (fresh) vault and discard the old Drive/iCloud backup rather than restore it —
+ *  today, `runNow()`'s normal cycle always attempts a pull first while `foreign_blob` is active, which
+ *  throws before a push ever gets a chance to run, so there was previously no way out of that state
+ *  other than restoring the old backup (real-device testing feedback, 2026-08-21). Destructive and
+ *  irreversible — the real UI action (`AutoBackupCard`'s `foreign_blob` banner) gates this behind a
+ *  confirm dialog; see `docs/mockups/proposals/drive-foreign-blob-override-v1.html`. */
+export async function overwriteRemoteWithLocal(): Promise<void> {
+  if (running) return;
+  if (!keystore.isUnlocked()) return;
+  running = true;
+  try {
+    const target = getBackupTarget();
+    if (target !== 'google-drive' && target !== 'icloud') return;
+    if (!hasEntitlement('cloud_backup')) return;
+    const provider = getProvider(target);
+    if (!provider.isAvailable()) return;
+
+    setState({ status: 'syncing', error: null });
+    const cursor = await loadCursor();
+    const { tag: newTag } = await provider.push(await exportBackup());
+    cursor.remoteTag = newTag;
+    cursor.pushedAt = maxActivityTs;
+    cursor.lastBackupAt = Date.now();
+    await saveCursor(cursor);
+    setState({ status: 'idle', lastBackupAt: cursor.lastBackupAt, error: null });
+  } catch (err) {
+    if (err instanceof QuotaExceededError) setState({ status: 'quota_exceeded', error: 'Cloud storage is full.' });
+    else if (err instanceof NeedsConsentError)
+      setState({ status: 'needs_reconnect', error: 'Reconnect to keep syncing.' });
+    else setState({ status: 'error', error: err instanceof Error ? err.message : 'Backup failed.' });
+  } finally {
+    running = false;
+  }
+}
+
 /** Interactive (re)connect for the current cloud target, then sync. */
 export async function connect(): Promise<void> {
   const target = getBackupTarget();

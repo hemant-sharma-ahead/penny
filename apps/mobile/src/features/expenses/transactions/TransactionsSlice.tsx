@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Pressable, ScrollView, Text, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchInput, DismissibleChip, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -22,12 +22,13 @@ import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ExpenseGoalIntent } from '@/core/goals/goalLink';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { toMonthYearKey } from '@/lib/formatters';
-import { monthLabel } from '@/lib/date';
+import { offsetMonth } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
 import { ExpenseForm } from '~/components/shared/ExpenseForm';
 import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
+import { MonthScrubBar } from './MonthScrubBar';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
 import { BulkHashtagModal } from './BulkHashtagModal';
 import { BulkAddToIouModal } from './BulkAddToIouModal';
@@ -182,6 +183,7 @@ export function TransactionsSlice({
     setEventFilters,
     monthFilter,
     setMonthFilter,
+    earliestMonth,
     paymentModeMismatchOnly,
     setPaymentModeMismatchOnly,
     activeFilterCount,
@@ -209,6 +211,26 @@ export function TransactionsSlice({
   const [showBulkAddToIou, setShowBulkAddToIou] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+
+  // Item 43 (docs/plans/real-device-testing-pass.md Phase 5) — the scrub bar's chip range, ascending
+  // oldest → newest, spanning `earliestMonth` (useTransactionFilters.ts's one-time Math.min scan)
+  // through the current calendar month. Memoized on `earliestMonth` alone, since that's the only
+  // input that can actually change it (the "now" ceiling is captured once per computation, same as
+  // every other `toMonthYearKey()` call-site in this file). The 1200-month (100-year) guard is just a
+  // safety net against a malformed/future floor date freezing the UI in a `while` loop — real
+  // transaction history should never come close to it.
+  const scrubMonths = useMemo(() => {
+    const current = toMonthYearKey();
+    const list: string[] = [];
+    let m = earliestMonth;
+    let guard = 0;
+    while (m <= current && guard < 1200) {
+      list.push(m);
+      m = offsetMonth(m, 1);
+      guard++;
+    }
+    return list.length > 0 ? list : [current];
+  }, [earliestMonth]);
 
   const allFilteredIds = useMemo(() => grouped.flatMap((g) => g.items.map((i) => i.id)), [grouped]);
   // A bulk selection is overwhelmingly one direction in practice — pick whichever the majority of the
@@ -280,6 +302,20 @@ export function TransactionsSlice({
     setSelectMode(false);
     setSelected(new Set());
   }
+
+  // Item 34 (docs/plans/real-device-testing-pass.md Phase 4) — Android hardware back used to fall
+  // through to React Navigation's default (exiting the tab entirely), stranding select-mode state
+  // instead of just backing out of it. Same `BackHandler` pattern as `ChangePinPage.tsx`/
+  // `ImportPage.tsx`: only registered while `selectMode` is true, consumes the event (returns `true`,
+  // so navigation never sees it) and exits select mode instead.
+  useEffect(() => {
+    if (!selectMode) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      exitSelect();
+      return true;
+    });
+    return () => sub.remove();
+  }, [selectMode]);
 
   async function applyBulkPatch(patch: Partial<Pick<Expense, 'categoryId' | 'accountId' | 'paymentMode'>>) {
     if (selected.size === 0) return;
@@ -391,9 +427,16 @@ export function TransactionsSlice({
     setPrefill(null);
   }
 
+  // Item 30 (docs/plans/real-device-testing-pass.md Phase 4) — scrolls to a transaction just added as a
+  // brand-new entry (never an edit — `editingExpense` is only non-null while editing an existing row) via
+  // `TransactionsTab`'s `scrollToNewTxnId` prop, once the form closes after a successful save.
+  const [justAddedTxnId, setJustAddedTxnId] = useState<string | null>(null);
+
   async function handleSaveExpense(expense: Expense, newTagSetAside?: Record<string, boolean>) {
+    const isNewEntry = !editingExpense;
     await onSaveExpense(expense, newTagSetAside);
     closeForm();
+    if (isNewEntry) setJustAddedTxnId(expense.id);
   }
 
   async function handleDeleteExpense(id: string) {
@@ -443,12 +486,16 @@ export function TransactionsSlice({
       )}
 
       {!selectMode && (
-        /* Filter bar */
-        <View className="border-b border-theme">
-          <View className="flex-row items-center gap-2 px-4 py-2">
+        /* Filter bar. Each row below owns its own bottom border (matching the mockup's `.filterbar`/
+         *  `.scrubwrap` — two independently-bordered rows, not one shared border for the whole
+         *  block) rather than one border shared across the whole outer container, now that the
+         *  month-scrub bar sits between the icon row and the optional chip-filters row. */
+        <View>
+          <View className="flex-row items-center gap-2 px-4 py-2 border-b border-theme">
             {/* 2026-08-18: reordered Budget → Month → Search → Filter → Select (was Month → Search →
              *  Filter → Select → Budget) per real-device testing feedback — pure reorder, no behavior
-             *  change to any individual control. */}
+             *  change to any individual control. The Month trigger itself was later replaced (item 43,
+             *  2026-08-20) by the persistent `MonthScrubBar` rendered below this row — see there. */}
             <Pressable
               onPress={onOpenBudgets}
               className="shrink-0 w-9 h-9 items-center justify-center rounded-xl border border-theme bg-surface-2"
@@ -456,34 +503,13 @@ export function TransactionsSlice({
             >
               <Icon name="ti-target-arrow" size={18} color={theme.textSecondary} />
             </Pressable>
-            <Pressable
-              onPress={() => setShowTxnMonthPicker(true)}
-              className="shrink-0 flex-row items-center gap-1.5 px-3 py-2 rounded-xl border border-theme bg-surface-2"
-            >
-              <Icon name="ti-calendar" size={14} color={monthFilter ? theme.primary : theme.textSecondary} />
-              <Text
-                className="text-sm font-medium"
-                style={{ color: monthFilter ? theme.primary : theme.textSecondary }}
-              >
-                {monthFilter ? monthLabel(monthFilter) : 'All'}
-              </Text>
-              {monthFilter && (
-                <Pressable
-                  onPress={() => setMonthFilter(null)}
-                  className="ml-0.5"
-                  accessibilityLabel="Clear month filter"
-                >
-                  <Icon name="ti-x" size={11} color={theme.textSecondary} />
-                </Pressable>
-              )}
-            </Pressable>
             <SearchInput value={search} onChange={setSearch} className="flex-1 min-w-0" />
             <Pressable
               onPress={() => setShowFilterSheet(true)}
               className="relative shrink-0 w-9 h-9 items-center justify-center rounded-xl border border-theme bg-surface-2"
               accessibilityLabel="Open filters"
             >
-              <Icon name="ti-adjustments-horizontal" size={18} color={theme.textSecondary} />
+              <Icon name="ti-filter" size={18} color={theme.textSecondary} />
               {activeFilterCount > 0 && (
                 <View
                   className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full items-center justify-center"
@@ -504,11 +530,22 @@ export function TransactionsSlice({
             </Pressable>
           </View>
 
+          {/* Item 43 (docs/plans/real-device-testing-pass.md Phase 5) — persistent month-scrub bar,
+              replacing the old single month-chip trigger that used to live in the icon row above. */}
+          <MonthScrubBar
+            months={scrubMonths}
+            selected={monthFilter}
+            onSelectMonth={setMonthFilter}
+            onSelectAll={() => setMonthFilter(null)}
+            onOpenPicker={() => setShowTxnMonthPicker(true)}
+          />
+
           {hasChipFilters && (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}
+              className="border-b border-theme"
+              contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}
             >
               {typeFilter !== 'all' && (
                 <DismissibleChip
@@ -646,6 +683,7 @@ export function TransactionsSlice({
         goalLinkedTxnIds={goalLinkedTxnIds}
         paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
         onRefresh={onRefresh}
+        scrollToNewTxnId={justAddedTxnId}
       />
 
       {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` — the previous

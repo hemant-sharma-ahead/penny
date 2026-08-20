@@ -8,6 +8,8 @@ import { SettingsPage } from '../features/settings/SettingsPage';
 import { SafeModeSettingsPage } from '../features/settings/SafeModeSettingsPage';
 import { ManageTagsPage } from '../features/settings/ManageTagsPage';
 import { DiscoverTipsPage } from '../features/settings/DiscoverTipsPage';
+import { AboutPennyPage } from '../features/settings/AboutPennyPage';
+import { PrivacyPromisePage } from '../features/settings/PrivacyPromisePage';
 import { ChangePinPage } from '../features/security/ChangePinPage';
 import { ChangePassphrasePage } from '../features/security/ChangePassphrasePage';
 import { TimelinePage } from '../features/activity/TimelinePage';
@@ -61,6 +63,12 @@ export type HomeStackParamList = {
   SafeModeSettings: undefined;
   ManageTags: undefined;
   DiscoverTips: undefined;
+  /** About Penny (docs/mockups/proposals/about-penny-v1.html) — reached from Settings' "Data &
+   *  activity" card, last row. `PrivacyPromise` here is a distinct, read-only screen from onboarding's
+   *  own `PrivacyPromise` route (`OnboardingStackParamList`, a separate navigator) — see
+   *  `AboutPennyPage.tsx`'s doc comment for why they aren't the same screen. */
+  AboutPenny: undefined;
+  PrivacyPromise: undefined;
   ChangePin: { forcedPinReset?: boolean } | undefined;
   ChangePassphrase: undefined;
   Timeline: undefined;
@@ -128,6 +136,8 @@ export function HomeStack() {
       <Stack.Screen name="SafeModeSettings" component={SafeModeSettingsPage} />
       <Stack.Screen name="ManageTags" component={ManageTagsPage} />
       <Stack.Screen name="DiscoverTips" component={DiscoverTipsPage} />
+      <Stack.Screen name="AboutPenny" component={AboutPennyPage} />
+      <Stack.Screen name="PrivacyPromise" component={PrivacyPromisePage} />
       <Stack.Screen
         name="ChangePin"
         component={ChangePinPage}

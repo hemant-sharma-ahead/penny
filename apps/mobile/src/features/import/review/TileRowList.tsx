@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import { RowCheckbox } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -38,14 +38,24 @@ interface TileRowListProps {
    *  `DuplicatesBucket.tsx`'s "not a duplicate — import anyway". Deliberately a link, not a full button:
    *  this bucket is meant to stay low-friction to skim through. */
   actionForRow?: (row: ParsedRow, index: number) => { label: string; onPress: () => void } | undefined;
+  /** Opens `TransactionBrowserModal.tsx`'s full-screen browser for this tile's ENTIRE row set (2026-08-20,
+   *  CSV-import transaction-browser feature) — purely ADDITIVE to the inline list above, never a
+   *  replacement for it (`docs/mockups/proposals/csv-import-transaction-browser-v2.html` v2 correction
+   *  #1). Omit to render no "See all" link at all (e.g. the duplicates bucket, which has no such popup).
+   *  The link only renders once `rows.length` exceeds {@link INITIAL_RENDER_CAP} — a tile with fewer rows
+   *  than that keeps rendering exactly as it does today, with nothing new to show. */
+  onSeeAll?: () => void;
 }
 
-/** Hard render cap — generous (unlike the collapsed "+N more" toggle this replaces) since the list is
- *  now always internally-scrolling rather than needing a full expand to see past it, but still a REAL
- *  cap, never literally unbounded — same `docs/ARCHITECTURE.md` "unbounded `.map()` over bulk data" rule
- *  that already caused a real on-device crash elsewhere in this codebase (`UnparsedRows.tsx`'s own
- *  20-row cap exists for the identical reason). */
-const RENDER_CAP = 60;
+/** Initial render cap + "Show N more" batch size (2026-08-20, item 40 real-device testing pass) —
+ *  ported verbatim from `DuplicatesBucket.tsx`'s own identical fix (real user report: "only shows first
+ *  60 and there is no way to see all of them" applied equally here — this component's old static
+ *  "showing first 60" caption had no escape at all). Still a REAL cap on every render, never literally
+ *  unbounded (`docs/ARCHITECTURE.md`'s "unbounded `.map()` over bulk data" rule, same reasoning
+ *  `UnparsedRows.tsx`'s own 20-row cap documents) — each tap just renders one more bounded batch rather
+ *  than the whole remainder in one shot. */
+const INITIAL_RENDER_CAP = 60;
+const LOAD_MORE_BATCH = 60;
 /** Fixed max-height for the scrollable container (2026-08-14, CSV-import redesign §9.2/Issue #2) —
  *  replaces the old "+N more" unbounded expand (`showAllRows(true)` used to render EVERY row via an
  *  unbounded `.map()`, the same shape of bug that already caused a real on-device crash elsewhere in
@@ -60,14 +70,23 @@ const SCROLL_MAX_HEIGHT = 260;
  * cap is decoupled from `selection`, which always covers every row in `rows` regardless of how many are
  * actually rendered (issue #9's fix).
  */
-export function TileRowList({ rows, rowOverrides, selection, captionForRow, actionForRow }: TileRowListProps) {
+export function TileRowList({
+  rows,
+  rowOverrides,
+  selection,
+  captionForRow,
+  actionForRow,
+  onSeeAll
+}: TileRowListProps) {
   const theme = useThemeColors();
+  const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_CAP);
 
   if (rows.length === 0) return null;
 
   const uncheckedIndices = selection?.uncheckedIndices;
   const allChecked = !!selection && (uncheckedIndices?.size ?? 0) === 0;
-  const visibleRows = rows.slice(0, RENDER_CAP);
+  const visibleRows = rows.slice(0, visibleCount);
+  const remaining = rows.length - visibleRows.length;
   const needsScroll = rows.length > 4;
 
   const listContent = visibleRows.map(({ row, index }, i) => {
@@ -139,16 +158,37 @@ export function TileRowList({ rows, rowOverrides, selection, captionForRow, acti
       ) : (
         listContent
       )}
-      {rows.length > RENDER_CAP ? (
-        <Text className="text-center text-[9px] text-tertiary" style={{ paddingTop: 6 }}>
-          {rows.length} rows total · showing first {RENDER_CAP}
-        </Text>
-      ) : (
-        needsScroll && (
-          <Text className="text-center text-[9px] text-tertiary" style={{ paddingTop: 6 }}>
-            {rows.length} rows total · scroll for more
-          </Text>
-        )
+      {/* "Show N more"/"scroll for more" (left) and "See all N transactions →" (right, 2026-08-20 — reuses
+       *  the exact "Show N more" link styling verbatim, no button chrome — approved mockup v2 correction
+       *  #2) share one row, pinned to opposite extremes, rather than stacking as two separate rows — same
+       *  60-row threshold as the pagination cap, checked against the tile's TOTAL row count (not
+       *  `visibleCount`), so "See all" keeps showing even once pagination is fully expanded. */}
+      {(remaining > 0 || needsScroll || (onSeeAll && rows.length > INITIAL_RENDER_CAP)) && (
+        <View
+          className={`flex-row items-center justify-between py-2 ${
+            onSeeAll && rows.length > INITIAL_RENDER_CAP ? 'border-t border-dashed border-theme' : ''
+          }`}
+          style={onSeeAll && rows.length > INITIAL_RENDER_CAP ? { marginTop: 2 } : undefined}
+        >
+          {remaining > 0 ? (
+            <Pressable onPress={() => setVisibleCount((v) => v + LOAD_MORE_BATCH)}>
+              <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+                Show {Math.min(remaining, LOAD_MORE_BATCH)} more ({remaining} left)
+              </Text>
+            </Pressable>
+          ) : needsScroll ? (
+            <Text className="text-[9px] text-tertiary">{rows.length} rows total · scroll for more</Text>
+          ) : (
+            <View />
+          )}
+          {onSeeAll && rows.length > INITIAL_RENDER_CAP && (
+            <Pressable onPress={onSeeAll}>
+              <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+                See all {rows.length} transactions →
+              </Text>
+            </Pressable>
+          )}
+        </View>
       )}
     </View>
   );

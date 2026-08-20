@@ -507,6 +507,14 @@ export function SettingsPage() {
               onPress={() => navigation.navigate('DiscoverTips')}
               trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
             />
+            <Row
+              icon="ti-info-circle"
+              color={sectionColor.data}
+              label="About Penny"
+              sub="Version, what's new & our privacy promise"
+              onPress={() => navigation.navigate('AboutPenny')}
+              trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+            />
           </Card>
 
           {/* Danger zone */}

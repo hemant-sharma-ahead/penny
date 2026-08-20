@@ -10,8 +10,10 @@ import {
   bankNarrationOverridesRepo,
   paymentModesRepo,
   personsRepo,
-  ledgerEntriesRepo
+  ledgerEntriesRepo,
+  merchantMemoryRepo
 } from '@/core/db/repositories';
+import { buildMemory, memoryKey } from '@/core/expenses/merchantMemory';
 import { useRepository } from '@/hooks/useRepository';
 import { logActivityAwaited } from '@/core/db/activityLog';
 import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
@@ -946,6 +948,29 @@ export function useBankImport(accountId: string) {
       }
     }
 
+    // Merchant-memory bookkeeping (2026-08-20, item 45 real-device testing pass) — same shape as
+    // `useExpenses.ts`'s `saveExpenseWithHashtags`/`core/import/importWriter.ts`'s own analogous fix:
+    // brand-new bank-import transactions (`stagedNewTxns`, below) previously never touched
+    // `merchantMemoryRepo` at all, so a bank-imported merchant was structurally invisible to
+    // `ExpenseForm`'s category-suggestion engine (`searchMerchantMemories()`) — both going forward and
+    // for anything already imported this way (the retroactive half is the same backfill-version-bump
+    // fix in `useExpenses.ts`, which reindexes ALL expense rows regardless of origin). `matchedPairs`
+    // (existing app expenses being reconciled against a statement line) are deliberately NOT covered
+    // here — reconciliation only touches date/amount/checkpoint fields, never category, so whatever
+    // memory already exists for that expense (from its original manual save, or the backfill) is
+    // already correct and would be a no-op merge here anyway. Resolved against a fresh read + a local
+    // cache, same pattern as `ensureHashtag` above.
+    const merchantMemoryCache = new Map((await merchantMemoryRepo.getAll()).map((m) => [m.id, m]));
+    async function updateMerchantMemory(expense: Expense) {
+      const key = memoryKey(expense.type ?? 'expense', expense.description, expense.categoryId);
+      if (!key) return;
+      const memory = buildMemory(expense, merchantMemoryCache.get(key));
+      if (memory) {
+        await merchantMemoryRepo.put(memory);
+        merchantMemoryCache.set(memory.id, memory);
+      }
+    }
+
     // IOU (Lent/Borrowed) — `BulkCategorizeModal`'s optional bulk-shared person field. Resolved via the
     // shared `getOrCreatePerson` in packages/core (2026-08-18 dedup fix — see personResolver.ts's
     // header), same case-insensitive-match + un-archive-if-needed logic every other IOU-person entry
@@ -1031,6 +1056,7 @@ export function useBankImport(accountId: string) {
         for (const tag of staged.expense.hashtags ?? []) {
           await ensureHashtag(tag, staged.newTagSetAside?.[tag] ?? false);
         }
+        await updateMerchantMemory(expenseToSave);
         if (staged.iouPersonName) {
           const person = await resolvePerson(staged.iouPersonName);
           const kind: 'lent' | 'borrowed' = staged.expense.type === 'income' ? 'borrowed' : 'lent';

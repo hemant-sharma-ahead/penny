@@ -3,18 +3,20 @@ import { View, Pressable, ScrollView, Text } from 'react-native';
 import { Button, Banner } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { Account, Expense, ExpenseCategory, Person } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Hashtag, Person } from '@/core/db/types';
 import type { ParsedRow, RejectedRow } from '@/core/import/importParsers';
 import type { ColumnMapping } from '@/core/import/importMatcher';
-import { allIntentGroups, type CategoryAction } from '@/core/import/importCategoryResolution';
+import type { CategoryAction } from '@/core/import/importCategoryResolution';
 import type { ResolvedPreviewRow, RowOverride } from '@/core/import/importPipeline';
-import type { DisplayTransferPair, TransactionsRowGroup } from './useImport';
+import type { AccountInput } from '~/hooks/useAccountForm';
+import type { CashWithdrawalSuggestion, DisplayTransferPair, TransactionsRowGroup } from './useImport';
 import type { TransactionsGroupingResult } from '@/core/import/importTransactionsGrouping';
 import { CategoryTile } from './review/CategoryTile';
 import { MovedRowsTile } from './review/MovedRowsTile';
 import { SkippedGroupTile } from './review/SkippedGroupTile';
 import { DuplicatesBucket } from './review/DuplicatesBucket';
 import { TransferPairCard } from './review/TransferPairCard';
+import { CashWithdrawalSuggestionCard } from './review/CashWithdrawalSuggestionCard';
 import { UnparsedRows } from './review/UnparsedRows';
 import { CarryForwardExcluded } from './review/CarryForwardExcluded';
 import { ImportCategorizeModal } from './review/ImportCategorizeModal';
@@ -30,6 +32,19 @@ interface TransactionsStageProps {
   carryForwardExcludedRows: ParsedRow[];
   transferPairs: DisplayTransferPair[];
   onUnpairTransfer: (outgoingIndex: number, incomingIndex: number) => void;
+  /** "Turn these into transfers to your Cash account?" suggestions (2026-08-20, real-device testing
+   *  pass) — see `useImport.ts`'s "Cash-withdrawal → transfer" section. Rendered alongside "Linked
+   *  transfers" since both are pre-commit, opt-in "is this really a transfer?" nudges over the same
+   *  Transactions-stage row-group data, just triggered by a different signal (a single-leg cash/ATM
+   *  withdrawal category vs. a two-row same-file pairing). */
+  cashWithdrawalSuggestions: CashWithdrawalSuggestion[];
+  cashWithdrawalTargets: Map<string, { accountId: string; accountName: string }>;
+  onAcceptCashWithdrawalTransfer: (fullKey: string, accountId: string, accountName: string) => void;
+  onDismissCashWithdrawalSuggestion: (fullKey: string) => void;
+  onUndoCashWithdrawalTransfer: (fullKey: string) => void;
+  /** Creates a real `Account` immediately — backs the cash-withdrawal suggestion card's "+ Create a
+   *  Cash account" sub-flow. See `useImport.ts`'s `createAccount` doc comment. */
+  createAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   rowGroups: TransactionsRowGroup[];
   grouping: TransactionsGroupingResult;
   /** Row-index-keyed resolution, including which existing DB expense (if any) a duplicate row matched
@@ -39,6 +54,9 @@ interface TransactionsStageProps {
   categories: ExpenseCategory[];
   accounts: Account[];
   persons: Person[];
+  /** Tag suggestions for `ImportCategorizeModal`'s tag field (2026-08-20, item 41 real-device testing
+   *  pass) — its "Frequent"/live-suggestion row, ported from `BulkHashtagModal.tsx`'s identical pattern. */
+  hashtags: Hashtag[];
   excludeAccountId: string | undefined;
   txnCountByCategory: Map<string, number>;
   categoryTagsByKey: Map<string, string>;
@@ -65,10 +83,41 @@ interface TransactionsStageProps {
   onMoveRowsToCategory: (rowIndices: number[], categoryId: string, categoryName: string) => void;
   onTagRows: (rowIndices: number[], tag: string) => void;
   onNotADuplicate: (index: number) => void;
+  /** Creates a real `ExpenseCategory` immediately (2026-08-20, item 41 flow redesign) — forwarded to
+   *  `CategoryTile` → `ImportCategorizeModal`'s "Create" kind. See `useImport.ts`'s `createCategory` doc
+   *  comment. */
+  onCreateCategory: (cat: ExpenseCategory) => Promise<void>;
   onImport: () => void;
 }
 
 type BucketKey = 'attention' | 'ready' | 'skipped' | 'duplicate';
+
+/** Initial tile-list render cap + "Show N more" batch (2026-08-21, real-device testing pass — a Cashew
+ *  CSV import was reported missing the pattern) — same reasoning as `TileRowList.tsx`'s own row-level
+ *  cap (docs/ARCHITECTURE.md's "unbounded `.map()` over bulk-imported data" rule), just applied one
+ *  level up: `needsInputGroups`/`stagedGroups`/`skippedGroups` below used to render as a plain,
+ *  fully-unbounded `.map()` of `CategoryTile`/`SkippedGroupTile` components. Item 40 only capped the
+ *  ROWS inside one tile (`TileRowList.tsx`) — the number of TILES itself was still unbounded, and a
+ *  Cashew export (which groups by free-form title/category far more granularly than a bank statement
+ *  typically does) can realistically produce far more distinct groups than that. Smaller than
+ *  `TileRowList`'s 60 — each tile is a much heavier component (its own accordion, buttons, and modal),
+ *  not a single text row. */
+const TILE_INITIAL_CAP = 25;
+const TILE_LOAD_MORE_BATCH = 25;
+
+/** "Show N more" footer for a capped tile list — same copy/style as `TileRowList.tsx`'s row-level
+ *  version, just reusable across the three bucket lists below instead of duplicated three times. */
+function ShowMoreTiles({ remaining, batch, onPress }: { remaining: number; batch: number; onPress: () => void }) {
+  const theme = useThemeColors();
+  if (remaining <= 0) return null;
+  return (
+    <Pressable onPress={onPress} className="py-2">
+      <Text className="text-xs font-semibold text-center" style={{ color: theme.primary }}>
+        Show {Math.min(remaining, batch)} more ({remaining} left)
+      </Text>
+    </Pressable>
+  );
+}
 
 /**
  * New Transactions wizard stage (2026-08-14, CSV-import redesign Chunk B) — adapts the former
@@ -87,6 +136,12 @@ export function TransactionsStage({
   carryForwardExcludedRows,
   transferPairs,
   onUnpairTransfer,
+  cashWithdrawalSuggestions,
+  cashWithdrawalTargets,
+  onAcceptCashWithdrawalTransfer,
+  onDismissCashWithdrawalSuggestion,
+  onUndoCashWithdrawalTransfer,
+  createAccount,
   rowGroups,
   grouping,
   preview,
@@ -94,6 +149,7 @@ export function TransactionsStage({
   categories,
   accounts,
   persons,
+  hashtags,
   excludeAccountId,
   txnCountByCategory,
   categoryTagsByKey,
@@ -115,12 +171,15 @@ export function TransactionsStage({
   onMoveRowsToCategory,
   onTagRows,
   onNotADuplicate,
+  onCreateCategory,
   onImport
 }: TransactionsStageProps) {
   const theme = useThemeColors();
   const [transfersExpanded, setTransfersExpanded] = useState(false);
   const [recategorizeKey, setRecategorizeKey] = useState<string | null>(null);
-  const groupOptions = useMemo(() => allIntentGroups().map((g) => ({ value: g.key, label: g.label })), []);
+  const [needsInputVisible, setNeedsInputVisible] = useState(TILE_INITIAL_CAP);
+  const [stagedVisible, setStagedVisible] = useState(TILE_INITIAL_CAP);
+  const [skippedVisible, setSkippedVisible] = useState(TILE_INITIAL_CAP);
   const transferAccountOptions = useMemo(
     () => accounts.filter((a) => a.id !== excludeAccountId),
     [accounts, excludeAccountId]
@@ -185,12 +244,12 @@ export function TransactionsStage({
         categories={categories}
         transferAccountOptions={transferAccountOptions}
         txnCountByCategory={txnCountByCategory}
-        groupOptions={groupOptions}
         tag={categoryTagsByKey.get(g.fullKey) ?? ''}
         rowOverrides={rowOverrides}
         rememberedSuggestion={rememberedSuggestions.get(g.parentSourceName)}
         iouPersons={persons}
-        initialIouPersonName={iouPersonNames.get(g.fullKey) ?? g.counterpartySeedName ?? ''}
+        hashtags={hashtags}
+        initialIouPersonName={iouPersonNames.get(g.fullKey) ?? ''}
         onIouPersonNameChange={(name) => onIouPersonNameChange(g.fullKey, name)}
         onSetRowIouPersonNames={onSetRowIouPersonNames}
         onTagChange={(tag) => onTagChange(g.fullKey, tag)}
@@ -198,9 +257,10 @@ export function TransactionsStage({
         onMoveRowsToCategory={onMoveRowsToCategory}
         onTagRows={onTagRows}
         onAcknowledge={() => onAcknowledge(g.fullKey)}
-        isSplitChild={g.isSplitChild}
-        confidence={g.confidence}
         isInvestmentMovement={g.isInvestmentMovement}
+        isTransferSuspect={g.isTransferSuspect}
+        isIouSuspect={g.isIouSuspect}
+        onCreateCategory={onCreateCategory}
       />
     );
   }
@@ -271,6 +331,23 @@ export function TransactionsStage({
           </View>
         )}
 
+        {cashWithdrawalSuggestions.length > 0 && (
+          <View className="gap-2">
+            {cashWithdrawalSuggestions.map((s) => (
+              <CashWithdrawalSuggestionCard
+                key={s.fullKey}
+                suggestion={s}
+                accounts={accounts}
+                target={cashWithdrawalTargets.get(s.fullKey)}
+                onAccept={onAcceptCashWithdrawalTransfer}
+                onDismiss={onDismissCashWithdrawalSuggestion}
+                onUndo={onUndoCashWithdrawalTransfer}
+                createAccount={createAccount}
+              />
+            ))}
+          </View>
+        )}
+
         {needsInputGroups.length > 0 && (
           <BucketCard
             dotColor={theme.warning}
@@ -279,7 +356,12 @@ export function TransactionsStage({
             expanded={isExpanded('attention')}
             onToggle={() => toggle('attention')}
           >
-            {needsInputGroups.map((g) => renderTile(g, 'attention'))}
+            {needsInputGroups.slice(0, needsInputVisible).map((g) => renderTile(g, 'attention'))}
+            <ShowMoreTiles
+              remaining={needsInputGroups.length - needsInputVisible}
+              batch={TILE_LOAD_MORE_BATCH}
+              onPress={() => setNeedsInputVisible((v) => v + TILE_LOAD_MORE_BATCH)}
+            />
           </BucketCard>
         )}
 
@@ -291,7 +373,15 @@ export function TransactionsStage({
             expanded={isExpanded('ready')}
             onToggle={() => toggle('ready')}
           >
-            {stagedGroups.map((g) => renderTile(g, 'ready'))}
+            {stagedGroups.slice(0, stagedVisible).map((g) => renderTile(g, 'ready'))}
+            <ShowMoreTiles
+              remaining={stagedGroups.length - stagedVisible}
+              batch={TILE_LOAD_MORE_BATCH}
+              onPress={() => setStagedVisible((v) => v + TILE_LOAD_MORE_BATCH)}
+            />
+            {/* Synthetic "moved rows landed here" tiles are created only by an explicit user action
+             *  (manually recategorizing rows into a category with no group of its own yet) — realistically
+             *  always a handful, never bulk-imported data, so left uncapped. */}
             {Array.from(grouping.syntheticTiles.entries()).map(([key, info]) => (
               <MovedRowsTile
                 key={key}
@@ -312,7 +402,7 @@ export function TransactionsStage({
             expanded={isExpanded('skipped')}
             onToggle={() => toggle('skipped')}
           >
-            {skippedGroups.map((g) => {
+            {skippedGroups.slice(0, skippedVisible).map((g) => {
               const rows = grouping.rowsByFullKey.get(g.fullKey) ?? [];
               if (rows.length === 0) return null;
               return (
@@ -325,6 +415,11 @@ export function TransactionsStage({
                 />
               );
             })}
+            <ShowMoreTiles
+              remaining={skippedGroups.length - skippedVisible}
+              batch={TILE_LOAD_MORE_BATCH}
+              onPress={() => setSkippedVisible((v) => v + TILE_LOAD_MORE_BATCH)}
+            />
           </BucketCard>
         )}
 
@@ -382,13 +477,12 @@ export function TransactionsStage({
           categories={categories}
           transferAccountOptions={transferAccountOptions}
           txnCountByCategory={txnCountByCategory}
-          groupOptions={groupOptions}
           pickerType={recategorizeGroup.type === 'income' ? 'income' : 'expense'}
           rememberedSuggestion={rememberedSuggestions.get(recategorizeGroup.parentSourceName)}
           iouPersons={persons}
-          initialIouPersonName={
-            iouPersonNames.get(recategorizeGroup.fullKey) ?? recategorizeGroup.counterpartySeedName ?? ''
-          }
+          hashtags={hashtags}
+          initialIouPersonName={iouPersonNames.get(recategorizeGroup.fullKey) ?? ''}
+          onCreateCategory={onCreateCategory}
           onApplyFull={(action, newTag, iouPersonName) => {
             onUpdate(recategorizeGroup.fullKey, action);
             onTagChange(recategorizeGroup.fullKey, newTag);

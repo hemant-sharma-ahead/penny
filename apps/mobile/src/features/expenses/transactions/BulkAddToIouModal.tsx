@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { View, Text } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { View, Text, TextInput as RNTextInput } from 'react-native';
 import { Modal, Button, OptionButton } from '~/components/ui';
 import { PersonTypeahead, WizardProgress } from '~/components/shared';
 import type { ExpenseCategory, Person } from '@/core/db/types';
@@ -85,6 +85,7 @@ export function BulkAddToIouModal({ categories, persons, expenseCount, incomeCou
   const [expenseCategoryId, setExpenseCategoryId] = useState<string | undefined>();
   const [incomeCategoryId, setIncomeCategoryId] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const personInputRef = useRef<RNTextInput>(null);
 
   const onConfirmStep = stepIdx >= questionSteps.length;
   const currentStep: Step | 'confirm' = onConfirmStep ? 'confirm' : (questionSteps[stepIdx] as Step);
@@ -147,6 +148,9 @@ export function BulkAddToIouModal({ categories, persons, expenseCount, incomeCou
     <Modal
       onClose={onClose}
       title="Add to IOU ledger"
+      onShow={() => {
+        if (currentStep === 'person') personInputRef.current?.focus();
+      }}
       footer={
         <View className="flex-row gap-3">
           <View className="flex-1">
@@ -188,12 +192,12 @@ export function BulkAddToIouModal({ categories, persons, expenseCount, incomeCou
             Add {totalCount} transaction{totalCount === 1 ? '' : 's'} to
           </Text>
           <PersonTypeahead
+            ref={personInputRef}
             persons={persons}
             query={personName}
             onQueryChange={setPersonName}
             onSelect={(p) => setPersonName(p.name)}
             placeholder="Type a name…"
-            autoFocus
           />
           <Text className="text-xs text-tertiary">One person for the whole batch — no per-row picker.</Text>
         </View>

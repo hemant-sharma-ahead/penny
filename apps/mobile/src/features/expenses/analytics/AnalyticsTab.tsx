@@ -3,7 +3,7 @@ import { View, Pressable, Text } from 'react-native';
 import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 import { formatCurrency, formatCompact, formatDate, toMonthYearKey } from '@/lib/formatters';
 import { ListContainer, SectionLabel, Banner, Modal } from '~/components/ui';
-import { DidYouKnowCard } from '~/components/shared';
+import { DidYouKnowCard, BankLogo } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
@@ -12,7 +12,7 @@ import type { Account } from '@/core/db/types';
 import type { MonthPoint } from '@/core/expenses/annualAnalytics';
 import type { MonthlyRecap, Anomaly } from '@/core/expenses/monthlyInsights';
 import type { CashFlowSummary } from '@/core/expenses/cashFlowSummary';
-import type { GroupSegment, SetAsideSegment, EventSegment } from './useExpenseAnalytics';
+import type { GroupSegment, SetAsideSegment, IncomeSegment, EventSegment } from './useExpenseAnalytics';
 import { AnnualChart } from './AnnualChart';
 
 // ── Local helpers ─────────────────────────────────────────────────────────────
@@ -199,7 +199,11 @@ function CashFlowTile({
         <Text className="text-xs font-semibold text-primary">Cash Flow · {periodLabel}</Text>
       </View>
 
+      {/* Item 28 (docs/plans/real-device-testing-pass.md) — column-header row now leads with a spacer
+          matching each account row's own ~54px stacked icon+name column below, so the 4 number labels
+          line up with their real values instead of the account identity. */}
       <View className="flex-row gap-1.5">
+        <View className="w-[54px]" />
         <Text className="flex-1 text-[9px] text-tertiary uppercase tracking-wide" numberOfLines={1}>
           Initial
         </Text>
@@ -216,58 +220,67 @@ function CashFlowTile({
 
       {summaries.map(({ account, summary }, i) => (
         <View key={account.id} className={`py-2.5 ${i > 0 ? 'border-t border-dashed border-theme' : ''}`}>
-          <View className="flex-row items-center gap-1.5 mb-1.5">
-            <View
-              className="w-5 h-5 rounded-md items-center justify-center"
-              style={{ backgroundColor: tint(account.color, 13) }}
-            >
-              <Icon name={account.icon} size={11} color={account.color} />
-            </View>
-            <Text className="text-[11.5px] font-semibold text-primary" numberOfLines={1}>
-              {account.name}
-            </Text>
-          </View>
+          {/* One row per account (item 28): a narrow left column stacking the account's icon/logo above
+              its truncated name, freeing the rest of the row's width for all 4 numbers at real size —
+              solves "one row" via vertical stacking instead of shrinking the numbers further.
+              `items-center` (not `items-start`, 2026-08-20 fix — real-device testing found the numbers
+              reading as vertically "off" against the icon): the icon+name column is taller than the
+              single-line number row, so top-aligning them left the numbers sitting above the icon's own
+              vertical center instead of level with it. */}
           <View className="flex-row items-center gap-1.5">
-            <Text
-              className="flex-1 text-[13px] font-bold text-primary"
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >
-              {fmt(summary.initial)}
-            </Text>
-            <Text
-              className="flex-1 text-[13px] font-bold"
-              style={{ color: theme.success }}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >
-              +{fmt(summary.income)}
-            </Text>
-            <Text
-              className="flex-1 text-[13px] font-bold"
-              style={{ color: theme.danger }}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.7}
-            >
-              -{fmt(summary.expenses)}
-            </Text>
-            <View className="flex-1 items-start">
+            <View className="w-[54px] items-center gap-1 pt-0.5">
               <View
-                className="rounded-md px-1.5 py-0.5 max-w-full"
-                style={{ backgroundColor: tint(theme.primary, 15) }}
+                className="w-[26px] h-[26px] rounded-lg items-center justify-center"
+                style={{ backgroundColor: tint(account.color, 13) }}
               >
-                <Text
-                  className="text-[13px] font-extrabold"
-                  style={{ color: theme.primary }}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.7}
+                <BankLogo account={account} size={16} color={account.color} />
+              </View>
+              <Text className="text-[9px] font-semibold text-secondary text-center" numberOfLines={1}>
+                {account.name}
+              </Text>
+            </View>
+            <View className="flex-1 flex-row items-center gap-1.5">
+              <Text
+                className="flex-1 text-[13px] font-bold text-primary"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                {fmt(summary.initial)}
+              </Text>
+              <Text
+                className="flex-1 text-[13px] font-bold"
+                style={{ color: theme.success }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                +{fmt(summary.income)}
+              </Text>
+              <Text
+                className="flex-1 text-[13px] font-bold"
+                style={{ color: theme.danger }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
+              >
+                -{fmt(summary.expenses)}
+              </Text>
+              <View className="flex-1 items-start">
+                <View
+                  className="rounded-md px-1.5 py-0.5 max-w-full"
+                  style={{ backgroundColor: tint(theme.primary, 15) }}
                 >
-                  {fmt(summary.computedLeft)}
-                </Text>
+                  <Text
+                    className="text-[13px] font-extrabold"
+                    style={{ color: theme.primary }}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.7}
+                  >
+                    {fmt(summary.computedLeft)}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -688,6 +701,122 @@ function SetAsideSection({
   );
 }
 
+/** "Income" breakdown — item 46 (docs/plans/real-device-testing-pass.md Phase 6b), shared by monthly,
+ *  annual, and all-time. Copies `SetAsideSection`'s exact expand/collapse pattern verbatim (income has
+ *  no budget concept either, matching `SetAsideSegment`'s shape, not `GroupSegment`'s budget-aware one)
+ *  — just fed `IncomeSegment[]` instead. Shares the SAME lifted `expandedGroup` state
+ *  `DailyRoutineSection`/`SetAsideSection` already use: `income` is its own distinct `intentGroup`,
+ *  never shared with any expense-side group key (see `INTENT_GROUP_META`/`isRoutineGroup` in
+ *  `packages/core/src/core/db/defaultCategories.ts`), so it can't collide and open two sections at once. */
+function IncomeSection({
+  data,
+  total,
+  expandedGroup,
+  onChangeExpandedGroup,
+  masked,
+  onViewCategory,
+  onViewGroup
+}: {
+  data: IncomeSegment[];
+  total: number;
+  expandedGroup: string | null;
+  onChangeExpandedGroup: (g: string | null) => void;
+  masked: boolean;
+  onViewCategory: (catId: string, label: string) => void;
+  onViewGroup: (group: string, label: string) => void;
+}) {
+  const theme = useThemeColors();
+  if (data.length === 0) return null;
+  return (
+    <>
+      <SectionLabel className="-mb-2">Income</SectionLabel>
+      <ListContainer>
+        {data.map((seg) => {
+          const isExpanded = expandedGroup === seg.group;
+          return (
+            <View key={seg.group}>
+              {/* Compact row */}
+              <Pressable
+                className="px-4 py-3 flex-row items-center gap-3"
+                onPress={() => onChangeExpandedGroup(isExpanded ? null : seg.group)}
+              >
+                <View
+                  className="w-7 h-7 rounded-lg items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: tint(seg.color, 12) }}
+                >
+                  <Icon name={seg.icon} size={14} color={seg.color} />
+                </View>
+                <Text className="text-sm font-medium text-primary flex-1" numberOfLines={1}>
+                  {seg.label}
+                </Text>
+                <Text className="text-sm font-semibold text-primary flex-shrink-0">
+                  {!masked ? formatCurrency(seg.amount) : '••••'}
+                </Text>
+                <Icon name={isExpanded ? 'ti-chevron-up' : 'ti-chevron-down'} size={13} color={theme.textTertiary} />
+              </Pressable>
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <View className="px-4 pb-3 bg-surface-2 border-t border-theme">
+                  <View className="mt-1 gap-1">
+                    {seg.cats.map((cat) => {
+                      const catPct = seg.amount > 0 ? (cat.amount / seg.amount) * 100 : 0;
+                      return (
+                        <Pressable
+                          key={cat.catId}
+                          onPress={() => onViewCategory(cat.catId, cat.name)}
+                          className="gap-1 py-2 border-t border-theme"
+                        >
+                          <View className="flex-row items-center gap-2">
+                            <View
+                              className="w-5 h-5 rounded-md items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: tint(cat.color, 12) }}
+                            >
+                              <Icon name={cat.icon} size={11} color={cat.color} />
+                            </View>
+                            <Text className="text-xs text-secondary flex-1" numberOfLines={1}>
+                              {cat.name}
+                            </Text>
+                            <Text className="text-xs font-semibold text-primary flex-shrink-0">
+                              {!masked ? formatCurrency(cat.amount) : '••••'}
+                            </Text>
+                            <Icon name="ti-chevron-right" size={11} color={theme.textTertiary} />
+                          </View>
+                          <View className="h-1 rounded-full bg-surface-3">
+                            <View
+                              className="h-1 rounded-full"
+                              style={{ width: `${catPct}%`, backgroundColor: cat.color }}
+                            />
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Pressable
+                    onPress={() => onViewGroup(seg.group, seg.label)}
+                    className="flex-row items-center gap-1 pt-2.5 self-start"
+                  >
+                    <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+                      View all transactions in {seg.label}
+                    </Text>
+                    <Icon name="ti-chevron-right" size={12} color={theme.primary} />
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          );
+        })}
+        <View className="px-4 py-2.5 flex-row items-center gap-3 bg-surface-2 border-t border-theme">
+          <Text className="text-xs text-secondary flex-1">Total income</Text>
+          <Text className="text-xs font-semibold text-secondary flex-shrink-0">
+            {!masked ? formatCurrency(total) : '••••'}
+          </Text>
+        </View>
+      </ListContainer>
+    </>
+  );
+}
+
 /** "Daily-routine spending" expandable group list — shared by monthly and annual (2026-08-02). Budget
  *  overlays only ever appear when `seg.budgetTotal > 0`, which is only true for the monthly scope (budgets
  *  are a monthly-only concept — the annual caller passes groups with `budgetTotal: 0`), so this degrades
@@ -928,6 +1057,9 @@ interface AnalyticsTabProps {
   monthTotal: number;
   setAsideData: SetAsideSegment[];
   setAsideTotal: number;
+  /** Item 46 — income breakdown, monthly scope. */
+  incomeData: IncomeSegment[];
+  incomeTotal: number;
   prevMonthData: Map<string, number>;
   spendVelocity: { daysElapsed: number; daysInMonth: number; projected: number } | null;
   monthlyAvgPerDay: number;
@@ -954,6 +1086,9 @@ interface AnalyticsTabProps {
   annualGroupTotal: number;
   annualSetAsideData: SetAsideSegment[];
   annualSetAsideTotal: number;
+  /** Item 46 — income breakdown, annual scope. */
+  annualIncomeData: IncomeSegment[];
+  annualIncomeTotal: number;
   annualEvents: EventSegment[];
   annualHashtagSummary: Array<{ tag: string; amount: number }>;
   prevYearGroupData: Map<string, number>;
@@ -967,6 +1102,9 @@ interface AnalyticsTabProps {
   allTimeGroupTotal: number;
   allTimeSetAsideData: SetAsideSegment[];
   allTimeSetAsideTotal: number;
+  /** Item 46 — income breakdown, all-time scope. */
+  allTimeIncomeData: IncomeSegment[];
+  allTimeIncomeTotal: number;
   allTimeEvents: EventSegment[];
   allTimeHashtagSummary: Array<{ tag: string; amount: number }>;
   allTimeCashFlowSummaries: Array<{ account: Account; summary: CashFlowSummary }>;
@@ -984,6 +1122,13 @@ interface AnalyticsTabProps {
    *  the Transactions tab. */
   onViewGroup: (group: string, label: string) => void;
   onViewCategory: (catId: string, label: string) => void;
+  /** Income's own drill-down pair (2026-08-20) — Income used to share `onViewGroup`/`onViewCategory`
+   *  with Daily Routine/Set Aside, which could leak the other type's transactions into the popup
+   *  whenever a mismatched category made their group/category keys collide (see `incomeGroupKey`'s
+   *  doc comment in `useExpenseAnalytics.ts`). Always wired to `IncomeSection`, never the expense-side
+   *  pair above. */
+  onViewIncomeGroup: (group: string, label: string) => void;
+  onViewIncomeCategory: (catId: string, label: string) => void;
   onViewTag: (tag: string) => void;
   /** Tier 2 "Did You Know" ambient card (2026-08-16) — sits at the very bottom, below whichever view
    *  (Monthly/Annual/All Time) is active. Navigates to the "Discover Penny" hub. */
@@ -1008,6 +1153,8 @@ export function AnalyticsTab({
   monthTotal,
   setAsideData,
   setAsideTotal,
+  incomeData,
+  incomeTotal,
   prevMonthData,
   spendVelocity,
   monthlyAvgPerDay,
@@ -1025,6 +1172,8 @@ export function AnalyticsTab({
   annualGroupTotal,
   annualSetAsideData,
   annualSetAsideTotal,
+  annualIncomeData,
+  annualIncomeTotal,
   annualEvents,
   annualHashtagSummary,
   prevYearGroupData,
@@ -1035,6 +1184,8 @@ export function AnalyticsTab({
   allTimeGroupTotal,
   allTimeSetAsideData,
   allTimeSetAsideTotal,
+  allTimeIncomeData,
+  allTimeIncomeTotal,
   allTimeEvents,
   allTimeHashtagSummary,
   allTimeCashFlowSummaries,
@@ -1048,6 +1199,8 @@ export function AnalyticsTab({
   promoteHashtagToEvent,
   onViewGroup,
   onViewCategory,
+  onViewIncomeGroup,
+  onViewIncomeCategory,
   onViewTag,
   onSeeAllTips
 }: AnalyticsTabProps) {
@@ -1145,7 +1298,38 @@ export function AnalyticsTab({
             </View>
           ) : (
             <>
-              {/* Daily Living card — up top (2026-08-02), same as monthly. */}
+              {/* Income — leads the whole view (2026-08-20 reorder, per real-device testing feedback:
+                  Income should be up top, ahead of even Total Spent/the ring graph). Cash Flow stays at
+                  the very end (2026-08-18 reorder) — nothing else in this list moved. */}
+              <IncomeSection
+                data={annualIncomeData}
+                total={annualIncomeTotal}
+                expandedGroup={expandedGroup}
+                onChangeExpandedGroup={onChangeExpandedGroup}
+                masked={masked}
+                onViewCategory={onViewIncomeCategory}
+                onViewGroup={onViewIncomeGroup}
+              />
+
+              {/* "Total spent" (Pulse Card) — above the ring graph (2026-08-20 reorder, per real-device
+                  testing feedback: Total Spent should lead the summary cards, not the ring). */}
+              <PulseCard
+                periodLabel={String(analyticsYear)}
+                total={annualTotal}
+                masked={masked}
+                deltaPct={annualDeltaPct}
+                deltaLabel="vs last year"
+                routineAmount={annualGroupTotal}
+                setAsideAmount={annualSetAsideTotal}
+                eventsAmount={annualTotal - annualGroupTotal - annualSetAsideTotal}
+                hasRecap={annualSavings.income > 0 || annualTotal > 0}
+                net={annualSavings.saved}
+                txnCount={annualRecap.txnCount}
+                topCategory={annualRecap.topCategory}
+                avgPerDay={annualAvgPerDay}
+              />
+
+              {/* Daily Living card — ring graph, same as monthly. */}
               <DailyLivingCard
                 segments={annualGroupData}
                 total={annualGroupTotal}
@@ -1197,24 +1381,6 @@ export function AnalyticsTab({
                 />
               </View>
 
-              {/* "Pulse card" + "Cash Flow" tile — same cards as the monthly view, scoped to the whole
-                  year (2026-08-02), positioned right after the chart. */}
-              <PulseCard
-                periodLabel={String(analyticsYear)}
-                total={annualTotal}
-                masked={masked}
-                deltaPct={annualDeltaPct}
-                deltaLabel="vs last year"
-                routineAmount={annualGroupTotal}
-                setAsideAmount={annualSetAsideTotal}
-                eventsAmount={annualTotal - annualGroupTotal - annualSetAsideTotal}
-                hasRecap={annualSavings.income > 0 || annualTotal > 0}
-                net={annualSavings.saved}
-                txnCount={annualRecap.txnCount}
-                topCategory={annualRecap.topCategory}
-                avgPerDay={annualAvgPerDay}
-              />
-
               {/* Biggest movers */}
               {annualMovers.length > 0 && (
                 <View>
@@ -1247,10 +1413,6 @@ export function AnalyticsTab({
                 </View>
               )}
 
-              {/* Events / Daily-routine / Set-aside detail / hashtags — annual scope (2026-08-02), same
-                  sections the monthly view shows below its own Pulse Card. Daily Routine ahead of Set
-                  Aside, and Cash Flow moved to the very end (2026-08-18 reorder, per real-device testing
-                  feedback) — nothing else in this list moved. */}
               <EventsSection
                 events={annualEvents}
                 expandedEventId={expandedEventId}
@@ -1301,20 +1463,32 @@ export function AnalyticsTab({
           scope doesn't have, and faking one would show a number nobody asked for. */}
       {analyticsView === 'allTime' && (
         <>
-          {allTimeGroupData.length === 0 && allTimeSetAsideData.length === 0 && allTimeEvents.length === 0 ? (
+          {allTimeGroupData.length === 0 &&
+          allTimeSetAsideData.length === 0 &&
+          allTimeEvents.length === 0 &&
+          allTimeIncomeData.length === 0 ? (
             <View className="p-10 items-center">
               <Icon name="ti-chart-donut" size={44} color={theme.textTertiary} />
               <Text className="text-sm mt-3 text-tertiary">No expenses recorded yet.</Text>
             </View>
           ) : (
             <>
-              <DailyLivingCard
-                segments={allTimeGroupData}
-                total={allTimeGroupTotal}
+              {/* Income — leads the whole view (2026-08-20 reorder, per real-device testing feedback:
+                  Income should be up top, ahead of even Total Spent/the ring graph). Daily Routine ahead
+                  of Set Aside and Cash Flow at the very end are the 2026-08-18 reorder — nothing else
+                  here moved. */}
+              <IncomeSection
+                data={allTimeIncomeData}
+                total={allTimeIncomeTotal}
+                expandedGroup={expandedGroup}
+                onChangeExpandedGroup={onChangeExpandedGroup}
                 masked={masked}
-                caption="all time"
+                onViewCategory={onViewIncomeCategory}
+                onViewGroup={onViewIncomeGroup}
               />
 
+              {/* "Total spent" (Pulse Card) — above the ring graph (2026-08-20 reorder, per real-device
+                  testing feedback: Total Spent should lead the summary cards, not the ring). */}
               <PulseCard
                 periodLabel="All time"
                 total={allTimeTotal}
@@ -1331,8 +1505,12 @@ export function AnalyticsTab({
                 avgPerDay={allTimeAvgPerDay}
               />
 
-              {/* 2026-08-18 reorder (real-device testing feedback): Daily Routine ahead of Set Aside,
-                  Cash Flow moved to the very end — nothing else here moved. */}
+              <DailyLivingCard
+                segments={allTimeGroupData}
+                total={allTimeGroupTotal}
+                masked={masked}
+                caption="all time"
+              />
               <EventsSection
                 events={allTimeEvents}
                 expandedEventId={expandedEventId}
@@ -1374,18 +1552,31 @@ export function AnalyticsTab({
       {analyticsView === 'monthly' &&
       analyticsData.length === 0 &&
       setAsideData.length === 0 &&
-      eventsThisMonth.length === 0 ? (
+      eventsThisMonth.length === 0 &&
+      incomeData.length === 0 ? (
         <View className="p-10 items-center">
           <Icon name="ti-chart-donut" size={44} color={theme.textTertiary} />
           <Text className="text-sm mt-3 text-tertiary">No expenses in {monthLabel(selectedMonth)}.</Text>
         </View>
       ) : analyticsView === 'monthly' ? (
         <>
-          {/* Daily Living card — up top (2026-08-02, per user request), ahead of Total spent/Cash Flow. */}
-          <DailyLivingCard segments={analyticsData} total={analyticsTotal} masked={masked} caption="this month" />
+          {/* Income — leads the whole view (2026-08-20 reorder, per real-device testing feedback:
+              Income should be up top, ahead of even Total Spent/the ring graph). Daily Routine ahead of
+              Set Aside and Cash Flow at the very end are the 2026-08-18 reorder — nothing else here
+              moved. */}
+          <IncomeSection
+            data={incomeData}
+            total={incomeTotal}
+            expandedGroup={expandedGroup}
+            onChangeExpandedGroup={onChangeExpandedGroup}
+            masked={masked}
+            onViewCategory={onViewIncomeCategory}
+            onViewGroup={onViewIncomeGroup}
+          />
 
-          {/* "Pulse card" + "Cash Flow" tile — see their own doc comments above for what each merges and
-              why. Shared with the annual view above. */}
+          {/* "Total spent" (Pulse Card) — above the ring graph (2026-08-20 reorder, per real-device
+              testing feedback: Total Spent should lead the summary cards, not the ring). See its own
+              doc comment above for what it merges; shared with the annual/all-time views. */}
           <PulseCard
             periodLabel={monthLabel(selectedMonth)}
             total={monthTotal}
@@ -1402,6 +1593,9 @@ export function AnalyticsTab({
             avgPerDay={monthlyAvgPerDay}
             anomalies={anomalies}
           />
+
+          {/* Daily Living card — ring graph. */}
+          <DailyLivingCard segments={analyticsData} total={analyticsTotal} masked={masked} caption="this month" />
 
           {/* Spend velocity — current month only */}
           {spendVelocity && (
@@ -1434,8 +1628,6 @@ export function AnalyticsTab({
             </View>
           )}
 
-          {/* 2026-08-18 reorder (real-device testing feedback): Daily Routine ahead of Set Aside, Cash
-              Flow moved to the very end — nothing else here moved. */}
           <EventsSection
             events={eventsThisMonth}
             expandedEventId={expandedEventId}

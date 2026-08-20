@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import {
   connect,
   getBackupState,
+  overwriteRemoteWithLocal,
   runNow,
   setTarget,
   start,
@@ -16,6 +17,7 @@ interface BackupContextValue extends BackupEngineState {
   runNow: () => Promise<void>;
   setTarget: (target: BackupTarget) => Promise<void>;
   connect: () => Promise<void>;
+  overwriteRemoteWithLocal: () => Promise<void>;
 }
 
 const BackupContext = createContext<BackupContextValue | null>(null);
@@ -41,7 +43,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return <BackupContext.Provider value={{ ...state, runNow, setTarget, connect }}>{children}</BackupContext.Provider>;
+  return (
+    <BackupContext.Provider value={{ ...state, runNow, setTarget, connect, overwriteRemoteWithLocal }}>
+      {children}
+    </BackupContext.Provider>
+  );
 }
 
 export function useBackupStatus(): BackupContextValue {

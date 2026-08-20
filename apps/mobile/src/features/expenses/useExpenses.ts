@@ -36,7 +36,8 @@ import {
   useTagsRefresh,
   useAccountsRefresh,
   useBankImportsRefresh,
-  notifyAccountsChanged
+  notifyAccountsChanged,
+  notifyTagsChanged
 } from '@/hooks/useDataRefresh';
 import { CHECKPOINT_ELIGIBLE, computeAccountVerificationStatus } from '@/core/bank-import/accountVerification';
 import type { AccountInput } from '~/hooks/useAccountForm';
@@ -412,19 +413,26 @@ export function useExpenses() {
 
   // One-time merchant-memory backfill from existing transactions, so suggestions
   // work immediately on upgrade. v2 re-keys records by merchant + category, so on
-  // migration we clear any v1 records and rebuild.
+  // migration we clear any v1 records and rebuild. v3 (2026-08-20, item 45 real-device
+  // testing pass) re-runs the exact same backfill once more with no logic change of its
+  // own — CSV-imported and bank-imported expenses were structurally invisible to
+  // `merchantMemoryRepo` until this session's `importWriter.ts`/`useBankImport.ts` fixes
+  // started keeping it updated go-forward; bumping the flag re-scans every existing
+  // expense (regardless of `source`, since `buildMemoriesFromExpenses` has no origin
+  // filter) so already-imported history gets indexed too, not just anything saved after
+  // this fix ships.
   const backfilledRef = useRef(false);
   useEffect(() => {
     if (backfilledRef.current || expensesLoading) return;
     backfilledRef.current = true;
     (async () => {
-      if (await getItem('penny_merchant_memory_v2')) return;
+      if (await getItem('penny_merchant_memory_v3')) return;
       const existing = await merchantMemoryRepo.getAll();
       await Promise.all(existing.map((m) => merchantMemoryRepo.delete(m.id)));
       const memories = buildMemoriesFromExpenses(expenses);
       await Promise.all(memories.map((m) => merchantMemoryRepo.put(m)));
-      await setItem('penny_merchant_memory_v2', '1');
-      await removeItem('penny_merchant_memory_v1');
+      await setItem('penny_merchant_memory_v3', '1');
+      await removeItem('penny_merchant_memory_v2');
       reloadMerchantMemory();
     })().catch(() => {});
   }, [expensesLoading, expenses, reloadMerchantMemory]);
@@ -608,6 +616,7 @@ export function useExpenses() {
           createdAt: now
         });
       }
+      notifyTagsChanged();
       logActivity({
         action: 'BULK_UPDATE',
         entityType: 'expense',
@@ -641,6 +650,7 @@ export function useExpenses() {
       if (existingTag) {
         await saveHashtag({ ...existingTag, usageCount: Math.max(0, existingTag.usageCount - toUpdate.length) });
       }
+      notifyTagsChanged();
       logActivity({
         action: 'BULK_UPDATE',
         entityType: 'expense',
@@ -812,7 +822,16 @@ export function useExpenses() {
       // kept showing stale data — a back-dated transaction recorded elsewhere never appeared in an
       // already-open Full Ledger until that screen happened to remount.
       notifyTxnChanged();
-      for (const tag of expense.hashtags) {
+      // Only bump/decrement usageCount for tags that actually CHANGED membership on this expense
+      // (2026-08-20, item 37 real-device testing pass fix) — this used to increment every tag's
+      // usageCount on every save regardless of whether that tag was already on the expense before this
+      // edit, so a routine edit that changed nothing about a tag still drifted its count upward forever.
+      // Compares against the expense's previous `hashtags[]` (absent entirely for a brand-new expense,
+      // in which case every tag on it counts as newly added) so a genuinely unchanged tag is left alone.
+      const prevTags = existing?.hashtags ?? [];
+      const addedTags = expense.hashtags.filter((t) => !prevTags.includes(t));
+      const removedTags = prevTags.filter((t) => !expense.hashtags.includes(t));
+      for (const tag of addedTags) {
         const existingTag = hashtags.find((h) => h.name === tag);
         if (existingTag) {
           await saveHashtag({ ...existingTag, usageCount: existingTag.usageCount + 1 });
@@ -828,6 +847,13 @@ export function useExpenses() {
           });
         }
       }
+      for (const tag of removedTags) {
+        const existingTag = hashtags.find((h) => h.name === tag);
+        if (existingTag) {
+          await saveHashtag({ ...existingTag, usageCount: Math.max(0, existingTag.usageCount - 1) });
+        }
+      }
+      if (addedTags.length > 0 || removedTags.length > 0) notifyTagsChanged();
       // Remember this merchant's category/account/payment for next-time suggestions.
       const memory = buildMemory(
         expense,

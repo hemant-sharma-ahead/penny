@@ -42,12 +42,40 @@ pattern `ExpenseForm.tsx`'s `focusPanel` already uses). Separately, `googleDrive
 surfaced to the user as a toast literally reading "undefined"; it's now wrapped in a try/catch that
 throws a real, readable `Error`.
 
+**Two severe restore bugs fixed, found via a real "can't restore any backup" report (real-device-testing pass).**
+
+- **Missing `await` on `File.write()`.** `expo-file-system`'s `File.write()` is async
+  (`Promise<void>`); six call sites wrote a file and, without awaiting that write, immediately
+  read/shared/deleted the same file — a real race that could hand the next step a still-writing,
+  truncated file. Fixed in `AutoBackupCard.tsx` (manual "This device" export), `localBackup.native.ts`
+  (the silent daily on-device snapshot), `exportCsv.native.ts` (both plain CSV and the
+  password-protected ZIP), `PlannerResults.tsx`/`RetirementCard.tsx` (XLSX export), and
+  `UnparsedMessagesPage.tsx` (SMS export).
+- **`BACKUP_STORES` had silently drifted behind `schema.ts`.** Eight real encrypted Dexie stores —
+  `accounts`, `activity_log`, `merchant_memory`, `transaction_templates`,
+  `bank_cash_withdrawal_codes`, and all three SMS-tracking tables (`sms_transactions`,
+  `sms_account_mappings`, `sms_excluded_senders`) — were never in the list a backup actually walks, so
+  no backup file ever included them. `accounts` was the severe one: every `Expense.accountId`
+  references it, so restoring onto a wiped/new device brought back every transaction with zero
+  accounts for them to belong to. All 8 added to `backupManager.ts`'s `BACKUP_STORES` — no file-format
+  change, older backup files simply have nothing to restore for these (already handled by the existing
+  `if (rows?.length)` guard).
+
+**Overriding the `foreign_blob` state without a restore.** The banner above only ever offered
+"Restore with my passphrase" — no way to say "keep this device's current data, stop offering me that
+old Drive backup." `runNow()`'s cycle always attempts a pull first while `foreign_blob` is active, which
+throws before a push ever gets a chance to run, so there was genuinely no path to a fresh push other
+than resolving the state via restore. New `overwriteRemoteWithLocal()` (`backupEngine.ts`) skips the
+pull entirely and force-pushes this device's current export, exposed through the native `SyncProvider`
+and surfaced as a destructive, confirm-gated **"Overwrite Drive with this device's data instead"**
+button in `AutoBackupCard.tsx`'s banner (mockup: `docs/mockups/proposals/drive-foreign-blob-override-v1.html`).
+
 **Passphrase-based recovery (no file).** Beyond restoring a backup file, the passphrase is now also a **reclaim credential**. `securityManager.initialize()` derives an Ed25519 keypair from the passphrase + a random salt and stores the salt + public half as a **recovery verifier** in the security record; `claimAccount` uploads it. `reclaimAccount()` (`src/core/identity/`) later re-derives that keypair from the passphrase to prove ownership of the handle and bind a fresh device — recovering **identity + group membership only** (no personal data — the server can't decrypt anything). So: **restore** = full recovery including data; **reclaim** = identity + groups, then a backup restore (or a co-member re-share) fills in the data.
 
 Key files:
 
 - `src/core/backup/backupManager.ts` — `exportBackup()` / `importBackup()` (incl. `resetLockoutState()`) + `mergeBundle()` / `openBundleWithDmk()` (background merge)
-- `src/core/sync/` — `backupEngine.ts` (auto-backup engine), `decide.ts` (pure logic), `SyncProvider.tsx` / `useBackupStatus`, `providers/` (`googleDriveProvider` + `.native.ts`/`.web.ts` + shared `googleDriveProvider.constants.ts`, dormant `icloudProvider`, `localBackup` + `.native.ts`)
+- `src/core/sync/` — `backupEngine.ts` (auto-backup engine; `overwriteRemoteWithLocal()` force-pushes past a `foreign_blob` state without a pull), `decide.ts` (pure logic), `SyncProvider.tsx` / `useBackupStatus`, `providers/` (`googleDriveProvider` + `.native.ts`/`.web.ts` + shared `googleDriveProvider.constants.ts`, dormant `icloudProvider`, `localBackup` + `.native.ts`)
 - `src/core/backup/cloudBackup.ts` — thin manual-backup adapter over the Drive provider, `isCloudBackupConfigured()`
 - `src/core/identity/` — `claim.ts` (`deregisterAccount` on erase, `reclaimAccount`, `claimAccount`) + `recovery.ts` (passphrase-derived recovery keypair)
 - `src/features/backup/BackupPage.tsx` + `AutoBackupCard.tsx` — the UI (3 cards: auto-backup chooser + status/export/backup-now per tab, restore incl. Drive, reset with deregister-first + orphan warning)

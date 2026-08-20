@@ -64,6 +64,8 @@ const SCREEN_TITLES: Record<string, string> = {
   Profile: 'Edit profile',
   SafeModeSettings: 'Safe Mode',
   ManageTags: 'Manage Tags',
+  AboutPenny: 'About Penny',
+  PrivacyPromise: 'Our Privacy Promise',
   ChangePin: 'Change PIN',
   ChangePassphrase: 'Change Passphrase',
   Timeline: 'Timeline',

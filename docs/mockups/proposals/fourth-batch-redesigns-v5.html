@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — 4th-batch UI/UX redesigns v5 (side-by-side Accounts card restored + real Categorize accordion reverted)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6; --neutral:#8b949e;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:940px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 20px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .changelog { max-width:900px; margin:0 auto 40px; background:#1a1006; border:1px solid #3d2a0f; border-radius:16px; padding:16px 20px; color:#f3dfb8; font-size:12.5px; line-height:1.7; }
+      .changelog b { color:#ffcf7a; }
+      .changelog ul { margin:6px 0 0; padding-left:18px; }
+      .changelog li { margin-bottom:5px; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:840px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:900px; margin:0 auto 14px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+      .calloutnote { max-width:900px; margin:0 auto 18px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.35); border-radius:12px; padding:12px 16px; color:#fbdca0; font-size:11.5px; line-height:1.65; display:flex; gap:8px; }
+      .calloutnote i { color:var(--warning); font-size:16px; flex-shrink:0; margin-top:1px; }
+      .calloutnote b { color:#ffd98a; }
+      .calloutnote.good { background:rgba(16,185,129,.1); border-color:rgba(16,185,129,.35); color:#d3f5e6; }
+      .calloutnote.good i { color:var(--success); }
+      .calloutnote.good b { color:#7ee6b8; }
+
+      .opttoggle { display:flex; gap:6px; background:var(--surface2); border-radius:13px; padding:4px; max-width:680px; margin:0 auto 14px; }
+      .opttoggle button { flex:1; border:none; background:transparent; color:var(--text2); font-size:11px; font-weight:700; padding:10px 6px; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; font-family:inherit; }
+      .opttoggle button i { font-size:12px; }
+      .opttoggle button.active { background:var(--primary); color:#04140d; }
+      .opttoggle button:not(.active) i.ti-star-filled { color:#f0b060; }
+      .opttoggle button.active i.ti-star-filled { color:#04140d; }
+      .recbadge { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; margin-left:6px; }
+
+      .viewwrap { display:flex; flex-direction:column; align-items:center; gap:12px; }
+      .stagelabel { font-size:11px; font-weight:800; color:#fff; text-align:center; max-width:390px; }
+      .tapline { text-align:center; font-size:11px; color:var(--text2); max-width:390px; line-height:1.65; }
+      .tapline b { color:#fff; font-size:13px; }
+      .tapline .hi { color:var(--warning); font-weight:700; }
+      .tapline .good { color:#3ecf8e; font-weight:700; }
+      .fitnote { text-align:center; font-size:11px; color:var(--text2); max-width:390px; line-height:1.6; border-top:1px dashed var(--border); padding-top:8px; margin-top:2px; }
+      .fitnote.good { color:#7ee6b8; }
+      .fitnote.mid { color:#f0c96a; }
+      .restartlink { font-size:10px; font-weight:700; color:var(--text3); text-decoration:underline; cursor:pointer; background:none; border:none; font-family:inherit; }
+
+      /* ===== Real device frame — 390×844, full height always ===== */
+      .phone { width:390px; height:844px; background:var(--bg); border-radius:44px; border:10px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.55); flex-shrink:0; }
+      .statusbar { height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px 0 24px; font-size:14px; font-weight:700; color:var(--text); }
+      .statusbar .sbicons { display:flex; gap:5px; align-items:center; color:var(--text); font-size:13px; }
+      .header2 { height:48px; display:flex; align-items:center; padding:0 14px; flex-shrink:0; border-bottom:1px solid var(--border); gap:10px; }
+      .header2 .back2 { width:24px; height:24px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:17px; }
+      .header2 .htitle2 { flex:1; text-align:center; font-size:14px; font-weight:700; color:var(--text); margin-right:24px; }
+      .appheader { height:52px; display:flex; align-items:center; padding:0 14px; flex-shrink:0; border-bottom:1px solid var(--border); gap:10px; }
+      .appheader .avatar2 { width:28px; height:28px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; color:#04140d; font-size:11px; font-weight:800; flex-shrink:0; }
+      .appheader .htitle2 { flex:1; text-align:center; font-size:15px; font-weight:700; color:var(--text); }
+      .appheader .righticons { display:flex; gap:14px; align-items:center; color:var(--text2); font-size:17px; flex-shrink:0; }
+
+      .content { padding:12px 14px 14px; flex:1; overflow-y:auto; }
+      .footer { padding:12px 14px; border-top:1px solid var(--border); display:flex; gap:8px; flex-shrink:0; }
+      .btn { flex:1; text-align:center; padding:11px 0; border-radius:11px; font-size:12.5px; font-weight:700; border:none; font-family:inherit; cursor:pointer; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+      .btn.disabled, .btn:disabled { opacity:.35; cursor:default; }
+      .btn.ghost { background:transparent; color:var(--text2); font-weight:600; }
+
+      .backdrop { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:18px; z-index:5; }
+      .popup { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; max-height:640px; display:flex; flex-direction:column; }
+      .popup .phead { display:flex; align-items:center; gap:8px; padding:14px 14px 6px; flex-shrink:0; }
+      .popup .ptitle { flex:1; font-size:13.5px; font-weight:800; color:#fff; }
+      .popup .pxbtn { color:var(--text2); cursor:pointer; background:none; border:none; font-size:17px; font-family:inherit; }
+      .popup .pbody { padding:10px 14px 16px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
+      .popup .pfoot { padding:10px 14px 14px; display:flex; gap:8px; flex-shrink:0; }
+
+      .banner { border-radius:11px; border:1px solid; padding:10px 11px; display:flex; gap:8px; font-size:10.5px; line-height:1.55; }
+      .banner.info { border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.12); color:#c8ddfb; }
+      .banner.info i { color:var(--info); font-size:14px; margin-top:1px; }
+      .banner.warning { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.12); color:#fbdca0; }
+      .banner.warning i { color:var(--warning); font-size:14px; margin-top:1px; }
+      .banner.success { border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.12); color:#c9f5e2; }
+      .banner.success i { color:var(--success); font-size:14px; margin-top:1px; }
+
+      .fieldlbl { font-size:9px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .fieldinput { background:var(--surface3); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:12px; color:var(--text); }
+      .fieldhint { font-size:9.5px; color:var(--text3); margin-top:3px; line-height:1.5; }
+      .toggle-sw { width:38px; height:22px; border-radius:99px; background:var(--surface3); position:relative; cursor:pointer; flex-shrink:0; border:1px solid var(--border); }
+      .toggle-sw .knob { width:16px; height:16px; border-radius:50%; background:var(--text2); position:absolute; top:2px; left:2px; transition:.15s; }
+      .toggle-sw.on { background:rgba(0,168,107,.35); border-color:var(--primary); }
+      .toggle-sw.on .knob { left:19px; background:var(--primary); }
+      .togglerow { display:flex; align-items:center; gap:9px; }
+      .togglerow span { font-size:11.5px; color:var(--text); }
+
+      /* ===== Section 1 — Cash Flow tile, real bank logos (unchanged from v3) ===== */
+      .cf-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; width:100%; }
+      .cf-head { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+      .cf-head i { font-size:14px; color:var(--warning); }
+      .cf-head span { font-size:12.5px; font-weight:700; color:var(--primary); }
+      .cf-acct { padding:10px 0; } .cf-acct + .cf-acct { border-top:1px dashed var(--border); }
+      .cf-stackrow { display:flex; align-items:flex-start; gap:8px; }
+      .cf-stub2 { flex:0 0 54px; display:flex; flex-direction:column; align-items:center; gap:3px; padding-top:1px; position:relative; }
+      .cf-stub2 .icn2 { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+      .cf-stub2 .icn2.placeholder { border:1.5px dashed var(--text3); background:var(--surface3); }
+      .cf-stub2 .icn2 svg { display:block; }
+      .cf-stub2 .icn2 i { font-size:13px; color:var(--text2); }
+      .cf-stub2 .noassetbadge { position:absolute; top:-3px; right:8px; width:13px; height:13px; border-radius:50%; background:var(--surface); border:1.3px dashed var(--warning); display:flex; align-items:center; justify-content:center; }
+      .cf-stub2 .noassetbadge i { font-size:7px; color:var(--warning); }
+      .cf-stub2 .name2 { font-size:8.5px; font-weight:700; color:var(--text2); text-align:center; max-width:54px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-numsrow2 { flex:1; display:flex; align-items:center; gap:5px; min-width:0; padding-top:2px; }
+      .cf-numsrow2 .v { flex:1; font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .cf-numsrow2 .v.income { color:var(--success); }
+      .cf-numsrow2 .v.spend { color:var(--danger); }
+      .cf-numsrow2 .pillwrap { flex:1; min-width:0; }
+      .cf-numsrow2 .pill { display:inline-block; background:rgba(0,168,107,.15); color:var(--primary); border-radius:6px; padding:2px 6px; font-size:13px; font-weight:800; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-colhead2 { display:flex; gap:5px; }
+      .cf-colhead2 .stub { flex:0 0 54px; }
+      .cf-colhead2 div.lbl { flex:1; font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; }
+
+      /* ===== Bucket cards — real BucketCard.tsx pattern (shared by §2/§3) ===== */
+      .rbucket { border-radius:12px; overflow:hidden; background:var(--surface); border:1px solid var(--border); margin-bottom:9px; }
+      .rbucket .rbhead { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:11px 12px; cursor:pointer; }
+      .rbucket .rbleft { flex:1; display:flex; align-items:center; gap:6px; }
+      .rbucket .rbdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+      .rbucket .rbtitle { font-size:12.5px; font-weight:700; color:var(--text); }
+      .rbucket .rbcount { background:var(--surface3); border-radius:999px; padding:2px 7px; font-size:9.5px; font-weight:800; color:var(--text2); }
+      .rbucket .rbchev { color:var(--text3); font-size:11px; transition:transform .15s; }
+      .rbucket.open .rbchev { transform:rotate(180deg); }
+      .rbucket .rbbody { border-top:1px solid var(--border); padding:9px 11px 11px; display:none; flex-direction:column; gap:8px; }
+      .rbucket.open .rbbody { display:flex; }
+
+      .createbtn { display:flex; align-items:center; justify-content:center; gap:6px; border:1.5px dashed rgba(0,168,107,.5); background:rgba(0,168,107,.08); color:#7ee6b8; font-size:11.5px; font-weight:800; padding:10px 0; border-radius:11px; cursor:pointer; font-family:inherit; margin-bottom:10px; }
+      .createbtn i { font-size:13px; }
+
+      .typetile { border:1.5px solid var(--border); border-radius:10px; padding:8px 4px; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; flex:1; background:var(--surface2); }
+      .typetile.sel { border-color:var(--primary); background:rgba(0,168,107,.15); }
+      .typetile i { font-size:14px; color:var(--text2); }
+      .typetile.sel i { color:var(--primary); }
+      .typetile span { font-size:8.5px; font-weight:700; color:var(--text2); }
+      .typetile.sel span { color:var(--primary); }
+
+      .iconswatch { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:var(--surface3); border:1.5px solid var(--border); cursor:pointer; }
+      .iconswatch.sel { border-color:var(--primary); background:rgba(0,168,107,.15); }
+      .iconswatch i { font-size:14px; color:var(--text2); }
+      .iconswatch.sel i { color:var(--primary); }
+      .colorswatch { width:22px; height:22px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+      .colorswatch.sel { border-color:#fff; transform:scale(1.15); }
+
+      .toast { position:absolute; left:14px; right:14px; top:56px; background:#0f2419; border:1px solid rgba(0,168,107,.5); border-radius:11px; padding:9px 12px; display:flex; align-items:center; gap:7px; font-size:10.5px; color:#d7f5e6; font-weight:700; z-index:8; box-shadow:0 8px 20px rgba(0,0,0,.4); }
+      .toast i { color:var(--success); font-size:14px; }
+
+      .cbtn { flex:1; text-align:center; font-size:10px; font-weight:700; padding:8px 0; border-radius:8px; background:var(--surface3); color:var(--text2); cursor:pointer; border:none; font-family:inherit; }
+      .cbtn.primary { background:var(--primary); color:#04140d; }
+      .cbtn:disabled { opacity:.4; cursor:default; }
+
+      /* ===== §2 — side-by-side match card, restored from v3, DuplicatesBucket.tsx visual language ===== */
+      .matchcard2 { border-radius:12px; border:1px solid var(--border); overflow:hidden; background:var(--surface); }
+      .matchcard2.attention { border-color:rgba(245,158,11,.4); }
+      .mc2halves { display:flex; }
+      .mc2half { flex:1; padding:9px 10px; min-width:0; }
+      .mc2half.left { background:var(--surface2); }
+      .mc2half.right { border-left:1px dashed var(--border); background:var(--surface); }
+      .mc2lbl { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin-bottom:4px; }
+      .mc2name { font-size:11px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .mc2count { font-size:9px; color:var(--text3); margin-top:2px; }
+      .mc2trigger { width:100%; display:flex; align-items:center; gap:6px; border:1.5px solid var(--border); border-radius:9px; background:var(--surface3); padding:6px 8px; cursor:pointer; font-family:inherit; }
+      .mc2trigger.placeholder { border-style:dashed; border-color:var(--warning); }
+      .mc2trigger:hover { border-color:var(--primary); }
+      .mc2icn { width:18px; height:18px; border-radius:6px; display:flex; align-items:center; justify-content:center; background:rgba(59,130,246,.15); flex-shrink:0; }
+      .mc2icn svg { display:block; }
+      .mc2icn i { font-size:10px; color:#3b82f6; }
+      .mc2icn.placeholder { background:var(--surface2); border:1.3px dashed var(--text3); }
+      .mc2icn.placeholder i { color:var(--text3); }
+      .mc2accname { flex:1; font-size:10.5px; font-weight:700; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; }
+      .mc2accname.placeholder { color:var(--warning); font-weight:600; }
+      .mc2chev { color:var(--text3); font-size:10px; flex-shrink:0; }
+      .mc2confirmed { border-top:1px dashed var(--border); padding:8px 10px; display:flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700; color:var(--success); }
+      .mc2confirmed i { font-size:13px; }
+      .mc2actions { border-top:1px dashed var(--border); padding:8px 10px; display:flex; gap:7px; }
+      .ddlist { border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface); margin:0 10px 10px; }
+      .ddoption { padding:8px 10px; display:flex; align-items:center; gap:7px; font-size:10.5px; color:var(--text); cursor:pointer; border-top:1px solid var(--border); background:none; width:100%; text-align:left; font-family:inherit; }
+      .ddoption:first-child { border-top:none; }
+      .ddoption:hover { background:var(--surface2); }
+      .ddoption.sel { background:rgba(0,168,107,.12); }
+      .ddoption .ddicn2 { width:18px; height:18px; border-radius:6px; background:rgba(59,130,246,.15); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .ddoption .ddicn2 svg { display:block; }
+      .ddoption .ddicn2 i { font-size:10px; color:#3b82f6; }
+      .ddoption .newtag3 { margin-left:auto; background:var(--primary); color:#04140d; font-size:7.5px; font-weight:800; padding:2px 6px; border-radius:999px; }
+      .skipbanner { border-radius:9px; padding:8px 10px; background:rgba(139,148,158,.12); display:flex; align-items:center; gap:7px; }
+      .skipbanner i { font-size:12px; color:var(--text2); flex-shrink:0; }
+      .skipbanner span { flex:1; font-size:9.5px; color:var(--text2); }
+      .skipbanner .undolink { font-size:9.5px; font-weight:700; color:var(--primary); cursor:pointer; background:none; border:none; font-family:inherit; flex-shrink:0; }
+
+      /* ===== §3 — real CategoryTile.tsx accordion + ImportCategorizeModal (reverted from v3/v4's dropdown) ===== */
+      .cattile4 { border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+      .ct4head { padding:10px 11px; display:flex; align-items:center; gap:6px; cursor:pointer; flex-wrap:wrap; }
+      .ct4srcname { font-size:11.5px; font-weight:700; color:var(--text); }
+      .ct4arrow { color:var(--text3); font-size:10px; }
+      .ct4target { font-size:11.5px; font-weight:700; color:var(--text); }
+      .ct4target.transfer { color:var(--info); }
+      .ct4target.dashed { font-style:italic; color:var(--text3); border:1px dashed var(--border); border-radius:999px; padding:2px 8px; font-weight:500; }
+      .ct4badge { font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; background:rgba(59,130,246,.18); color:#8fb4e6; }
+      .ct4badge.mixed { background:rgba(139,148,158,.2); color:var(--text2); }
+      .ct4countpill { margin-left:auto; background:var(--surface3); border-radius:999px; padding:2px 7px; font-size:9.5px; font-weight:800; color:var(--text2); flex-shrink:0; }
+      .ct4chev { color:var(--text3); font-size:12px; transition:transform .15s; flex-shrink:0; }
+      .cattile4.open .ct4chev { transform:rotate(180deg); }
+      .ct4body { border-top:1px solid var(--border); padding:8px 11px; display:none; flex-direction:column; gap:2px; }
+      .cattile4.open .ct4body { display:flex; }
+      .ct4row { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px dashed var(--border); }
+      .ct4row:first-child { border-top:none; }
+      .ct4chk { width:14px; height:14px; border-radius:4px; border:1.5px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+      .ct4chk.on { background:var(--primary); border-color:var(--primary); }
+      .ct4chk i { font-size:9px; color:#04140d; }
+      .ct4desc { flex:1; min-width:0; font-size:10.5px; color:var(--text); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .ct4amt { font-size:10px; color:var(--text2); flex-shrink:0; }
+      .ct4foot { border-top:1px solid var(--border); padding:9px 11px; display:flex; gap:8px; }
+      .cptychip { display:inline-flex; align-items:center; gap:3px; border-radius:999px; padding:2px 7px; font-size:8.5px; font-weight:700; background:rgba(59,130,246,.15); color:#8fb4e6; }
+      .cptychip.self { background:rgba(139,148,158,.18); color:var(--text2); }
+
+      .kindtile { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; border:1px solid var(--border); border-radius:11px; padding:10px 4px; background:var(--surface3); cursor:pointer; }
+      .kindtile.sel { border-color:var(--primary); background:rgba(0,168,107,.12); }
+      .kindtile.dis { opacity:.4; cursor:default; }
+      .kindtile i { font-size:15px; color:var(--text2); }
+      .kindtile.sel i { color:var(--primary); }
+      .kindtile span { font-size:9.5px; font-weight:700; color:var(--text2); }
+      .kindtile.sel span { color:var(--primary); }
+
+      .catchoose { width:100%; display:flex; align-items:center; gap:8px; border:1.5px dashed var(--border); border-radius:11px; padding:9px 10px; background:var(--surface3); cursor:pointer; font-family:inherit; }
+      .catchoose.filled { border-style:solid; }
+      .catchoose .ccicn { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:var(--surface2); }
+      .catchoose .ccicn i { font-size:13px; color:var(--text2); }
+      .catchoose .cctxt { flex:1; font-size:11.5px; font-weight:600; color:var(--text3); text-align:left; }
+      .catchoose.filled .cctxt { color:var(--text); font-weight:700; }
+      .catchoose i.ti-chevron-right { font-size:12px; color:var(--text3); flex-shrink:0; }
+
+      .createsummary { display:flex; align-items:center; gap:8px; border:1px solid var(--border); border-radius:11px; padding:9px 10px; background:rgba(0,168,107,.06); }
+      .createsummary .csicn { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .createsummary .csicn i { font-size:13px; color:#fff; }
+      .createsummary .cstxt { flex:1; min-width:0; }
+      .createsummary .cstxt .csname { font-size:11.5px; font-weight:700; color:var(--text); }
+      .createsummary .cstxt .csgroup { font-size:9.5px; color:var(--text3); }
+      .createsummary .csedit { font-size:10px; font-weight:700; color:var(--primary); background:none; border:none; cursor:pointer; font-family:inherit; flex-shrink:0; }
+
+      .catpicklist { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+      .catpickrow { display:flex; align-items:center; gap:8px; padding:8px 10px; border-top:1px solid var(--border); font-size:10.5px; color:var(--text); cursor:pointer; }
+      .catpickrow:first-child { border-top:none; }
+      .catpickrow.sel { background:rgba(0,168,107,.12); }
+      .catpickrow .cpicn { width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .catpickrow .cpicn i { font-size:11px; color:#fff; }
+      .catpickrow .newtag2 { margin-left:auto; background:var(--primary); color:#04140d; font-size:7.5px; font-weight:800; padding:2px 6px; border-radius:999px; }
+
+      /* ===== Section 4 — month scrub bar ===== */
+      .filterbar { display:flex; align-items:center; gap:6px; padding:9px 12px; border-bottom:1px solid var(--border); }
+      .fbicon { width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); flex-shrink:0; position:relative; }
+      .fbsearch { flex:1; display:flex; align-items:center; gap:6px; padding:0 10px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text3); font-size:11px; min-width:0; }
+      .fbbadge { position:absolute; top:-5px; right:-5px; width:15px; height:15px; border-radius:50%; background:var(--danger); color:#fff; font-size:8px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+      .yearrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+      .yearrow .yr { font-size:15px; font-weight:700; color:var(--text); }
+      .yearbtn { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text2); background:none; border:none; cursor:pointer; }
+      .yearbtn:disabled { opacity:.3; cursor:default; }
+      .monthgrid { display:flex; flex-wrap:wrap; gap:7px; }
+      .monthtile { width:22.5%; padding:10px 0; border-radius:9px; text-align:center; font-size:11px; font-weight:600; background:var(--surface3); color:var(--text2); cursor:pointer; border:none; font-family:inherit; }
+      .monthtile:disabled { opacity:.3; cursor:default; }
+      .monthtile.sel { background:var(--primary); color:#04140d; }
+      .scrubwrap { display:flex; align-items:center; gap:5px; padding:8px 10px; border-bottom:1px solid var(--border); background:var(--surface); }
+      .allchip { flex-shrink:0; padding:8px 12px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); font-size:10.5px; font-weight:800; color:var(--text2); cursor:pointer; font-family:inherit; }
+      .allchip.active { background:var(--primary); color:#04140d; border-color:transparent; }
+      .scrubtrack { flex:1; display:flex; gap:6px; overflow-x:auto; scroll-behavior:smooth; scrollbar-width:none; -ms-overflow-style:none; }
+      .scrubtrack::-webkit-scrollbar { display:none; height:0; width:0; }
+      .scrubchip { flex-shrink:0; padding:7px 11px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); font-size:10.5px; font-weight:700; color:var(--text2); cursor:pointer; white-space:nowrap; font-family:inherit; }
+      .scrubchip.active { background:var(--primary); color:#04140d; border-color:transparent; }
+      .calbtn { flex-shrink:0; width:32px; height:32px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); cursor:pointer; font-size:14px; }
+      .scrubmeta { display:flex; justify-content:space-between; padding:6px 12px 0; font-size:9px; color:var(--text3); }
+      .content2 { flex:1; overflow-y:auto; padding:8px 14px 16px; }
+      .datehdr { font-size:9.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); padding:10px 2px 4px; }
+      .datehdr:first-child { padding-top:4px; }
+      .txrow { display:flex; align-items:center; gap:11px; padding:9px 2px; border-bottom:1px solid var(--border); }
+      .txrow:last-child { border-bottom:none; }
+      .ricn { width:32px; height:32px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+      .ricn i { font-size:15px; color:#fff; }
+      .txmid { flex:1; min-width:0; }
+      .txmid .t1 { font-size:12.5px; font-weight:600; color:var(--text); }
+      .txmid .t2 { font-size:10px; color:var(--text3); margin-top:1px; }
+      .txright { text-align:right; flex-shrink:0; }
+      .txright .amt { font-size:12.5px; font-weight:700; }
+      .txright .acc { font-size:9px; color:var(--text3); margin-top:2px; }
+
+      .recommend { max-width:900px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:18px 22px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:900px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol, .legend ul { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>4th-batch UI/UX redesigns — v5 (side-by-side Accounts card restored + real Categorize accordion reverted)</h1>
+    <p class="sub">v5 of <code>fourth-batch-redesigns-v4.html</code>, after a fourth round of direct feedback.
+      <b style="color:#c3ccd6">§1 and §4 are FINALIZED — carried over byte-for-byte from v4, no changes.</b> §2 and §3
+      are corrections: §2 restores v3's side-by-side match card (rejecting v4's plain dropdown-first row), refined
+      per this round's screenshot/spec. §3 fully reverts v3/v4's dropdown-first tile — the real app's own
+      accordion-tile + separate "Categorize" button + modal pattern is kept exactly as it works today
+      (<code>CategoryTile.tsx</code> / <code>ImportCategorizeModal.tsx</code>), with exactly one still-good
+      improvement folded in: picking "Create" inside that modal now opens the real
+      <code>CategoryEditorModal</code> instead of today's bespoke inline name+group fields.</p>
+
+    <div class="changelog">
+      <b>What changed since v4 — read this first.</b>
+      <ul>
+        <li><b>§1 — untouched.</b> Carried over byte-for-byte from v4 (real HDFC/ICICI/Axis logos, honest
+          placeholder for the other 9, the app-wide-rollout closing note). Not regenerated.</li>
+        <li><b>§2 — the plain dropdown-first row is gone; the side-by-side match card is back.</b> Re-grounded in
+          <code>DuplicatesBucket.tsx</code>'s real paired-card visual language (left plain <code>bg-surface-2</code>,
+          right <code>border-l border-dashed</code>) rather than reinventing one. Left column: "CSV ACCOUNT" label +
+          the raw CSV account name. Right column: "MATCHED ACCOUNT" label + the real bank logo (reusing §1's exact
+          logo treatment, since this is a real <code>Account</code>) + account name inside a bordered, chevron-down
+          pill that's unambiguously tappable — opening a compact option list, not a static text row. Below both
+          columns: a green "✓ Confirmed" line once confirmed, or explicit <b>Confirm</b> / <b>Skip</b> buttons
+          (Confirm left, Skip right) while still undecided. Applied to <b>both</b> Needs Review rows (showing
+          Confirm/Skip) and Ready rows (showing the confirmed line) — same card shape, different state, never a
+          lesser format for Ready. The "Unknown A/c 9981" no-guess row keeps the same card shape with an empty right
+          column and no confirmed line until a pick is made. "+ Create Account" and the restored
+          Needs-Review/Ready/Skipped <code>BucketCard</code> badges are unchanged from v3/v4.</li>
+        <li><b>§3 — full revert to the real, current accordion pattern; no redesign here.</b> Re-grounded this
+          session in the actual <code>CategoryTile.tsx</code> and <code>ImportCategorizeModal.tsx</code> source (not
+          v3/v4's dropdown-first design). Each category is a collapsible accordion tile — source name → target/pill,
+          count, chevron — with an always-visible "Categorize N selected ›" + "Skip" footer, exactly as it works in
+          the app today. Tapping "Categorize" opens the real modal with its 2×2 <code>KindTile</code> grid (existing/
+          create/transfer/skip), unchanged. <b>The one improvement kept from earlier rounds</b>: choosing "Create"
+          inside that modal now opens the real <code>CategoryEditorModal</code> (name / icon grid / colour swatches /
+          group) instead of today's bespoke inline name+group fields — this happens only inside the existing modal,
+          not as a change to the tile/accordion itself. The screen-level "+ Create Category" button v3/v4 added is
+          removed — the real app has no such button today; "create" is reached only via a tile's own modal, which is
+          exactly the "separate button that opens the modal" the user asked to keep. Real bucket titles and the
+          counterparty-chip idea for MoneyView transfers are unchanged.</li>
+        <li><b>§4 — untouched.</b> Carried over byte-for-byte from v4 (hidden scrollbar, pinned "All" chip, real
+          <code>MonthPickerModal</code>, year-shows-when-not-current-year labeling). Not regenerated.</li>
+      </ul>
+    </div>
+
+    <div class="topnav">
+      <a href="#s1">① Cash Flow — final, unchanged</a>
+      <a href="#s2">② Accounts — side-by-side card restored</a>
+      <a href="#s3">③ Categorize — real accordion reverted</a>
+      <a href="#s4">④ Month-filter — final, unchanged</a>
+      <a href="#closing">Recommendation &amp; open questions</a>
+    </div>
+
+    <!-- ================= SECTION 1 (unchanged from v3, FINAL) ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>Cash Flow card — real bank logos <span class="recbadge">FINAL — approved</span></div>
+      <div class="sectionsub">Carried over from v3 unchanged — layout and real-logo treatment both already approved.
+        No design changes in this round; see the closing note below for one new scoping observation.</div>
+      <div class="groundnote">Penny has no per-bank icon system today — only 4 generic <code>AccountType</code> icons
+        (cash/bank/credit_card/wallet). Simple Icons (CC0) covers exactly <b style="color:#c3ccd6">3 of the 12</b>
+        banks in <code>bankPresetLabels.ts</code>'s <code>BANK_PRESET_LABELS</code>: HDFC Bank, ICICI Bank, Axis Bank.
+        Their real SVG paths are inlined verbatim below, at a reasonable brand-colour approximation.</div>
+
+      <div class="opttoggle" id="s1-toggle">
+        <button class="active" data-view="before" onclick="s1SetView('before')">Before (generic type icon, all 4)</button>
+        <button data-view="after" onclick="s1SetView('after')"><i class="ti ti-star-filled"></i>After — real logos where they exist</button>
+      </div>
+
+      <div class="viewwrap">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Analytics</div></div>
+            <div class="content">
+              <div class="cf-card">
+                <div class="cf-head"><i class="ti ti-wallet"></i><span>Cash Flow · This month</span></div>
+                <div class="cf-colhead2"><div class="stub"></div><div class="lbl">Initial</div><div class="lbl">Income</div><div class="lbl">Spend</div><div class="lbl">Computed left</div></div>
+                <div id="s1-list"></div>
+              </div>
+            </div>
+          </div>
+          <div class="fitnote good" id="s1-note"></div>
+        </div>
+      </div>
+
+      <div class="calloutnote good" style="margin-top:6px"><i class="ti ti-list-check"></i><div><b>Scope note, not a new
+        design.</b> Confirmed this round: the user wants this same real-logo-where-it-exists / honest-placeholder-badge
+        treatment applied <b>everywhere an account icon renders app-wide</b> — the Accounts list, the account picker
+        inside the expense/income/transfer form, everywhere else <code>account.icon</code>/<code>account.color</code>
+        is read today. That's a real implementation task once the logo set is sourced (same components, just a
+        different icon resolution rule) — it doesn't need 3 more mockup screens to make the point, since the visual
+        language is already fully specified above.</div></div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>CSV import — Accounts stage, side-by-side card restored</div>
+      <div class="sectionsub">v4's plain dropdown-first row is rejected — back to <code>DuplicatesBucket.tsx</code>'s
+        real paired-card visual language: CSV account name on the left, the matched real <code>Account</code>
+        (with its real bank logo) on the right in an unmistakably tappable bordered pill. A green "✓ Confirmed" line
+        replaces the whole card's footer once decided; until then, explicit Confirm/Skip buttons sit there instead.
+        Same card shape for every row in both Needs Review and Ready — never a simplified Ready row.</div>
+      <div class="groundnote">Re-grounded in <code>DuplicatesBucket.tsx</code>'s real "Already imported" card (left
+        <code>bg-surface-2</code> half, right <code>border-l border-dashed border-theme</code> half) rather than
+        inventing a new visual language — this proposal applies that same shape to the Accounts-stage matching
+        decision instead. The right column's bank icon reuses §1's exact real-logo-or-honest-placeholder resolution,
+        since a matched row here is a real <code>Account</code> — HDFC/ICICI/Axis render their true mark, everything
+        else the same dashed generic placeholder.</div>
+
+      <div class="viewwrap">
+        <div class="stagelabel">Tap a row's right-hand pill to open the account picker; tap Confirm/Skip on an
+          undecided row; tap "+ Create Account" for the real modal.</div>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+          <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Import statement</div></div>
+          <div class="content" id="s2-content" style="position:relative">
+            <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:2px">Step 2 of 3 · Accounts</div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:10px">4 source accounts · needs a decision</div>
+            <button class="createbtn" onclick="s2OpenCreate()"><i class="ti ti-square-plus"></i>Create Account</button>
+            <div id="s2-buckets"></div>
+            <div id="s2-toast"></div>
+          </div>
+          <div class="footer"><button class="btn secondary">Back</button><button class="btn primary">Continue</button></div>
+          <div id="s2-modal"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>CSV import — Categorization, reverted to the real accordion + modal</div>
+      <div class="sectionsub">No redesign here — this depicts the actual current app pattern. Each category is a
+        collapsible accordion tile; a "Categorize N selected ›" button (plus a "Skip") opens the real
+        <code>ImportCategorizeModal</code> with its 2×2 <code>KindTile</code> grid. The only change from what ships
+        today: picking "Create" inside that modal opens the real <code>CategoryEditorModal</code> instead of the
+        bespoke inline name+group fields — everything else, including the tile/accordion interaction itself, is
+        unchanged.</div>
+      <div class="groundnote">Re-read <code>CategoryTile.tsx</code>/<code>ImportCategorizeModal.tsx</code> this
+        session: the tile is a bordered accordion (header always visible — source → target/pill + count + chevron;
+        body is the row list, shown only when expanded) with an always-visible footer ("Categorize N selected ›" +
+        ghost "Skip", <code>TransactionsStage.tsx</code>'s real wording). <code>KIND_META</code> is 4-way (existing/
+        create/transfer/skip); picking "Existing" opens <code>CategoryPickerModal</code>; picking "Transfer" reveals
+        the mandatory transfer-category + destination-account fields; picking "Create" today shows two bespoke inline
+        fields (Group + New category name) — this proposal's one change swaps those two fields for the real,
+        fuller <code>CategoryEditorModal</code> (name / <code>IconGridPicker</code> / colour swatches / group).
+        Real bucket titles from <code>TransactionsStage.tsx</code>: "Needs your input" (warning), "Staged — ready to
+        import" (success), "Skipped" (tertiary), "Already imported" (neutral). No screen-level "+ Create Category"
+        button — confirmed the real app has none; "create" is only ever reached via a tile's own modal.</div>
+
+      <div class="viewwrap">
+        <div class="stagelabel">Tap a tile's header to expand its transactions; tap "Categorize" for the real modal —
+          try picking "Create" inside it to see the real category editor open.</div>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+          <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Import statement</div></div>
+          <div class="content" id="s3-content" style="position:relative">
+            <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:2px">Step 3 of 3 · Transactions</div>
+            <div style="font-size:10px;color:var(--text3);margin-bottom:10px">250 rows parsed</div>
+            <div id="s3-buckets"></div>
+            <div id="s3-toast"></div>
+          </div>
+          <div class="footer"><button class="btn secondary">Back</button><button class="btn primary">Import</button></div>
+          <div id="s3-modal"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Month-filter — scrub bar, two fixes</div>
+      <div class="sectionsub">Same approved persistent-scrub-bar structure from v2/v3 — this round fixes a mockup
+        fidelity issue (a browser scrollbar a real <code>ScrollView</code> wouldn't show) and adds a pinned "All"
+        chip so the classic unfiltered view is always one tap away, never buried behind 141 months of scrolling.</div>
+      <div class="groundnote"><code>MonthPickerModal.tsx</code> reused verbatim as the "jump far back" escape hatch.
+        Chip-label rule resolved: show the year whenever a chip's year isn't the real current calendar year (2026),
+        regardless of which month is selected — simpler and more predictable than v3's selected-year-relative
+        interpretation. "All" is a new, separate state — selecting it doesn't disturb the last-viewed month; tapping
+        any month chip re-scopes back to it.</div>
+
+      <div class="viewwrap">
+        <div class="stagelabel">Tap "All" to see the unfiltered list; tap any month chip to re-scope. Scroll the strip
+          — it's swipeable with no visible track, and the calendar icon still opens the real jump-back modal.</div>
+        <div class="phone">
+          <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+          <div class="appheader"><div class="avatar2">P</div><div class="htitle2">Transactions</div><div class="righticons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div></div>
+          <div class="filterbar">
+            <div class="fbicon"><i class="ti ti-target-arrow"></i></div>
+            <div class="fbsearch"><i class="ti ti-search" style="font-size:13px"></i><span>Search…</span></div>
+            <div class="fbicon"><i class="ti ti-adjustments-horizontal"></i><span class="fbbadge">2</span></div>
+            <div class="fbicon"><i class="ti ti-list-check"></i></div>
+          </div>
+          <div class="scrubwrap">
+            <button class="allchip" id="s4-allchip" onclick="s4PickAll()">All</button>
+            <div class="scrubtrack" id="s4-track"></div>
+            <button class="calbtn" onclick="s4OpenModal()"><i class="ti ti-calendar"></i></button>
+          </div>
+          <div class="scrubmeta"><span id="s4-selected">Selected: Aug 2026</span><span>141 months scrollable — Nov 2014 → Aug 2026</span></div>
+          <div class="content2" id="s4-list"></div>
+          <div id="s4-modal"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CLOSING NOTES ================= -->
+    <div id="closing"></div>
+    <div class="recommend">
+      <b>Recommendation:</b> ship all four sections as shown here.
+      <ul>
+        <li><b>§1 &amp; §4.</b> Already approved in v4, unchanged here — ship as-is.</li>
+        <li><b>§2.</b> The side-by-side card is the right call over v4's plain dropdown row — it makes the match a
+          real, glanceable comparison (raw CSV text vs. the actual matched account, with its real logo) instead of a
+          single-line form control, and it directly answers "is this side clearly tappable?" with a bordered
+          chevron-down pill rather than looking like inert label text. Requiring an explicit Confirm tap (not just
+          picking from the list) matches the screenshot and gives one honest, visible "yes, this is right" moment per
+          row — worth the one extra tap for a money-matching decision.</li>
+        <li><b>§3.</b> Reverting fully to the real accordion + modal pattern here was the right instinct — Categories
+          already has a working, familiar interaction (expand to inspect, one modal to resolve); redesigning it
+          alongside Accounts' pill format would have meant learning two different resolution patterns on the same
+          screen for no real gain. Keeping only the Create→CategoryEditorModal swap isolates the one genuine
+          improvement without touching what already works.</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§2 — Confirm is a real extra step beyond today's real bucketing logic.</b> The actual
+          <code>AccountsStage.tsx</code>/<code>bucketForAccount()</code> today moves an "existing"-kind row straight
+          to the Ready bucket the moment any account is picked — there's no separate confirm gate for that kind (only
+          "create" has the "Looks good, use this" acknowledge step). This mockup's explicit Confirm/Skip buttons
+          reintroduce a confirm gate for "existing" mapping too, per the screenshot/spec. Flagging clearly since a
+          real implementation would need to decide: change the real bucketing rule to match (add a confirm gate to
+          "existing" the way "create" already has one), or keep today's auto-ready-on-pick behavior and treat the
+          Confirm button as answering yes immediately after a pick with a one-tap affordance only for the no-guess
+          case. Recommend the former for consistency between kinds, but calling it out rather than deciding silently.</li>
+        <li><b>§2 — no explicit "un-confirm" affordance once a row shows the green line.</b> The only way to change a
+          confirmed row is tapping its right-hand pill again to reopen the picker, which reverts it to the
+          Confirm/Skip state until re-confirmed. There's no separate "Skip" reachable directly from an already-
+          confirmed row without going through the picker first — reasonable, but flagging as a minor gap versus a
+          fully-specified interaction.</li>
+        <li><b>§2 — merge/fuzzy-match sub-features not re-modeled here.</b> Same as prior rounds:
+          <code>AccountsSection.tsx</code>'s same-account-written-differently fuzzy-merge and card→account merge
+          suggestions are orthogonal to this card-format change and aren't depicted — a real implementation shouldn't
+          assume they were designed away.</li>
+        <li><b>§3 — auto-opening <code>CategoryEditorModal</code> on "Create."</b> Modeled as: tapping the "Create"
+          KindTile (an active choice, switching kind) immediately opens the editor; if the tile's own suggestion was
+          ALREADY "create" when the modal opened (an unconfirmed smart guess), the modal instead shows a quiet
+          summary row ("New category: X · Group [Edit ›]") rather than force-opening a second modal on top of the
+          first the instant it renders. This seemed like the least jarring reading of "opens … when the user picks
+          create," but flagging as a judgment call — an alternative always auto-opens the editor on any create state,
+          including the passive default.</li>
+        <li><b>§3 — bulk-select/partial-selection fidelity simplified.</b> The real
+          <code>CategoryTile.tsx</code>/<code>ImportCategorizeModal.tsx</code> support an opt-out row-checkbox model
+          gating a partial-selection Apply to "existing only," plus a full Lent/Borrowed (IOU) panel for IOU-mandatory
+          categories. This mockup shows simple per-row checkboxes feeding the "Categorize N selected" count and
+          restricts the KindTile grid to "Existing" only on a partial selection (matching real behavior), but omits
+          the IOU panel entirely as orthogonal to this round's ask (Categorize-modal create-flow only).</li>
+        <li><b>§4 — earliest-transaction-date scan.</b> Unchanged open item, carried from prior rounds — no existing
+          helper computes the real floor date; still illustrated with a fixed Nov 2014 floor rather than a computed
+          one.</li>
+      </ol>
+    </div>
+
+    <script>
+      var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      function setToggle(toggleId, view) {
+        document.querySelectorAll('#' + toggleId + ' button').forEach(function (b) {
+          b.classList.toggle('active', b.dataset.view === view);
+        });
+      }
+
+      // ================= SECTION 1 (unchanged logic from v3) =================
+      var BANK_LOGOS = {
+        hdfc: { color:'#ED232A', vb:'0 0 24 24', d:'M.572 0v10.842h3.712V4.485h6.381V0Zm12.413 0v4.485h6.383v6.357h4.06V0Zm-4.64 8.53v6.938h6.963V8.53ZM.572 13.153V24h10.093v-4.486h-6.38v-6.361zm18.796 0v6.361h-6.383V24h10.443V13.153Z' },
+        icici: { color:'#F37021', vb:'0 0 24 24', d:'M21.9258 2.0961C19.279-1.6476 12.698-.2426 7.2138 5.2416c-5.484 5.475-7.7865 12.9625-5.1397 16.7062.8728 1.2386 2.1837 1.902 3.7386 2.0522 1.0516.0078 1.9129-1.1846 2.6158-2.7774.7252-1.6678 1.1694-3.218 1.5138-4.6592.5077-2.2934.544-3.934.29-4.2786-.435-.5801-1.4321-.435-2.5561.2176-.544.2991-1.26.0997-.408-.9336.8612-1.0425 4.2605-3.5625 5.4933-3.9523 1.3415-.3898 2.8734.136 2.3568 1.6226-.3706 1.0847-5.0473 13.486-1.596 12.2719 1.1049-.747 2.205-1.6497 3.2639-2.7086 5.4841-5.475 7.7865-12.9625 5.1396-16.7063zm-5.3662 3.209c-1.0969 1.0968-2.52 1.4865-3.1364.852-.6617-.6345-.272-2.0577.8249-3.1726 1.1058-1.115 2.529-1.4594 3.1454-.834.6345.6436.2448 2.0487-.834 3.1545z' },
+        axis: { color:'#97144D', vb:'0 0 24 24', d:'M11.978 1.596 0 22.404h7.453l8.265-14.369Zm.027 12.896 4.533 7.903H24l-4.533-7.903z' }
+      };
+      function bankSvg(key, size) {
+        var b = BANK_LOGOS[key];
+        return '<svg viewBox="' + b.vb + '" width="' + size + '" height="' + size + '" fill="' + b.color + '"><path d="' + b.d + '"/></svg>';
+      }
+      var S1_ACCOUNTS = [
+        { name:'HDFC Bank', short:'HDFC', bank:'hdfc', v:['₹79.6L','+₹45.0K','-₹32.4K','₹79.7L'] },
+        { name:'ICICI Bank', short:'ICICI', bank:'icici', v:['₹12.3L','+₹18.2K','-₹9.4K','₹12.5L'] },
+        { name:'Axis Bank', short:'Axis', bank:'axis', v:['₹4.80L','+₹6.0K','-₹3.2K','₹4.86L'] },
+        { name:'SBI Savings', short:'SBI', bank:null, v:['₹450.00','+₹0.00','-₹120.00','₹330.00'] }
+      ];
+      function s1Render(mode) {
+        var html = S1_ACCOUNTS.map(function (a) {
+          var iconHtml;
+          if (mode === 'after' && a.bank) {
+            iconHtml = '<div class="icn2" style="background:rgba(0,0,0,.04)">' + bankSvg(a.bank, 16) + '</div>';
+          } else if (mode === 'after' && !a.bank) {
+            iconHtml = '<div class="icn2 placeholder"><i class="ti ti-building-bank"></i></div><div class="noassetbadge"><i class="ti ti-question-mark"></i></div>';
+          } else {
+            iconHtml = '<div class="icn2" style="background:rgba(59,130,246,.15)"><i class="ti ti-building-bank" style="color:#3b82f6"></i></div>';
+          }
+          return '<div class="cf-acct"><div class="cf-stackrow"><div class="cf-stub2">' + iconHtml +
+            '<div class="name2">' + a.short + '</div></div><div class="cf-numsrow2">' +
+            '<div class="v">' + a.v[0] + '</div><div class="v income">' + a.v[1] + '</div><div class="v spend">' + a.v[2] + '</div>' +
+            '<div class="pillwrap"><span class="pill">' + a.v[3] + '</span></div></div></div></div>';
+        }).join('');
+        document.getElementById('s1-list').innerHTML = html;
+        document.getElementById('s1-note').textContent = mode === 'after'
+          ? 'HDFC, ICICI and Axis now render their real brand mark at real brand colour; SBI — no Simple Icons coverage — shows a generic bank icon plus a small dashed "?" badge, clearly not a real logo.'
+          : 'All 4 accounts share the same generic "building-bank" icon regardless of which bank they actually are — the baseline this round improves on for the 3 banks that have real coverage.';
+      }
+      function s1SetView(v) { setToggle('s1-toggle', v); s1Render(v); }
+      s1Render('before');
+
+      // ================= SECTION 2 — Accounts stage, side-by-side card restored =================
+      var s2NewAccountCreated = false;
+      var S2_ACCOUNTS = [
+        { name:'HDFC Bank', bank:'hdfc' },
+        { name:'ICICI Bank', bank:'icici' },
+        { name:'Axis Bank', bank:'axis' },
+        { name:'Paytm Wallet', bank:null },
+        { name:'Cash', bank:null }
+      ];
+      function s2AllAccounts() {
+        var list = S2_ACCOUNTS.slice();
+        if (s2NewAccountCreated) list.unshift({ name:'Salary Account', bank:null, isNew:true });
+        return list;
+      }
+      function s2IconFor(name) {
+        var acc = s2AllAccounts().find(function (a) { return a.name === name; });
+        if (acc && acc.bank) return '<div class="mc2icn">' + bankSvg(acc.bank, 11) + '</div>';
+        return '<div class="mc2icn"><i class="ti ti-building-bank"></i></div>';
+      }
+
+      var s2Rows = [
+        { key:'hdfc', name:'HDFC A/c XXXX1234', count:12, matched:'HDFC Bank', confirmed:false, kind:'existing' },
+        { key:'icici', name:'ICICI A/c XXXX7788', count:34, matched:'ICICI Bank', confirmed:true, kind:'existing' },
+        { key:'unknown', name:'Unknown A/c 9981', count:5, matched:null, confirmed:false, kind:'existing' },
+        { key:'paytm', name:'Paytm Wallet Statement', count:6, matched:null, confirmed:false, kind:'skip' }
+      ];
+      var s2OpenPickerKey = null;
+      var s2Expanded = { needsReview:true, ready:false, skipped:false };
+
+      function s2TogglePicker(key) {
+        s2OpenPickerKey = s2OpenPickerKey === key ? null : key;
+        s2RenderBuckets();
+      }
+      function s2Pick(key, name) {
+        var row = s2Rows.find(function (r) { return r.key === key; });
+        row.matched = name;
+        row.confirmed = false; // picking (or re-picking) always requires a fresh explicit Confirm
+        s2OpenPickerKey = null;
+        s2RenderBuckets();
+      }
+      function s2Confirm(key) {
+        var row = s2Rows.find(function (r) { return r.key === key; });
+        if (!row.matched) return;
+        row.confirmed = true;
+        s2RenderBuckets();
+      }
+      function s2Skip(key) {
+        var row = s2Rows.find(function (r) { return r.key === key; });
+        row.kind = 'skip';
+        s2OpenPickerKey = null;
+        s2RenderBuckets();
+      }
+      function s2Unskip(key) {
+        var row = s2Rows.find(function (r) { return r.key === key; });
+        row.kind = 'existing';
+        s2RenderBuckets();
+      }
+
+      function s2PickerHtml(row) {
+        return '<div class="ddlist">' + s2AllAccounts().map(function (a) {
+          var sel = a.name === row.matched;
+          return '<button class="ddoption' + (sel ? ' sel' : '') + '" onclick="s2Pick(\'' + row.key + '\',\'' + a.name + '\')">' +
+            (a.bank ? '<div class="ddicn2">' + bankSvg(a.bank, 10) + '</div>' : '<div class="ddicn2"><i class="ti ti-building-bank"></i></div>') +
+            '<span>' + a.name + '</span>' + (a.isNew ? '<span class="newtag3">NEW</span>' : '') + '</button>';
+        }).join('') + '</div>';
+      }
+
+      function s2RowHtml(row) {
+        var attention = row.matched && !row.confirmed;
+        var rightInner = row.matched
+          ? s2IconFor(row.matched) + '<span class="mc2accname">' + row.matched + '</span>'
+          : '<div class="mc2icn placeholder"><i class="ti ti-help-circle"></i></div><span class="mc2accname placeholder">Choose account…</span>';
+        var status = row.confirmed
+          ? '<div class="mc2confirmed"><i class="ti ti-check"></i> Confirmed</div>'
+          : '<div class="mc2actions"><button class="cbtn primary" ' + (!row.matched ? 'disabled' : '') + ' onclick="s2Confirm(\'' + row.key + '\')">Confirm</button><button class="cbtn" onclick="s2Skip(\'' + row.key + '\')">Skip</button></div>';
+        var picker = s2OpenPickerKey === row.key ? s2PickerHtml(row) : '';
+        return '<div class="matchcard2' + (attention || !row.matched ? ' attention' : '') + '">' +
+          '<div class="mc2halves"><div class="mc2half left"><div class="mc2lbl">CSV account</div><div class="mc2name">' + row.name + '</div><div class="mc2count">' + row.count + ' rows</div></div>' +
+          '<div class="mc2half right"><div class="mc2lbl">Matched account</div><button class="mc2trigger' + (row.matched ? '' : ' placeholder') + '" onclick="s2TogglePicker(\'' + row.key + '\')">' + rightInner + '<i class="ti ti-chevron-down mc2chev"></i></button></div></div>' +
+          picker + status + '</div>';
+      }
+
+      function s2SkippedRowHtml(row) {
+        return '<div class="matchcard2"><div class="mc2halves"><div class="mc2half left" style="flex:1"><div class="mc2lbl">CSV account</div><div class="mc2name">' + row.name + '</div><div class="mc2count">' + row.count + ' rows</div></div></div>' +
+          '<div class="skipbanner" style="border-top:1px dashed var(--border);border-radius:0"><i class="ti ti-player-skip-forward"></i><span>This account\'s ' + row.count + ' rows will be excluded from the import.</span>' +
+          '<button class="undolink" onclick="s2Unskip(\'' + row.key + '\')">Map instead</button></div></div>';
+      }
+
+      function s2Toggle(bucket) { s2Expanded[bucket] = !s2Expanded[bucket]; s2RenderBuckets(); }
+      function s2RenderBuckets() {
+        var needsReview = s2Rows.filter(function (r) { return r.kind === 'existing' && !r.confirmed; });
+        var ready = s2Rows.filter(function (r) { return r.kind === 'existing' && r.confirmed; });
+        var skipped = s2Rows.filter(function (r) { return r.kind === 'skip'; });
+        function bucket(key, dotVar, title, rows, renderFn, emptyMsg) {
+          var open = s2Expanded[key];
+          var body = rows.length ? rows.map(renderFn).join('<div style="height:8px"></div>') : '<div style="font-size:10px;color:var(--text3)">' + emptyMsg + '</div>';
+          return '<div class="rbucket' + (open ? ' open' : '') + '"><div class="rbhead" onclick="s2Toggle(\'' + key + '\')"><div class="rbleft"><div class="rbdot" style="background:' + dotVar + '"></div><div class="rbtitle">' + title + '</div><div class="rbcount">' + rows.length + '</div></div><i class="ti ti-chevron-down rbchev"></i></div><div class="rbbody">' + body + '</div></div>';
+        }
+        document.getElementById('s2-buckets').innerHTML =
+          bucket('needsReview', 'var(--warning)', 'Needs Review', needsReview, s2RowHtml, 'Nothing needs review right now.') +
+          bucket('ready', 'var(--success)', 'Ready', ready, s2RowHtml, 'Nothing is ready yet.') +
+          bucket('skipped', 'var(--neutral)', 'Skipped', skipped, s2SkippedRowHtml, 'Nothing skipped.');
+      }
+      s2RenderBuckets();
+
+      function s2OpenCreate() {
+        document.getElementById('s2-modal').innerHTML =
+          '<div class="backdrop"><div class="popup"><div class="phead"><div class="ptitle">Add account</div><button class="pxbtn" onclick="s2CloseModal()">✕</button></div>' +
+          '<div class="pbody">' +
+          '<div><div class="fieldlbl">Type</div><div style="display:flex;gap:6px">' +
+          '<div class="typetile sel" onclick="s2SelType(this)"><i class="ti ti-building-bank"></i><span>Bank</span></div>' +
+          '<div class="typetile" onclick="s2SelType(this)"><i class="ti ti-cash"></i><span>Cash</span></div>' +
+          '<div class="typetile" onclick="s2SelType(this)"><i class="ti ti-credit-card"></i><span>Card</span></div>' +
+          '<div class="typetile" onclick="s2SelType(this)"><i class="ti ti-wallet"></i><span>Wallet</span></div></div></div>' +
+          '<div><div class="fieldlbl">Account name</div><input class="fieldinput" style="width:100%" id="s2acctname" value="Salary Account" /></div>' +
+          '<div><div class="fieldlbl">Current balance</div><input class="fieldinput" style="width:100%" value="₹0" /><div class="fieldhint">Balance before any transactions you record in Penny</div></div>' +
+          '<div class="togglerow"><div class="toggle-sw on" onclick="this.classList.toggle(\'on\')"><div class="knob"></div></div><span>Include in net worth</span></div>' +
+          '<div><div class="fieldlbl">Bank (optional)</div><div class="fieldinput">HDFC Bank</div><div class="fieldhint">Helps SMS Tracking match a bank\'s transaction SMS to this account</div></div>' +
+          '</div><div class="pfoot"><button class="btn secondary" onclick="s2CloseModal()">Cancel</button><button class="btn primary" onclick="s2SaveAccount()">Add account</button></div>' +
+          '</div></div>';
+      }
+      function s2SelType(el) { el.parentElement.querySelectorAll('.typetile').forEach(function (t) { t.classList.remove('sel'); }); el.classList.add('sel'); }
+      function s2CloseModal() { document.getElementById('s2-modal').innerHTML = ''; }
+      function s2SaveAccount() {
+        s2CloseModal();
+        s2NewAccountCreated = true;
+        document.getElementById('s2-toast').innerHTML = '<div class="toast"><i class="ti ti-circle-check"></i>Account created: &quot;Salary Account&quot;</div>';
+        setTimeout(function () { var t = document.getElementById('s2-toast'); if (t) t.innerHTML = ''; }, 2600);
+        s2RenderBuckets();
+      }
+
+      // ================= SECTION 3 — Categorize, real accordion + ImportCategorizeModal =================
+      var s3NewCategoryCreated = false;
+      var S3_CATS = [
+        { id:'cat-mobile', name:'Mobile & DTH', color:'#3b82f6', icon:'ti-devices-phone' },
+        { id:'cat-util', name:'Utilities', color:'#f59e0b', icon:'ti-bolt' },
+        { id:'cat-sub', name:'Subscriptions', color:'#8b5cf6', icon:'ti-repeat' }
+      ];
+      function s3AllCats() {
+        var list = S3_CATS.slice();
+        if (s3NewCategoryCreated) list.unshift({ id:'cat-recharge', name:'Recharge & Bills', color:'#22c55e', icon:'ti-devices-phone', isNew:true });
+        return list;
+      }
+
+      var s3Tiles = {
+        freecharge: {
+          source:'Freecharge Recharge', count:5, decided:false, expanded:false,
+          kind:'create', catId:null, catName:'Mobile & DTH', catColor:'#3b82f6', catIcon:'ti-devices-phone', group:'Essential',
+          transferCat:'Self Transfer', transferTo:'',
+          rows:[
+            { desc:'Freecharge Mobile Recharge', amt:'-₹299.00', checked:true },
+            { desc:'Freecharge DTH Recharge', amt:'-₹450.00', checked:true },
+            { desc:'Freecharge Mobile Recharge', amt:'-₹199.00', checked:true },
+            { desc:'Freecharge Mobile Recharge', amt:'-₹299.00', checked:true },
+            { desc:'Freecharge Bill Pay', amt:'-₹1,120.00', checked:true }
+          ]
+        },
+        a2a: {
+          source:'A/c to A/c', count:16, decided:false, expanded:false,
+          kind:'transfer', catId:null, catName:'', catColor:'', catIcon:'', group:'',
+          transferCat:'Self Transfer', transferTo:'',
+          rows:[
+            { desc:'HDFC→ICICI, 12 Aug', amt:'-₹15,000.00', checked:true, chip:{ label:'self-transfer', self:true } },
+            { desc:'To Rajesh S, ₹5,000', amt:'-₹5,000.00', checked:true, chip:{ label:'→ Rajesh S' } },
+            { desc:'To Priya M, ₹2,500', amt:'-₹2,500.00', checked:true, chip:{ label:'→ Priya M' } }
+          ],
+          extraCount:13
+        }
+      };
+      var s3ModalKey = null;
+      var s3Draft = null;
+      var s3ShowCatPicker = false;
+      var s3ShowEditor = false;
+      var s3EditorSeed = null;
+
+      function s3ToggleExpand(key) { s3Tiles[key].expanded = !s3Tiles[key].expanded; s3RenderBuckets(); }
+      function s3ToggleRow(key, idx) {
+        var t = s3Tiles[key];
+        t.rows[idx].checked = !t.rows[idx].checked;
+        s3RenderBuckets();
+      }
+      // Checked count across a tile's rows — the "…and N more" tail (a2a's extraCount) is always counted as
+      // checked, matching real opt-out semantics where unrendered rows stay checked unless explicitly toggled.
+      function s3CheckedTotal(key) {
+        var t = s3Tiles[key];
+        var visibleChecked = t.rows.filter(function (r) { return r.checked; }).length;
+        return visibleChecked + (t.extraCount || 0);
+      }
+
+      function s3TargetHtml(t) {
+        if (!t.decided && t.kind !== 'create') {
+          return '<div class="ct4target dashed">Needs categorizing</div>';
+        }
+        if (t.kind === 'existing') return '<span class="ct4target">' + t.catName + '</span>';
+        if (t.kind === 'transfer') return '<span class="ct4target transfer">Transfer' + (t.transferTo ? ' → ' + t.transferTo : '') + '</span>';
+        if (t.kind === 'create') return '<span class="ct4target">' + t.catName + ' <span style="color:var(--text3);font-weight:400">(new · ' + t.group + ')</span></span>';
+        return '<span class="ct4target dashed">Skip</span>';
+      }
+
+      function s3TileHtml(key) {
+        var t = s3Tiles[key];
+        var needsConfirming = !t.decided && t.kind === 'create';
+        var head = '<div class="ct4head" onclick="s3ToggleExpand(\'' + key + '\')">' +
+          '<span class="ct4srcname">&quot;' + t.source + '&quot;</span>' +
+          (key === 'a2a' ? '<span class="ct4badge mixed">Mixed confidence</span>' : '') +
+          '<i class="ti ti-arrow-right ct4arrow"></i>' + s3TargetHtml(t) +
+          (needsConfirming ? '<span class="ct4badge"><i class="ti ti-help-circle"></i> Needs confirming</span>' : '') +
+          '<span class="ct4countpill">' + t.count + ' txns</span><i class="ti ti-chevron-down ct4chev"></i></div>';
+        var body = '';
+        if (t.expanded) {
+          body = '<div class="ct4body">' + t.rows.map(function (r, i) {
+            return '<div class="ct4row"><div class="ct4chk' + (r.checked ? ' on' : '') + '" onclick="s3ToggleRow(\'' + key + '\',' + i + ')">' + (r.checked ? '<i class="ti ti-check"></i>' : '') + '</div>' +
+              '<span class="ct4desc">' + r.desc + '</span>' + (r.chip ? '<span class="cptychip' + (r.chip.self ? ' self' : '') + '">' + r.chip.label + '</span>' : '') +
+              '<span class="ct4amt">' + r.amt + '</span></div>';
+          }).join('') + (t.extraCount ? '<div style="font-size:9px;color:var(--text3);text-align:center;padding-top:6px">…and ' + t.extraCount + ' more, each individually tagged.</div>' : '') + '</div>';
+        }
+        var checkedN = s3CheckedTotal(key);
+        var foot = '<div class="ct4foot">' +
+          '<div style="flex:1"><button class="btn primary" style="width:100%" ' + (checkedN === 0 ? 'disabled' : '') + ' onclick="s3OpenModal(\'' + key + '\')">Categorize ' + checkedN + ' selected ›</button></div>' +
+          '<button class="btn ghost" style="flex:0 0 auto;padding:11px 14px" onclick="s3SkipTile(\'' + key + '\')"><i class="ti ti-player-skip-forward"></i> Skip</button></div>';
+        return '<div class="cattile4' + (t.expanded ? ' open' : '') + '">' + head + body + foot + '</div>';
+      }
+
+      function s3SkipTile(key) {
+        var t = s3Tiles[key];
+        t.kind = 'skip'; t.decided = true;
+        s3RenderBuckets();
+      }
+
+      function s3RenderBuckets() {
+        var needsInputKeys = ['freecharge', 'a2a'].filter(function (k) { return !s3Tiles[k].decided; });
+        var needsInputBody = needsInputKeys.map(s3TileHtml).join('<div style="height:8px"></div>');
+        var buckets = [
+          { key:'needsInput', dot:'var(--warning)', title:'Needs your input', count:needsInputKeys.length, body:needsInputBody || '<div style="font-size:10px;color:var(--text3)">Nothing needs input right now — everything\'s been categorized, transferred, or skipped.</div>', open:true },
+          { key:'staged', dot:'var(--success)', title:'Staged — ready to import', count:231, body:'<div style="font-size:10px;color:var(--text3)">231 transactions auto-matched from memory — collapsed, nothing to tap.</div>', open:false },
+          { key:'skipped', dot:'var(--neutral)', title:'Skipped', count:1, body:'<div style="font-size:10px;color:var(--text3)">1 source account excluded — its rows aren\'t counted here.</div>', open:false },
+          { key:'already', dot:'var(--info)', title:'Already imported', count:16, body:'<div style="font-size:10px;color:var(--text3)">16 rows matched an existing expense already in Penny — not re-imported.</div>', open:false }
+        ];
+        document.getElementById('s3-buckets').innerHTML = buckets.map(function (b) {
+          var open = s3Expanded3[b.key] !== undefined ? s3Expanded3[b.key] : b.open;
+          return '<div class="rbucket' + (open ? ' open' : '') + '"><div class="rbhead" onclick="s3Toggle(\'' + b.key + '\')"><div class="rbleft"><div class="rbdot" style="background:' + b.dot + '"></div><div class="rbtitle">' + b.title + '</div><div class="rbcount">' + b.count + '</div></div><i class="ti ti-chevron-down rbchev"></i></div><div class="rbbody">' + b.body + '</div></div>';
+        }).join('');
+      }
+      var s3Expanded3 = { needsInput:true };
+      function s3Toggle(key) { s3Expanded3[key] = !(s3Expanded3[key] !== undefined ? s3Expanded3[key] : key === 'needsInput'); s3RenderBuckets(); }
+      s3RenderBuckets();
+
+      // ---- ImportCategorizeModal replica ----
+      function s3OpenModal(key) {
+        s3ModalKey = key;
+        var t = s3Tiles[key];
+        s3Draft = { kind:t.kind, catId:t.catId, catName:t.catName, catColor:t.catColor, catIcon:t.catIcon, group:t.group, transferCat:t.transferCat, transferTo:t.transferTo };
+        s3ShowCatPicker = false;
+        s3ShowEditor = false;
+        s3RenderModal();
+      }
+      function s3CloseModal() { s3ModalKey = null; s3Draft = null; document.getElementById('s3-modal').innerHTML = ''; }
+
+      function s3SetKind(kind) {
+        var wasCreate = s3Draft.kind === 'create';
+        var checkedN = s3CheckedTotal(s3ModalKey);
+        var isPartial = checkedN > 0 && checkedN < (s3Tiles[s3ModalKey].rows.length + (s3Tiles[s3ModalKey].extraCount || 0));
+        if (isPartial && kind !== 'existing') return; // matches real handleKindChange's partial-selection guard
+        if (kind === 'existing') { s3ShowCatPicker = true; s3RenderModal(); return; }
+        s3Draft.kind = kind;
+        if (kind === 'transfer' && !s3Draft.transferCat) s3Draft.transferCat = 'Self Transfer';
+        if (kind === 'create' && !wasCreate) {
+          if (!s3Draft.catName) { s3Draft.catName = s3Tiles[s3ModalKey].source; s3Draft.group = s3Draft.group || 'Essential'; s3Draft.catColor = s3Draft.catColor || '#3b82f6'; s3Draft.catIcon = s3Draft.catIcon || 'ti-dots'; }
+          s3OpenEditor(); // "picking Create opens the real CategoryEditorModal" — the one kept improvement
+          return;
+        }
+        s3RenderModal();
+      }
+      function s3PickCat(cat) {
+        s3Draft.kind = 'existing'; s3Draft.catId = cat.id; s3Draft.catName = cat.name; s3Draft.catColor = cat.color; s3Draft.catIcon = cat.icon;
+        s3ShowCatPicker = false;
+        s3RenderModal();
+      }
+      function s3SetTransferTo(v) { s3Draft.transferTo = v; s3RenderModal(); }
+
+      function s3OpenEditor() {
+        s3ShowEditor = true;
+        s3EditorSeed = { name:s3Draft.catName || s3Tiles[s3ModalKey].source, icon:s3Draft.catIcon || 'ti-dots', color:s3Draft.catColor || '#3b82f6', group:s3Draft.group || 'Essential' };
+        s3RenderModal();
+      }
+      function s3CloseEditor() { s3ShowEditor = false; s3RenderModal(); }
+      function s3SaveEditor() {
+        var name = document.getElementById('s3ed-name').value || s3EditorSeed.name;
+        var icon = document.querySelector('#s3-editor .iconswatch.sel')?.dataset.icon || s3EditorSeed.icon;
+        var color = document.querySelector('#s3-editor .colorswatch.sel')?.dataset.color || s3EditorSeed.color;
+        var group = document.getElementById('s3ed-group').textContent;
+        s3Draft.kind = 'create'; s3Draft.catName = name; s3Draft.catIcon = icon; s3Draft.catColor = color; s3Draft.group = group;
+        s3ShowEditor = false;
+        if (s3NewCategoryCreated === false && name === 'Recharge & Bills') s3NewCategoryCreated = true;
+        s3RenderModal();
+      }
+      function s3EdSelIcon(el) { document.querySelectorAll('#s3-editor .iconswatch').forEach(function (s) { s.classList.remove('sel'); }); el.classList.add('sel'); }
+      function s3EdSelColor(el) { document.querySelectorAll('#s3-editor .colorswatch').forEach(function (s) { s.classList.remove('sel'); }); el.classList.add('sel'); }
+
+      function s3Acknowledge() {
+        var t = s3Tiles[s3ModalKey];
+        t.decided = true;
+        s3CloseModal();
+        s3RenderBuckets();
+      }
+      function s3Apply() {
+        var t = s3Tiles[s3ModalKey];
+        Object.assign(t, s3Draft);
+        t.decided = true;
+        s3CloseModal();
+        s3RenderBuckets();
+      }
+
+      function s3RenderModal() {
+        if (!s3ModalKey) { document.getElementById('s3-modal').innerHTML = ''; return; }
+        var key = s3ModalKey, t = s3Tiles[key], d = s3Draft;
+        var checkedN = s3CheckedTotal(key);
+        var totalN = t.rows.length + (t.extraCount || 0);
+        var isPartial = checkedN > 0 && checkedN < totalN;
+        var originalWasCreate = !t.decided && t.kind === 'create';
+
+        var kindGrid = '<div style="display:flex;flex-direction:column;gap:8px">' +
+          '<div style="display:flex;gap:8px">' +
+          '<div class="kindtile' + (d.kind === 'existing' ? ' sel' : '') + '" onclick="s3SetKind(\'existing\')"><i class="ti ti-tag"></i><span>Map to existing</span></div>' +
+          '<div class="kindtile' + (d.kind === 'create' ? ' sel' : '') + (isPartial ? ' dis' : '') + '" onclick="' + (isPartial ? '' : 's3SetKind(\'create\')') + '"><i class="ti ti-square-plus"></i><span>Create new</span></div></div>' +
+          '<div style="display:flex;gap:8px">' +
+          '<div class="kindtile' + (d.kind === 'transfer' ? ' sel' : '') + (isPartial ? ' dis' : '') + '" onclick="' + (isPartial ? '' : 's3SetKind(\'transfer\')') + '"><i class="ti ti-arrows-left-right"></i><span>Mark as transfer</span></div>' +
+          '<div class="kindtile' + (d.kind === 'skip' ? ' sel' : '') + (isPartial ? ' dis' : '') + '" onclick="' + (isPartial ? '' : 's3SetKind(\'skip\')') + '"><i class="ti ti-player-skip-forward"></i><span>Skip</span></div></div></div>';
+
+        var ackBanner = originalWasCreate && !isPartial
+          ? '<div style="display:flex;align-items:center;gap:8px;border:1px dashed var(--border);border-radius:11px;padding:8px 10px;background:var(--surface3)"><i class="ti ti-sparkles" style="color:var(--text2)"></i><span style="flex:1;font-size:10.5px;color:var(--text2)">Suggested: create &quot;' + t.catName + '&quot; (new · ' + t.group + ')</span><button class="undolink" style="color:var(--primary)" onclick="s3Acknowledge()">Use this ›</button></div>'
+          : '';
+
+        var existingBlock = d.kind === 'existing'
+          ? '<button class="catchoose' + (d.catName ? ' filled' : '') + '" onclick="s3ShowCatPicker=true;s3RenderModal()"><div class="ccicn" style="' + (d.catName ? 'background:' + d.catColor + '22' : '') + '"><i class="ti ' + (d.catIcon || 'ti-layout-grid-add') + '" style="' + (d.catName ? 'color:' + d.catColor : '') + '"></i></div><span class="cctxt">' + (d.catName || 'Choose a category…') + '</span><i class="ti ti-chevron-right"></i></button>'
+          : '';
+
+        var createBlock = d.kind === 'create'
+          ? '<div class="createsummary"><div class="csicn" style="background:' + d.catColor + '"><i class="ti ' + d.catIcon + '"></i></div><div class="cstxt"><div class="csname">' + d.catName + '</div><div class="csgroup">new · ' + d.group + '</div></div><button class="csedit" onclick="s3OpenEditor()">Edit ›</button></div>'
+          : '';
+
+        var transferBlock = d.kind === 'transfer'
+          ? '<div style="display:flex;gap:8px"><div style="flex:1"><div class="fieldlbl">Transfer category</div><div class="fieldinput">' + d.transferCat + '</div></div>' +
+            '<div style="flex:1"><div class="fieldlbl">Transfer to account</div><div class="fieldinput" style="border-color:' + (d.transferTo ? 'var(--border)' : 'var(--danger)') + '">' + (d.transferTo || 'Choose…') + '</div></div></div>' +
+            (!d.transferTo ? '<div style="display:flex;gap:6px"><button class="cbtn" onclick="s3SetTransferTo(\'ICICI Bank\')">ICICI Bank</button><button class="cbtn" onclick="s3SetTransferTo(\'Cash\')">Cash</button></div>' : '')
+          : '';
+
+        var skipBlock = d.kind === 'skip'
+          ? '<div class="banner info"><i class="ti ti-info-circle"></i><span>These ' + checkedN + ' transactions will be excluded from this import entirely — nothing is created or written for them.</span></div>'
+          : '';
+
+        var footerLabel = d.kind === 'skip' ? ('Skip ' + checkedN + ' transaction' + (checkedN === 1 ? '' : 's')) : ('Apply to ' + checkedN + ' transaction' + (checkedN === 1 ? '' : 's'));
+        var canApply = d.kind === 'existing' ? !!d.catName : d.kind === 'create' ? !!d.catName : d.kind === 'transfer' ? !!d.transferTo : true;
+
+        document.getElementById('s3-modal').innerHTML =
+          '<div class="backdrop"><div class="popup"><div class="phead"><div class="ptitle">Categorize · &quot;' + t.source + '&quot;</div><button class="pxbtn" onclick="s3CloseModal()">✕</button></div>' +
+          '<div class="pbody">' +
+          '<div style="font-size:10.5px;color:var(--text3)">' + checkedN + ' of ' + totalN + ' selected</div>' +
+          '<div class="banner info"><i class="ti ti-info-circle"></i><span>Applies to the ' + checkedN + ' checked transaction' + (checkedN === 1 ? '' : 's') + ' — its own date, amount &amp; account are untouched.</span></div>' +
+          (isPartial ? '<div style="font-size:10px;color:var(--text3)">Only &quot;Map to existing category&quot; can apply to part of a tile — creating, transferring, or skipping are decisions for the whole group.</div>' : '') +
+          ackBanner +
+          '<div style="font-size:11.5px;font-weight:600;color:var(--text2)">How should these be recorded?</div>' +
+          kindGrid + existingBlock + createBlock + transferBlock + skipBlock +
+          '</div><div class="pfoot"><button class="btn primary" style="width:100%" ' + (!canApply ? 'disabled' : '') + ' onclick="s3Apply()">' + footerLabel + '</button></div>' +
+          '</div>' +
+          (s3ShowCatPicker ? s3CatPickerHtml() : '') +
+          '</div>' +
+          (s3ShowEditor ? s3EditorHtml() : '');
+      }
+
+      function s3CatPickerHtml() {
+        return '<div class="backdrop" style="z-index:6"><div class="popup" style="max-width:300px"><div class="phead"><div class="ptitle">Choose a category</div><button class="pxbtn" onclick="s3ShowCatPicker=false;s3RenderModal()">✕</button></div>' +
+          '<div class="pbody"><div class="catpicklist">' + s3AllCats().map(function (c) {
+            var sel = s3Draft.catId === c.id || s3Draft.catName === c.name;
+            return '<div class="catpickrow' + (sel ? ' sel' : '') + '" onclick=\'s3PickCat(' + JSON.stringify(c).replace(/'/g, "\\'") + ')\'><div class="cpicn" style="background:' + c.color + '"><i class="ti ' + c.icon + '"></i></div><span>' + c.name + '</span>' + (c.isNew ? '<span class="newtag2">NEW</span>' : '') + '</div>';
+          }).join('') + '</div></div></div></div>';
+      }
+
+      function s3EditorHtml() {
+        var seed = s3EditorSeed;
+        return '<div class="backdrop" style="z-index:7"><div class="popup" id="s3-editor"><div class="phead"><div class="ptitle">New category</div><button class="pxbtn" onclick="s3CloseEditor()">✕</button></div>' +
+          '<div class="pbody">' +
+          '<div><div class="fieldlbl">Name</div><input class="fieldinput" style="width:100%" id="s3ed-name" value="' + seed.name + '" /></div>' +
+          '<div><div class="fieldlbl">Icon</div><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+          ['ti-devices-phone', 'ti-bolt', 'ti-wifi', 'ti-receipt', 'ti-dots'].map(function (ic) {
+            return '<div class="iconswatch' + (ic === seed.icon ? ' sel' : '') + '" data-icon="' + ic + '" onclick="s3EdSelIcon(this)"><i class="ti ' + ic + '"></i></div>';
+          }).join('') + '</div></div>' +
+          '<div><div class="fieldlbl">Colour</div><div style="display:flex;gap:8px">' +
+          ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'].map(function (c) {
+            return '<div class="colorswatch' + (c === seed.color ? ' sel' : '') + '" data-color="' + c + '" style="background:' + c + '" onclick="s3EdSelColor(this)"></div>';
+          }).join('') + '</div></div>' +
+          '<div><div class="fieldlbl">Group</div><div class="fieldinput" id="s3ed-group">' + seed.group + '</div></div>' +
+          '</div><div class="pfoot"><button class="btn secondary" onclick="s3CloseEditor()">Cancel</button><button class="btn primary" onclick="s3SaveEditor()">Add category</button></div>' +
+          '</div></div>';
+      }
+
+      // ================= SECTION 4 — month scrub bar =================
+      var TXN_ROWS_HTML =
+        '<div class="datehdr">Today</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#ef4444"><i class="ti ti-tools-kitchen-2"></i></div><div class="txmid"><div class="t1">Zomato</div><div class="t2">Food &amp; Dining</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹450.00</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div class="txrow"><div class="ricn" style="background:#10b981"><i class="ti ti-briefcase"></i></div><div class="txmid"><div class="t1">Salary</div><div class="t2">Income</div></div><div class="txright"><div class="amt" style="color:var(--success)">+₹85,000.00</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div class="datehdr">Yesterday</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#3b82f6"><i class="ti ti-car"></i></div><div class="txmid"><div class="t1">Uber</div><div class="t2">Transport</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹210.00</div><div class="acc">Paytm Wallet</div></div></div>' +
+        '<div class="datehdr">12 Aug</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#f59e0b"><i class="ti ti-shopping-bag"></i></div><div class="txmid"><div class="t1">Amazon</div><div class="t2">Shopping</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹1,299.00</div><div class="acc">ICICI •••7788</div></div></div>';
+      var ALL_TIME_ROWS_HTML = TXN_ROWS_HTML +
+        '<div class="datehdr">Jul 2026</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#8b5cf6"><i class="ti ti-plane"></i></div><div class="txmid"><div class="t1">IndiGo</div><div class="t2">Travel</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹6,450.00</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div class="datehdr">Feb 2019</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#10b981"><i class="ti ti-briefcase"></i></div><div class="txmid"><div class="t1">Salary</div><div class="t2">Income</div></div><div class="txright"><div class="amt" style="color:var(--success)">+₹42,000.00</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div class="datehdr">Nov 2014</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#f59e0b"><i class="ti ti-building-bank"></i></div><div class="txmid"><div class="t1">Opening balance</div><div class="t2">Account created</div></div><div class="txright"><div class="amt" style="color:var(--text)">₹0.00</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div style="font-size:9px;color:var(--text3);text-align:center;padding-top:10px">— earliest transaction, Nov 2014 —</div>';
+
+      // Build 141 months: Nov 2014 → Aug 2026 inclusive, oldest first
+      var S4_MONTHS = [];
+      (function () {
+        var y = 2014, m = 10; // Nov = index 10
+        while (y < 2026 || (y === 2026 && m <= 7)) {
+          S4_MONTHS.push({ y: y, m: m });
+          m++;
+          if (m > 11) { m = 0; y++; }
+        }
+      })();
+      var REAL_CURRENT_YEAR = 2026;
+      var s4SelectedIdx = S4_MONTHS.length - 1; // Aug 2026
+      var s4AllTime = false;
+
+      function s4ChipLabel(entry) {
+        return entry.y === REAL_CURRENT_YEAR ? MONTHS_SHORT[entry.m] : MONTHS_SHORT[entry.m] + ' ' + entry.y;
+      }
+      function s4RenderTrack(scrollToEnd) {
+        var track = document.getElementById('s4-track');
+        track.innerHTML = S4_MONTHS.map(function (entry, i) {
+          return '<button class="scrubchip' + (!s4AllTime && i === s4SelectedIdx ? ' active' : '') + '" onclick="s4Pick(' + i + ')">' + s4ChipLabel(entry) + '</button>';
+        }).join('');
+        if (scrollToEnd) track.scrollLeft = track.scrollWidth;
+        document.getElementById('s4-allchip').classList.toggle('active', s4AllTime);
+      }
+      function s4Pick(i) {
+        s4AllTime = false;
+        s4SelectedIdx = i;
+        document.getElementById('s4-selected').textContent = 'Selected: ' + MONTHS_SHORT[S4_MONTHS[i].m] + ' ' + S4_MONTHS[i].y;
+        document.getElementById('s4-list').innerHTML = TXN_ROWS_HTML;
+        s4RenderTrack(false);
+      }
+      function s4PickAll() {
+        s4AllTime = true;
+        document.getElementById('s4-selected').textContent = 'Selected: All time';
+        document.getElementById('s4-list').innerHTML = ALL_TIME_ROWS_HTML;
+        s4RenderTrack(false);
+      }
+      function s4OpenModal() {
+        var entry = S4_MONTHS[s4SelectedIdx];
+        var year = entry.y, maxYear = 2026;
+        s4RenderModal(year, maxYear);
+      }
+      function s4RenderModal(year, maxYear) {
+        var entry = S4_MONTHS[s4SelectedIdx];
+        var grid = MONTHS_SHORT.map(function (mLabel, i) {
+          var disabled = year === maxYear && i > 7;
+          var sel = !s4AllTime && year === entry.y && i === entry.m;
+          return '<button class="monthtile' + (sel ? ' sel' : '') + '" ' + (disabled ? 'disabled' : '') + ' onclick="s4PickFromModal(' + year + ',' + i + ')">' + mLabel + '</button>';
+        }).join('');
+        document.getElementById('s4-modal').innerHTML =
+          '<div class="backdrop"><div class="popup" style="max-width:280px"><div class="phead"><div class="ptitle">Select Month</div><button class="pxbtn" onclick="s4CloseModal()">✕</button></div>' +
+          '<div class="pbody"><div class="yearrow"><button class="yearbtn" onclick="s4RenderModal(' + (year - 1) + ',' + maxYear + ')"><i class="ti ti-chevron-left"></i></button><span class="yr">' + year + '</span><button class="yearbtn" ' + (year >= maxYear ? 'disabled' : '') + ' onclick="s4RenderModal(' + (year + 1) + ',' + maxYear + ')"><i class="ti ti-chevron-right"></i></button></div>' +
+          '<div class="monthgrid">' + grid + '</div></div></div></div>';
+      }
+      function s4PickFromModal(year, m) {
+        var idx = S4_MONTHS.findIndex(function (e) { return e.y === year && e.m === m; });
+        if (idx === -1) return;
+        s4CloseModal();
+        s4Pick(idx);
+        var track = document.getElementById('s4-track');
+        var chip = track.children[idx];
+        if (chip) chip.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+      }
+      function s4CloseModal() { document.getElementById('s4-modal').innerHTML = ''; }
+      document.getElementById('s4-list').innerHTML = TXN_ROWS_HTML;
+      s4RenderTrack(true);
+    </script>
+  </body>
+</html>

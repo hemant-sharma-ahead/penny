@@ -108,6 +108,56 @@ export interface CounterpartyGroup {
   suggestion: CategoryAction;
 }
 
+export interface NormalizedPerson {
+  person: Person;
+  normalized: string;
+}
+
+/** Precomputes every active Person's normalized name once (2026-08-20, counterparty-split removal) —
+ *  pass the result to {@link classifyCounterparty} for every row instead of re-deriving it per row.
+ *  Mirrors `splitByCounterparty`'s own internal `normalizedPersons` construction below, kept
+ *  independent (not factored to share code) so a future change to one can't silently regress the
+ *  other's still-tested behavior. */
+export function buildNormalizedPersons(persons: Person[]): NormalizedPerson[] {
+  return persons.filter((p) => !p.isArchived).map((p) => ({ person: p, normalized: normalizeCounterparty(p.name) }));
+}
+
+export interface CounterpartyRowClassification {
+  /** The matched Person's name, the row's own raw text, or the residual label — never a mangled
+   *  normalized key. */
+  label: string;
+  confidence: 'high' | 'low' | 'residual';
+  /** Set only for a 'high'-confidence match against an existing Person record. */
+  personMatch?: { personId: string; personName: string };
+}
+
+/** Classifies ONE row's raw counterparty candidate (2026-08-20, counterparty-split removal — redesign
+ *  doc `docs/mockups/proposals/csv-import-transaction-browser-v2.html`) — the same per-row confidence
+ *  tiering `splitByCounterparty` computes internally while building its groups, exposed standalone for
+ *  a caller that wants a per-row LABEL without exploding rows into separate top-level groups (see
+ *  `TransactionBrowserModal.tsx`'s per-row counterparty chip). Always returns a label (never
+ *  `undefined`) — a row with no clear counterparty at all (blank, or a generic self-transfer term)
+ *  classifies as `confidence: 'residual'` with {@link RESIDUAL_COUNTERPARTY_LABEL}, the same case
+ *  `splitByCounterparty` folds into its residual group, just signaled here rather than bucketed. */
+export function classifyCounterparty(
+  raw: string,
+  normalizedPersons: NormalizedPerson[]
+): CounterpartyRowClassification {
+  const trimmed = (raw ?? '').trim();
+  if (isResidualCandidate(trimmed)) return { label: RESIDUAL_COUNTERPARTY_LABEL, confidence: 'residual' };
+  const normalized = normalizeCounterparty(trimmed);
+  if (!normalized) return { label: RESIDUAL_COUNTERPARTY_LABEL, confidence: 'residual' };
+  const match = normalizedPersons.find((p) => p.normalized === normalized && p.normalized !== '');
+  if (match) {
+    return {
+      label: match.person.name,
+      confidence: 'high',
+      personMatch: { personId: match.person.id, personName: match.person.name }
+    };
+  }
+  return { label: trimmed, confidence: 'low' };
+}
+
 /** Splits one `DirectionalCategoryResolution`'s rows into independently-resolvable counterparty groups
  *  (redesign doc §7) — surfaced as separate top-level rows directly in the Categories stage, per the
  *  doc's explicit decision, not deferred to the Transactions stage. Returns one group per distinct

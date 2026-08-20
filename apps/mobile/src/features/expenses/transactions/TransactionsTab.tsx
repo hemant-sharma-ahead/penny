@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { View, Pressable, Text, RefreshControl } from 'react-native';
 import { FlashList, type FlashListRef, type ListRenderItemInfo } from '@shopify/flash-list';
 import { formatCurrency } from '@/lib/formatters';
@@ -69,6 +69,13 @@ interface TransactionsTabProps {
   /** Pull-to-refresh — omit for a read-only list (e.g. `EntityTransactionsModal`'s drill-down), same
    *  gating as `onEdit`/`onDelete` above. */
   onRefresh?: () => void;
+  /** Item 30 (docs/plans/real-device-testing-pass.md Phase 4) — the id of a transaction just saved as a
+   *  brand-new entry (never an edit) via `TransactionsSlice.tsx`'s Add-transaction form. Scrolls to it
+   *  once, the moment this changes — same `scrollToItem` mechanism as the Stage 4 checkpoint-diff
+   *  drill-in's own `scrollToId` above, kept as a separate prop since the two features are otherwise
+   *  unrelated. A no-op if the new transaction isn't actually in `grouped` (e.g. it was saved with a date
+   *  outside the currently-active month filter). */
+  scrollToNewTxnId?: string | null;
 }
 
 interface Row {
@@ -93,8 +100,6 @@ interface RowProps {
   onDelete?: (id: string) => void;
   onDuplicate?: (expense: Expense) => void;
   onShare?: ((expense: Expense) => void) | undefined;
-  selectMode: boolean;
-  isSelected: boolean;
   checkpointMark?: CheckpointRowMark;
   checkpointDividerLabel?: string;
   onToggleSelect?: (id: string) => void;
@@ -104,6 +109,32 @@ interface RowProps {
   isPaymentModeMismatch: boolean;
   dateLabel?: string;
 }
+
+interface SelectionContextValue {
+  selectMode: boolean;
+  selectedIds: Set<string>;
+}
+
+const EMPTY_SELECTED_IDS = new Set<string>();
+
+/**
+ * Item 35 fix (docs/plans/real-device-testing-pass.md Phase 4) — `selectMode`/`selectedIds` used to be
+ * threaded through `renderItem`'s own closure (as plain props on `TransactionRow`), which meant they had
+ * to sit in `renderItem`'s `useCallback` dependency array. Verified directly against FlashList v2's own
+ * source (`recyclerview/ViewHolder.tsx`): its memoized `ViewHolder` wrapper's `React.memo` comparator
+ * checks `prevProps.renderItem === nextProps.renderItem` (and rebuilds `children` via a `useMemo` keyed
+ * on that same identity) — so any change to `renderItem`'s reference fails that check for *every*
+ * currently-mounted `ViewHolder`, not just the one under the user's finger, forcing FlashList to redo each
+ * cell's own layout/ref bookkeeping (not just re-run `TransactionRow`) on a single long-press-to-select.
+ * Moving `selectMode`/`selectedIds` into this context instead keeps `renderItem` (below) fully stable
+ * across a select-mode toggle — `ViewHolder`'s memo now bails entirely for unrelated cells, and only
+ * `TransactionRow` (the actual context consumer) re-renders, via ordinary React context propagation
+ * (which bypasses memoized ancestors by design) rather than FlashList's own cell-recreation path.
+ */
+const SelectionContext = createContext<SelectionContextValue>({
+  selectMode: false,
+  selectedIds: EMPTY_SELECTED_IDS
+});
 
 /**
  * One transaction row, extracted out of `renderItem` and wrapped in `React.memo` — found via a real
@@ -128,8 +159,6 @@ const TransactionRow = memo(function TransactionRow({
   onDelete,
   onDuplicate,
   onShare,
-  selectMode,
-  isSelected,
   onToggleSelect,
   onLongPressSelect,
   isLastRowOverall,
@@ -140,6 +169,9 @@ const TransactionRow = memo(function TransactionRow({
   checkpointDividerLabel
 }: RowProps) {
   const theme = useThemeColors();
+  // Read via context, not a prop off `renderItem`'s closure — see `SelectionContext`'s doc comment above.
+  const { selectMode, selectedIds } = useContext(SelectionContext);
+  const isSelected = selectedIds.has(txn.id);
   const txnType = txn.type ?? 'expense';
   const cat = categoryMap.get(txn.categoryId);
   const accent = txnType === 'income' ? '#10b981' : txnType === 'transfer' ? '#3b82f6' : (cat?.color ?? '#6b7280');
@@ -420,7 +452,8 @@ export function TransactionsTab({
   goalLinkedTxnIds,
   paymentModeMismatchTxnIds,
   checkpointHighlight,
-  onRefresh
+  onRefresh,
+  scrollToNewTxnId
 }: TransactionsTabProps) {
   const theme = useThemeColors();
   const listRef = useRef<FlashListRef<Row> | null>(null);
@@ -468,8 +501,24 @@ export function TransactionsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkpointHighlight?.scrollToId]);
 
+  // Item 30 — auto-scroll to a newly-added (never edited) transaction once the Add form closes after a
+  // successful save; see `scrollToNewTxnId`'s doc comment above. Same "only re-run when the target id
+  // itself changes" reasoning as the checkpoint effect above — `rows` changes far more often than a new
+  // save happens, and re-scrolling on every unrelated `rows` update would fight the user's own scrolling.
+  useEffect(() => {
+    if (!scrollToNewTxnId) return;
+    const target = rows.find((r) => r.key === scrollToNewTxnId);
+    if (!target) return;
+    listRef.current?.scrollToItem({ item: target, animated: true, viewPosition: 0.1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrollToNewTxnId]);
+
   const keyExtractor = useCallback((row: Row) => row.key, []);
 
+  // Item 35 fix — `selectMode`/`selectedIds` deliberately dropped from this closure/its deps (they used
+  // to live here, forcing FlashList to treat every long-press-to-select or subsequent selection toggle as
+  // a `renderItem` identity change — see `SelectionContext`'s doc comment above for the exact FlashList
+  // v2 source confirming why that's expensive). `TransactionRow` now reads them from context instead.
   const renderItem = useCallback(
     ({ item }: ListRenderItemInfo<Row>) => (
       <TransactionRow
@@ -482,8 +531,6 @@ export function TransactionsTab({
         onDelete={onDelete}
         onDuplicate={onDuplicate}
         onShare={onShare}
-        selectMode={selectMode}
-        isSelected={selectedIds?.has(item.txn.id) ?? false}
         onToggleSelect={onToggleSelect}
         onLongPressSelect={onLongPressSelect}
         isLastRowOverall={item.isLastRowOverall}
@@ -503,13 +550,19 @@ export function TransactionsTab({
       onDelete,
       onDuplicate,
       onShare,
-      selectMode,
-      selectedIds,
       onToggleSelect,
       onLongPressSelect,
       goalLinkedTxnIds,
       paymentModeMismatchTxnIds
     ]
+  );
+
+  // Provider value for `SelectionContext` — memoized so it only creates a new object (and thus only
+  // actually propagates to context consumers) when `selectMode`/`selectedIds` genuinely change, not on
+  // every render of this component.
+  const selectionContextValue = useMemo<SelectionContextValue>(
+    () => ({ selectMode, selectedIds: selectedIds ?? EMPTY_SELECTED_IDS }),
+    [selectMode, selectedIds]
   );
 
   if (loading) {
@@ -538,29 +591,33 @@ export function TransactionsTab({
   }
 
   return (
-    <FlashList
-      ref={listRef}
-      style={{ flex: 1, backgroundColor: theme.surfaceTertiary }}
-      // The list's own background uses the same fixed `theme.surfaceTertiary` the row cards use (see
-      // `SwipeableRow.tsx`'s `bg-surface-3`) — not the privacy-mode-tinted `modeBg` this used to be.
-      // Web's own `TransactionsTab` deliberately gives its rows a fixed, non-privacy-tinted background so
-      // "the list reads as one uniform surface" (see that file's comment) — matching that here means the
-      // gaps between rows need the same fixed color the rows have, not the ambient page tint, or they
-      // visibly seam against the opaque row cards (found via user report: looked like a mistint, not a
-      // themed background).
-      contentContainerStyle={{ paddingBottom: 96 }}
-      data={rows}
-      keyExtractor={keyExtractor}
-      renderItem={renderItem}
-      refreshControl={
-        onRefresh ? (
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />
-        ) : undefined
-      }
-      // Default is 250dp — the buffer of off-screen rows kept pre-rendered ahead of the viewport.
-      // Bumped after a user-reported blank flash during a fast fling: a larger buffer gives the recycler
-      // more lead room before a cell scrolls into view with no rendered content yet to swap in.
-      drawDistance={500}
-    />
+    // Item 35 fix — provides `selectMode`/`selectedIds` to every `TransactionRow` via context instead of
+    // through `renderItem`'s own closure; see `SelectionContext`'s doc comment above.
+    <SelectionContext.Provider value={selectionContextValue}>
+      <FlashList
+        ref={listRef}
+        style={{ flex: 1, backgroundColor: theme.surfaceTertiary }}
+        // The list's own background uses the same fixed `theme.surfaceTertiary` the row cards use (see
+        // `SwipeableRow.tsx`'s `bg-surface-3`) — not the privacy-mode-tinted `modeBg` this used to be.
+        // Web's own `TransactionsTab` deliberately gives its rows a fixed, non-privacy-tinted background so
+        // "the list reads as one uniform surface" (see that file's comment) — matching that here means the
+        // gaps between rows need the same fixed color the rows have, not the ambient page tint, or they
+        // visibly seam against the opaque row cards (found via user report: looked like a mistint, not a
+        // themed background).
+        contentContainerStyle={{ paddingBottom: 96 }}
+        data={rows}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />
+          ) : undefined
+        }
+        // Default is 250dp — the buffer of off-screen rows kept pre-rendered ahead of the viewport.
+        // Bumped after a user-reported blank flash during a fast fling: a larger buffer gives the recycler
+        // more lead room before a cell scrolls into view with no rendered content yet to swap in.
+        drawDistance={500}
+      />
+    </SelectionContext.Provider>
   );
 }

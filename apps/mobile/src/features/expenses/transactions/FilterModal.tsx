@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { Modal, Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { BankLogo } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Account, ExpenseCategory, Goal, Hashtag } from '@/core/db/types';
 import type { ActiveEvent } from '~/context/EventModeContext';
@@ -180,7 +181,11 @@ export function FilterModal({
     label: string,
     onPress: () => void,
     key: string,
-    iconSize = 18
+    iconSize = 18,
+    /** Overrides the rendered icon element entirely (e.g. `BankLogo` for a real per-bank logo) — the
+     *  `icon`/`color`/`isSelected` args above still drive everything else about this tile (border,
+     *  label tint) unchanged. */
+    iconElement?: ReactNode
   ) => (
     <Pressable
       key={key}
@@ -192,7 +197,7 @@ export function FilterModal({
         backgroundColor: theme.surfaceSecondary
       }}
     >
-      <Icon name={icon} size={iconSize} color={isSelected ? color : theme.textTertiary} />
+      {iconElement ?? <Icon name={icon} size={iconSize} color={isSelected ? color : theme.textTertiary} />}
       <Text
         className="text-[9px] font-medium text-center"
         numberOfLines={2}
@@ -350,9 +355,10 @@ export function FilterModal({
               )}
               {accounts
                 .filter((a) => !a.isArchived)
-                .map((acc) =>
-                  tile(
-                    accountFilters.has(acc.id),
+                .map((acc) => {
+                  const isAccSelected = accountFilters.has(acc.id);
+                  return tile(
+                    isAccSelected,
                     acc.icon,
                     acc.color,
                     acc.name,
@@ -363,9 +369,11 @@ export function FilterModal({
                         else next.add(acc.id);
                         return next;
                       }),
-                    acc.id
-                  )
-                )}
+                    acc.id,
+                    18,
+                    <BankLogo account={acc} size={18} color={isAccSelected ? acc.color : theme.textTertiary} />
+                  );
+                })}
             </View>
           </View>
         )}

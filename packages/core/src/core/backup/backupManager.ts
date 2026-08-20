@@ -26,6 +26,16 @@ const BACKUP_VERSION = 2 as const;
 const MK_ITERATIONS = 600_000;
 
 // All encrypted stores. Excludes price_cache and privacy_stats (plain, rebuildable).
+//
+// 2026-08-21: found via real-device restore-failure investigation that this list had silently drifted
+// behind `schema.ts` — 8 real encrypted stores existed there but were never added here, so no backup
+// ever included them and restoring one left them exactly as they were on the restoring device instead
+// of replacing them. `accounts` is the serious one: every `Expense.accountId` references it, so a
+// restore onto a wiped/new device brought back all transactions with literally zero accounts for them
+// to belong to. The other 7 are real user data/decisions too (activity log, merchant-memory
+// suggestions, saved templates, cash-withdrawal narration codes, and all 3 SMS-tracking tables —
+// parsed-message links, the sender→account mapping, and the explicit "never a transaction" list), none
+// of them safely rebuildable the way price_cache/privacy_stats are. Added all 8.
 const BACKUP_STORES = [
   'security',
   'profile',
@@ -45,6 +55,10 @@ const BACKUP_STORES = [
   'persons',
   'ledger_entries',
   'credit_profile',
+  'accounts',
+  'activity_log',
+  'merchant_memory',
+  'transaction_templates',
   'device_keys',
   'group_keys',
   'sync_cursor',
@@ -53,9 +67,13 @@ const BACKUP_STORES = [
   'group_events',
   'bank_statement_imports',
   'bank_narration_overrides',
+  'bank_cash_withdrawal_codes',
   'payment_modes',
   'retirement_plan',
-  'net_worth_snapshots'
+  'net_worth_snapshots',
+  'sms_transactions',
+  'sms_account_mappings',
+  'sms_excluded_senders'
 ] as const;
 
 type BackupStore = (typeof BACKUP_STORES)[number];

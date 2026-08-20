@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — 4th-batch UI/UX redesigns (Phase 5, real-device testing pass)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6; --neutral:#8b949e;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:940px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 34px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:840px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:860px; margin:0 auto 18px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+
+      /* a/b/c segmented toggle */
+      .opttoggle { display:flex; gap:6px; background:var(--surface2); border-radius:13px; padding:4px; max-width:640px; margin:0 auto 6px; }
+      .opttoggle button { flex:1; border:none; background:transparent; color:var(--text2); font-size:11px; font-weight:700; padding:10px 6px; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; font-family:inherit; }
+      .opttoggle button i { font-size:12px; }
+      .opttoggle button.active { background:var(--primary); color:#04140d; }
+      .opttoggle button:not(.active) i.ti-star-filled { color:#f0b060; }
+      .opttoggle button.active i.ti-star-filled { color:#04140d; }
+
+      .decimalrow { display:flex; justify-content:center; margin:0 auto 18px; }
+      .decimalrow label { display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:7px 14px; cursor:pointer; }
+      .decimalrow input { accent-color:var(--primary); }
+
+      .viewwrap { display:flex; flex-direction:column; align-items:center; gap:10px; }
+      .stagelabel { font-size:11px; font-weight:800; color:#fff; text-align:center; }
+      .tapline { text-align:center; font-size:11px; color:var(--text2); max-width:300px; line-height:1.6; }
+      .tapline b { color:#fff; font-size:13px; }
+      .tapline .hi { color:var(--warning); font-weight:700; }
+      .tapline .good { color:#3ecf8e; font-weight:700; }
+      .fitnote { text-align:center; font-size:11px; color:var(--text2); max-width:280px; line-height:1.6; border-top:1px dashed var(--border); padding-top:8px; margin-top:2px; }
+      .fitnote.bad { color:#f09090; }
+      .fitnote.good { color:#7ee6b8; }
+      .restartlink { font-size:10px; font-weight:700; color:var(--text3); text-decoration:underline; cursor:pointer; background:none; border:none; font-family:inherit; }
+
+      .phone { width:280px; background:var(--bg); border-radius:28px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:36px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); gap:8px; }
+      .htitle { flex:1; text-align:center; font-size:12.5px; font-weight:700; color:var(--text); }
+      .content { padding:10px 12px 12px; flex:1; overflow-y:auto; }
+      .footer { padding:10px 12px; border-top:1px solid var(--border); display:flex; gap:8px; flex-shrink:0; }
+      .btn { flex:1; text-align:center; padding:9px 0; border-radius:10px; font-size:11.5px; font-weight:700; border:none; font-family:inherit; cursor:pointer; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+      .btn.disabled, .btn:disabled { opacity:.35; cursor:default; }
+      .btn.ghost { background:transparent; color:var(--text2); font-weight:600; }
+
+      .backdrop { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:14px; z-index:5; }
+      .popup { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+      .popup .phead { display:flex; align-items:center; gap:8px; padding:12px 12px 4px; }
+      .popup .ptitle { flex:1; font-size:13px; font-weight:800; color:#fff; }
+      .popup .pxbtn { color:var(--text2); cursor:pointer; background:none; border:none; font-size:16px; font-family:inherit; }
+      .popup .pbody { padding:10px 12px 14px; }
+
+      .banner { border-radius:11px; border:1px solid; padding:9px 10px; display:flex; gap:7px; font-size:10px; line-height:1.5; }
+      .banner.info { border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.12); color:#c8ddfb; }
+      .banner.info i { color:var(--info); font-size:14px; margin-top:1px; }
+      .banner.warning { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.12); color:#fbdca0; }
+      .banner.warning i { color:var(--warning); font-size:14px; margin-top:1px; }
+
+      /* ===== Section 1 — Cash Flow tile ===== */
+      .cf-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:13px; width:100%; }
+      .cf-head { display:flex; align-items:center; gap:6px; margin-bottom:9px; }
+      .cf-head i { font-size:14px; color:var(--warning); }
+      .cf-head span { font-size:12px; font-weight:700; color:var(--primary); }
+      .cf-colhead { display:flex; gap:6px; }
+      .cf-colhead div { flex:1; font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+      .cf-colhead .stub { flex:0 0 78px; }
+      .cf-acct { padding:9px 0; } .cf-acct + .cf-acct { border-top:1px dashed var(--border); }
+      .cf-acct.tight { padding:5px 0; }
+      .cf-name-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+      .cf-name-row.tight { margin-bottom:2px; }
+      .cf-icn { width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .cf-icn i { font-size:11px; }
+      .cf-name { font-size:11.5px; font-weight:600; color:var(--text); }
+      .cf-name.tight { font-size:10px; font-weight:500; color:var(--text2); }
+      .cf-nums-row { display:flex; align-items:center; gap:6px; }
+      .cf-nums-row .v { flex:1; font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .cf-nums-row .v.income { color:var(--success); }
+      .cf-nums-row .v.spend { color:var(--danger); }
+      .cf-nums-row .pillwrap { flex:1; min-width:0; }
+      .cf-nums-row .pill { display:inline-block; background:rgba(0,168,107,.15); color:var(--primary); border-radius:6px; padding:2px 6px; font-size:13px; font-weight:800; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      /* literal merge */
+      .cf-merge-row { display:flex; align-items:center; gap:4px; }
+      .cf-merge-row .stub { flex:0 0 78px; display:flex; align-items:center; gap:4px; min-width:0; }
+      .cf-merge-row .stub .cf-name { font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-merge-row .v { flex:1; font-size:8.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-merge-row .pill { font-size:8.5px; padding:1px 4px; }
+      .amt-dec { display:none; }
+      body.show-decimals .amt-dec { display:inline; }
+      body.show-decimals .amt-nodec { display:none; }
+
+      /* ===== Section 2 — import wizard ===== */
+      .wizprog { display:flex; gap:3px; margin-bottom:8px; }
+      .wizprog .seg { flex:1; height:4px; border-radius:99px; background:var(--surface3); }
+      .wizprog .seg.done { background:var(--success); }
+      .wizprog .seg.now { background:var(--primary); }
+      .stepbody { font-size:11px; color:var(--text2); line-height:1.65; }
+      .stepbody b { color:var(--text); }
+      .bucket { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface2); margin-bottom:8px; }
+      .bucket .bhead { display:flex; align-items:center; gap:7px; padding:9px 10px; cursor:pointer; }
+      .bucket .bdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+      .bucket .btxt { flex:1; min-width:0; }
+      .bucket .btitle { font-size:10.5px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:5px; }
+      .bucket .bsub { font-size:8.5px; color:var(--text3); margin-top:1px; }
+      .bucket .bcheck { color:var(--success); font-size:11px; flex-shrink:0; }
+      .bucket .bcount { background:var(--surface3); border-radius:999px; padding:2px 7px; font-size:9px; font-weight:700; color:var(--text2); flex-shrink:0; }
+      .bucket .chev { color:var(--text3); font-size:11px; transition:transform .15s; flex-shrink:0; }
+      .bucket.open .chev { transform:rotate(180deg); }
+      .bucket .bbody { border-top:1px solid var(--border); padding:9px 10px; display:none; flex-direction:column; gap:7px; }
+      .bucket.open .bbody { display:flex; }
+      .cattile2 { border:1px solid var(--border); border-radius:9px; padding:8px; background:var(--surface); }
+      .cattile2 .cthead { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:5px; }
+      .cattile2 .csrc { font-size:10px; font-weight:700; color:var(--text); }
+      .cattile2 .carrow { color:var(--text3); font-size:9px; }
+      .cattile2 .ctgt { font-size:10px; font-weight:700; color:var(--info); }
+      .cattile2 .badge { font-size:7px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 5px; border-radius:999px; background:rgba(59,130,246,.18); color:#8fb4e6; }
+      .cattile2 .badge.match { background:rgba(16,185,129,.18); color:#3ecf8e; }
+      .cattile2 .remembered { display:inline-flex; align-items:center; gap:4px; background:var(--surface3); border-radius:999px; padding:3px 8px; font-size:8.5px; font-weight:700; color:var(--primary); margin-bottom:5px; }
+      .cattile2 .cfoot { display:flex; gap:5px; margin-top:6px; }
+      .cattile2 .cbtn { flex:1; text-align:center; font-size:9px; font-weight:700; padding:6px 0; border-radius:7px; background:var(--surface3); color:var(--text2); }
+      .cattile2 .cbtn.primary { background:var(--primary); color:#04140d; }
+      .tagwidget { margin-top:6px; border-top:1px dashed var(--border); padding-top:6px; }
+      .tagwidget .tw-lbl { font-size:7.5px; font-weight:700; text-transform:uppercase; color:var(--text3); letter-spacing:.03em; margin-bottom:3px; }
+      .tagwidget .tw-inp { background:var(--surface3); border:1px solid var(--border); border-radius:7px; padding:5px 7px; font-size:9.5px; color:var(--text); margin-bottom:5px; }
+      .tagwidget .tw-freqlbl { font-size:7px; font-weight:700; text-transform:uppercase; color:var(--text3); margin-bottom:3px; }
+      .tagwidget .tw-chips { display:flex; gap:4px; flex-wrap:wrap; }
+      .chip.sm { padding:3px 8px; font-size:8.5px; border-radius:8px; background:var(--surface3); border:1px solid var(--border); color:var(--text2); cursor:pointer; font-family:inherit; }
+      .plainrow { display:flex; align-items:center; gap:6px; padding:6px 2px; font-size:9.5px; color:var(--text2); }
+      .plainrow i { color:var(--success); font-size:12px; }
+      .plainrow b { color:var(--text); font-weight:600; }
+
+      /* ===== Section 3 — month filter ===== */
+      .filterbar { display:flex; align-items:center; gap:6px; padding:8px 10px; border-bottom:1px solid var(--border); }
+      .fbchip { display:flex; align-items:center; gap:5px; padding:7px 10px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); font-size:10.5px; font-weight:600; color:var(--text2); cursor:pointer; font-family:inherit; }
+      .fbchip.active { color:var(--primary); border-color:rgba(0,168,107,.4); }
+      .fbicon { width:30px; height:30px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); flex-shrink:0; }
+      .yearrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+      .yearrow .yr { font-size:14px; font-weight:700; color:var(--text); }
+      .yearbtn { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text2); background:none; border:none; cursor:pointer; }
+      .yearbtn:disabled { opacity:.3; cursor:default; }
+      .monthgrid { display:flex; flex-wrap:wrap; gap:6px; }
+      .monthtile { width:22%; padding:8px 0; border-radius:9px; text-align:center; font-size:10.5px; font-weight:600; background:var(--surface3); color:var(--text2); cursor:pointer; border:none; font-family:inherit; }
+      .monthtile:disabled { opacity:.3; cursor:default; }
+      .monthtile.sel { background:var(--primary); color:#04140d; }
+      .scrubwrap { display:flex; align-items:center; gap:3px; padding:6px 8px; border-bottom:1px solid var(--border); background:var(--surface); }
+      .scrubarrow { width:18px; height:18px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text3); background:none; border:none; cursor:pointer; }
+      .scrubtrack { flex:1; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; scroll-behavior:smooth; }
+      .scrubtrack::-webkit-scrollbar { display:none; }
+      .scrubchip { flex-shrink:0; padding:6px 10px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); font-size:9.5px; font-weight:700; color:var(--text2); cursor:pointer; white-space:nowrap; font-family:inherit; }
+      .scrubchip.active { background:var(--primary); color:#04140d; border-color:transparent; }
+      .jumpto { flex-shrink:0; font-size:8.5px; font-weight:700; color:var(--text2); padding:6px 8px; border:1px dashed var(--border); border-radius:10px; cursor:pointer; background:none; font-family:inherit; }
+      .monthlist { max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+      .monthrow { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:8px; font-size:11px; color:var(--text); cursor:pointer; background:none; border:none; font-family:inherit; width:100%; text-align:left; }
+      .monthrow.sel { background:rgba(0,168,107,.15); color:var(--primary); font-weight:700; }
+      .monthrow i { color:var(--primary); font-size:12px; visibility:hidden; }
+      .monthrow.sel i { visibility:visible; }
+
+      .recommend { max-width:880px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:16px 20px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:880px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol, .legend ul { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>4th-batch UI/UX redesigns — Phase 5, real-device testing pass</h1>
+    <p class="sub">Three open design questions from <code>docs/plans/real-device-testing-pass.md</code>'s Phase 5,
+      one consolidated file per the "one mockup per discussion" rule. Every option below is a real, clickable
+      toggle — not a static gallery — grounded in the actual current <code>apps/mobile</code> screens (read fresh
+      this session, not from memory): <code>AnalyticsTab.tsx</code>'s <code>CashFlowTile</code>, the full
+      6-stage import wizard (<code>ImportPage.tsx</code> + <code>AccountsStage</code>/<code>CategoriesStage</code>/
+      <code>TransactionsStage</code> + their shared <code>BucketCard</code>/<code>WizardProgress</code> chrome),
+      and the Transactions/Analytics month picker (<code>MonthPickerModal.tsx</code> + the filter-bar chip in
+      <code>TransactionsSlice.tsx</code>). Item 31 (About Penny) is intentionally not in this file — held out
+      pending content sign-off, per the plan doc.</p>
+    <div class="topnav">
+      <a href="#s1">① Cash Flow row layout</a>
+      <a href="#s2">② CSV import — reduce clicks</a>
+      <a href="#s3">③ Month-filter UX</a>
+      <a href="#closing">Recommendation &amp; open questions</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>Analytics Cash Flow card — row layout (item 28)</div>
+      <div class="sectionsub">Click between the three options below. The "Literal merge" option is shown honestly
+        tight on purpose — it's the original ask, not pre-fixed to look fine.</div>
+      <div class="groundnote"><code>apps/mobile/src/features/expenses/analytics/AnalyticsTab.tsx</code>'s
+        <code>CashFlowTile</code> (~line 183): one shared 4-column header (Initial/Income/Spend/Computed left),
+        then per account a name-only row followed by the 4-value row, values using <code>formatCompact</code> +
+        <code>numberOfLines</code>/<code>adjustsFontSizeToFit</code>/<code>minimumFontScale=0.7</code> to avoid
+        wrapping. <b style="color:#c3ccd6">Cross-platform:</b> checked <code>apps/web-react</code>'s
+        <code>AnalyticsTab.tsx</code> — it has no Cash Flow card at all (this merged-per-account view was added to
+        mobile 2026-08-02, after web was frozen 2026-07-31) — so there is no web equivalent to keep in sync; this
+        is mobile-only by prior decision, not a new gap.</div>
+
+      <div class="opttoggle" id="s1-toggle">
+        <button class="active" data-view="cur" onclick="s1SetView('cur')">Current</button>
+        <button data-view="merge" onclick="s1SetView('merge')">Literal merge (the ask)</button>
+        <button data-view="tight" onclick="s1SetView('tight')"><i class="ti ti-star-filled"></i>Tightened rhythm</button>
+      </div>
+      <div class="decimalrow">
+        <label><input type="checkbox" id="s1-decimals" onchange="s1ToggleDec(this)" /> Show 2-decimal places (.00) — item 33</label>
+      </div>
+
+      <div class="viewwrap">
+        <!-- CURRENT -->
+        <div id="s1-view-cur" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone" style="height:auto">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="cf-card">
+                <div class="cf-head"><i class="ti ti-wallet"></i><span>Cash Flow · This month</span></div>
+                <div class="cf-colhead"><div>Initial</div><div>Income</div><div>Spend</div><div>Computed left</div></div>
+                <div class="cf-acct">
+                  <div class="cf-name-row"><div class="cf-icn" style="background:rgba(59,130,246,.15)"><i class="ti ti-building-bank" style="color:#3b82f6"></i></div><div class="cf-name">HDFC Bank</div></div>
+                  <div class="cf-nums-row">
+                    <div class="v">₹79.6L</div>
+                    <div class="v income">+₹45.0K</div>
+                    <div class="v spend">-₹32.4K</div>
+                    <div class="pillwrap"><span class="pill">₹79.7L</span></div>
+                  </div>
+                </div>
+                <div class="cf-acct">
+                  <div class="cf-name-row"><div class="cf-icn" style="background:rgba(16,185,129,.15)"><i class="ti ti-cash" style="color:#10b981"></i></div><div class="cf-name">Cash</div></div>
+                  <div class="cf-nums-row">
+                    <div class="v"><span class="amt-nodec">₹450</span><span class="amt-dec">₹450.00</span></div>
+                    <div class="v income"><span class="amt-nodec">+₹0</span><span class="amt-dec">+₹0.00</span></div>
+                    <div class="v spend"><span class="amt-nodec">-₹120</span><span class="amt-dec">-₹120.00</span></div>
+                    <div class="pillwrap"><span class="pill"><span class="amt-nodec">₹330</span><span class="amt-dec">₹330.00</span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fitnote" id="s1-fitnote"></div>
+        </div>
+
+        <!-- LITERAL MERGE -->
+        <div id="s1-view-merge" style="display:none;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone" style="height:auto">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="cf-card">
+                <div class="cf-head"><i class="ti ti-wallet"></i><span>Cash Flow · This month</span></div>
+                <div class="cf-colhead"><div class="stub"></div><div>Initial</div><div>Income</div><div>Spend</div><div>Left</div></div>
+                <div class="cf-acct" style="padding:6px 0">
+                  <div class="cf-merge-row">
+                    <div class="stub"><div class="cf-icn" style="background:rgba(59,130,246,.15);width:16px;height:16px"><i class="ti ti-building-bank" style="color:#3b82f6;font-size:9px"></i></div><div class="cf-name">HDFC B…</div></div>
+                    <div class="v">₹79.6L</div>
+                    <div class="v" style="color:var(--success)">+₹45K</div>
+                    <div class="v" style="color:var(--danger)">-₹32K</div>
+                    <div class="pillwrap"><span class="pill">₹79.7L</span></div>
+                  </div>
+                </div>
+                <div class="cf-acct" style="padding:6px 0">
+                  <div class="cf-merge-row">
+                    <div class="stub"><div class="cf-icn" style="background:rgba(16,185,129,.15);width:16px;height:16px"><i class="ti ti-cash" style="color:#10b981;font-size:9px"></i></div><div class="cf-name">Cash</div></div>
+                    <div class="v"><span class="amt-nodec">₹450</span><span class="amt-dec">₹450.00</span></div>
+                    <div class="v" style="color:var(--success)"><span class="amt-nodec">+₹0</span><span class="amt-dec">+₹0.00</span></div>
+                    <div class="v" style="color:var(--danger)"><span class="amt-nodec">-₹120</span><span class="amt-dec">-₹120.00</span></div>
+                    <div class="pillwrap"><span class="pill"><span class="amt-nodec">₹330</span><span class="amt-dec">₹330.00</span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fitnote" id="s1-fitnote-merge-static" style="max-width:300px">Shown honestly, not pre-fixed: the
+            name column already needs hard truncation ("HDFC B…") at 9px, and every number is at 8.5px — below this
+            card's own real <code style="font-size:9px">minimumFontScale=0.7</code> floor if the source font were
+            the current 13px. This is the layout fight the plan doc expected to see directly.</div>
+        </div>
+
+        <!-- TIGHTENED RHYTHM -->
+        <div id="s1-view-tight" style="display:none;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone" style="height:auto">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="cf-card">
+                <div class="cf-head"><i class="ti ti-wallet"></i><span>Cash Flow · This month</span></div>
+                <div class="cf-colhead"><div>Initial</div><div>Income</div><div>Spend</div><div>Computed left</div></div>
+                <div class="cf-acct tight">
+                  <div class="cf-name-row tight"><div class="cf-icn" style="background:rgba(59,130,246,.15);width:16px;height:16px"><i class="ti ti-building-bank" style="color:#3b82f6;font-size:9px"></i></div><div class="cf-name tight">HDFC Bank</div></div>
+                  <div class="cf-nums-row">
+                    <div class="v">₹79.6L</div>
+                    <div class="v income">+₹45.0K</div>
+                    <div class="v spend">-₹32.4K</div>
+                    <div class="pillwrap"><span class="pill">₹79.7L</span></div>
+                  </div>
+                </div>
+                <div class="cf-acct tight">
+                  <div class="cf-name-row tight"><div class="cf-icn" style="background:rgba(16,185,129,.15);width:16px;height:16px"><i class="ti ti-cash" style="color:#10b981;font-size:9px"></i></div><div class="cf-name tight">Cash</div></div>
+                  <div class="cf-nums-row">
+                    <div class="v"><span class="amt-nodec">₹450</span><span class="amt-dec">₹450.00</span></div>
+                    <div class="v income"><span class="amt-nodec">+₹0</span><span class="amt-dec">+₹0.00</span></div>
+                    <div class="v spend"><span class="amt-nodec">-₹120</span><span class="amt-dec">-₹120.00</span></div>
+                    <div class="pillwrap"><span class="pill"><span class="amt-nodec">₹330</span><span class="amt-dec">₹330.00</span></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fitnote" id="s1-fitnote-tight-static" style="max-width:300px">Still two real rows (name kept
+            separate from numbers — the name IS meaningful, unlike a merged row that has to fight it for space) —
+            just a smaller/lighter name treatment (10px, medium weight, secondary color, tighter margin) and less
+            vertical air between account blocks, so the pair reads as one glanceable unit.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>CSV import — reduce clicks (item 41, flow)</div>
+      <div class="sectionsub">Not re-deciding <code>docs/plans/csv-expense-import-redesign.md</code>'s shipped
+        6-stage split, in-memory-until-commit model, or bucket pattern — this is purely about how many forced
+        screens/taps a "just import my clean file" trip takes. Click through each option below.</div>
+      <div class="groundnote"><code>apps/mobile/src/features/import/ImportPage.tsx</code> orchestrates
+        Upload → (MapColumns, custom only) → Accounts → Categories → Transactions → Done, each a full-screen
+        forced-sequential stage with its own <code>WizardProgress</code> chrome. All three stages already share
+        the identical Needs-Review/Ready/Skipped <code>BucketCard</code> pattern (<code>AccountsStage.tsx</code>/
+        <code>CategoriesStage.tsx</code>/<code>TransactionsStage.tsx</code>) and the "remembered category"
+        one-tap prefill chip (<code>ImportCategorizeModal.tsx</code>'s "✨ Remembered — {category}"). <b style="color:#c3ccd6">Cross-platform:</b>
+        checked <code>apps/web-react/src/features/import/</code> — it still has the pre-redesign 3-stage
+        Upload→MapColumns→Review flow (the 6-stage split was mobile-only, shipped 2026-08-14 after web was frozen
+        2026-07-31) — the platforms already disagree here by prior deliberate decision, not something this
+        proposal needs to reconcile.</div>
+
+      <div class="opttoggle" id="s2-toggle">
+        <button class="active" data-view="cur" onclick="s2SetView('cur')">Current (6 stages)</button>
+        <button data-view="smart" onclick="s2SetView('smart')"><i class="ti ti-star-filled"></i>Smart pre-resolve + review</button>
+        <button data-view="consol" onclick="s2SetView('consol')">Stage consolidation</button>
+      </div>
+
+      <div class="viewwrap">
+        <!-- CURRENT: stepper through 5 stages -->
+        <div id="s2-view-cur" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="stagelabel">Click "Continue" to walk through — same forced sequence on a real device</div>
+          <div class="phone" style="height:390px">
+            <div class="statusbar"></div>
+            <div class="content" style="display:flex;flex-direction:column;height:100%">
+              <div class="wizprog" id="s2cur-prog"></div>
+              <div style="font-size:10px;font-weight:800;color:var(--text);margin-bottom:8px" id="s2cur-steplabel"></div>
+              <div class="stepbody" id="s2cur-body" style="flex:1"></div>
+            </div>
+            <div class="footer">
+              <button class="btn secondary" id="s2cur-back" onclick="s2curBack()">Back</button>
+              <button class="btn primary" id="s2cur-next" onclick="s2curNext()">Continue</button>
+            </div>
+          </div>
+          <div class="tapline">Forward taps so far: <b id="s2cur-taps">0</b> of <b>5</b> minimum —
+            <span class="hi">every stage demands a tap even when it auto-resolved cleanly.</span>
+            <br /><button class="restartlink" onclick="s2curRestart()">Restart</button></div>
+        </div>
+
+        <!-- SMART PRE-RESOLVE + SINGLE REVIEW -->
+        <div id="s2-view-smart" style="display:none;flex-direction:column;align-items:center;gap:10px">
+          <div class="stagelabel">One screen. Click a section header to expand/collapse.</div>
+          <div class="phone" style="height:440px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Review import</div></div>
+            <div class="content">
+              <div class="bucket" id="s2sm-accounts">
+                <div class="bhead" onclick="s2toggle('s2sm-accounts')">
+                  <div class="bdot" style="background:var(--success)"></div>
+                  <div class="btxt"><div class="btitle"><i class="ti ti-check" style="color:var(--success);font-size:10px"></i> Accounts</div><div class="bsub">3 of 3 auto-matched</div></div>
+                  <i class="ti ti-chevron-down chev"></i>
+                </div>
+                <div class="bbody">
+                  <div class="plainrow"><i class="ti ti-check"></i> <span><b>HDFC Bank •••1234</b> → existing HDFC Bank</span></div>
+                  <div class="plainrow"><i class="ti ti-check"></i> <span><b>Paytm Wallet</b> → new wallet account</span></div>
+                  <div class="plainrow"><i class="ti ti-check"></i> <span><b>ICICI Credit Card</b> → merged into ICICI Bank (card payment mode)</span></div>
+                </div>
+              </div>
+
+              <div class="bucket open" id="s2sm-categories">
+                <div class="bhead" onclick="s2toggle('s2sm-categories')">
+                  <div class="bdot" style="background:var(--warning)"></div>
+                  <div class="btxt"><div class="btitle">Categories</div><div class="bsub">41 auto-matched ✓ · 2 need review</div></div>
+                  <i class="ti ti-chevron-up chev"></i>
+                </div>
+                <div class="bbody">
+                  <div class="plainrow" style="padding-top:0"><i class="ti ti-check"></i> 41 others already matched from memory — nothing to review</div>
+
+                  <div class="cattile2">
+                    <div class="cthead"><span class="csrc">"Freecharge Recharge"</span><span class="carrow">→</span><span class="ctgt">Mobile &amp; DTH</span><span class="badge">Needs confirming</span></div>
+                    <div class="cfoot"><div class="cbtn">Change</div><div class="cbtn primary">Looks good</div></div>
+                  </div>
+
+                  <div class="cattile2">
+                    <div class="remembered"><i class="ti ti-sparkles" style="font-size:9px"></i> Detected counterparty — Priya S</div>
+                    <div class="cthead"><span class="csrc">"A/c to A/c" — Priya S</span><span class="carrow">→</span><span class="ctgt">Lending</span><span class="badge match">Matches Person</span></div>
+                    <div class="tagwidget">
+                      <div class="tw-lbl">Tag (optional) — ported from BulkHashtagModal</div>
+                      <div class="tw-inp" id="s2sm-taginput">#…</div>
+                      <div class="tw-freqlbl">Frequent</div>
+                      <div class="tw-chips">
+                        <span class="chip sm" onclick="fillTag('s2sm-taginput','vacation')">#vacation</span>
+                        <span class="chip sm" onclick="fillTag('s2sm-taginput','family')">#family</span>
+                        <span class="chip sm" onclick="fillTag('s2sm-taginput','loan')">#loan</span>
+                      </div>
+                    </div>
+                    <div class="cfoot"><div class="cbtn">Change</div><div class="cbtn primary">Looks good</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bucket" id="s2sm-transactions">
+                <div class="bhead" onclick="s2toggle('s2sm-transactions')">
+                  <div class="bdot" style="background:var(--success)"></div>
+                  <div class="btxt"><div class="btitle"><i class="ti ti-check" style="color:var(--success);font-size:10px"></i> Transactions</div><div class="bsub">247 of 250 ready to import</div></div>
+                  <i class="ti ti-chevron-down chev"></i>
+                </div>
+                <div class="bbody">
+                  <div class="plainrow" style="color:var(--warning)"><i class="ti ti-alert-triangle" style="color:var(--warning)"></i> 3 rows still need a category — left for a later re-upload</div>
+                </div>
+              </div>
+            </div>
+            <div class="footer"><button class="btn primary">Import 247 now — 3 left for later</button></div>
+          </div>
+          <div class="tapline"><b class="good">As few as 2 taps</b> to a clean import: Upload, then Import — a fully
+            auto-resolved section stays collapsed with a checkmark and <span class="hi">never demands a tap</span>;
+            only Categories (2 real items) expanded by default here.</div>
+        </div>
+
+        <!-- STAGE CONSOLIDATION -->
+        <div id="s2-view-consol" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="stagelabel">Accounts + Categories merged into one "Resolve mappings" stage; Transactions stays separate</div>
+          <div class="phone" style="height:430px">
+            <div class="statusbar"></div>
+            <div class="content" style="display:flex;flex-direction:column;height:100%">
+              <div class="wizprog" id="s2co-prog"></div>
+              <div style="font-size:10px;font-weight:800;color:var(--text);margin-bottom:8px" id="s2co-steplabel"></div>
+              <div class="stepbody" id="s2co-body" style="flex:1;overflow-y:auto"></div>
+            </div>
+            <div class="footer">
+              <button class="btn secondary" id="s2co-back" onclick="s2coBack()">Back</button>
+              <button class="btn primary" id="s2co-next" onclick="s2coNext()">Continue</button>
+            </div>
+          </div>
+          <div class="tapline">Forward taps so far: <b id="s2co-taps">0</b> of <b>4</b> minimum — one fewer stage
+            transition than Current, less structural change than the smart-review option.
+            <br /><button class="restartlink" onclick="s2coRestart()">Restart</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Month-filter UX (item 43)</div>
+      <div class="sectionsub">Click a chip/tile to actually change the selected month in each option — the tap
+        counts below are real, not illustrative.</div>
+      <div class="groundnote"><code>apps/mobile/src/features/expenses/transactions/MonthPickerModal.tsx</code>
+        (and its near-identical twin in <code>AnalyticsTab.tsx</code>) — year-chevron row + 4-column, 12-tile
+        month grid inside the shared centered <code>Modal</code>. The filter-bar chip lives in
+        <code>TransactionsSlice.tsx</code> (~line 459): calendar icon, "All" or the selected month label, a small
+        × to clear. <b style="color:#c3ccd6">Cross-platform:</b> checked <code>apps/web-react</code>'s own
+        <code>MonthPickerModal.tsx</code> — same year-nav + 4-col grid content (mobile is a direct RN port) — the
+        platforms currently agree here, so any change here would need mirroring on web too if web weren't frozen;
+        since it is, this proposal only targets mobile.</div>
+
+      <div class="opttoggle" id="s3-toggle">
+        <button class="active" data-view="cur" onclick="s3SetView('cur')">Current (modal grid)</button>
+        <button data-view="scrub" onclick="s3SetView('scrub')"><i class="ti ti-star-filled"></i>Persistent scrub bar</button>
+        <button data-view="flat" onclick="s3SetView('flat')">Flat scrollable list</button>
+      </div>
+
+      <div class="viewwrap">
+        <!-- CURRENT -->
+        <div id="s3-view-cur" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone" style="height:300px">
+            <div class="statusbar"></div>
+            <div class="filterbar">
+              <div class="fbicon"><i class="ti ti-target-arrow"></i></div>
+              <button class="fbchip active" id="s3a-chip" onclick="s3aOpen()"><i class="ti ti-calendar"></i><span id="s3a-chiplabel">Aug 2026</span></button>
+              <div class="fbicon" style="flex:1;justify-content:flex-start;padding-left:10px;color:var(--text3);font-size:10px">Search…</div>
+              <div class="fbicon"><i class="ti ti-adjustments-horizontal"></i></div>
+            </div>
+            <div class="content"><div style="font-size:10px;color:var(--text3);text-align:center;margin-top:30px">Transaction list for the selected month…</div></div>
+            <div id="s3a-modal"></div>
+          </div>
+          <div class="tapline">Taps used this run: <b id="s3a-taps">0</b> —
+            <span class="hi">chip → year chevron (0+ times) → month tile</span>, every time, even for last month.</div>
+        </div>
+
+        <!-- PERSISTENT SCRUB BAR -->
+        <div id="s3-view-scrub" style="display:none;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone" style="height:300px">
+            <div class="statusbar"></div>
+            <div class="filterbar">
+              <div class="fbicon"><i class="ti ti-target-arrow"></i></div>
+              <div class="fbicon" style="flex:1;justify-content:flex-start;padding-left:10px;color:var(--text3);font-size:10px">Search…</div>
+              <div class="fbicon"><i class="ti ti-adjustments-horizontal"></i></div>
+            </div>
+            <div class="scrubwrap">
+              <button class="scrubarrow" onclick="s3bScroll(-1)"><i class="ti ti-chevron-left"></i></button>
+              <div class="scrubtrack" id="s3b-track"></div>
+              <button class="scrubarrow" onclick="s3bScroll(1)"><i class="ti ti-chevron-right"></i></button>
+              <button class="jumpto" onclick="s3bJumpOpen()">Jump to…</button>
+            </div>
+            <div class="content"><div style="font-size:10px;color:var(--text3);text-align:center;margin-top:24px">Transaction list for <b id="s3b-selectedlabel" style="color:var(--text)">Aug 2026</b>…</div></div>
+            <div id="s3b-modal"></div>
+          </div>
+          <div class="tapline">Taps used this run: <b id="s3b-taps">0</b> —
+            <span class="good">1 tap for any visible month.</span> Arrows scroll the strip without changing the
+            selection; "Jump to…" still reaches the full modal for anything further back.</div>
+        </div>
+
+        <!-- FLAT SCROLLABLE LIST -->
+        <div id="s3-view-flat" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone" style="height:300px">
+            <div class="statusbar"></div>
+            <div class="filterbar">
+              <div class="fbicon"><i class="ti ti-target-arrow"></i></div>
+              <button class="fbchip active" id="s3c-chip" onclick="s3cOpen()"><i class="ti ti-calendar"></i><span id="s3c-chiplabel">Aug 2026</span></button>
+              <div class="fbicon" style="flex:1;justify-content:flex-start;padding-left:10px;color:var(--text3);font-size:10px">Search…</div>
+              <div class="fbicon"><i class="ti ti-adjustments-horizontal"></i></div>
+            </div>
+            <div class="content"><div style="font-size:10px;color:var(--text3);text-align:center;margin-top:30px">Transaction list for the selected month…</div></div>
+            <div id="s3c-modal"></div>
+          </div>
+          <div class="tapline">Taps used this run: <b id="s3c-taps">0</b> —
+            <span class="good">2 taps: chip → scroll + tap a row</span> — no year-stepping for anything recent
+            (last 24 months, no grid).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CLOSING NOTES ================= -->
+    <div id="closing"></div>
+    <div class="recommend">
+      <b>Recommendation:</b> ship the starred option in each section — they're the three that scale best once the
+      app has real transaction volume, not just the ones that look nicest in a gallery.
+      <ul>
+        <li><b>§1 — Tightened rhythm.</b> The literal-merge ask genuinely doesn't hold up at this card's real width
+          (270–290px) — it needs hard name truncation and sub-legible number sizes even before item 33's decimals
+          land, and gets worse once they do. Tightened rhythm keeps the name legible (it carries real information —
+          which account) while still reading as one glanceable block, and is completely unaffected by the 2-decimal
+          change since the fit risk is in the numbers' width, not the vertical gap.</li>
+        <li><b>§2 — Smart pre-resolve + single review.</b> This is the one that actually answers "why do people fall
+          back to some apps again and again" (<code>DESIGN_GUIDELINES.md</code> §1) — a clean file should feel like
+          2 taps, not a forced tour of 5-6 screens that all say "yes, this is fine" back to back. Stage
+          consolidation is the safer fallback if the smart-review screen's real-data cases (partial auto-resolution,
+          a genuinely messy file) turn out messier than this mockup's clean example — worth prototyping against a
+          real large file before committing, same way the original redesign's 9,384-row sample file surfaced things
+          a clean example wouldn't.</li>
+        <li><b>§3 — Persistent scrub bar.</b> Cashew and every other fast personal-finance app converged on this for
+          a reason — "last month" and "this month" are the overwhelming majority of real taps, and those should
+          never cost a modal. The flat list is a reasonable fallback if the scrub bar's screen-space cost (a whole
+          extra row, always visible) turns out to be a bigger tradeoff than expected once seen against the real
+          Transactions screen's already-busy filter bar.</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§1 — which numbers demonstrate the decimal-fit risk.</b> <code>formatCompact</code> falls back to
+          plain <code>formatCurrency</code> only under ₹1,000 (checked <code>packages/core/src/lib/formatters.ts</code>)
+          — a big-balance account (HDFC, compact notation) is untouched by item 33's decimal change either way; the
+          real fit risk is specifically a low-activity account (Cash, here) whose values stay under ₹1,000 and go
+          from e.g. "₹450" to "₹450.00". Used a two-account pair on purpose so both cases are visible side by side,
+          rather than picking amounts that make the concern invisible.</li>
+        <li><b>§2 — "Smart pre-resolve" example is deliberately a clean-ish file.</b> 3 accounts, 43 categories with
+          only 2 needing review. A messier file (more unmatched categories, several ambiguous accounts) would show
+          a more heavily-expanded screen — still fewer taps than today's forced 5-6 screens, but the "2 taps" number
+          in the tap-line is the best case, not a guaranteed one. Flagging so it isn't read as an overclaim.</li>
+        <li><b>§2 — tag-suggestion widget placement.</b> Per the task, shown as a fixed addition wherever a
+          categorization step renders (here: on the IOU-suspect tile in the smart-review option, since that's the
+          one place a tag most plausibly matters — "loan", "vacation" etc.) rather than on every single tile, to
+          avoid cluttering an already-dense review screen. Worth confirming this is where the port should land, vs.
+          every tile getting the same affordance.</li>
+        <li><b>§2 — stage-consolidation's internal layout.</b> Modeled "Resolve mappings" as one combined bucket list
+          mixing account-rows and category-rows under shared Needs-Review/Ready buckets, since both already use the
+          identical <code>BucketCard</code> shell today. An alternative would keep them as two visually distinct
+          sub-lists within the one stage instead of fully interleaved — didn't build both, flagging as a real choice
+          if this option is the one that ships.</li>
+        <li><b>§3 — scrub bar's visible window size.</b> Mocked 5 visible chips (Apr–Aug) as a representative width
+          for a ~280px phone frame; the real implementation should size this to whatever fits the actual device
+          width rather than a fixed count. Arrow-scroll step size (one month vs. a wider jump) is also unconfirmed —
+          modeled as scrolling by roughly one chip-width per tap.</li>
+        <li><b>§3 — "Jump to…" and flat-list's exact history depth.</b> Used the plan doc's own "last 24 months" for
+          the flat list; the scrub bar's modal fallback reuses the SAME current year+grid modal rather than
+          inventing a third picker style, on the theory that once a user needs "further back than visible," the
+          existing grid's year-jump is actually the more useful tool, not a limitation to route around twice.</li>
+      </ol>
+    </div>
+
+    <script>
+      // ---------- generic helpers ----------
+      function fillTag(inputId, val) {
+        document.getElementById(inputId).textContent = '#' + val;
+      }
+      function setToggle(toggleId, view) {
+        document.querySelectorAll('#' + toggleId + ' button').forEach(function (b) {
+          b.classList.toggle('active', b.dataset.view === view);
+        });
+      }
+
+      // ================= SECTION 1 =================
+      var S1_FITNOTES = {
+        'cur-nodec': { cls: 'good', txt: 'Fits comfortably — two clearly separated rows, generous column width.' },
+        'cur-dec': { cls: 'good', txt: "Still fits — Cash's extra \".00\" uses the existing adjustsFontSizeToFit shrink allowance; no wrapping." },
+        'merge-nodec': { cls: 'bad', txt: 'Already tight without decimals — the name needs hard truncation and numbers sit near the minimum legible size.' },
+        'merge-dec': { cls: 'bad', txt: "Breaks down — Cash's extra \".00\" pushes past the 0.7 minimumFontScale floor with no room left to shrink. This is the layout fight failing exactly where expected." },
+        'tight-nodec': { cls: 'good', txt: 'Fits comfortably — same two rows as Current, just closer together.' },
+        'tight-dec': { cls: 'good', txt: "Still fits — identical headroom to Current; the extra characters land in the numbers row, unaffected by the tightened vertical gap above it." }
+      };
+      function s1SetView(name) {
+        ['cur', 'merge', 'tight'].forEach(function (n) {
+          document.getElementById('s1-view-' + n).style.display = n === name ? 'flex' : 'none';
+        });
+        setToggle('s1-toggle', name);
+        s1UpdateFitNote();
+      }
+      function s1ToggleDec(cb) {
+        document.body.classList.toggle('show-decimals', cb.checked);
+        s1UpdateFitNote();
+      }
+      function s1UpdateFitNote() {
+        var active = document.querySelector('#s1-toggle button.active').dataset.view;
+        var dec = document.getElementById('s1-decimals').checked;
+        var key = active + (dec ? '-dec' : '-nodec');
+        var note = S1_FITNOTES[key];
+        var el = document.getElementById('s1-fitnote');
+        if (el && note) {
+          el.className = 'fitnote ' + note.cls;
+          el.textContent = note.txt;
+        }
+      }
+      s1UpdateFitNote();
+
+      // ================= SECTION 2 =================
+      function s2SetView(name) {
+        ['cur', 'smart', 'consol'].forEach(function (n) {
+          document.getElementById('s2-view-' + n).style.display = n === name ? 'flex' : 'none';
+        });
+        setToggle('s2-toggle', name);
+      }
+      function s2toggle(id) {
+        document.getElementById(id).classList.toggle('open');
+        var chev = document.querySelector('#' + id + ' .chev');
+        var open = document.getElementById(id).classList.contains('open');
+        chev.className = 'chev ti ' + (open ? 'ti-chevron-up' : 'ti-chevron-down');
+      }
+
+      var S2CUR_STEPS = [
+        { label: 'Step 1 of 5 · Upload', body: 'Pick a CSV file. <b>Tap "Continue"</b> once it parses — first forced tap.' },
+        { label: 'Step 2 of 5 · Accounts', body: '3 source accounts, all auto-matched cleanly. Nothing to fix — but the stage still demands a tap to move on.' },
+        { label: 'Step 3 of 5 · Categories', body: '43 categories, 41 already matched from memory. <div class="cattile2" style="margin-top:8px"><div class="cthead"><span class="csrc">"Freecharge Recharge"</span><span class="carrow">→</span><span class="ctgt">Mobile &amp; DTH</span><span class="badge">Needs confirming</span></div><div class="tagwidget"><div class="tw-lbl">Tag (optional)</div><div class="tw-inp" id="s2cur-taginput">#…</div><div class="tw-freqlbl">Frequent</div><div class="tw-chips"><span class="chip sm" onclick="fillTag(\'s2cur-taginput\',\'vacation\')">#vacation</span><span class="chip sm" onclick="fillTag(\'s2cur-taginput\',\'work\')">#work</span></div></div><div class="cfoot"><div class="cbtn">Change</div><div class="cbtn primary">Looks good</div></div></div>' },
+        { label: 'Step 4 of 5 · Transactions', body: '247 of 250 rows ready. Tap "Import" to commit — another forced full screen even though nothing here needed a decision.' },
+        { label: 'Step 5 of 5 · Done', body: '<div class="banner info" style="margin-top:4px"><i class="ti ti-check"></i><div>247 transactions imported.</div></div>' }
+      ];
+      var s2curStep = 0, s2curTaps = 0;
+      function s2curRender() {
+        var prog = document.getElementById('s2cur-prog');
+        prog.innerHTML = S2CUR_STEPS.map(function (_, i) {
+          return '<div class="seg ' + (i < s2curStep ? 'done' : i === s2curStep ? 'now' : '') + '"></div>';
+        }).join('');
+        document.getElementById('s2cur-steplabel').textContent = S2CUR_STEPS[s2curStep].label;
+        document.getElementById('s2cur-body').innerHTML = S2CUR_STEPS[s2curStep].body;
+        document.getElementById('s2cur-back').disabled = s2curStep === 0;
+        var next = document.getElementById('s2cur-next');
+        next.textContent = s2curStep === 3 ? 'Import' : s2curStep === 4 ? 'Done' : 'Continue';
+        next.disabled = s2curStep === 4;
+        document.getElementById('s2cur-taps').textContent = s2curTaps;
+      }
+      function s2curNext() {
+        if (s2curStep < S2CUR_STEPS.length - 1) { s2curStep++; s2curTaps++; s2curRender(); }
+      }
+      function s2curBack() {
+        if (s2curStep > 0) { s2curStep--; s2curRender(); }
+      }
+      function s2curRestart() { s2curStep = 0; s2curTaps = 0; s2curRender(); }
+      s2curRender();
+
+      var S2CO_STEPS = [
+        { label: 'Step 1 of 4 · Upload', body: 'Pick a CSV file. Tap "Continue" — first forced tap.' },
+        { label: 'Step 2 of 4 · Resolve mappings', body: '__BUCKET__' },
+        { label: 'Step 3 of 4 · Transactions', body: '247 of 250 rows ready. Tap "Import" to commit.' },
+        { label: 'Step 4 of 4 · Done', body: '<div class="banner info" style="margin-top:4px"><i class="ti ti-check"></i><div>247 transactions imported.</div></div>' }
+      ];
+      var S2CO_BUCKET_HTML =
+        '<div class="bucket" id="s2co-ready"><div class="bhead" onclick="s2toggle(\'s2co-ready\')"><div class="bdot" style="background:var(--success)"></div><div class="btxt"><div class="btitle"><i class="ti ti-check" style="color:var(--success);font-size:10px"></i> Ready</div><div class="bsub">3 accounts + 41 categories auto-resolved</div></div><i class="ti ti-chevron-down chev"></i></div><div class="bbody"><div class="plainrow"><i class="ti ti-check"></i> HDFC Bank •••1234 → existing HDFC Bank</div><div class="plainrow"><i class="ti ti-check"></i> 41 categories matched from memory</div></div></div>' +
+        '<div class="bucket open" id="s2co-review"><div class="bhead" onclick="s2toggle(\'s2co-review\')"><div class="bdot" style="background:var(--warning)"></div><div class="btxt"><div class="btitle">Needs Review</div><div class="bsub">2 categories</div></div><i class="ti ti-chevron-up chev"></i></div><div class="bbody"><div class="cattile2"><div class="cthead"><span class="csrc">"Freecharge Recharge"</span><span class="carrow">→</span><span class="ctgt">Mobile &amp; DTH</span><span class="badge">Needs confirming</span></div><div class="cfoot"><div class="cbtn">Change</div><div class="cbtn primary">Looks good</div></div></div><div class="cattile2"><div class="remembered"><i class="ti ti-sparkles" style="font-size:9px"></i> Detected counterparty — Priya S</div><div class="cthead"><span class="csrc">"A/c to A/c" — Priya S</span><span class="carrow">→</span><span class="ctgt">Lending</span></div><div class="tagwidget"><div class="tw-lbl">Tag (optional)</div><div class="tw-inp" id="s2co-taginput">#…</div><div class="tw-freqlbl">Frequent</div><div class="tw-chips"><span class="chip sm" onclick="fillTag(\'s2co-taginput\',\'loan\')">#loan</span><span class="chip sm" onclick="fillTag(\'s2co-taginput\',\'family\')">#family</span></div></div><div class="cfoot"><div class="cbtn">Change</div><div class="cbtn primary">Looks good</div></div></div></div></div>';
+      var s2coStep = 0, s2coTaps = 0;
+      function s2coRender() {
+        var prog = document.getElementById('s2co-prog');
+        prog.innerHTML = S2CO_STEPS.map(function (_, i) {
+          return '<div class="seg ' + (i < s2coStep ? 'done' : i === s2coStep ? 'now' : '') + '"></div>';
+        }).join('');
+        document.getElementById('s2co-steplabel').textContent = S2CO_STEPS[s2coStep].label;
+        document.getElementById('s2co-body').innerHTML = S2CO_STEPS[s2coStep].body.replace('__BUCKET__', S2CO_BUCKET_HTML);
+        document.getElementById('s2co-back').disabled = s2coStep === 0;
+        var next = document.getElementById('s2co-next');
+        next.textContent = s2coStep === 2 ? 'Import' : s2coStep === 3 ? 'Done' : 'Continue';
+        next.disabled = s2coStep === 3;
+        document.getElementById('s2co-taps').textContent = s2coTaps;
+      }
+      function s2coNext() {
+        if (s2coStep < S2CO_STEPS.length - 1) { s2coStep++; s2coTaps++; s2coRender(); }
+      }
+      function s2coBack() {
+        if (s2coStep > 0) { s2coStep--; s2coRender(); }
+      }
+      function s2coRestart() { s2coStep = 0; s2coTaps = 0; s2coRender(); }
+      s2coRender();
+
+      // ================= SECTION 3 =================
+      function s3SetView(name) {
+        ['cur', 'scrub', 'flat'].forEach(function (n) {
+          document.getElementById('s3-view-' + n).style.display = n === name ? 'flex' : 'none';
+        });
+        setToggle('s3-toggle', name);
+      }
+      var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+      // ---- 3a: current modal (year + grid) ----
+      var s3aYear = 2026, s3aTaps = 0, s3aSelMonth = 7; // Aug = index 7
+      var S3A_MAX_YEAR = 2026;
+      function s3aOpen() {
+        s3aTaps++;
+        document.getElementById('s3a-taps').textContent = s3aTaps;
+        s3aRenderModal();
+      }
+      function s3aRenderModal() {
+        var grid = MONTHS_SHORT.map(function (m, i) {
+          var disabled = s3aYear === S3A_MAX_YEAR && i > 7;
+          var sel = s3aYear === 2026 && i === s3aSelMonth;
+          return '<button class="monthtile' + (sel ? ' sel' : '') + '" ' + (disabled ? 'disabled' : '') +
+            ' onclick="s3aPick(' + i + ')">' + m + '</button>';
+        }).join('');
+        document.getElementById('s3a-modal').innerHTML =
+          '<div class="backdrop"><div class="popup" style="width:240px">' +
+          '<div class="phead"><div class="ptitle">Select Month</div><button class="pxbtn" onclick="s3aClose()">✕</button></div>' +
+          '<div class="pbody">' +
+          '<div class="yearrow"><button class="yearbtn" onclick="s3aYearStep(-1)"><i class="ti ti-chevron-left"></i></button><span class="yr">' + s3aYear + '</span><button class="yearbtn" ' + (s3aYear >= S3A_MAX_YEAR ? 'disabled' : '') + ' onclick="s3aYearStep(1)"><i class="ti ti-chevron-right"></i></button></div>' +
+          '<div class="monthgrid">' + grid + '</div>' +
+          '</div></div></div>';
+      }
+      function s3aYearStep(delta) {
+        s3aYear += delta;
+        s3aTaps++;
+        document.getElementById('s3a-taps').textContent = s3aTaps;
+        s3aRenderModal();
+      }
+      function s3aPick(i) {
+        s3aSelMonth = i;
+        s3aTaps++;
+        document.getElementById('s3a-taps').textContent = s3aTaps;
+        document.getElementById('s3a-chiplabel').textContent = MONTHS_SHORT[i] + ' ' + s3aYear;
+        s3aClose();
+      }
+      function s3aClose() { document.getElementById('s3a-modal').innerHTML = ''; }
+
+      // ---- 3b: persistent scrub bar ----
+      var S3B_MONTHS = ['Apr 2026','May 2026','Jun 2026','Jul 2026','Aug 2026','Sep 2026']; // Sep shown disabled (future)
+      var s3bSelected = 'Aug 2026', s3bTaps = 0;
+      function s3bRenderTrack() {
+        var track = document.getElementById('s3b-track');
+        track.innerHTML = S3B_MONTHS.map(function (m) {
+          var future = m === 'Sep 2026';
+          return '<button class="scrubchip' + (m === s3bSelected ? ' active' : '') + '" ' + (future ? 'disabled style="opacity:.35"' : '') +
+            ' onclick="s3bPick(\'' + m + '\')">' + m.split(' ')[0] + '</button>';
+        }).join('');
+      }
+      function s3bPick(m) {
+        s3bSelected = m;
+        s3bTaps++;
+        document.getElementById('s3b-taps').textContent = s3bTaps;
+        document.getElementById('s3b-selectedlabel').textContent = m;
+        s3bRenderTrack();
+      }
+      function s3bScroll(dir) {
+        document.getElementById('s3b-track').scrollBy({ left: dir * 90, behavior: 'smooth' });
+      }
+      function s3bJumpOpen() {
+        s3bTaps++;
+        document.getElementById('s3b-taps').textContent = s3bTaps;
+        document.getElementById('s3b-modal').innerHTML =
+          '<div class="backdrop"><div class="popup" style="width:240px">' +
+          '<div class="phead"><div class="ptitle">Jump to month</div><button class="pxbtn" onclick="document.getElementById(\'s3b-modal\').innerHTML=\'\'">✕</button></div>' +
+          '<div class="pbody"><div class="yearrow"><button class="yearbtn"><i class="ti ti-chevron-left"></i></button><span class="yr">2025</span><button class="yearbtn"><i class="ti ti-chevron-right"></i></button></div>' +
+          '<div class="monthgrid">' + MONTHS_SHORT.map(function (m) {
+            return '<button class="monthtile" onclick="s3bJumpPick(\'' + m + ' 2025\')">' + m + '</button>';
+          }).join('') + '</div></div></div></div>';
+      }
+      function s3bJumpPick(m) {
+        s3bSelected = m;
+        s3bTaps++;
+        document.getElementById('s3b-taps').textContent = s3bTaps;
+        document.getElementById('s3b-selectedlabel').textContent = m;
+        document.getElementById('s3b-modal').innerHTML = '';
+        // Older-than-visible pick: reflect it as the lone visible chip so the strip stays honest.
+        document.getElementById('s3b-track').innerHTML =
+          '<button class="scrubchip active" onclick="s3bRenderTrack()">' + m.split(' ')[0] + " '" + m.split(' ')[1].slice(2) + '</button>';
+      }
+      s3bRenderTrack();
+
+      // ---- 3c: flat scrollable list ----
+      var s3cTaps = 0, s3cSelected = 'Aug 2026';
+      function s3cMonthList() {
+        var out = [];
+        var y = 2026, m = 7; // start at Aug 2026, walk back 24 months
+        for (var n = 0; n < 24; n++) {
+          out.push(MONTHS_SHORT[m] + ' ' + y);
+          m--;
+          if (m < 0) { m = 11; y--; }
+        }
+        return out;
+      }
+      function s3cOpen() {
+        s3cTaps++;
+        document.getElementById('s3c-taps').textContent = s3cTaps;
+        var rows = s3cMonthList().map(function (label) {
+          return '<button class="monthrow' + (label === s3cSelected ? ' sel' : '') + '" onclick="s3cPick(\'' + label + '\')"><span>' + label + '</span><i class="ti ti-check"></i></button>';
+        }).join('');
+        document.getElementById('s3c-modal').innerHTML =
+          '<div class="backdrop"><div class="popup" style="width:240px">' +
+          '<div class="phead"><div class="ptitle">Select Month</div><button class="pxbtn" onclick="document.getElementById(\'s3c-modal\').innerHTML=\'\'">✕</button></div>' +
+          '<div class="pbody"><div class="monthlist">' + rows + '</div></div></div></div>';
+      }
+      function s3cPick(label) {
+        s3cSelected = label;
+        s3cTaps++;
+        document.getElementById('s3c-taps').textContent = s3cTaps;
+        document.getElementById('s3c-chiplabel').textContent = label;
+        document.getElementById('s3c-modal').innerHTML = '';
+      }
+    </script>
+  </body>
+</html>

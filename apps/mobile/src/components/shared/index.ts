@@ -2,6 +2,8 @@ export { AccountChips } from './AccountChips';
 export { AccountFormModal } from './AccountFormModal';
 export { AssetTaxNote } from './AssetTaxNote';
 export { BackButton } from './BackButton';
+export { BankLogo } from './BankLogo';
+export { bankAccentColor } from './bankAccentColor';
 export { BucketCard } from './BucketCard';
 export { DailyTipCard } from './DailyTipCard';
 export { DidYouKnowCard } from './DidYouKnowCard';

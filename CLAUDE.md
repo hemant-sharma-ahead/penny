@@ -122,6 +122,13 @@ Phase 1.
   background run should stay durably queued/unprocessed until the app is next opened and
   unlocked, never lost. First codified 2026-08-15 in the SMS Tracking native capture layer's
   Headless JS task — see `docs/ARCHITECTURE.md`'s matching decision-log entry.
+- **Always `await` an async file-write before the very next step reads/shares/deletes that same
+  file.** `expo-file-system`'s `File.write()` (and any similar async I/O call) returns a
+  `Promise<void>` — a call site that fires it without awaiting can hand the next step a
+  still-writing, truncated file, a real race, not a theoretical one. Found in 6 separate call
+  sites at once (manual/auto backup export, CSV/ZIP export, XLSX export, SMS export) via a real
+  "can't restore any backup" report — see `docs/features/backup.md` and `docs/ARCHITECTURE.md`'s
+  2026-08-19 real-device-testing-pass entry.
 
 ## Working style
 
@@ -155,6 +162,21 @@ above, which govern what the code must do.
   likely cause — frame an unconfirmed environment finding as "here's something I found, can
   you confirm this applies?", not as a stated verdict. Reserve confident causal claims for
   things actually traced through the code/data.
+- **Proactively flag adjacent UX gaps noticed while implementing, not just the literal fix
+  requested.** When touching a screen/component in `apps/mobile`, do a quick pass (during or
+  right after the change) for the kind of "did this screen actually work the way a user
+  expects" issues that only surface from exercising a flow end-to-end, not from the change
+  itself compiling/passing tests — unsaved-state loss on close/back/backdrop-tap, missing
+  scroll/focus-to-new-item after an action succeeds, missing hardware-back handling in a
+  custom modal/selection-mode state, `autoFocus` inside a native `Modal` not actually
+  focusing (check for the `onShow`+ref pattern already established for this exact failure
+  mode — `ExpenseForm.tsx`'s description field is the reference), and two screens reading
+  "the same" data through two different paths that could silently diverge (a live-computed
+  value vs. a cached/table-backed value). Flag whatever's found in the implementation report
+  even if outside the task's explicit scope — let the user decide whether to fix now or
+  later, rather than silently noticing and moving on. Prompted by several such gaps going
+  unflagged during the 2026-08 real-device-testing pass until the user found them separately
+  on-device.
 - **Once code has been read and understood earlier in the same conversation, don't
   delegate the next iteration to a brand-new subagent instructed to re-verify against
   source** — it has no memory of prior rounds and will re-read the same files. Either do

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { forwardRef, useMemo, useState } from 'react';
 import { View, TextInput as RNTextInput, Pressable, Text } from 'react-native';
 import type { Person } from '@/core/db/types';
 import { Icon } from '~/components/Icon';
@@ -30,16 +30,15 @@ interface PersonTypeaheadProps {
  * Matched substrings are bolded (2026-08-18) — a small enhancement over the original `PersonPicker`
  * behavior, added here and inherited by both callers, per the mockup
  * (`docs/mockups/proposals/iou-quick-fixes-v1.html` §2).
+ *
+ * Forwards its ref straight to the inner `RNTextInput` (2026-08-20, item 32/36 real-device testing
+ * pass) — lets `BulkAddToIouModal.tsx`'s person step apply the same `Modal`'s `onShow` + ref →
+ * `.focus()` fix already used by `ExpenseForm.tsx`'s description field and `ui/TextInput.tsx`.
  */
-export function PersonTypeahead({
-  persons,
-  query,
-  onQueryChange,
-  onSelect,
-  placeholder = 'Type a name…',
-  autoFocus,
-  error
-}: PersonTypeaheadProps) {
+export const PersonTypeahead = forwardRef<RNTextInput, PersonTypeaheadProps>(function PersonTypeahead(
+  { persons, query, onQueryChange, onSelect, placeholder = 'Type a name…', autoFocus, error },
+  ref
+) {
   const theme = useThemeColors();
   const [focused, setFocused] = useState(false);
   const q = query.trim().toLowerCase();
@@ -70,6 +69,7 @@ export function PersonTypeahead({
   return (
     <View style={{ position: 'relative', zIndex: showList ? 50 : undefined }}>
       <RNTextInput
+        ref={ref}
         value={query}
         autoFocus={autoFocus}
         placeholder={placeholder}
@@ -117,4 +117,4 @@ export function PersonTypeahead({
       )}
     </View>
   );
-}
+});

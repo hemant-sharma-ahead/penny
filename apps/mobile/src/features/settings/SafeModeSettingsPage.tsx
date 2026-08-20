@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Banner, ListContainer, SectionLabel, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { BankLogo } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyAccountsChanged, notifyCategoriesChanged, notifyTagsChanged } from '@/hooks/useDataRefresh';
@@ -43,12 +44,16 @@ interface RenderedGroup {
 function ToggleRow({
   icon,
   iconColor,
+  iconElement,
   label,
   value,
   onChange
 }: {
   icon: string;
   iconColor?: string;
+  /** Overrides the rendered icon element entirely (e.g. `BankLogo` for a real per-bank logo) while
+   *  keeping this row's icon tile sizing/background driven by `iconColor` unchanged. */
+  iconElement?: ReactNode;
   label: string;
   value: boolean;
   onChange: (value: boolean) => void;
@@ -63,7 +68,7 @@ function ToggleRow({
         // modules" rows here have no per-module color, so they always hit this fallback).
         style={{ backgroundColor: iconColor ?? theme.textTertiary }}
       >
-        <Icon name={icon} size={14} color="#fff" />
+        {iconElement ?? <Icon name={icon} size={14} color="#fff" />}
       </View>
       <Text className="flex-1 min-w-0 text-sm font-medium text-primary" numberOfLines={1}>
         {label}
@@ -155,6 +160,7 @@ export function SafeModeSettingsPage() {
                     key={acc.id}
                     icon={acc.icon}
                     iconColor={acc.color}
+                    iconElement={<BankLogo account={acc} size={14} color="#fff" />}
                     label={acc.name}
                     value={!!acc.hideInSafeMode}
                     onChange={(hidden) =>

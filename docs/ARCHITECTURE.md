@@ -2530,6 +2530,65 @@ WizardProgress.tsx` (moved from `features/import/`, needed by the new `BulkAddTo
   fix, person type-ahead, real delete/archive confirmation, bulk-add-to-ledger, edit-mode type toggle,
   cash-negative warnings, promote-to-group).
 
+### Decision: Real-device-testing-pass Phases 4–6c (2026-08-19) — account cards, About Penny, Analytics, backup/restore, CSV import
+
+**Rationale:** continues the same real-device-testing pass above, fully detailed in
+[`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md). `apps/web-react` stays
+untouched (frozen). Durable architectural notes beyond what the feature docs
+(`docs/features/accounts.md`, `docs/features/backup.md`, `docs/features/expenses.md`,
+`docs/DESIGN_GUIDELINES.md`) already cover in full:
+
+- **Account list: gradient mini card replaced with a grouped flat list + tap-to-reveal actions.**
+  `AccountList.tsx` rewritten wholesale — see `docs/DESIGN_GUIDELINES.md`'s "Grouped flat list +
+  tap-to-reveal actions" entry (its "Identity-colour gradient mini card" predecessor is marked
+  superseded there, not deleted, for history) and `docs/features/accounts.md`. `accountCardPalette()`/
+  `JEWEL_PALETTE`/`GREEN_PALETTE` (`~/lib/color.ts`) are removed, not left as dead code. New
+  `apps/mobile/src/components/shared/BankLogo.tsx` is the single resolution seam for "what icon does
+  this account show" (real per-bank logo when `account.bankId` matches a sourced mark, else the
+  existing generic `Icon`/`account.color` fallback) — every account-icon render site should go through
+  it rather than calling `<Icon>` directly, so sourcing a new bank's logo only means adding one entry to
+  `BANK_LOGOS`, not rewiring call sites. Now covers HDFC/ICICI/Axis/HSBC (Simple Icons CC0 marks,
+  verified against two independent CDN mirrors, not fabricated); the remaining 8 presets checked again
+  and confirmed to have no safely-redistributable logo *mark* — but colors aren't copyrightable, so
+  `bankAccentColor()` (`components/shared/bankAccentColor.ts` — its own file, not `BankLogo.tsx`, since
+  a component file can't carry a second non-component export under `react-refresh/only-export-
+  components`) tints the generic fallback icon/badge with each bank's real brand color for 3 of those 8
+  (SBI, Kotak, IndusInd) where that color was verified; the other 5 (BoB, Yes Bank, PNB, Canara, IDFC
+  First) have no verified color either and stay on the plain account-type default.
+- **About Penny + a new standalone Privacy Promise page (`AboutPennyPage.tsx`,
+  `PrivacyPromisePage.tsx`, `whatsNew.ts`, `apps/mobile/src/lib/appVersion.ts`,
+  `apps/mobile/src/features/onboarding/privacyPillars.ts`) — mobile-only, no `apps/web-react`
+  equivalent, same precedent as `PennyLoader`/"Did You Know."** The existing onboarding
+  `PrivacyPromiseScreen` has no header/back button by design (meant to be seen exactly once,
+  pre-unlock) — linking an already-onboarded user there from Settings would strand them with no way
+  back, so a second screen with identical content plus a real back button was added rather than adding
+  a back button to the onboarding screen itself (which would have changed onboarding's own flow for no
+  reason). Both screens now read from one shared `privacyPillars.ts` (mission statement + pillar
+  content factored out of `PrivacyPromiseScreen.tsx`) so the two copies can't drift apart. Routes
+  registered in `HomeStack.tsx`, not `MainNavigator.tsx` (only holds `MainTabs`/`OnboardingFlow`).
+- **`MonthScrubBar.tsx`: a native-bridge measurement call is not a portable fix for an RN-Web bug.**
+  The previous fix for its auto-scroll race used `View.measureLayout` for a fresh same-tick read —
+  correct on real native devices, but `react-native-web`'s shim for that call doesn't reliably return
+  scroll-aware coordinates, so the bug reappeared on RN Web specifically. Replaced with a plain
+  `onLayout`-cached offset (identical on every platform) plus deferring the read two
+  `requestAnimationFrame` ticks, fixing the actual underlying race (a state update landing before its
+  own layout pass has run) instead of trying to win it with a platform-specific measurement call.
+  Worth remembering for any future fix that reaches for `measureLayout`/`measureInWindow`/similar
+  native-bridge measurement APIs: verify on RN Web too, not just native, before calling it done.
+- **Backup/restore: two severe bugs found via a real "can't restore any backup" report** — a missing
+  `await` on `expo-file-system`'s async `File.write()` in six call sites, and `BACKUP_STORES` having
+  silently drifted 8 real tables behind `schema.ts` (`accounts` most severely — every
+  `Expense.accountId` references it). Full detail in `docs/features/backup.md`. Worth a standing habit,
+  not just a one-time fix: whenever a new encrypted Dexie store is added to `schema.ts`, check whether
+  it belongs in `backupManager.ts`'s `BACKUP_STORES` in the same change — nothing currently enforces
+  that the two stay in sync.
+- **CSV import: the 2026-08-13 bulk-import render-cap rule (`CLAUDE.md`'s Reliability non-negotiables)
+  had an incomplete application, not a wrong one.** `TransactionsStage.tsx` capped the *rows* inside one
+  tile (`TileRowList.tsx`) but rendered the *tiles themselves* — `needsInputGroups`/`stagedGroups`/
+  `skippedGroups` — via a plain unbounded `.map()`. Same "Show N more" pattern added to all three, plus
+  `review/CarryForwardExcluded.tsx`'s own previously-uncapped row list. A reminder that this rule needs
+  checking at every `.map()` over bulk/imported data in a render tree, not just the first one found.
+
 ---
 
 ## Dependency graph (simplified)

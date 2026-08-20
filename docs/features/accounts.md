@@ -51,6 +51,29 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
   mini card" entry for what's a faithful port vs. a pragmatic RN approximation (RN has no inset
   box-shadow, CSS blur filter, or repeating-linear-gradient). See `docs/mockups/proposals/
   accounts-list-v1.html`'s "Direction D — Mini Cards v2" section for the approved reference.
+- **`apps/mobile`, 2026-08-19: account list redesigned again — gradient mini cards dropped.** Real-device
+  testing reported the v2 gradient cards as not following the theme, wasting space, and still not
+  showing real bank icons everywhere despite the logos below. Replaced (7 mockup concepts explored,
+  `docs/mockups/proposals/account-list-redesign-v1.html` through `-v3.html`'s "✅ FINAL DIRECTION")
+  with: accounts grouped by type into three sections (**Bank Accounts / Cash & Wallets / Credit
+  Cards**, a group hidden entirely if it has no accounts), each section one bordered container of flat,
+  divided rows (no gradient). Each row's balance carries a `ti-dots-vertical` kebab that **tap-reveals**
+  that row's Import-XOR-Reconcile + Edit + Delete icons underneath it, independently per row; whole-row
+  tap still opens the transactions-for-this-account modal, unchanged. The "Included in net worth"/"Not
+  counted in net worth" caption and the persistent unverified-account warning glyph both carried over
+  unchanged. See `docs/DESIGN_GUIDELINES.md`'s "Grouped flat list + tap-to-reveal actions" entry (the
+  gradient mini card entry above is now marked superseded there, kept only for history).
+- **`apps/mobile`, 2026-08-19: real per-bank logos, HSBC added; brand-color tinting for 3 more.**
+  `BankLogo.tsx` (a new shared component every account-icon render site should go through) swaps in a
+  real, CC0-licensed brand mark (Simple Icons) for **HDFC, ICICI, Axis, and now HSBC** whenever
+  `account.bankId` matches. For **SBI, Kotak, and IndusInd** — no licensed mark exists (Simple Icons
+  has no entry for them, and the one other source with real marks ships with no LICENSE file, so
+  redistributing it would be an unclear-rights risk) — the generic fallback `Icon` is tinted with each
+  bank's real official brand color instead (`bankAccentColor()`, its own file since a component file
+  can't have a second non-component export under Fast Refresh's rule) rather than left on the generic
+  account-type default; both the icon glyph and its badge background (`AccountList.tsx`) use it. The
+  remaining 5 presets (BoB, Yes Bank, PNB, Canara, IDFC First, custom) have no verified logo *or* color
+  yet — inventing either would be equally dishonest, so they stay on the plain account-type default.
 
 ## How it works
 
@@ -69,16 +92,19 @@ Key files:
 - `src/features/accounts/AccountsPage.tsx` — thin shell: header + AccountList + AccountFormModal
 - `src/features/accounts/useAccountForm.ts` — add/edit form state; `AccountList.tsx`/`AccountFormModal.tsx` — list + modal
 - `src/core/accounts/meta.ts` — account-type metadata (label/icon/colour); `balanceCalculator.ts` — balance math
-- **`apps/mobile`, 2026-08-03 (v2):** each mini card's gradient + glow is looked up, not computed from
-  the account's own type/colour — `~/lib/color.ts`'s `accountCardPalette(id, isCashLike)` hashes the
-  account's `id` into one of two curated palettes (`JEWEL_PALETTE` for everything else, `GREEN_PALETTE`
-  clamped for `cash`/`wallet`), each entry a hand-picked dark gradient pair plus a matching bright glow
-  colour. This replaced an earlier version (`accentCardGradient(hex)`, derived from the account-type
-  accent in `meta.ts` via `ink()`) that made every account of the same type render an identical, flat
-  card. Text/icon/divider colours on top of the gradient (`ON_GRADIENT` in `AccountList.tsx`) are
-  intentionally fixed white/translucent-white regardless of app theme — same rationale as
-  `ShareCard.tsx`'s hardcoded white text on its own gradient — since they're relative to the card's own
-  colour, not the light/dark/pennyBlue palette.
+- `apps/mobile/src/components/shared/BankLogo.tsx` — real per-bank logo resolution (`account.bankId` →
+  a sourced Simple Icons mark, or the generic `Icon`/`account.color` fallback); mobile-only, added
+  2026-08-19
+- **`apps/mobile`, 2026-08-03 (v2, superseded 2026-08-19 — history only):** each mini card's gradient +
+  glow was looked up, not computed from the account's own type/colour — `~/lib/color.ts`'s
+  `accountCardPalette(id, isCashLike)` hashed the account's `id` into one of two curated palettes
+  (`JEWEL_PALETTE` for everything else, `GREEN_PALETTE` clamped for `cash`/`wallet`), each entry a
+  hand-picked dark gradient pair plus a matching bright glow colour. Text/icon/divider colours on top
+  of the gradient (`ON_GRADIENT` in `AccountList.tsx`) were intentionally fixed white/translucent-white
+  regardless of app theme — same rationale as `ShareCard.tsx`'s hardcoded white text on its own
+  gradient. **None of this exists in the current `AccountList.tsx`** — the 2026-08-19 redesign above
+  dropped the gradient entirely for a themed flat row, so `accountCardPalette`/`JEWEL_PALETTE`/
+  `GREEN_PALETTE` were removed rather than left as dead code.
 - `src/features/expenses/ExpenseForm.tsx` — handles income and transfer type transactions (which update account balances)
 
 **Mobile (`apps/mobile`):** ported in Track 4 (sixth module) — `apps/mobile/src/features/accounts/` mirrors the web files above 1:1 (`useAccounts.ts`/`useAccountForm.ts` unchanged beyond import paths). Surfaced a real bug in **shared `packages/core`**: `useDataRefresh.ts`'s cross-instance refresh signals (`useAccountsRefresh`/`useCategoriesRefresh`/`useTagsRefresh`) used the same browser-only `window` events as `useTxnRefresh` (already fixed for IOU) — fixed proactively with `packages/core/src/hooks/useDataRefresh.native.ts` before it could crash on-device. `ReconcileModal`'s `ink()`/`STATUS` usage swaps to `~/lib/color`'s `ink(color, theme.textPrimary)` (mobile's version takes the "toward" color as an explicit argument, since there's no CSS var to default to) — same pattern as other modules. `AccountFormModal` reuses the shared `FormModal` (web used a raw `Modal` here) for consistency with every other add/edit form ported so far. Back button dropped, same reasoning as Insurance/Loans/IOU.

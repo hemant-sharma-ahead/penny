@@ -5,6 +5,7 @@ import { usePrivacy } from '~/context/PrivacyContext';
 import { formatCurrency } from '@/lib/formatters';
 import { Icon } from '~/components/Icon';
 import { IconBadge } from '~/components/ui';
+import { BankLogo } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import type { AccountBalance } from './useHome';
@@ -50,7 +51,13 @@ export function AccountsStrip({ accounts }: { accounts: AccountBalance[] }) {
             style={{ minWidth: 120 }}
           >
             <View className="flex-row items-center justify-between">
-              <IconBadge icon={acc.icon} color={acc.color} bg={acc.color + '22'} size="sm" />
+              <IconBadge
+                icon={acc.icon}
+                color={acc.color}
+                bg={acc.color + '22'}
+                size="sm"
+                iconElement={<BankLogo account={acc} size={16} color={acc.color} />}
+              />
               {acc.needsAttention && (
                 <View
                   className="w-4 h-4 rounded-full items-center justify-center"

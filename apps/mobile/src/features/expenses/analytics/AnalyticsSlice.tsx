@@ -8,7 +8,7 @@ import { EntityTransactionsModal } from '~/components/shared';
 import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { toMonthYearKey } from '@/lib/formatters';
 import { AnalyticsTab } from './AnalyticsTab';
-import { useExpenseAnalytics } from './useExpenseAnalytics';
+import { useExpenseAnalytics, incomeGroupKey } from './useExpenseAnalytics';
 import { useBudgets } from '../budgets/useBudgets';
 
 interface AnalyticsSliceProps {
@@ -66,6 +66,8 @@ export function AnalyticsSlice({
     monthTotal,
     setAsideData,
     setAsideTotal,
+    incomeData,
+    incomeTotal,
     eventsThisMonth,
     prevMonthData,
     hashtagSummary,
@@ -86,6 +88,8 @@ export function AnalyticsSlice({
     annualGroupTotal,
     annualSetAsideData,
     annualSetAsideTotal,
+    annualIncomeData,
+    annualIncomeTotal,
     annualEvents,
     annualHashtagSummary,
     prevYearGroupData,
@@ -96,6 +100,8 @@ export function AnalyticsSlice({
     allTimeGroupTotal,
     allTimeSetAsideData,
     allTimeSetAsideTotal,
+    allTimeIncomeData,
+    allTimeIncomeTotal,
     allTimeEvents,
     allTimeHashtagSummary,
     allTimeCashFlowSummaries,
@@ -119,14 +125,23 @@ export function AnalyticsSlice({
     setAsideTagNames
   });
 
-  // Same in-scope, expense-only filtering `analyticsData`/`setAsideData` (or their annual/all-time
+  // Same in-scope filtering `analyticsData`/`setAsideData`/`incomeData` (or their annual/all-time
   // counterparts) already use — this just keeps the matching transactions instead of summing them. Scope
   // follows whichever view (monthly/annual/allTime) is currently open, so the same drill-down callbacks
-  // work from any of the three. All Time has no date filter at all — every expense-type transaction is
-  // in scope, same as `allTimeGroupData`/`allTimeSetAsideData` etc. use `inAllTime` unconditionally.
+  // work from any of the three. All Time has no date filter at all — every in-scope transaction is in
+  // scope, same as `allTimeGroupData`/`allTimeSetAsideData`/`allTimeIncomeData` etc. use `inAllTime`
+  // unconditionally.
+  //
+  // Item 46: excludes transfers only, not "anything but expense" — `viewGroup`/`viewCategory` (expense
+  // side) and `viewIncomeGroup`/`viewIncomeCategory` (income side) below each add their own explicit
+  // `e.type === 'expense'`/`'income'` check on top of this rather than relying on group/category ids
+  // never colliding across types — real-device testing found that assumption false (see
+  // `incomeGroupKey`'s doc comment in `useExpenseAnalytics.ts`), so this base filter now only handles
+  // the one thing every caller agrees on (never show transfers here).
   const inScopeExpenses = (predicate: (e: Expense) => boolean) =>
     expenses.filter((e) => {
-      if (e.type && e.type !== 'expense') return false;
+      const kind = e.type ?? 'expense';
+      if (kind === 'transfer') return false;
       const inScope =
         analyticsView === 'allTime'
           ? true
@@ -143,8 +158,16 @@ export function AnalyticsSlice({
     return `${subtitle} · ${count} transaction${count !== 1 ? 's' : ''}`;
   }
 
+  // Daily Routine / Set Aside drill-down — explicitly `e.type === 'expense'` (2026-08-20 fix): both
+  // used to filter only by group/category membership with no type check at all, on the unstated
+  // assumption that an income category id/group key never matches an expense one. Real-device testing
+  // found that assumption false (a pre-existing data mismatch — see `incomeGroupKey`'s doc comment in
+  // `useExpenseAnalytics.ts`), which let "View all transactions in Financial" opened from *either*
+  // side pull in the *other* side's transactions too. `buildGroupData`/`buildSetAsideData` already
+  // only ever see expense-type transactions; these two now match that same invariant explicitly
+  // instead of relying on category ids happening not to collide.
   function viewGroup(group: string, label: string) {
-    const list = inScopeExpenses((e) => classify(e).group === group);
+    const list = inScopeExpenses((e) => e.type === 'expense' && classify(e).group === group);
     setViewing({
       title: label,
       subtitle: withCount(
@@ -162,7 +185,45 @@ export function AnalyticsSlice({
   }
 
   function viewCategory(catId: string, label: string) {
-    const list = inScopeExpenses((e) => e.categoryId === catId);
+    const list = inScopeExpenses((e) => e.type === 'expense' && e.categoryId === catId);
+    setViewing({
+      title: label,
+      subtitle: withCount(
+        analyticsView === 'allTime'
+          ? 'This category · all time'
+          : analyticsView === 'annual'
+            ? `This category · ${analyticsYear}`
+            : 'This category · selected month',
+        list.length
+      ),
+      list
+    });
+  }
+
+  // Income's own drill-down pair — mirrors `viewGroup`/`viewCategory` above but scoped to
+  // `e.type === 'income'`, and matches by `incomeGroupKey()` (not the raw `classify()`/`groupKey()`
+  // an expense-side category would resolve to) so the transactions shown always agree with exactly
+  // what `IncomeSection`'s own row totals summed (see `incomeGroupKey`'s doc comment).
+  function viewIncomeGroup(group: string, label: string) {
+    const list = inScopeExpenses((e) => e.type === 'income' && incomeGroupKey(categoryMap.get(e.categoryId)) === group);
+    setViewing({
+      title: label,
+      subtitle: withCount(
+        analyticsView === 'allTime'
+          ? 'All time'
+          : analyticsView === 'annual'
+            ? `${analyticsYear}`
+            : selectedMonth === toMonthYearKey()
+              ? 'This month'
+              : 'Selected month',
+        list.length
+      ),
+      list
+    });
+  }
+
+  function viewIncomeCategory(catId: string, label: string) {
+    const list = inScopeExpenses((e) => e.type === 'income' && e.categoryId === catId);
     setViewing({
       title: label,
       subtitle: withCount(
@@ -214,6 +275,8 @@ export function AnalyticsSlice({
         monthTotal={monthTotal}
         setAsideData={setAsideData}
         setAsideTotal={setAsideTotal}
+        incomeData={incomeData}
+        incomeTotal={incomeTotal}
         prevMonthData={prevMonthData}
         spendVelocity={spendVelocity}
         monthlyAvgPerDay={monthlyAvgPerDay}
@@ -231,6 +294,8 @@ export function AnalyticsSlice({
         annualGroupTotal={annualGroupTotal}
         annualSetAsideData={annualSetAsideData}
         annualSetAsideTotal={annualSetAsideTotal}
+        annualIncomeData={annualIncomeData}
+        annualIncomeTotal={annualIncomeTotal}
         annualEvents={annualEvents}
         annualHashtagSummary={annualHashtagSummary}
         prevYearGroupData={prevYearGroupData}
@@ -241,6 +306,8 @@ export function AnalyticsSlice({
         allTimeGroupTotal={allTimeGroupTotal}
         allTimeSetAsideData={allTimeSetAsideData}
         allTimeSetAsideTotal={allTimeSetAsideTotal}
+        allTimeIncomeData={allTimeIncomeData}
+        allTimeIncomeTotal={allTimeIncomeTotal}
         allTimeEvents={allTimeEvents}
         allTimeHashtagSummary={allTimeHashtagSummary}
         allTimeCashFlowSummaries={allTimeCashFlowSummaries}
@@ -254,6 +321,8 @@ export function AnalyticsSlice({
         promoteHashtagToEvent={promoteHashtagToEvent}
         onViewGroup={viewGroup}
         onViewCategory={viewCategory}
+        onViewIncomeGroup={viewIncomeGroup}
+        onViewIncomeCategory={viewIncomeCategory}
         onViewTag={viewTag}
         onSeeAllTips={() => navigation.navigate('Home', { screen: 'DiscoverTips' })}
       />

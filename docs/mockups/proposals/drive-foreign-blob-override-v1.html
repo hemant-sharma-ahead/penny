@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Backup — Drive foreign-blob banner: add "Overwrite Drive" (v1)</title>
+<style>
+  :root {
+    --primary: #00a86b;
+    --danger: #ef4444;
+    --open: #dc2626;
+    --warning: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 24px 90px;
+    background: #05070a;
+    color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 820px; line-height: 1.65; margin-bottom: 10px; }
+  .intro b { color: #e6edf3; }
+  .finding {
+    max-width: 820px; margin: 14px 0 30px; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; }
+  .toolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid #2d333b; background: #161b22; color: #e6edf3; cursor: pointer;
+  }
+  .toolbar button.active { background: var(--primary); border-color: var(--primary); color: #04140d; }
+  .toolbar .hint { font-size: 11.5px; color: #6e7681; }
+
+  .gallery { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: #6e7681; }
+  .col-label.new { color: var(--primary); }
+
+  /* Real device frame — fixed size regardless of content, per ui-design-check skill */
+  .phone {
+    width: 300px; height: 650px;
+    border-radius: 34px; border: 9px solid #111827;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 16px 34px rgba(0,0,0,0.45);
+    flex-shrink: 0;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+  /* ---- theme-able tokens, applied via [data-theme] on .screen ---- */
+  .screen[data-theme="light"] {
+    background: #f8fafc;
+    --surface: #ffffff; --surface2: #eff6ff; --border: #c7d8f0;
+    --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+  }
+  .screen[data-theme="dark"] {
+    background: #0b0f14;
+    --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; background: inherit;
+  }
+  .backchev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 16px; }
+  .header-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .header-icons { display: flex; gap: 12px; }
+  .hdr-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.6px solid var(--text2); }
+  .hdr-bell { width: 14px; height: 14px; border: 1.6px solid var(--text2); border-radius: 4px 4px 7px 7px; }
+
+  .body { flex: 1; overflow: hidden; padding: 14px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; }
+  .card-badge {
+    width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,168,107,0.1); color: var(--primary); font-size: 16px;
+  }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .card-sub { font-size: 11px; color: var(--text3); line-height: 1.5; margin-top: 2px; }
+
+  .segmented {
+    display: flex; background: var(--surface2); border-radius: 12px; padding: 3px; gap: 2px;
+  }
+  .segmented .seg {
+    flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--text2);
+    padding: 7px 0; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .segmented .seg.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+
+  .banner {
+    border-radius: 12px; padding: 11px 12px; display: flex; gap: 8px;
+    background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35);
+  }
+  .banner .ic { font-size: 15px; color: var(--danger); flex-shrink: 0; margin-top: 1px; }
+  .banner .txt { flex: 1; }
+  .banner .txt .t1 { font-size: 12px; font-weight: 700; color: var(--danger); line-height: 1.4; }
+  .banner .txt .t2 { font-size: 11px; color: var(--text2); line-height: 1.5; margin-top: 2px; }
+
+  .btn {
+    width: 100%; text-align: center; font-size: 12.5px; font-weight: 700; padding: 10px 12px;
+    border-radius: 12px; cursor: pointer; line-height: 1.35;
+  }
+  .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn.danger { background: var(--open); border: 1px solid var(--open); color: #fff; }
+  .btn.plain-secondary { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+
+  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .footer-row .fine { font-size: 10.5px; color: var(--text3); flex: 1; }
+
+  .fineprint { font-size: 10px; color: var(--text3); }
+
+  /* Confirm dialog (centred, never a bottom sheet — matches ConfirmDialog/Modal.tsx) */
+  .backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+    display: none; align-items: center; justify-content: center;
+    padding: 0 16px; z-index: 20;
+  }
+  .backdrop.open { display: flex; }
+  .dialog {
+    width: 100%; max-width: 260px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.25);
+  }
+  .dialog-head {
+    display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 0;
+  }
+  .dialog-title { font-size: 14px; font-weight: 700; color: var(--text); }
+  .dialog-close { font-size: 14px; color: var(--text3); }
+  .dialog-body { padding: 12px 16px 16px; font-size: 12px; line-height: 1.6; color: var(--text2); }
+  .dialog-footer { display: flex; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--border); }
+  .dialog-footer .btn { font-size: 12px; padding: 9px 10px; }
+
+  .note {
+    max-width: 900px; margin-top: 10px; border: 1px dashed #2d333b; border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: #8b949e; line-height: 1.65;
+  }
+  .note b { color: #e6edf3; }
+  .note code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<h1>Backup — Drive "foreign blob" banner: add "Overwrite Drive" (v1)</h1>
+<p class="intro">
+  Scope: <code>apps/mobile/src/features/backup/AutoBackupCard.tsx</code>'s <code>status === 'foreign_blob'</code>
+  banner. Today it renders only <b>"Restore with my passphrase"</b>. This adds a second, destructive option —
+  <b>"Overwrite Drive with this device's data instead"</b> — gated behind the same <code>ConfirmDialog</code>
+  shape already used on this screen for "Erase all data" (<code>BackupPage.tsx</code>). No other part of the
+  card changes.
+</p>
+
+<div class="finding">
+  <span class="tag">cross-platform check</span>
+  <code>apps/web-react/src/features/backup/AutoBackupCard.tsx</code> has <b>no <code>foreign_blob</code> handling
+  at all</b> — that whole banner (including the existing single button) was added mobile-only on 2026-08-18 per
+  real-device testing feedback and never existed on web. This is a pre-existing platform disagreement, not one
+  this change introduces — and since <code>apps/web-react</code> is frozen (no further changes, historical
+  reference only), <b>nothing needs mirroring there</b>. Flagging per the parity-check step so it's a documented
+  finding rather than a silent gap.
+</div>
+
+<div class="toolbar">
+  <button id="btn-light" class="active" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← tap to switch theme · tap the red button on the "Proposed" phone to preview the confirm dialog</span>
+</div>
+
+<div class="gallery">
+
+  <!-- CURRENT -->
+  <div class="col">
+    <div class="col-label">Current — one action only</div>
+    <div class="phone">
+      <div class="screen" data-theme="light">
+        <div class="header-row">
+          <div class="backchev">‹</div>
+          <div class="header-title">Backup</div>
+          <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+        </div>
+        <div class="body">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-badge">↻</div>
+              <div>
+                <div class="card-title">Automatic backup</div>
+                <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div>
+              </div>
+            </div>
+            <div class="segmented">
+              <div class="seg">📱 This device</div>
+              <div class="seg active">☁ Drive</div>
+              <div class="seg"> iCloud</div>
+            </div>
+            <div class="banner">
+              <div class="ic">⚠</div>
+              <div class="txt">
+                <div class="t1">This backup needs a manual restore</div>
+                <div class="t2">This device's data doesn't match the key your Drive backup was encrypted with.</div>
+              </div>
+            </div>
+            <div class="btn secondary">Restore with my passphrase</div>
+            <div class="footer-row">
+              <div class="fine">Not backed up yet</div>
+              <div class="btn plain-secondary" style="width: auto; padding: 8px 14px;">Back up now</div>
+            </div>
+            <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center;">
+      A fresh/reinstalled device stuck here has no way to say "forget the old Drive backup" — this banner
+      never goes away.
+    </div>
+  </div>
+
+  <!-- PROPOSED -->
+  <div class="col">
+    <div class="col-label new">Proposed — second, destructive option</div>
+    <div class="phone">
+      <div class="screen" id="proposed-screen" data-theme="light">
+        <div class="header-row">
+          <div class="backchev">‹</div>
+          <div class="header-title">Backup</div>
+          <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+        </div>
+        <div class="body">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-badge">↻</div>
+              <div>
+                <div class="card-title">Automatic backup</div>
+                <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div>
+              </div>
+            </div>
+            <div class="segmented">
+              <div class="seg">📱 This device</div>
+              <div class="seg active">☁ Drive</div>
+              <div class="seg"> iCloud</div>
+            </div>
+            <div class="banner">
+              <div class="ic">⚠</div>
+              <div class="txt">
+                <div class="t1">This backup needs a manual restore</div>
+                <div class="t2">This device's data doesn't match the key your Drive backup was encrypted with.</div>
+              </div>
+            </div>
+            <div class="btn secondary">Restore with my passphrase</div>
+            <div class="btn danger" onclick="openDialog()">Overwrite Drive with this device's data instead</div>
+            <div class="footer-row">
+              <div class="fine">Not backed up yet</div>
+              <div class="btn plain-secondary" style="width: auto; padding: 8px 14px;">Back up now</div>
+            </div>
+            <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+          </div>
+        </div>
+
+        <!-- Confirm dialog, same shape as ConfirmDialog + Modal.tsx: centred card, title + × top-right,
+             body text, footer with Cancel (secondary) + destructive action (danger), border-t above footer -->
+        <div class="backdrop" id="dialog-backdrop" onclick="closeDialog(event)">
+          <div class="dialog" onclick="event.stopPropagation()">
+            <div class="dialog-head">
+              <div class="dialog-title">Overwrite Drive backup?</div>
+              <div class="dialog-close" onclick="closeDialog(event)">✕</div>
+            </div>
+            <div class="dialog-body">
+              This device's data will replace whatever backup currently exists in Google Drive, going forward.
+              The backup already in Drive — encrypted with a different passphrase — will be permanently
+              discarded and can't be recovered. If you want that old data instead, cancel and use
+              "Restore with my passphrase."
+            </div>
+            <div class="dialog-footer">
+              <div class="btn secondary" style="flex:1;" onclick="closeDialog(event)">Cancel</div>
+              <div class="btn danger" style="flex:1;" onclick="closeDialog(event)">Yes, overwrite Drive</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center;">
+      Solid <code style="background:#1c2128;border:1px solid #2d333b;border-radius:4px;padding:1px 5px;">danger</code>
+      variant (same red as "Erase all data" below on this screen) so it reads as the more destructive of the
+      two — vs. the existing outlined <code style="background:#1c2128;border:1px solid #2d333b;border-radius:4px;padding:1px 5px;">secondary</code>
+      restore button.
+    </div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>Copy logic (inverse of restore):</b> "Restore with my passphrase" brings the old Drive data back onto this
+  device. "Overwrite Drive with this device's data instead" abandons the old Drive data and starts writing this
+  device's data to Drive going forward — real scenario: a reinstalled/new device where the user doesn't want
+  the old backup back and today has no way to tell the app that.<br /><br />
+  <b>Component reuse, not a new pattern:</b> both buttons are the existing <code>Button</code> component
+  (<code>variant="secondary"</code> unchanged, new one <code>variant="danger"</code>) inside the same
+  <code>View className="gap-2"</code> block; the dialog is the exact same <code>ConfirmDialog</code> used for
+  "Erase all data" — <code>title</code> / <code>message</code> / <code>confirmLabel="Yes, overwrite Drive"</code>
+  / <code>confirmVariant="danger"</code> — no new dialog shape.<br /><br />
+  <b>Out of scope, left as-is:</b> the footer's "Back up now" button stays visible/enabled in this state exactly
+  as it does today — not proposing a change to it here.
+</div>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+  function openDialog() { document.getElementById('dialog-backdrop').classList.add('open'); }
+  function closeDialog(e) { e.stopPropagation(); document.getElementById('dialog-backdrop').classList.remove('open'); }
+</script>
+
+</body>
+</html>

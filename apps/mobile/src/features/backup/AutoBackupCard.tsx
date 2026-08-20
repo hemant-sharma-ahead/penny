@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
-import { Banner, Button, Card, SegmentedControl } from '~/components/ui';
+import { Banner, Button, Card, ConfirmDialog, SegmentedControl } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useToast } from '~/context/ToastContext';
@@ -34,9 +34,29 @@ const STATUS_TEXT: Record<string, string> = {
  */
 export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => void }) {
   const theme = useThemeColors();
-  const { status, target, lastBackupAt, error, setTarget, runNow, connect } = useBackupStatus();
+  const { status, target, lastBackupAt, error, setTarget, runNow, connect, overwriteRemoteWithLocal } =
+    useBackupStatus();
   const { showToast } = useToast();
   const [exporting, setExporting] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [overwriting, setOverwriting] = useState(false);
+
+  /** The `foreign_blob` banner's second, destructive option (docs/mockups/proposals/
+   *  drive-foreign-blob-override-v1.html) — for someone who deliberately wants to keep this device's
+   *  current vault and discard the old Drive backup, rather than restore it (real-device testing
+   *  feedback, 2026-08-21: there was previously no way out of this state other than restoring). */
+  async function handleOverwriteConfirm() {
+    setShowOverwriteConfirm(false);
+    setOverwriting(true);
+    try {
+      await overwriteRemoteWithLocal();
+      showToast({ message: 'Drive backup overwritten with this device’s data.' });
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Overwrite failed' });
+    } finally {
+      setOverwriting(false);
+    }
+  }
 
   const driveAvailable = hasEntitlement('cloud_backup') && getProvider('google-drive').isAvailable();
   const icloudAvailable = getProvider('icloud').isAvailable();
@@ -79,7 +99,11 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
       } else {
         const text = await new Response(blob).text();
         const file = new File(Paths.cache, `penny-backup-${date}.penny`);
-        file.write(text);
+        // `File.write()` is async (returns a `Promise<void>`) — this was firing `shareAsync` without
+        // waiting for it, racing the actual disk write. On a large enough backup (real transaction
+        // history, not the tiny demo dataset) the share sheet could hand off a still-writing/truncated
+        // file. Found 2026-08-21 while investigating "can't restore any local backup" on-device.
+        await file.write(text);
         const Sharing = await import('expo-sharing');
         if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'application/json' });
       }
@@ -113,94 +137,116 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
   }
 
   return (
-    <Card padding="lg" className="gap-4">
-      <View className="flex-row items-start gap-3">
-        <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: '#00a86b1a' }}>
-          <Icon name="ti-refresh" size={20} color="#00a86b" />
+    <>
+      <Card padding="lg" className="gap-4">
+        <View className="flex-row items-start gap-3">
+          <View className="w-10 h-10 rounded-xl items-center justify-center" style={{ backgroundColor: '#00a86b1a' }}>
+            <Icon name="ti-refresh" size={20} color="#00a86b" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-primary">Automatic backup</Text>
+            <Text className="text-xs mt-0.5 leading-relaxed text-tertiary">
+              Back up to Google Drive or iCloud to restore on a new phone and sync across devices. On-device backups
+              guard against accidental changes but are lost if you clear app data or lose the device.
+            </Text>
+          </View>
         </View>
-        <View className="flex-1">
-          <Text className="text-sm font-semibold text-primary">Automatic backup</Text>
-          <Text className="text-xs mt-0.5 leading-relaxed text-tertiary">
-            Back up to Google Drive or iCloud to restore on a new phone and sync across devices. On-device backups guard
-            against accidental changes but are lost if you clear app data or lose the device.
+
+        <SegmentedControl options={options} value={choice} onChange={pick} />
+
+        {choice === 'google-drive' && !driveAvailable && (
+          <Text className="text-[11px] text-tertiary">
+            Google Drive activates once native Google Sign-In is configured.
           </Text>
-        </View>
-      </View>
-
-      <SegmentedControl options={options} value={choice} onChange={pick} />
-
-      {choice === 'google-drive' && !driveAvailable && (
-        <Text className="text-[11px] text-tertiary">
-          Google Drive activates once native Google Sign-In is configured.
-        </Text>
-      )}
-      {choice === 'icloud' && !icloudAvailable && (
-        <Text className="text-[11px] text-tertiary">iCloud isn't available on this build.</Text>
-      )}
-      {choice === 'local' && !localAvailable && (
-        <Text className="text-[11px] text-tertiary">
-          This build doesn't support a silent daily backup — "Back up now" below still shares a copy on demand.
-        </Text>
-      )}
-
-      {status === 'foreign_blob' ? (
-        // Distinct from the plain 'error' banner below — this is always fixable with the same action
-        // (restore with your passphrase), so it gets an explanation plus a direct CTA into that flow
-        // instead of a dead-end error message (real-device testing feedback, 2026-08-18).
-        <View className="gap-2">
-          <Banner variant="danger" title="This backup needs a manual restore">
-            {error ?? "This device's data doesn't match the key your Drive backup was encrypted with."}
-          </Banner>
-          <Button variant="secondary" fullWidth onPress={() => onFixForeignBlob?.()}>
-            Restore with my passphrase
-          </Button>
-        </View>
-      ) : status === 'quota_exceeded' || status === 'error' ? (
-        <Banner variant="danger">{error ?? STATUS_TEXT[status]}</Banner>
-      ) : status === 'needs_reconnect' ? (
-        <Banner variant="warning">{STATUS_TEXT.needs_reconnect}</Banner>
-      ) : null}
-
-      <View className="flex-row items-center justify-between gap-3">
-        <Text className="text-[11px] text-tertiary flex-1">
-          {choice === 'local'
-            ? lastBackupAt
-              ? `Last daily snapshot · ${formatDate(lastBackupAt)}`
-              : 'No daily snapshot yet'
-            : status === 'syncing'
-              ? STATUS_TEXT.syncing
-              : status === 'offline'
-                ? STATUS_TEXT.offline
-                : lastBackupAt
-                  ? `Backed up · ${formatDate(lastBackupAt)}`
-                  : 'Not backed up yet'}
-        </Text>
-        {status === 'needs_reconnect' && choice !== 'local' ? (
-          <Button variant="secondary" onPress={() => void connect()}>
-            Reconnect
-          </Button>
-        ) : status === 'error' && choice !== 'local' ? (
-          // A plain "Back up now" label here read as a no-op to a user who'd just seen an error — this
-          // is the exact same underlying retry (handleBackupNow re-runs the whole sync attempt), just
-          // labeled for what it actually does in this state.
-          <Button variant="secondary" onPress={handleBackupNow}>
-            Retry
-          </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            disabled={backupNowDisabled}
-            loading={choice === 'local' ? exporting : status === 'syncing'}
-            onPress={handleBackupNow}
-          >
-            Back up now
-          </Button>
         )}
-      </View>
+        {choice === 'icloud' && !icloudAvailable && (
+          <Text className="text-[11px] text-tertiary">iCloud isn't available on this build.</Text>
+        )}
+        {choice === 'local' && !localAvailable && (
+          <Text className="text-[11px] text-tertiary">
+            This build doesn't support a silent daily backup — "Back up now" below still shares a copy on demand.
+          </Text>
+        )}
 
-      <Text className="text-[11px]" style={{ color: theme.neutral }}>
-        Backups are encrypted on this device — no one but you can read them.
-      </Text>
-    </Card>
+        {status === 'foreign_blob' ? (
+          // Distinct from the plain 'error' banner below — this is always fixable, so it gets an
+          // explanation plus two direct CTAs instead of a dead-end error message (real-device testing
+          // feedback, 2026-08-18). Second button (2026-08-21): restoring was the only option, with no way
+          // to instead keep this device's own data and discard the old Drive backup — see
+          // docs/mockups/proposals/drive-foreign-blob-override-v1.html.
+          <View className="gap-2">
+            <Banner variant="danger" title="This backup needs a manual restore">
+              {error ?? "This device's data doesn't match the key your Drive backup was encrypted with."}
+            </Banner>
+            <Button variant="secondary" fullWidth onPress={() => onFixForeignBlob?.()}>
+              Restore with my passphrase
+            </Button>
+            <Button variant="danger" fullWidth loading={overwriting} onPress={() => setShowOverwriteConfirm(true)}>
+              Overwrite Drive with this device's data instead
+            </Button>
+          </View>
+        ) : status === 'quota_exceeded' || status === 'error' ? (
+          <Banner variant="danger">{error ?? STATUS_TEXT[status]}</Banner>
+        ) : status === 'needs_reconnect' ? (
+          <Banner variant="warning">{STATUS_TEXT.needs_reconnect}</Banner>
+        ) : null}
+
+        <View className="flex-row items-center justify-between gap-3">
+          <Text className="text-[11px] text-tertiary flex-1">
+            {choice === 'local'
+              ? lastBackupAt
+                ? `Last daily snapshot · ${formatDate(lastBackupAt)}`
+                : 'No daily snapshot yet'
+              : status === 'syncing'
+                ? STATUS_TEXT.syncing
+                : status === 'offline'
+                  ? STATUS_TEXT.offline
+                  : lastBackupAt
+                    ? `Backed up · ${formatDate(lastBackupAt)}`
+                    : 'Not backed up yet'}
+          </Text>
+          {status === 'needs_reconnect' && choice !== 'local' ? (
+            <Button variant="secondary" onPress={() => void connect()}>
+              Reconnect
+            </Button>
+          ) : status === 'error' && choice !== 'local' ? (
+            // A plain "Back up now" label here read as a no-op to a user who'd just seen an error — this
+            // is the exact same underlying retry (handleBackupNow re-runs the whole sync attempt), just
+            // labeled for what it actually does in this state.
+            <Button variant="secondary" onPress={handleBackupNow}>
+              Retry
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled={backupNowDisabled}
+              loading={choice === 'local' ? exporting : status === 'syncing'}
+              onPress={handleBackupNow}
+            >
+              Back up now
+            </Button>
+          )}
+        </View>
+
+        <Text className="text-[11px]" style={{ color: theme.neutral }}>
+          Backups are encrypted on this device — no one but you can read them.
+        </Text>
+      </Card>
+
+      <ConfirmDialog
+        isOpen={showOverwriteConfirm}
+        onClose={() => setShowOverwriteConfirm(false)}
+        onConfirm={() => void handleOverwriteConfirm()}
+        title="Overwrite Drive backup?"
+        message={
+          "This device's data will replace whatever backup currently exists in Google Drive, going forward. The " +
+          'backup already in Drive — encrypted with a different passphrase — will be permanently discarded and ' +
+          'can\'t be recovered. If you want that old data instead, cancel and use "Restore with my passphrase."'
+        }
+        confirmLabel="Yes, overwrite Drive"
+        confirmVariant="danger"
+        loading={overwriting}
+      />
+    </>
   );
 }

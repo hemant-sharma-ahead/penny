@@ -120,6 +120,21 @@ export function monthLabel(m: string): string {
   return `${MONTHS[(parseInt(mo ?? '1', 10) - 1) % 12] ?? ''} ${y ?? ''}`.trim();
 }
 
+/**
+ * Month-scrub-bar chip label (item 43, docs/plans/real-device-testing-pass.md Phase 5, design
+ * approved in `docs/mockups/proposals/fourth-batch-redesigns-v5.html` §4): month name only (e.g.
+ * "Aug") when the chip's own year matches the real current calendar year, "Mon YYYY" (e.g.
+ * "May 2025") otherwise. Deliberately evaluated against today's real year, not relative to
+ * whichever month is currently selected — simpler and more predictable per the mockup's own
+ * ground note.
+ */
+export function monthChipLabel(m: string, nowMs: number = Date.now()): string {
+  const [y, mo] = m.split('-');
+  const monthName = MONTHS[(parseInt(mo ?? '1', 10) - 1) % 12] ?? '';
+  const year = parseInt(y ?? '0', 10);
+  return year === new Date(nowMs).getFullYear() ? monthName : `${monthName} ${year}`;
+}
+
 export function formatDate(epochMs: number): string {
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(
     new Date(epochMs)

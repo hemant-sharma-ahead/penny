@@ -18,6 +18,12 @@ async function setupKeystore() {
   keystore.setMasterKey(await deriveKey('test-passphrase', generateSalt(), 1_000));
   await db.expenses.clear();
   await db.activity_log.clear();
+  // 2026-08-20 (item 45 real-device testing pass): writeRows() now also upserts into
+  // merchant_memory (see importWriter.ts). Each test derives a brand-new random master key, so any
+  // row left over from a previous test — encrypted under that test's own now-discarded key — would
+  // fail to decrypt here with a "Cipher job failed" error the moment `writeRows` reads it back via
+  // `merchantMemoryRepo.getAll()`.
+  await db.merchant_memory.clear();
 }
 
 function row(overrides: Partial<ResolvedPreviewRow> = {}): ResolvedPreviewRow {

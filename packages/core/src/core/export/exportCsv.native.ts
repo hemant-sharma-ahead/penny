@@ -37,7 +37,13 @@ async function shareFile(uri: string, mimeType: string): Promise<void> {
 export async function downloadCsv(content: string, filename: string): Promise<void> {
   const { File, Paths } = await import('expo-file-system');
   const file = new File(Paths.cache, filename);
-  file.write(content);
+  // `File.write()` is async (`Promise<void>`) — was firing `shareFile` before the write landed. Same
+  // missing-`await` bug found independently in several other native export flows (backup export,
+  // XLSX/loan-planner export, SMS export) — see `apps/mobile/src/features/backup/AutoBackupCard.tsx`'s
+  // fix note (2026-08-21) for the full writeup. Notably, this exact file already documents "undefined
+  // is not a function" as this app's uninformative on-device error text for an unrelated bug below —
+  // the same generic message very plausibly also covers this one.
+  await file.write(content);
   await shareFile(file.uri, 'text/csv');
 }
 
@@ -70,6 +76,7 @@ export async function downloadProtectedZip(csv: string, zipFilename: string, pas
 
   const { File, Paths } = await import('expo-file-system');
   const file = new File(Paths.cache, zipFilename);
-  file.write(bytes);
+  // Same missing-`await` bug as `downloadCsv` above.
+  await file.write(bytes);
   await shareFile(file.uri, 'application/zip');
 }

@@ -337,7 +337,9 @@ export function RetirementCard({
       } else {
         const { File, Paths } = await import('expo-file-system');
         const file = new File(Paths.cache, data.filename);
-        file.write(bytes);
+        // `File.write()` is async — see `AutoBackupCard.tsx`'s fix note (2026-08-21) for the full
+        // writeup of this missing-`await` bug, found independently in several native export flows.
+        await file.write(bytes);
         const Sharing = await import('expo-sharing');
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(file.uri, {

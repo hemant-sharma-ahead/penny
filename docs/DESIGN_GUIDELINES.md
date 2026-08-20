@@ -86,7 +86,35 @@ Use these shared building blocks so a new screen feels familiar. Cohesion across
   see `docs/features/did-you-know-tips.md` for the full design and `docs/mockups/proposals/did-you-know-tips-v1.html`
   for the approved mockup.
 - **Branded busy/loading indicator** — Penny's coin medallion (the same circular gold-gradient element `PennyWordmark` uses, not the full square `PennyLogo` icon with its horizon/sky background, which reads oddly mid-rotation) instead of a generic platform spinner. `apps/mobile/src/components/ui/PennyLoader.tsx`: `size="sm"` (20px) rotates continuously — wired into `Button.tsx`'s `loading` prop at this fixed size regardless of the button's own `size`; `size="lg"` (72px) pulses/breathes in place, for a standalone full-area busy state (initial sync, PDF/CSV parsing, a Chip request). `size` doubles as the animation-style selector on purpose — no separate `variant` prop until a screen makes a real case for a third treatment (a partial-ring sweep was proposed and explicitly deferred; see `docs/mockups/proposals/branded-busy-indicator-v1.html`). Mobile-only — `apps/web-react` is frozen and keeps its existing generic spinner un-mirrored.
-- **Identity-colour gradient mini card** — a compact full-bleed card whose entire background is a dark gradient, with fixed white/translucent-white text and icon chips on top regardless of theme, plus a handful of "real card" sheen layers (corner glow, diagonal light streak, inset top highlight) so it reads as a physical card rather than a flat tinted rectangle — same reasoning as a Story share-card export. `apps/mobile`'s Accounts list is the reference implementation, now on **v2** (2026-08-03 follow-up, `docs/mockups/proposals/accounts-list-v1.html`'s "Direction D — Mini Cards v2"): the v1 pass coloured each card from the account's own free-pick `color` field, which is why same-typed accounts (two "Bank" accounts, say) rendered near-identically dull. v2 instead draws from a small curated set of dark jewel-tone gradient + bright-glow pairs (`~/lib/color.ts`'s `JEWEL_PALETTE`/`GREEN_PALETTE`), assigned **per account** via `accountCardPalette(id, isCashLike)` — a deterministic hash of the account's `id`, not its type or its `color` — so two same-typed accounts reliably land on different cards. The one hard rule: `cash`/`wallet` accounts always clamp into the green-only subset regardless of the hash, keeping "green = cash" a reliable cue. On top of the gradient: an inset top highlight, a diagonal light-sheen streak (`expo-linear-gradient` rotated -8°), and a second darker glow blob on the opposite corner from the main one — approximations of CSS inset-shadow/blur/repeating-gradient, none of which RN supports natively; a faint repeating micro-line texture from the mockup was judged not worth approximating (see `AccountList.tsx`'s inline comments) and was skipped. Reach for the base pattern (gradient card + sheen) when a list's items each carry a strong, meaningful identity colour and the item deserves more visual weight than a plain `bg-surface` row — not a default for every list. Reach for the per-item hash-assignment + hard-clamp technique specifically when the item's own colour/type would otherwise produce visually-indistinguishable neighbours.
+- **~~Identity-colour gradient mini card~~ — superseded 2026-08-19, kept below for history only.**
+  Was: a compact full-bleed card whose entire background was a dark gradient, with fixed
+  white/translucent-white text and icon chips on top regardless of theme, plus "real card" sheen
+  layers (corner glow, diagonal light streak, inset top highlight). `apps/mobile`'s Accounts list was
+  the reference implementation through **v2** (2026-08-03, `docs/mockups/proposals/accounts-list-v1.html`'s
+  "Direction D — Mini Cards v2": per-account gradient/glow drawn from a curated jewel-tone/green
+  palette via `accountCardPalette(id, isCashLike)`, a deterministic hash of the account's `id`, with
+  `cash`/`wallet` hard-clamped to the green subset). Reported on real devices as not following the
+  theme, wasting space, and still not showing real bank icons everywhere — replaced (7 mockup concepts
+  explored, `docs/mockups/proposals/account-list-redesign-v1.html` through `-v3.html`'s "✅ FINAL
+  DIRECTION") by the current pattern below. `accountCardPalette`/`JEWEL_PALETTE`/`GREEN_PALETTE` in
+  `~/lib/color.ts` and the gradient/sheen rendering in `AccountList.tsx` no longer exist — don't reuse
+  them as a reference for new code.
+- **Grouped flat list + tap-to-reveal actions** (current, 2026-08-19) — replaces the gradient mini card
+  above for the same Accounts list. Accounts are grouped into fixed sections (Bank Accounts / Cash &
+  Wallets / Credit Cards, a group skipped entirely if empty, never shown empty) inside one
+  `bg-surface border border-theme rounded-2xl` container per group, each account a plain divided row
+  (`border-t border-theme` between rows) — no gradient, no per-item hash-assigned colour, so it reads
+  correctly in both light and dark without any "on-gradient" fixed-color text exception. Each row's
+  balance carries a small `ti-dots-vertical` kebab that **tap-reveals** exactly the row's action icons
+  (Import XOR Reconcile + Edit + Delete) below it, independently per row — nothing is ever shown
+  pre-expanded, and revealing one row never collapses another. Whole-row tap (outside the kebab) still
+  opens the transactions-for-this-account modal, unchanged from before. Real per-bank logos (`BankLogo.tsx`
+  — HDFC/ICICI/Axis/HSBC so far, Simple Icons CC0 marks, never a fabricated lookalike) render inside the
+  existing icon badge in place of the generic type icon when `account.bankId` matches; every other bank
+  preset still falls back to the generic `Icon`/`account.color` combination. Reach for this
+  grouped-flat-list + tap-to-reveal pattern for any list whose rows carry 3+ possible actions that don't
+  all need to be visible at once — it keeps the resting row calm and dense without permanently hiding
+  the actions behind a second screen.
 
 ---
 

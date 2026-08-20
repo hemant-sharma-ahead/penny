@@ -16,7 +16,10 @@ interface DuplicatesBucketProps {
   /** The real existing DB expense a row matched against, keyed by row index (2026-08-16) — see
    *  `TransactionsStage.tsx`'s `matchedExpenseByIndex` and `ResolvedPreviewRow.matchedExpenseId`'s own
    *  doc comment. Absent for a same-batch-only match (a repeated line within this file, no second DB row
-   *  to point at) — that case still renders, just without a "Recorded" side to compare against. */
+   *  to point at) — that case still renders, just without a "Recorded" side to compare against, and with
+   *  a caption clearly framed as "duplicate within this import" rather than "already in Penny" (2026-08-20
+   *  fix — the two cases used to share identical misleading text; see this file's own fallback caption
+   *  below). */
   matchedExpenseByIndex: Map<number, Expense>;
   accountMap: Map<string, Account>;
   categoryMap: Map<string, ExpenseCategory>;
@@ -116,7 +119,7 @@ export function DuplicatesBucket({
                   </>
                 ) : (
                   <Text className="text-xs text-secondary mt-0.5">
-                    same date, amount &amp; description as a logged expense
+                    This exact transaction appears more than once in the file you&apos;re importing
                   </Text>
                 )}
               </View>

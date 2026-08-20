@@ -78,13 +78,25 @@ duplicated-capability heuristic above, "obvious fix" does not include patching m
 spots that all do the same thing; that's a consolidation, always routed through this
 mockup workflow:
 
-1. Build the improved layout as a **new static HTML mockup** in
-   `docs/mockups/proposals/` (e.g. `<screen>-vN.html`), in the style of the existing
-   mockups — ground it in the real current screen, never an invented layout.
-2. **Never edit an existing design-of-record mockup** (in `docs/mockups/`) without asking
+1. Build the improved layout as a **new HTML mockup** in `docs/mockups/proposals/` (e.g.
+   `<screen>-vN.html`), in the style of the existing mockups — ground it in the real
+   current screen, never an invented layout.
+2. **Every mobile screen mockup renders at real device dimensions** (e.g. a ~390×844 or
+   412×915 phone frame), full-height regardless of content, never a box sized to fit its
+   content — a mockup the user can't visually place on an actual phone doesn't do its job.
+   This applies per-screen even when a mockup toggles between multiple design options for
+   the same screen (each option's frame is still full device size, not just the option
+   that happens to have the most content). First got this wrong 2026-08-19 — screens sized
+   to content instead of the device made a redesign proposal hard to judge realistically.
+3. Prefer making mockups **interactive** (real toggle/tab controls between options, working
+   click-throughs for multi-step flows) over static side-by-side images wherever the
+   discussion involves comparing options or walking through a flow — a user clicking
+   through an accordion or a stepper judges it far better than reading a description of
+   what it would do.
+4. **Never edit an existing design-of-record mockup** (in `docs/mockups/`) without asking
    first.
-3. Present the proposal and get explicit user approval before any app-code changes.
-4. If the screen exists on both platforms, the mockup should account for both (or two
+5. Present the proposal and get explicit user approval before any app-code changes.
+6. If the screen exists on both platforms, the mockup should account for both (or two
    mockups, one per platform, if the layout genuinely needs to differ) — don't design for
    one platform and leave the other's treatment implicit.
 

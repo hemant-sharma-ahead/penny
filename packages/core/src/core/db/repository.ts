@@ -18,8 +18,20 @@ function base64ToBuffer(b64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
+// Chunked rather than `btoa(String.fromCharCode(...bytes))` — spreading (or `.apply`-ing) an entire
+// large byte array as individual function arguments blows the JS call stack once it's big enough
+// (confirmed on-device: a ~9,000-row CSV import's activity-log entry, encrypted as one record, threw
+// "Maximum call stack size exceeded" here). 32768 (0x8000) is comfortably under every engine's
+// argument-count ceiling, so this scales to any payload size.
+const BASE64_CHUNK_SIZE = 0x8000;
+
 function bufferToBase64(buf: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK_SIZE));
+  }
+  return btoa(binary);
 }
 
 export class EncryptedRepository<T extends { id: string }> {

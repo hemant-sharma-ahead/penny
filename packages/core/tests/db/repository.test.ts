@@ -36,6 +36,20 @@ describe('EncryptedRepository — round-trip', () => {
     expect(retrieved).toEqual(sampleExpense);
   });
 
+  it('round-trips a record whose ciphertext is large enough to stress base64 encoding (regression: 2026-08-20 "Maximum call stack size exceeded" on a ~9,000-row CSV import\'s activity-log entry — `bufferToBase64` used to spread the whole byte array into `String.fromCharCode(...)`, which blows the call stack once the buffer is large; now chunked)', async () => {
+    const repo = new EncryptedRepository<Expense>(db.expenses as never);
+    const large: Expense = {
+      ...sampleExpense,
+      id: 'test-expense-large',
+      // ~200KB of plaintext, comfortably larger than the 32768-byte chunk size the fix uses —
+      // this is what actually exercises the bug (a small record never got close to the ceiling).
+      description: 'x'.repeat(200_000)
+    };
+    await repo.put(large);
+    const retrieved = await repo.get(large.id);
+    expect(retrieved).toEqual(large);
+  });
+
   it('raw IndexedDB record is NOT plaintext', async () => {
     const repo = new EncryptedRepository<Expense>(db.expenses as never);
     await repo.put(sampleExpense);

@@ -36,7 +36,10 @@ export async function saveLocalSnapshot(blob: Blob): Promise<boolean> {
     const text = await new Response(blob).text();
     const name = `penny-${new Date().toISOString().slice(0, 10)}.penny`;
     const file = new File(dir, name);
-    file.write(text);
+    // `File.write()` is async (`Promise<void>`) — this used to fire-and-forget, racing the `dir.list()`
+    // scan (and the KEEP-pruning delete loop) right below against a write that might not have landed
+    // yet. Same bug, independently, as `AutoBackupCard.tsx`'s manual export — see its fix note.
+    await file.write(text);
 
     const all = snapshotFiles(dir);
     for (const stale of all.slice(0, Math.max(0, all.length - KEEP))) {

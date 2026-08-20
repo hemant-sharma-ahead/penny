@@ -35,7 +35,8 @@ import {
   AmountInput,
   Banner,
   SelectInput,
-  Toggle
+  Toggle,
+  ConfirmDialog
 } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -446,6 +447,83 @@ export function ExpenseForm({
 
   const initEditing = useRef(editing);
 
+  // Discard-changes confirmation (item 29, docs/plans/real-device-testing-pass.md Phase 4) — the X
+  // button, backdrop tap, and Android hardware back all used to call `onClose` unconditionally with no
+  // check for unsaved edits. `formReady` flips true once the mount-time account fetch (and its
+  // new-entry auto-select of the first account/payment-mode, see the effect below) has actually
+  // resolved — the snapshot is captured only after that settles, specifically so that automatic default
+  // doesn't itself register as a "change" and produce a false discard prompt the instant the form opens.
+  const [formReady, setFormReady] = useState(false);
+  const initialSnapshotRef = useRef<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+
+  /** Plain-value fingerprint of everything this form actually lets the user edit — deliberately omits
+   *  pure UI disclosure toggles (`showTags`/`showReceipt`/`showIouPanel`/`showGoalPanel`) and the
+   *  group-member participant selection (`shareParticipants`), which populates from its own async
+   *  members fetch on a similar timer to the account default above and isn't itself a field the user
+   *  directly edits before this snapshot settles. */
+  function currentSnapshot() {
+    return JSON.stringify({
+      type,
+      accountId,
+      toAccountId,
+      amount,
+      date,
+      time,
+      categoryId,
+      paymentMode,
+      description,
+      tagInput,
+      isRecurring,
+      intervalDays,
+      receipt: receipt ?? '',
+      shareEnabled,
+      shareGroupId,
+      iouPerson,
+      selectedGoalId: selectedGoalId ?? ''
+    });
+  }
+
+  useEffect(() => {
+    if (formReady && initialSnapshotRef.current === null) {
+      initialSnapshotRef.current = currentSnapshot();
+    }
+    // currentSnapshot() intentionally isn't in this effect's own dependency list (it closes over every
+    // field below, which is exactly what should re-trigger it) — the guard above ensures it only ever
+    // actually assigns once per mount, the moment `formReady` first turns true.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formReady,
+    type,
+    accountId,
+    toAccountId,
+    amount,
+    date,
+    time,
+    categoryId,
+    paymentMode,
+    description,
+    tagInput,
+    isRecurring,
+    intervalDays,
+    receipt,
+    shareEnabled,
+    shareGroupId,
+    iouPerson,
+    selectedGoalId
+  ]);
+
+  /** Intercepts all three close paths (X button, `Modal`'s backdrop tap, Android hardware back via
+   *  `Modal`'s `onRequestClose` — both of the latter two are wired through `Modal`'s single `onClose`
+   *  prop) — shows a Discard/Cancel confirmation when the form is dirty instead of closing immediately. */
+  function requestClose() {
+    if (initialSnapshotRef.current !== null && initialSnapshotRef.current !== currentSnapshot()) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  }
+
   // Scroll-to-focus refs for validation errors on conditionally-required panels — see `focusPanel()`.
   const scrollRef = useRef<ScrollView>(null);
   const descriptionRef = useRef<RNTextInput>(null);
@@ -466,6 +544,7 @@ export function ExpenseForm({
           if (first.type === 'cash') setPaymentMode('cash');
         }
       }
+      setFormReady(true);
     });
   }, []);
 
@@ -758,7 +837,7 @@ export function ExpenseForm({
   return (
     <>
       <Modal
-        onClose={onClose}
+        onClose={requestClose}
         scrollable
         scrollRef={scrollRef}
         onShow={() => descriptionRef.current?.focus()}
@@ -870,7 +949,7 @@ export function ExpenseForm({
             </View>
           )}
           <Pressable
-            onPress={onClose}
+            onPress={requestClose}
             accessibilityLabel="Close"
             className="w-8 h-8 items-center justify-center rounded-lg"
           >
@@ -1652,6 +1731,23 @@ export function ExpenseForm({
           one; RN's Modal already supports this (see components/ui/Modal.tsx's doc comment), so no new
           pattern was needed. */}
       {accountForm.showForm && <AccountFormModal form={accountForm} saving={accountFormSaving} />}
+
+      {/* Discard-changes confirmation (item 29) — a third Modal stacked on top, same pattern as the
+          receipt viewer/AccountFormModal above; `ConfirmDialog` itself no-ops (`return null`) while
+          closed. */}
+      <ConfirmDialog
+        isOpen={showDiscardConfirm}
+        onClose={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          onClose();
+        }}
+        title="Discard changes?"
+        message="You have unsaved changes. Discard them?"
+        confirmLabel="Discard"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+      />
     </>
   );
 }

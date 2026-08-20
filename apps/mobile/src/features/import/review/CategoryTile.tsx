@@ -4,12 +4,13 @@ import { Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { Account, ExpenseCategory, Person } from '@/core/db/types';
+import type { Account, ExpenseCategory, Hashtag, Person } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
 import type { RowOverride } from '@/core/import/importPipeline';
 import { intentGroupLabel, type CategoryResolution, type CategoryAction } from '@/core/import/importCategoryResolution';
 import { TileRowList } from './TileRowList';
 import { ImportCategorizeModal } from './ImportCategorizeModal';
+import { TransactionBrowserModal } from './TransactionBrowserModal';
 
 interface CategoryTileProps {
   resolution: CategoryResolution;
@@ -19,10 +20,8 @@ interface CategoryTileProps {
   status: 'ready' | 'attention' | 'duplicate';
   /** Each row paired with its ORIGINAL index into `parsedRows` (2026-08-06) — needed so bulk-select
    *  below can reference `onMoveRowsToCategory`/`onTagRows` by a stable identity. See
-   *  `PreviewSection.tsx`'s doc comment on `rowsByCategory`. Optional — the Categories stage (see
-   *  `expandable` below) has no per-row `ParsedRow` data at all, only counts, so it renders this tile
-   *  with `rows` omitted entirely. */
-  rows?: { row: ParsedRow; index: number }[];
+   *  `PreviewSection.tsx`'s doc comment on `rowsByCategory`. */
+  rows: { row: ParsedRow; index: number }[];
   categories: ExpenseCategory[];
   /** Real accounts eligible as this tile's transfer destination (2026-08-09 fix) — already excludes
    *  this import's own target account; see `PreviewSection.tsx`'s doc comment. Forwarded to
@@ -32,7 +31,6 @@ interface CategoryTileProps {
    *  `CategoryPickerModal`'s own `txnCountByCategory` prop for its "Frequent" quick-pick row. See
    *  `useImport.ts`'s doc comment. */
   txnCountByCategory: Map<string, number>;
-  groupOptions: { value: string; label: string }[];
   /** The custom tag (if any) the user has set for every transaction under this source category —
    *  independent of which category it resolves to (existing/create/transfer/skip). */
   tag: string;
@@ -67,9 +65,12 @@ interface CategoryTileProps {
   onAcknowledge: () => void;
   /** IOU (Lent/Borrowed) pass-through (2026-08-14, redesign §9.6, Issue #8) — forwarded to
    *  `ImportCategorizeModal`'s Lent/Borrowed panel. `initialIouPersonName` is the current standing value
-   *  (whatever was last saved for this tile, or the Categories-stage-detected counterparty seed the very
-   *  first time this tile's modal opens). */
+   *  (whatever was last saved for this tile, or the detected counterparty seed the very first time this
+   *  tile's modal opens). */
   iouPersons?: Person[];
+  /** Tag suggestions for `ImportCategorizeModal`'s tag field (2026-08-20, item 41 real-device testing
+   *  pass) — forwarded straight through; see that component's own doc comment. */
+  hashtags?: Hashtag[];
   initialIouPersonName?: string;
   /** Applies to a FULL-tile apply (`onApplyFull`) — the group-level IOU person, keyed by this tile's own
    *  fullKey. Never used for a partial-selection apply — see `onSetRowIouPersonNames` below. */
@@ -80,59 +81,41 @@ interface CategoryTileProps {
    *  group entirely via a `RowOverride`, so a group-keyed save would either get silently dropped (the
    *  group-level IOU check no longer applies to them) or leak onto whichever rows stay behind. */
   onSetRowIouPersonNames?: (rowIndices: number[], name: string) => void;
-  /** Suppresses the chevron + expandable row-list/bulk-select body entirely (2026-08-14, manual-testing
-   *  refinement — unifies this shell with the Categories stage's own tile, which has no individual
-   *  transaction rows to show at that point in the wizard). Default `true` (Transactions stage's
-   *  existing, unchanged behavior) — the Categories stage passes `false`. When `false`, "Categorize"/
-   *  "Skip" always act on the WHOLE group (`resolution.count`), since there's no way to check/uncheck
-   *  individual rows without a body to show them in. */
-  expandable?: boolean;
-  /** Required whenever `rows` is empty/omitted (the Categories stage has no per-row `ParsedRow` data at
-   *  all) — `ImportCategorizeModal`'s "Map to existing" picker needs to know the row direction, normally
-   *  guessed from the majority of `rows`; this overrides that guess directly. */
-  pickerTypeOverride?: 'expense' | 'income';
-  /** Counterparty sub-split decorations (2026-08-14, manual-testing refinement — unifies
-   *  `CategoryResolutionRow.tsx`'s own header decorations into this one shared shell, so a split-child
-   *  tile looks and behaves identically whichever stage renders it). All undefined for an ordinary
-   *  (non-split) tile. */
-  isSplitChild?: boolean;
-  confidence?: 'high' | 'low' | 'residual';
   isInvestmentMovement?: boolean;
-  /** "Move to residual" (redesign §7's correction mechanism) — only ever passed for a low-confidence
-   *  split child (never for a residual row itself, and never for a plain non-split category). */
-  onMoveToResidual?: () => void;
+  /** Whether this tile's source category is transfer- or IOU-suspect (2026-08-20, counterparty-split
+   *  removal) — mirrors `shouldSplitByCounterparty`'s own gate, now applied per-row inside
+   *  `TransactionBrowserModal.tsx`'s popup instead of forking rows into separate top-level tiles. */
+  isTransferSuspect?: boolean;
+  isIouSuspect?: boolean;
+  /** Creates a real `ExpenseCategory` immediately (2026-08-20, item 41 flow redesign) — forwarded
+   *  straight through to `ImportCategorizeModal`'s "Create" kind, which now opens the real
+   *  `CategoryEditorModal` instead of its old bespoke inline name+group fields. See `useImport.ts`'s
+   *  `createCategory` doc comment. */
+  onCreateCategory: (cat: ExpenseCategory) => Promise<void>;
 }
-
-const CONFIDENCE_BADGE_META: Record<'high' | 'low' | 'residual', { icon: string; label: string }> = {
-  high: { icon: 'ti-user-check', label: 'Matches Person' },
-  low: { icon: 'ti-help-circle', label: 'No person match' },
-  residual: { icon: 'ti-arrows-left-right', label: 'Residual' }
-};
 
 /**
  * RN port of apps/web-react/src/features/import/review/CategoryTile.tsx, collapsed to a bucket-card
  * header (2026-08-13, bucket-tiles redesign — porting Bank Import's `UnmatchedBucket.tsx` model). The
- * tile itself renders the header (source → target/pill + count + chevron, when `expandable`), the row
- * list when expanded (`TileRowList`, unchanged), and an always-visible "Categorize N selected ›" +
- * "Skip" footer. Every resolution control that used to sit always-visible in the header — the kind
- * picker, the tag box, the create/transfer conditional fields, and the unconfirmed-'create' gate block —
- * lives in `ImportCategorizeModal.tsx`, opened by the "Categorize" footer button.
+ * tile itself renders the header (source → target/pill + count + chevron), the row list when expanded
+ * (`TileRowList`, unchanged), and an always-visible "Categorize N selected ›" + "Skip" footer. Every
+ * resolution control that used to sit always-visible in the header — the kind picker, the tag box, the
+ * create/transfer conditional fields, and the unconfirmed-'create' gate block — lives in
+ * `ImportCategorizeModal.tsx`, opened by the "Categorize" footer button.
  *
- * Now the SHARED shell for both the Transactions stage (its original home, `expandable` default `true`)
- * AND the Categories stage (`expandable={false}` — no individual transaction rows exist to show that
- * early; see `CategoryResolutionRow.tsx`, now a thin wrapper around this component) — 2026-08-14,
- * manual-testing refinement: the two used to be visually/structurally separate components even though
- * they're meant to look consistent everywhere this control appears (`docs/DESIGN_GUIDELINES.md`).
+ * Lives only in the Transactions stage (2026-08-20, item 41 flow redesign removed the separate
+ * "Categories" wizard stage that used to also render a collapsed, non-expandable variant of this tile
+ * via `CategoryResolutionRow.tsx` — this tile's `effectiveSuggestion`-driven smart pre-resolve, plus its
+ * own "Categorize N selected ›" override, already covers what that stage used to gate on).
  */
 export function CategoryTile({
   resolution,
   decided,
   status,
-  rows = [],
+  rows,
   categories,
   transferAccountOptions,
   txnCountByCategory,
-  groupOptions,
   tag,
   rowOverrides,
   onTagChange,
@@ -143,44 +126,40 @@ export function CategoryTile({
   rememberedSuggestion,
   onAcknowledge,
   iouPersons,
+  hashtags,
   initialIouPersonName,
   onIouPersonNameChange,
   onSetRowIouPersonNames,
-  expandable = true,
-  pickerTypeOverride,
-  isSplitChild,
-  confidence,
   isInvestmentMovement,
-  onMoveToResidual
+  isTransferSuspect,
+  isIouSuspect,
+  onCreateCategory
 }: CategoryTileProps) {
   const theme = useThemeColors();
   const [expanded, setExpanded] = useState(false);
   const [showCategorizeModal, setShowCategorizeModal] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
   // Bulk-select (2026-08-06, flipped to an opt-OUT model 2026-08-13 — review redesign issues #1/#9):
   // which of THIS tile's rows (by their original parsedRows index) the user has explicitly UNCHECKED.
   // Starting empty means every row starts CHECKED — matching Bank Import's `UnmatchedBucket.tsx`
   // "everything checked, track the exceptions" convention, and trivially solving the "unselect all must
   // cover every row, not just rendered ones" requirement, since this model doesn't care what's rendered
   // at all (see `toggleSelectAll` below). Local to this tile; not persisted anywhere, so it resets if
-  // the tile unmounts (e.g. collapsing/reopening Preview). Meaningless when `!expandable` — there's no
-  // per-row UI to ever set it away from empty, so `checkedCount` below never actually reads it there.
+  // the tile unmounts (e.g. collapsing/reopening Preview).
   const [uncheckedIndices, setUncheckedIndices] = useState<Set<number>>(new Set());
-  const { suggestion, sourceName, count } = resolution;
+  const { suggestion, sourceName } = resolution;
   /** A source category's rows are overwhelmingly one direction in practice (e.g. "Salary" is always
    *  income) — pick whichever the majority of this category's rows actually are, so
    *  `ImportCategorizeModal`'s "Map to existing" opens the picker filtered to the right applicableTo
-   *  (income vs expense) categories. `pickerTypeOverride` wins when `rows` is empty (Categories stage —
-   *  no rows to guess a majority from at all). */
+   *  (income vs expense) categories. */
   const pickerType: 'expense' | 'income' =
-    pickerTypeOverride ?? (rows.filter((r) => r.row.type === 'income').length > rows.length / 2 ? 'income' : 'expense');
+    rows.filter((r) => r.row.type === 'income').length > rows.length / 2 ? 'income' : 'expense';
 
   // Checked indices derive from the opt-out `uncheckedIndices` set (2026-08-13), never from what's
-  // currently rendered — see `uncheckedIndices`' own doc comment above. When `!expandable`, there's no
-  // way to check/uncheck an individual row at all, so the WHOLE group is always "checked" —
-  // `resolution.count` (never `rows.length`, which is 0 in that case since no per-row data exists).
-  const checkedIndices = expandable ? rows.map((r) => r.index).filter((i) => !uncheckedIndices.has(i)) : [];
-  const checkedCount = expandable ? checkedIndices.length : count;
-  const isPartialSelection = expandable && checkedCount > 0 && checkedCount < rows.length;
+  // currently rendered — see `uncheckedIndices`' own doc comment above.
+  const checkedIndices = rows.map((r) => r.index).filter((i) => !uncheckedIndices.has(i));
+  const checkedCount = checkedIndices.length;
+  const isPartialSelection = checkedCount > 0 && checkedCount < rows.length;
 
   function toggleRow(index: number) {
     setUncheckedIndices((prev) => {
@@ -195,6 +174,20 @@ export function CategoryTile({
   // just whatever's currently rendered under the 8-row cap.
   function toggleSelectAll() {
     setUncheckedIndices((prev) => (prev.size === 0 ? new Set(rows.map((r) => r.index)) : new Set()));
+  }
+
+  // Batch variant (2026-08-20, `TransactionBrowserModal.tsx`'s month-scoped "Select all"/"Clear") — sets
+  // exactly the given indices to `checked`, leaving every other index's state untouched. Distinct from
+  // `toggleSelectAll` above, which always covers the whole tile.
+  function setCheckedForIndices(indices: number[], checked: boolean) {
+    setUncheckedIndices((prev) => {
+      const next = new Set(prev);
+      for (const i of indices) {
+        if (checked) next.delete(i);
+        else next.add(i);
+      }
+      return next;
+    });
   }
 
   // The modal's tag field switches meaning based on selection, exactly as the tile's former inline tag
@@ -236,13 +229,11 @@ export function CategoryTile({
     );
 
   const statusColor = status === 'attention' ? theme.warning : status === 'duplicate' ? theme.neutral : theme.success;
-  const confidenceBadgeMeta = confidence ? CONFIDENCE_BADGE_META[confidence] : undefined;
-  const confidenceBadgeColor = confidence === 'high' ? theme.success : theme.textSecondary;
 
   const header = (
     <View className="flex-1 flex-row items-center gap-1.5 flex-wrap">
       <Text className="text-xs font-semibold text-primary flex-shrink" numberOfLines={1}>
-        {isSplitChild ? `— ${sourceName}` : `"${sourceName}"`}
+        {`"${sourceName}"`}
         {typeSuffix && (
           <Text className="text-tertiary" style={{ fontWeight: '400' }}>
             {' '}
@@ -250,17 +241,6 @@ export function CategoryTile({
           </Text>
         )}
       </Text>
-      {confidenceBadgeMeta && (
-        <View
-          className="flex-row items-center gap-1 rounded-full px-1.5 py-0.5"
-          style={{ backgroundColor: tint(confidenceBadgeColor, 16) }}
-        >
-          <Icon name={confidenceBadgeMeta.icon} size={9} color={confidenceBadgeColor} />
-          <Text className="text-[7.5px] font-extrabold uppercase tracking-wide" style={{ color: confidenceBadgeColor }}>
-            {confidenceBadgeMeta.label}
-          </Text>
-        </View>
-      )}
       {isInvestmentMovement && (
         <View
           className="flex-row items-center gap-1 rounded-full px-1.5 py-0.5"
@@ -299,75 +279,42 @@ export function CategoryTile({
   return (
     <View className="rounded-xl overflow-hidden border border-theme">
       {/* Header — the only always-visible resolution info now: source → target/pill, an unconfirmed-
-       *  'create' badge, count, and (when `expandable`) the row-list expand toggle. Tapping anywhere on
-       *  the header row expands/collapses the transaction list below (same affordance as the trailing
-       *  chevron) — only meaningful when `expandable`; otherwise the header is a plain, non-interactive
-       *  View (nothing to expand). Status color is scoped to just this header background (2026-08-13,
-       *  per explicit user feedback comparing on-device screenshots against Bank Import's
-       *  `UnmatchedBucket.tsx` — the outer card used to tint its ENTIRE background/border by status,
-       *  including the footer button area; the card shell itself now stays a constant neutral
-       *  `border-theme`, and the body/footer below get an explicit neutral `theme.surface` background
-       *  so they don't inherit this tint). */}
-      {expandable ? (
-        <Pressable
-          onPress={() => setExpanded((e) => !e)}
-          accessibilityLabel={expanded ? 'Hide transactions' : 'Show transactions'}
-          className="p-3 flex-row items-center gap-2"
-          style={{ backgroundColor: tint(statusColor, status === 'ready' ? 10 : 20) }}
-        >
-          {header}
-          <View className="rounded-full bg-surface-3 px-1.5 py-0.5 flex-shrink-0">
-            <Text className="text-[9.5px] font-bold text-secondary">
-              {count} txn{count !== 1 ? 's' : ''}
-            </Text>
-          </View>
-          <Icon name={expanded ? 'ti-chevron-up' : 'ti-chevron-down'} size={14} color={theme.textTertiary} />
-        </Pressable>
-      ) : (
-        <View
-          className="p-3 flex-row items-center gap-2"
-          style={{ backgroundColor: tint(statusColor, status === 'ready' ? 10 : 20) }}
-        >
-          {header}
-          <View className="rounded-full bg-surface-3 px-1.5 py-0.5 flex-shrink-0">
-            <Text className="text-[9.5px] font-bold text-secondary">{count}</Text>
-          </View>
-        </View>
-      )}
-
-      {isInvestmentMovement && !expandable && (
-        <View className="px-3 pt-1" style={{ backgroundColor: tint(statusColor, status === 'ready' ? 10 : 20) }}>
-          <Text className="text-[9.5px] text-tertiary leading-relaxed pb-2">
-            Looks like money moving into an investment Penny already tracks separately — flagged for review instead of
-            counting as spend.
+       *  'create' badge, count, and the row-list expand toggle. Tapping anywhere on the header row
+       *  expands/collapses the transaction list below (same affordance as the trailing chevron). Status
+       *  color is scoped to just this header background (2026-08-13, per explicit user feedback comparing
+       *  on-device screenshots against Bank Import's `UnmatchedBucket.tsx` — the outer card used to tint
+       *  its ENTIRE background/border by status, including the footer button area; the card shell itself
+       *  now stays a constant neutral `border-theme`, and the body/footer below get an explicit neutral
+       *  `theme.surface` background so they don't inherit this tint). The badge shows `rows.length` (the
+       *  actual current row count), not `resolution.count` (2026-08-20, item 41 real-device testing pass
+       *  — `resolution.count` is a fixed count computed once per source category and never recomputed
+       *  against a partial-move override, so it goes stale the moment some-but-not-all of this tile's
+       *  rows get moved elsewhere). */}
+      <Pressable
+        onPress={() => setExpanded((e) => !e)}
+        accessibilityLabel={expanded ? 'Hide transactions' : 'Show transactions'}
+        className="p-3 flex-row items-center gap-2"
+        style={{ backgroundColor: tint(statusColor, status === 'ready' ? 10 : 20) }}
+      >
+        {header}
+        <View className="rounded-full bg-surface-3 px-1.5 py-0.5 flex-shrink-0">
+          <Text className="text-[9.5px] font-bold text-secondary">
+            {rows.length} txn{rows.length !== 1 ? 's' : ''}
           </Text>
         </View>
-      )}
-
-      {onMoveToResidual && (
-        <View className="px-3 pb-2.5" style={{ backgroundColor: tint(statusColor, status === 'ready' ? 10 : 20) }}>
-          <Pressable
-            onPress={onMoveToResidual}
-            className="flex-row items-center gap-1.5 self-start rounded-full px-2 py-1"
-            style={{ backgroundColor: theme.surfaceTertiary }}
-          >
-            <Icon name="ti-arrows-left-right" size={10} color={theme.textSecondary} />
-            <Text className="text-[9.5px] font-semibold text-secondary">
-              Move {count} rows to &quot;(no clear person)&quot;
-            </Text>
-          </Pressable>
-        </View>
-      )}
+        <Icon name={expanded ? 'ti-chevron-up' : 'ti-chevron-down'} size={14} color={theme.textTertiary} />
+      </Pressable>
 
       {/* Body — transactions, each with a bulk-select checkbox (2026-08-06, opt-out model + shared
-       *  row-list rendering 2026-08-13 — see `TileRowList.tsx`). Only shown when expanded AND
-       *  `expandable`; the footer actions below stay visible regardless. */}
-      {expandable && expanded && (
+       *  row-list rendering 2026-08-13 — see `TileRowList.tsx`). Only shown when expanded; the footer
+       *  actions below stay visible regardless. */}
+      {expanded && (
         <View className="border-t border-theme px-3 py-2.5" style={{ backgroundColor: theme.surface }}>
           <TileRowList
             rows={rows}
             rowOverrides={rowOverrides}
             selection={{ uncheckedIndices, onToggleRow: toggleRow, onToggleAll: toggleSelectAll }}
+            onSeeAll={() => setShowBrowser(true)}
           />
         </View>
       )}
@@ -403,19 +350,19 @@ export function CategoryTile({
           sourceName={sourceName}
           suggestion={suggestion}
           decided={decided}
-          totalCount={expandable ? rows.length : count}
+          totalCount={rows.length}
           checkedCount={checkedCount}
           isPartialSelection={isPartialSelection}
           initialTag={modalInitialTag}
           categories={categories}
           transferAccountOptions={transferAccountOptions}
           txnCountByCategory={txnCountByCategory}
-          groupOptions={groupOptions}
           pickerType={pickerType}
           rememberedSuggestion={rememberedSuggestion}
           iouPersons={iouPersons}
+          hashtags={hashtags}
           initialIouPersonName={initialIouPersonName}
-          enforceIouPerson={expandable}
+          onCreateCategory={onCreateCategory}
           onApplyFull={(action, newTag, iouPersonName) => {
             onUpdate(action);
             if (newTag !== tag) onTagChange(newTag);
@@ -438,6 +385,25 @@ export function CategoryTile({
             setShowCategorizeModal(false);
           }}
           onClose={() => setShowCategorizeModal(false)}
+        />
+      )}
+
+      {showBrowser && (
+        <TransactionBrowserModal
+          sourceName={sourceName}
+          targetLabel={targetLabel}
+          rows={rows}
+          rowOverrides={rowOverrides}
+          categories={categories}
+          persons={iouPersons}
+          showCounterparty={!!isTransferSuspect || !!isIouSuspect}
+          suggestion={suggestion}
+          selection={{ uncheckedIndices, onToggleRow: toggleRow, onSetChecked: setCheckedForIndices }}
+          onOpenCategorize={() => {
+            setShowBrowser(false);
+            setShowCategorizeModal(true);
+          }}
+          onClose={() => setShowBrowser(false)}
         />
       )}
     </View>

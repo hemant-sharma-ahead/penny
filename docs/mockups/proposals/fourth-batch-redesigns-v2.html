@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — 4th-batch UI/UX redesigns v2 (real-device-frame fix + reworked S1/S2)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6; --neutral:#8b949e;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:940px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 20px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .changelog { max-width:900px; margin:0 auto 40px; background:#1a1006; border:1px solid #3d2a0f; border-radius:16px; padding:16px 20px; color:#f3dfb8; font-size:12.5px; line-height:1.7; }
+      .changelog b { color:#ffcf7a; }
+      .changelog ul { margin:6px 0 0; padding-left:18px; }
+      .changelog li { margin-bottom:5px; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:840px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:900px; margin:0 auto 14px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+      .calloutnote { max-width:900px; margin:0 auto 18px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.35); border-radius:12px; padding:12px 16px; color:#fbdca0; font-size:11.5px; line-height:1.65; display:flex; gap:8px; }
+      .calloutnote i { color:var(--warning); font-size:16px; flex-shrink:0; margin-top:1px; }
+      .calloutnote b { color:#ffd98a; }
+
+      /* a/b/c segmented toggle */
+      .opttoggle { display:flex; gap:6px; background:var(--surface2); border-radius:13px; padding:4px; max-width:680px; margin:0 auto 14px; }
+      .opttoggle button { flex:1; border:none; background:transparent; color:var(--text2); font-size:11px; font-weight:700; padding:10px 6px; border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; font-family:inherit; }
+      .opttoggle button i { font-size:12px; }
+      .opttoggle button.active { background:var(--primary); color:#04140d; }
+      .opttoggle button:not(.active) i.ti-star-filled { color:#f0b060; }
+      .opttoggle button.active i.ti-star-filled { color:#04140d; }
+      .recbadge { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#123524; color:#7ee6b8; margin-left:6px; }
+
+      .viewwrap { display:flex; flex-direction:column; align-items:center; gap:12px; }
+      .stagelabel { font-size:11px; font-weight:800; color:#fff; text-align:center; max-width:390px; }
+      .tapline { text-align:center; font-size:11px; color:var(--text2); max-width:390px; line-height:1.65; }
+      .tapline b { color:#fff; font-size:13px; }
+      .tapline .hi { color:var(--warning); font-weight:700; }
+      .tapline .good { color:#3ecf8e; font-weight:700; }
+      .fitnote { text-align:center; font-size:11px; color:var(--text2); max-width:390px; line-height:1.6; border-top:1px dashed var(--border); padding-top:8px; margin-top:2px; }
+      .fitnote.bad { color:#f09090; }
+      .fitnote.good { color:#7ee6b8; }
+      .fitnote.mid { color:#f0c96a; }
+      .restartlink { font-size:10px; font-weight:700; color:var(--text3); text-decoration:underline; cursor:pointer; background:none; border:none; font-family:inherit; }
+
+      /* ===== Real device frame — 390×844, full height always, per SKILL.md's fix ===== */
+      .phone { width:390px; height:844px; background:var(--bg); border-radius:44px; border:10px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.55); flex-shrink:0; }
+      .statusbar { height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px 0 24px; font-size:14px; font-weight:700; color:var(--text); }
+      .statusbar .sbicons { display:flex; gap:5px; align-items:center; color:var(--text); font-size:13px; }
+      /* lightweight sub-page header (back-chevron + title) — sections 1 & 2 render a real sub-page */
+      .header2 { height:48px; display:flex; align-items:center; padding:0 14px; flex-shrink:0; border-bottom:1px solid var(--border); gap:10px; }
+      .header2 .back2 { width:24px; height:24px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:17px; }
+      .header2 .htitle2 { flex:1; text-align:center; font-size:14px; font-weight:700; color:var(--text); margin-right:24px; }
+      /* full app-chrome header — section 3 (Transactions is a tab root: avatar left, title center, privacy+bell right) */
+      .appheader { height:52px; display:flex; align-items:center; padding:0 14px; flex-shrink:0; border-bottom:1px solid var(--border); gap:10px; }
+      .appheader .avatar2 { width:28px; height:28px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; color:#04140d; font-size:11px; font-weight:800; flex-shrink:0; }
+      .appheader .htitle2 { flex:1; text-align:center; font-size:15px; font-weight:700; color:var(--text); }
+      .appheader .righticons { display:flex; gap:14px; align-items:center; color:var(--text2); font-size:17px; flex-shrink:0; }
+
+      .content { padding:12px 14px 14px; flex:1; overflow-y:auto; }
+      .footer { padding:12px 14px; border-top:1px solid var(--border); display:flex; gap:8px; flex-shrink:0; }
+      .btn { flex:1; text-align:center; padding:11px 0; border-radius:11px; font-size:12.5px; font-weight:700; border:none; font-family:inherit; cursor:pointer; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+      .btn.disabled, .btn:disabled { opacity:.35; cursor:default; }
+      .btn.ghost { background:transparent; color:var(--text2); font-weight:600; }
+
+      .backdrop { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:18px; z-index:5; }
+      .popup { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; max-height:520px; display:flex; flex-direction:column; }
+      .popup .phead { display:flex; align-items:center; gap:8px; padding:14px 14px 6px; flex-shrink:0; }
+      .popup .ptitle { flex:1; font-size:13.5px; font-weight:800; color:#fff; }
+      .popup .pxbtn { color:var(--text2); cursor:pointer; background:none; border:none; font-size:17px; font-family:inherit; }
+      .popup .pbody { padding:10px 14px 16px; overflow-y:auto; }
+
+      .banner { border-radius:11px; border:1px solid; padding:10px 11px; display:flex; gap:8px; font-size:10.5px; line-height:1.55; }
+      .banner.info { border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.12); color:#c8ddfb; }
+      .banner.info i { color:var(--info); font-size:14px; margin-top:1px; }
+      .banner.warning { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.12); color:#fbdca0; }
+      .banner.warning i { color:var(--warning); font-size:14px; margin-top:1px; }
+
+      /* ===== Section 1 — Cash Flow tile ===== */
+      .cf-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; width:100%; }
+      .cf-head { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
+      .cf-head i { font-size:14px; color:var(--warning); }
+      .cf-head span { font-size:12.5px; font-weight:700; color:var(--primary); }
+      .cf-acct { padding:10px 0; } .cf-acct + .cf-acct { border-top:1px dashed var(--border); }
+      /* current (baseline, 2-row) */
+      .cf-colhead { display:flex; gap:6px; }
+      .cf-colhead div { flex:1; font-size:9.5px; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+      .cf-name-row { display:flex; align-items:center; gap:6px; margin-bottom:7px; }
+      .cf-icn { width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .cf-icn i { font-size:12px; }
+      .cf-name { font-size:12px; font-weight:600; color:var(--text); }
+      .cf-nums-row { display:flex; align-items:center; gap:6px; }
+      .cf-nums-row .v { flex:1; font-size:13.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .cf-nums-row .v.income { color:var(--success); }
+      .cf-nums-row .v.spend { color:var(--danger); }
+      .cf-nums-row .pillwrap { flex:1; min-width:0; }
+      .cf-nums-row .pill { display:inline-block; background:rgba(0,168,107,.15); color:var(--primary); border-radius:6px; padding:2px 6px; font-size:13.5px; font-weight:800; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      /* recommended: stacked icon-over-name column + one continuous number row */
+      .cf-stackrow { display:flex; align-items:flex-start; gap:8px; }
+      .cf-stub2 { flex:0 0 54px; display:flex; flex-direction:column; align-items:center; gap:3px; padding-top:1px; }
+      .cf-stub2 .icn2 { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; }
+      .cf-stub2 .icn2 i { font-size:13px; }
+      .cf-stub2 .name2 { font-size:8.5px; font-weight:700; color:var(--text2); text-align:center; max-width:54px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-numsrow2 { flex:1; display:flex; align-items:center; gap:5px; min-width:0; padding-top:2px; }
+      .cf-numsrow2 .v { flex:1; font-size:13px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .cf-numsrow2 .v.income { color:var(--success); }
+      .cf-numsrow2 .v.spend { color:var(--danger); }
+      .cf-numsrow2 .pillwrap { flex:1; min-width:0; }
+      .cf-numsrow2 .pill { display:inline-block; background:rgba(0,168,107,.15); color:var(--primary); border-radius:6px; padding:2px 6px; font-size:13px; font-weight:800; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-colhead2 { display:flex; gap:5px; }
+      .cf-colhead2 .stub { flex:0 0 54px; }
+      .cf-colhead2 div.lbl { flex:1; font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; }
+      /* literal merge — kept for contrast, everything on one row */
+      .cf-merge-row { display:flex; align-items:center; gap:5px; }
+      .cf-merge-row .stub { flex:0 0 82px; display:flex; align-items:center; gap:5px; min-width:0; }
+      .cf-merge-row .stub .cf-name { font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-merge-row .v { flex:1; font-size:11px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cf-merge-row .pill { font-size:11px; padding:2px 5px; }
+      .cf-colheadm { display:flex; gap:5px; }
+      .cf-colheadm .stub { flex:0 0 82px; }
+      .cf-colheadm div.lbl { flex:1; font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:.03em; }
+
+      /* ===== Section 2 — import wizard ===== */
+      .wizprog { display:flex; gap:3px; margin-bottom:10px; }
+      .wizprog .seg { flex:1; height:4px; border-radius:99px; background:var(--surface3); }
+      .wizprog .seg.done { background:var(--success); }
+      .wizprog .seg.now { background:var(--primary); }
+      .stepbody { font-size:11.5px; color:var(--text2); line-height:1.65; }
+      .stepbody b { color:var(--text); }
+      .bucket { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface2); margin-bottom:9px; }
+      .bucket .bhead { display:flex; align-items:center; gap:7px; padding:10px 11px; cursor:pointer; }
+      .bucket .bdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+      .bucket .btxt { flex:1; min-width:0; }
+      .bucket .btitle { font-size:11px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:5px; }
+      .bucket .bsub { font-size:9px; color:var(--text3); margin-top:1px; }
+      .bucket .bcheck { color:var(--success); font-size:11px; flex-shrink:0; }
+      .bucket .chev { color:var(--text3); font-size:11px; transition:transform .15s; flex-shrink:0; }
+      .bucket.open .chev { transform:rotate(180deg); }
+      .bucket .bbody { border-top:1px solid var(--border); padding:10px 11px; display:none; flex-direction:column; gap:8px; }
+      .bucket.open .bbody { display:flex; }
+      .cattile2 { border:1px solid var(--border); border-radius:9px; padding:9px; background:var(--surface); }
+      .cattile2 .cthead { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+      .cattile2 .csrc { font-size:10.5px; font-weight:700; color:var(--text); }
+      .cattile2 .carrow { color:var(--text3); font-size:9px; }
+      .cattile2 .ctgt { font-size:10.5px; font-weight:700; color:var(--info); }
+      .cattile2 .badge { font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; background:rgba(59,130,246,.18); color:#8fb4e6; }
+      .cattile2 .badge.match { background:rgba(16,185,129,.18); color:#3ecf8e; }
+      .cattile2 .cfoot { display:flex; gap:6px; margin-top:7px; }
+      .cattile2 .cbtn { flex:1; text-align:center; font-size:9.5px; font-weight:700; padding:7px 0; border-radius:7px; background:var(--surface3); color:var(--text2); cursor:pointer; border:none; font-family:inherit; }
+      .cattile2 .cbtn.primary { background:var(--primary); color:#04140d; }
+      .plainrow { display:flex; align-items:center; gap:6px; padding:6px 2px; font-size:10px; color:var(--text2); }
+      .plainrow i { color:var(--success); font-size:12px; }
+      .plainrow b { color:var(--text); font-weight:600; }
+
+      .matchrow-mini { border:1px dashed var(--border); border-radius:10px; padding:9px 10px; font-size:10.5px; color:var(--text2); }
+      .matchrow-mini.resolved { border-style:solid; border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.08); color:var(--text); }
+
+      /* segmented pill row — mirrors SegmentedControl.tsx / ExpenseForm's Expense⟷Income toggle */
+      .segpill { display:flex; gap:5px; background:var(--surface2); border-radius:11px; padding:4px; }
+      .segpill button { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:8px 4px; border-radius:8px; border:none; background:transparent; color:var(--text2); font-size:10px; font-weight:700; cursor:pointer; font-family:inherit; }
+      .segpill button i { font-size:12px; }
+      .segpill button.active { background:var(--primary); color:#04140d; }
+
+      /* side-by-side match card — same left-plain/right-dashed language as DuplicatesBucket.tsx */
+      .matchcard { border-radius:12px; border:1px solid var(--border); overflow:hidden; }
+      .matchcard .mchalves { display:flex; }
+      .matchcard .mchalf { flex:1; padding:10px; }
+      .matchcard .mchalf.left { background:var(--surface2); }
+      .matchcard .mchalf.right { border-left:1px dashed var(--border); background:var(--surface); }
+      .matchcard .mclbl { font-size:8.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--text3); margin-bottom:3px; }
+      .matchcard .mcname { font-size:11.5px; font-weight:700; color:var(--text); }
+      .matchcard .mcacct { display:flex; align-items:center; gap:6px; }
+      .matchcard .mcacct .icn3 { width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .matchcard .mcacct .icn3 i { font-size:11px; }
+      .matchcard .mcfoot { border-top:1px solid var(--border); display:flex; gap:6px; padding:8px; background:var(--surface); }
+      .altpillrow { display:flex; gap:6px; flex-wrap:wrap; padding:0 10px 10px; background:var(--surface); }
+      .altpill { padding:6px 10px; border-radius:999px; background:var(--surface3); border:1px solid var(--border); color:var(--text2); font-size:9.5px; font-weight:700; cursor:pointer; font-family:inherit; }
+      .altpill:hover { color:var(--text); }
+
+      .confbadge { display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 7px; font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+      .confbadge.high { background:rgba(16,185,129,.16); color:#3ecf8e; }
+      .confbadge.low { background:rgba(139,148,158,.2); color:var(--text2); }
+      .cptychip { display:inline-flex; align-items:center; gap:3px; border-radius:999px; padding:2px 7px; font-size:8.5px; font-weight:700; background:rgba(59,130,246,.15); color:#8fb4e6; }
+      .cptychip.self { background:rgba(139,148,158,.18); color:var(--text2); }
+
+      .explosionwall { max-height:230px; overflow-y:auto; display:flex; flex-direction:column; gap:5px; border:1px solid var(--border); border-radius:10px; padding:6px; background:var(--surface2); }
+      .explrow { display:flex; align-items:center; gap:5px; padding:5px 6px; border-radius:7px; background:var(--surface); font-size:9px; }
+      .explrow .ername { flex:1; color:var(--text); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .explrow .erarrow { color:var(--text3); font-size:8px; }
+      .explrow .ertarget { color:var(--info); font-weight:700; flex-shrink:0; }
+
+      .txrowmini { display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px dashed var(--border); }
+      .txrowmini:first-child { border-top:none; }
+      .txrowmini .tdesc { flex:1; min-width:0; font-size:10.5px; color:var(--text); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .txrowmini .tamt { font-size:10.5px; font-weight:700; color:var(--text); flex-shrink:0; }
+
+      /* ===== Section 3 — month filter, full-screen context ===== */
+      .filterbar { display:flex; align-items:center; gap:6px; padding:9px 12px; border-bottom:1px solid var(--border); }
+      .fbchip { display:flex; align-items:center; gap:5px; padding:8px 11px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); font-size:11px; font-weight:600; color:var(--text2); cursor:pointer; font-family:inherit; }
+      .fbchip.active { color:var(--primary); border-color:rgba(0,168,107,.4); }
+      .fbicon { width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); flex-shrink:0; position:relative; }
+      .fbsearch { flex:1; display:flex; align-items:center; gap:6px; padding:0 10px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text3); font-size:11px; min-width:0; }
+      .fbbadge { position:absolute; top:-5px; right:-5px; width:15px; height:15px; border-radius:50%; background:var(--danger); color:#fff; font-size:8px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+      .yearrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+      .yearrow .yr { font-size:15px; font-weight:700; color:var(--text); }
+      .yearbtn { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text2); background:none; border:none; cursor:pointer; }
+      .yearbtn:disabled { opacity:.3; cursor:default; }
+      .monthgrid { display:flex; flex-wrap:wrap; gap:7px; }
+      .monthtile { width:22.5%; padding:10px 0; border-radius:9px; text-align:center; font-size:11px; font-weight:600; background:var(--surface3); color:var(--text2); cursor:pointer; border:none; font-family:inherit; }
+      .monthtile:disabled { opacity:.3; cursor:default; }
+      .monthtile.sel { background:var(--primary); color:#04140d; }
+      .scrubwrap { display:flex; align-items:center; gap:4px; padding:8px 10px; border-bottom:1px solid var(--border); background:var(--surface); }
+      .scrubarrow { width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text3); background:none; border:none; cursor:pointer; }
+      .scrubtrack { flex:1; display:flex; gap:7px; overflow-x:auto; scrollbar-width:none; scroll-behavior:smooth; }
+      .scrubtrack::-webkit-scrollbar { display:none; }
+      .scrubchip { flex-shrink:0; padding:7px 12px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); font-size:10.5px; font-weight:700; color:var(--text2); cursor:pointer; white-space:nowrap; font-family:inherit; }
+      .scrubchip.active { background:var(--primary); color:#04140d; border-color:transparent; }
+      .jumpto { flex-shrink:0; font-size:9px; font-weight:700; color:var(--text2); padding:7px 9px; border:1px dashed var(--border); border-radius:10px; cursor:pointer; background:none; font-family:inherit; }
+      .monthlist { max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
+      .monthrow { display:flex; align-items:center; justify-content:space-between; padding:9px 11px; border-radius:8px; font-size:11.5px; color:var(--text); cursor:pointer; background:none; border:none; font-family:inherit; width:100%; text-align:left; }
+      .monthrow.sel { background:rgba(0,168,107,.15); color:var(--primary); font-weight:700; }
+      .monthrow i { color:var(--primary); font-size:12px; visibility:hidden; }
+      .monthrow.sel i { visibility:visible; }
+      .content2 { flex:1; overflow-y:auto; padding:10px 14px 16px; }
+      .datehdr { font-size:9.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); padding:10px 2px 4px; }
+      .datehdr:first-child { padding-top:4px; }
+      .txrow { display:flex; align-items:center; gap:11px; padding:9px 2px; border-bottom:1px solid var(--border); }
+      .txrow:last-child { border-bottom:none; }
+      .ricn { width:32px; height:32px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+      .ricn i { font-size:15px; color:#fff; }
+      .txmid { flex:1; min-width:0; }
+      .txmid .t1 { font-size:12.5px; font-weight:600; color:var(--text); }
+      .txmid .t2 { font-size:10px; color:var(--text3); margin-top:1px; }
+      .txright { text-align:right; flex-shrink:0; }
+      .txright .amt { font-size:12.5px; font-weight:700; }
+      .txright .acc { font-size:9px; color:var(--text3); margin-top:2px; }
+
+      .recommend { max-width:900px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:18px 22px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:900px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol, .legend ul { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>4th-batch UI/UX redesigns — v2 (real-device-frame fix + S1/S2 rework)</h1>
+    <p class="sub">v2 of <code>fourth-batch-redesigns-v1.html</code>, after direct feedback on that file. Same three
+      topics, all rebuilt against real device dimensions this time. Grounded fresh this session in
+      <code>AnalyticsTab.tsx</code>'s <code>CashFlowTile</code>, the import wizard's
+      <code>AccountsStage</code>/<code>AccountsSection</code>/<code>CategoriesStage</code>/<code>TransactionsStage</code>/
+      <code>CategoryTile</code>/<code>ImportCategorizeModal</code>, <code>importCounterpartySplit.ts</code>,
+      <code>SegmentedControl.tsx</code> + its <code>ExpenseForm.tsx</code> usage, <code>DuplicatesBucket.tsx</code>, and
+      <code>TransactionsSlice.tsx</code>'s filter bar (the 2026-08-18 Budget→Month→Search→Filter→Select reorder).</p>
+
+    <div class="changelog">
+      <b>What changed since v1 — read this first.</b>
+      <ul>
+        <li><b>Every phone frame, every option, every section is now a real 390×844 device frame</b> (v1 used a
+          content-sized ~280px box with no fixed height) — this was v1's biggest flaw per direct feedback, fixed
+          file-wide, not just in one section.</li>
+        <li><b>§1</b> — new recommended option: stack the account icon <i>above</i> the name in a narrow ~54px column
+          (your own suggested fix) so the 4-number row fits on one line. Bank-specific icons investigated and called
+          out as a real but separate, bigger follow-up — not faked here. Decimals are now always-on (locked decision,
+          no checkbox).</li>
+        <li><b>§2</b> — substantially rebuilt, not tweaked: Categories dropped as its own stage entirely; category
+          resolution now happens inline at Transactions via confidence indicators; the MoneyView counterparty
+          explosion is fixed by construction (shown before/after); Accounts-stage taps cut from a confirmed 4 to
+          1–2 via inline pills + a side-by-side smart-match card (reusing <code>DuplicatesBucket.tsx</code>'s visual
+          language). Only two toggle options now — Current vs. the one Redesigned direction — since the user already
+          decided the structural change.</li>
+        <li><b>§3</b> — every option now renders inside the actual Transactions tab screen (real header, real filter
+          bar, a realistic scrollable date-grouped list), not an isolated component.</li>
+      </ul>
+    </div>
+
+    <div class="topnav">
+      <a href="#s1">① Cash Flow row layout</a>
+      <a href="#s2">② CSV import — Accounts + Transactions only</a>
+      <a href="#s3">③ Month-filter UX, in full screen context</a>
+      <a href="#closing">Recommendation &amp; open questions</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>Analytics Cash Flow card — one row per account</div>
+      <div class="sectionsub">Your fix — icon stacked above the name in a narrow column, freeing the rest of the
+        width for a single row of numbers — is now the recommended option below. 2-decimal places (item 33) is a
+        locked decision now, not a toggle: every amount below always shows <code>.00</code>.</div>
+      <div class="groundnote"><code>apps/mobile/src/features/expenses/analytics/AnalyticsTab.tsx</code>'s
+        <code>CashFlowTile</code> (~line 183): one shared 4-column header (Initial/Income/Spend/Computed left), then
+        per account a name row followed by the 4-value row. Values use <code>formatCompact</code> +
+        <code>numberOfLines</code>/<code>adjustsFontSizeToFit</code>/<code>minimumFontScale=0.7</code>.
+        <b style="color:#c3ccd6">Cross-platform:</b> <code>apps/web-react</code> has no Cash Flow card at all (added
+        to mobile 2026-08-02, after web was frozen) — mobile-only by prior decision, nothing to mirror.</div>
+
+      <div class="calloutnote"><i class="ti ti-info-circle"></i><div><b>Bank-specific icons — investigated, not in
+        this mockup.</b> Penny has no per-bank icon/logo system today — only 4 generic icons, one per account
+        <code>type</code> (cash/bank/credit_card/wallet). Building real per-bank logos (HDFC, ICICI, SBI…) would need
+        a brand-new icon-asset system from scratch — there's an unused <code>Account.bankId</code> field that could
+        key it later, but zero logo assets exist right now. This mockup does <b>not</b> invent fake bank logos; it
+        only implements the icon-over-name stacking below, which already achieves the "fits in one row" goal without
+        needing any new assets. Treat per-bank logos as a real, separate, bigger follow-up.</div></div>
+
+      <div class="opttoggle" id="s1-toggle">
+        <button class="active" data-view="cur" onclick="s1SetView('cur')">Current (2-row baseline)</button>
+        <button data-view="stacked" onclick="s1SetView('stacked')"><i class="ti ti-star-filled"></i>Stacked icon, one row</button>
+        <button data-view="merge" onclick="s1SetView('merge')">Literal merge (kept for contrast)</button>
+      </div>
+
+      <div class="viewwrap">
+        <!-- CURRENT -->
+        <div id="s1-view-cur" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Analytics</div></div>
+            <div class="content">
+              <div class="cf-card">
+                <div class="cf-head"><i class="ti ti-wallet"></i><span>Cash Flow · This month</span></div>
+                <div class="cf-colhead"><div>Initial</div><div>Income</div><div>Spend</div><div>Computed left</div></div>
+                <div class="cf-acct">
+                  <div class="cf-name-row"><div class="cf-icn" style="background:rgba(59,130,246,.15)"><i class="ti ti-building-bank" style="color:#3b82f6"></i></div><div class="cf-name">HDFC Bank</div></div>
+                  <div class="cf-nums-row">
+                    <div class="v">₹79.6L</div>
+                    <div class="v income">+₹45.0K</div>
+                    <div class="v spend">-₹32.4K</div>
+                    <div class="pillwrap"><span class="pill">₹79.7L</span></div>
+                  </div>
+                </div>
+                <div class="cf-acct">
+                  <div class="cf-name-row"><div class="cf-icn" style="background:rgba(16,185,129,.15)"><i class="ti ti-cash" style="color:#10b981"></i></div><div class="cf-name">Cash</div></div>
+                  <div class="cf-nums-row">
+                    <div class="v">₹450.00</div>
+                    <div class="v income">+₹0.00</div>
+                    <div class="v spend">-₹120.00</div>
+                    <div class="pillwrap"><span class="pill">₹330.00</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fitnote good">Fits comfortably, and always has — but the name row and the numbers row are two
+            separate lines per account. This is exactly the "doesn't fit in one row" complaint the redesign is
+            answering.</div>
+        </div>
+
+        <!-- STACKED (recommended) -->
+        <div id="s1-view-stacked" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Analytics</div></div>
+            <div class="content">
+              <div class="cf-card">
+                <div class="cf-head"><i class="ti ti-wallet"></i><span>Cash Flow · This month</span></div>
+                <div class="cf-colhead2"><div class="stub"></div><div class="lbl">Initial</div><div class="lbl">Income</div><div class="lbl">Spend</div><div class="lbl">Computed left</div></div>
+                <div class="cf-acct">
+                  <div class="cf-stackrow">
+                    <div class="cf-stub2">
+                      <div class="icn2" style="background:rgba(59,130,246,.15)"><i class="ti ti-building-bank" style="color:#3b82f6"></i></div>
+                      <div class="name2">HDFC</div>
+                    </div>
+                    <div class="cf-numsrow2">
+                      <div class="v">₹79.6L</div>
+                      <div class="v income">+₹45.0K</div>
+                      <div class="v spend">-₹32.4K</div>
+                      <div class="pillwrap"><span class="pill">₹79.7L</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="cf-acct">
+                  <div class="cf-stackrow">
+                    <div class="cf-stub2">
+                      <div class="icn2" style="background:rgba(16,185,129,.15)"><i class="ti ti-cash" style="color:#10b981"></i></div>
+                      <div class="name2">Cash</div>
+                    </div>
+                    <div class="cf-numsrow2">
+                      <div class="v">₹450.00</div>
+                      <div class="v income">+₹0.00</div>
+                      <div class="v spend">-₹120.00</div>
+                      <div class="pillwrap"><span class="pill">₹330.00</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fitnote good">One row per account, as asked: the icon-over-name column only needs ~54px, so
+            all 4 numbers keep the same 13px size the app uses today — no shrink needed even with Cash's <code
+            style="font-size:9px">.00</code> now always showing. The name is still fully legible (just tiny + centred
+            below the icon), not a same-row casualty like the merge option below.</div>
+        </div>
+
+        <!-- LITERAL MERGE -->
+        <div id="s1-view-merge" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Analytics</div></div>
+            <div class="content">
+              <div class="cf-card">
+                <div class="cf-head"><i class="ti ti-wallet"></i><span>Cash Flow · This month</span></div>
+                <div class="cf-colheadm"><div class="stub"></div><div class="lbl">Initial</div><div class="lbl">Income</div><div class="lbl">Spend</div><div class="lbl">Computed left</div></div>
+                <div class="cf-acct">
+                  <div class="cf-merge-row">
+                    <div class="stub"><div class="cf-icn" style="background:rgba(59,130,246,.15);width:18px;height:18px"><i class="ti ti-building-bank" style="color:#3b82f6;font-size:10px"></i></div><div class="cf-name">HDFC Ban…</div></div>
+                    <div class="v">₹79.6L</div>
+                    <div class="v" style="color:var(--success)">+₹45.0K</div>
+                    <div class="v" style="color:var(--danger)">-₹32.4K</div>
+                    <div class="pillwrap"><span class="pill">₹79.7L</span></div>
+                  </div>
+                </div>
+                <div class="cf-acct">
+                  <div class="cf-merge-row">
+                    <div class="stub"><div class="cf-icn" style="background:rgba(16,185,129,.15);width:18px;height:18px"><i class="ti ti-cash" style="color:#10b981;font-size:10px"></i></div><div class="cf-name">Cash</div></div>
+                    <div class="v">₹450.00</div>
+                    <div class="v" style="color:var(--success)">+₹0.00</div>
+                    <div class="v" style="color:var(--danger)">-₹120.00</div>
+                    <div class="pillwrap"><span class="pill">₹330.00</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="fitnote mid">Reassessed honestly at the CORRECT 390px frame (v1 wrongly used a ~280px box,
+            which made this look broken) — it does fit without wrapping. But it's still the tightest of the three:
+            icon + name + 4 numbers is <b>6 things sharing one row</b> (vs. the stacked option's 4), so the name still
+            needs hard truncation ("HDFC Ban…") and every number renders at 11px instead of the stacked option's
+            13px. Kept here to show why "stack icon over name" beats "cram everything onto one literal row" even once
+            the frame-size bug is fixed.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>CSV import — Accounts + Transactions only</div>
+      <div class="sectionsub">Rebuilt, not tweaked, per your direction: Categories is dropped as its own stage
+        entirely; category resolution now happens inline on each Transactions-stage tile via a confidence indicator;
+        the MoneyView counterparty explosion is fixed as a side effect of removing the stage that caused it; and the
+        Accounts-stage's confirmed 4-tap resolution drops to 1–2 taps via inline pills instead of two stacked modals.</div>
+      <div class="groundnote"><code>apps/mobile/src/features/import/AccountsStage.tsx</code>/<code>AccountsSection.tsx</code>
+        today render the "kind" choice (existing/create/skip) as a full <code>SelectInput</code> modal, and — for
+        "existing" — a SECOND full modal listing every account, defaulting to the first one in the list (2 modals, 4
+        taps for one resolution, confirmed by reading the code). <code>importCounterpartySplit.ts</code>'s
+        <code>shouldSplitByCounterparty()</code> explodes any transfer/IOU-suspect category into one Categories-stage
+        row PER DISTINCT COUNTERPARTY TEXT, uncapped — MoneyView's format is especially prone to this since its
+        description column directly embeds the counterparty name. Since that explosion mechanism lives specifically
+        inside the Categories stage, removing the stage removes the explosion by construction.
+        <b style="color:#c3ccd6">Cross-platform:</b> <code>apps/web-react/src/features/import/</code> still has the
+        pre-redesign 3-stage flow (mobile's 6-stage split shipped 2026-08-14, after web was frozen) — already
+        diverged by prior decision; this proposal only targets mobile.</div>
+
+      <div class="opttoggle" id="s2-toggle">
+        <button class="active" data-view="cur" onclick="s2SetView('cur')">Current (Accounts→Categories→Transactions)</button>
+        <button data-view="rd" onclick="s2SetView('rd')"><i class="ti ti-star-filled"></i>Redesigned: Accounts + Transactions only</button>
+      </div>
+
+      <div class="viewwrap">
+        <!-- CURRENT -->
+        <div id="s2-view-cur" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="stagelabel">Click "Continue"/"Resolve" to walk through — same forced sequence and same 2-modal
+            resolution as a real device.</div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Import statement</div></div>
+            <div class="content" style="display:flex;flex-direction:column;height:100%">
+              <div class="wizprog" id="s2cur-prog"></div>
+              <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:9px" id="s2cur-steplabel"></div>
+              <div class="stepbody" id="s2cur-body" style="flex:1;overflow-y:auto"></div>
+            </div>
+            <div class="footer">
+              <button class="btn secondary" id="s2cur-back" onclick="s2curBack()">Back</button>
+              <button class="btn primary" id="s2cur-next" onclick="s2curNext()">Continue</button>
+            </div>
+            <div id="s2cur-overlay"></div>
+          </div>
+          <div class="tapline">Stage-advance taps: <b id="s2cur-taps">0</b> of <b>5</b> minimum —
+            <span class="hi">every stage demands a tap even when it auto-resolved cleanly, and Categories is its own
+            forced stage.</span> <br /><button class="restartlink" onclick="s2curRestart()">Restart</button></div>
+        </div>
+
+        <!-- REDESIGNED (recommended) -->
+        <div id="s2-view-rd" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="stagelabel"><span class="recbadge">RECOMMENDED</span> Only 2 real stages now. Try the Accounts
+            pill row, then look at the Transactions step for the counterparty-chip fix.</div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="header2"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Import statement</div></div>
+            <div class="content" style="display:flex;flex-direction:column;height:100%">
+              <div class="wizprog" id="s2rd-prog"></div>
+              <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:9px" id="s2rd-steplabel"></div>
+              <div class="stepbody" id="s2rd-body" style="flex:1;overflow-y:auto"></div>
+            </div>
+            <div class="footer">
+              <button class="btn secondary" id="s2rd-back" onclick="s2rdBack()">Back</button>
+              <button class="btn primary" id="s2rd-next" onclick="s2rdNext()">Continue</button>
+            </div>
+          </div>
+          <div class="tapline">Stage-advance taps: <b id="s2rd-taps">0</b> of <b>3</b> minimum (was 5) — Categories no
+            longer exists as a forced stage. <span class="good">Account-mapping taps: as few as 1</span> (confirm the
+            smart match) up to 2 (kind pill + alternate-account pill) — down from a confirmed 4 today.
+            <br /><button class="restartlink" onclick="s2rdRestart()">Restart</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Month-filter UX, inside the real Transactions screen</div>
+      <div class="sectionsub">Same three options as before, now rendered inside a full mock of the actual
+        Transactions tab — real header, the real Budget→Month→Search→Filter→Select icon bar
+        (2026-08-18 reorder), and a realistic date-grouped transaction list — so the comparison is apples-to-apples,
+        not an isolated component. Tap counts are still live.</div>
+      <div class="groundnote"><code>apps/mobile/src/features/expenses/transactions/MonthPickerModal.tsx</code> —
+        year-chevron row + 4-column, 12-tile month grid inside the shared centred <code>Modal</code>. The filter bar
+        lives in <code>TransactionsSlice.tsx</code> (~line 448): Budget (<code>ti-target-arrow</code>) → Month chip
+        (<code>ti-calendar</code>) → Search → Filter (<code>ti-adjustments-horizontal</code>, red count badge) →
+        Select (<code>ti-list-check</code>) — reordered 2026-08-18 per real-device-testing feedback, pure reorder,
+        no behavior change. <b style="color:#c3ccd6">Cross-platform:</b> <code>apps/web-react</code>'s own
+        <code>MonthPickerModal.tsx</code> has the same year-nav + 4-col grid content — platforms agree here; since
+        web is frozen, this proposal only targets mobile.</div>
+
+      <div class="opttoggle" id="s3-toggle">
+        <button class="active" data-view="cur" onclick="s3SetView('cur')">Current (modal grid)</button>
+        <button data-view="scrub" onclick="s3SetView('scrub')"><i class="ti ti-star-filled"></i>Persistent scrub bar</button>
+        <button data-view="flat" onclick="s3SetView('flat')">Flat scrollable list</button>
+      </div>
+
+      <div class="viewwrap">
+        <!-- CURRENT -->
+        <div id="s3-view-cur" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="avatar2">P</div><div class="htitle2">Transactions</div><div class="righticons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div></div>
+            <div class="filterbar">
+              <div class="fbicon"><i class="ti ti-target-arrow"></i></div>
+              <button class="fbchip active" id="s3a-chip" onclick="s3aOpen()"><i class="ti ti-calendar"></i><span id="s3a-chiplabel">Aug 2026</span></button>
+              <div class="fbsearch"><i class="ti ti-search" style="font-size:13px"></i><span>Search…</span></div>
+              <div class="fbicon"><i class="ti ti-adjustments-horizontal"></i><span class="fbbadge">2</span></div>
+              <div class="fbicon"><i class="ti ti-list-check"></i></div>
+            </div>
+            <div class="content2" id="s3a-list"></div>
+            <div id="s3a-modal"></div>
+          </div>
+          <div class="tapline">Taps used this run: <b id="s3a-taps">0</b> —
+            <span class="hi">chip → year chevron (0+ times) → month tile</span>, every time, even for last month.</div>
+        </div>
+
+        <!-- PERSISTENT SCRUB BAR -->
+        <div id="s3-view-scrub" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="avatar2">P</div><div class="htitle2">Transactions</div><div class="righticons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div></div>
+            <div class="filterbar">
+              <div class="fbicon"><i class="ti ti-target-arrow"></i></div>
+              <div class="fbsearch"><i class="ti ti-search" style="font-size:13px"></i><span>Search…</span></div>
+              <div class="fbicon"><i class="ti ti-adjustments-horizontal"></i><span class="fbbadge">2</span></div>
+              <div class="fbicon"><i class="ti ti-list-check"></i></div>
+            </div>
+            <div class="scrubwrap">
+              <button class="scrubarrow" onclick="s3bScroll(-1)"><i class="ti ti-chevron-left"></i></button>
+              <div class="scrubtrack" id="s3b-track"></div>
+              <button class="scrubarrow" onclick="s3bScroll(1)"><i class="ti ti-chevron-right"></i></button>
+              <button class="jumpto" onclick="s3bJumpOpen()">Jump to…</button>
+            </div>
+            <div class="content2" id="s3b-list"></div>
+            <div id="s3b-modal"></div>
+          </div>
+          <div class="tapline">Taps used this run: <b id="s3b-taps">0</b> —
+            <span class="good">1 tap for any visible month.</span> At the correct 390px width, 6 chips are visible at
+            once (v1's undersized frame only fit 5) — arrows scroll the strip without changing the selection;
+            "Jump to…" reaches the full modal for anything further back.</div>
+        </div>
+
+        <!-- FLAT SCROLLABLE LIST -->
+        <div id="s3-view-flat" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="avatar2">P</div><div class="htitle2">Transactions</div><div class="righticons"><i class="ti ti-eye-off"></i><i class="ti ti-bell"></i></div></div>
+            <div class="filterbar">
+              <div class="fbicon"><i class="ti ti-target-arrow"></i></div>
+              <button class="fbchip active" id="s3c-chip" onclick="s3cOpen()"><i class="ti ti-calendar"></i><span id="s3c-chiplabel">Aug 2026</span></button>
+              <div class="fbsearch"><i class="ti ti-search" style="font-size:13px"></i><span>Search…</span></div>
+              <div class="fbicon"><i class="ti ti-adjustments-horizontal"></i><span class="fbbadge">2</span></div>
+              <div class="fbicon"><i class="ti ti-list-check"></i></div>
+            </div>
+            <div class="content2" id="s3c-list"></div>
+            <div id="s3c-modal"></div>
+          </div>
+          <div class="tapline">Taps used this run: <b id="s3c-taps">0</b> —
+            <span class="good">2 taps: chip → scroll + tap a row</span> — no year-stepping for anything recent (last
+            24 months, no grid).</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CLOSING NOTES ================= -->
+    <div id="closing"></div>
+    <div class="recommend">
+      <b>Recommendation:</b> ship the starred option in each section.
+      <ul>
+        <li><b>§1 — Stacked icon, one row.</b> This is your own fix, and it's the right one: it's the only option
+          that gets a real one-row-of-numbers layout without sacrificing name legibility or resorting to the
+          tightest type on the card. Bank-specific icons are a real idea worth doing eventually, but they need a new
+          asset system first — don't block this layout fix on that.</li>
+        <li><b>§2 — Redesigned (Accounts + Transactions only).</b> This is the one that actually answers "why do
+          people fall back to some apps again and again" (<code>DESIGN_GUIDELINES.md</code> §1) — a clean file
+          should feel like 2–3 taps total, not a forced tour of 5 screens plus a 2-modal dance for every account
+          that needs mapping. The counterparty-chip fix isn't a cosmetic patch on top of the explosion bug — it's a
+          structural side effect of removing the stage that caused it, which is exactly the kind of fix
+          <code>docs/DESIGN_GUIDELINES.md</code>'s "one capability, one control" principle argues for over patching
+          each exploded row individually.</li>
+        <li><b>§3 — Persistent scrub bar.</b> "Last month" and "this month" are the overwhelming majority of real
+          taps, and those should never cost a modal. The flat list is a reasonable fallback if the scrub bar's
+          always-visible row turns out to be a bigger screen-space cost than expected once seen against the real,
+          already-busy filter bar.</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§1 — abbreviation length under the icon.</b> Used a 4–6 character truncation ("HDFC", "Cash") in the
+          54px stacked column. A real implementation needs a rule for what to show when even that overflows (e.g.
+          "ICICI Bank" → "ICICI"?, or a user-set 2–3 letter initials field) — not fully specified here, flagging as a
+          real decision the ported component will need to make.</li>
+        <li><b>§1 — decimal-fit demonstration.</b> Same reasoning as v1: <code>formatCompact</code> only shows
+          decimals below ₹1,000 (checked <code>packages/core/src/lib/formatters.ts</code>), so the real fit risk is
+          specifically a low-activity account (Cash) — used the same HDFC/Cash pair on purpose so both the
+          compact-notation case and the decimal-fit case are visible together.</li>
+        <li><b>§2 — account-resolution tap counting.</b> Modeled the smart-match "wrong guess" path as 2 taps
+          ("Not this account?" + picking the correct alternate pill) and the "kind isn't Existing" path as 1 tap (the
+          segmented pill itself resolves it, no second step) — both real, different paths through the same control,
+          not two separate features. The exact tap count for a genuinely ambiguous multi-way merge (not modeled here)
+          would likely still need 2, same as today's "wrong guess" case.</li>
+        <li><b>§2 — counterparty-chip tile is a representative sample, not the full 16 rows.</b> The "after" state
+          shows ~5 real per-row chips plus a "…and 11 more" note rather than rendering all 16 inline, on the theory
+          that a real `TileRowList` already has its own render cap (`docs/ARCHITECTURE.md`'s 2026-08-13 entry) — this
+          mockup doesn't re-litigate that cap, just demonstrates the chip itself.</li>
+        <li><b>§2 — where the confidence indicator's exact wording/thresholds land.</b> Used "Auto-matched" (green,
+          collapsed, no tap) vs. "Needs confirming" (existing <code>needsConfirming</code> badge language from
+          `CategoryTile.tsx`) rather than a numeric confidence percentage, since no percentage-based UI exists
+          anywhere else in the app today — flagging as a deliberate choice to reuse existing vocabulary, not an
+          invented new one.</li>
+        <li><b>§3 — scrub bar's visible window size, corrected.</b> At the real 390px frame, 6 chips fit
+          comfortably (v1's undersized 280px frame under-counted this at 5) — still a mockup approximation; the real
+          implementation should size to the actual device width rather than a fixed count.</li>
+      </ol>
+    </div>
+
+    <script>
+      // ---------- generic helpers ----------
+      function setToggle(toggleId, view) {
+        document.querySelectorAll('#' + toggleId + ' button').forEach(function (b) {
+          b.classList.toggle('active', b.dataset.view === view);
+        });
+      }
+      var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+      // ================= SECTION 1 =================
+      var S1_FITNOTE_CLASS = { cur: 'good', stacked: 'good', merge: 'mid' };
+      function s1SetView(name) {
+        ['cur', 'stacked', 'merge'].forEach(function (n) {
+          document.getElementById('s1-view-' + n).style.display = n === name ? 'flex' : 'none';
+        });
+        setToggle('s1-toggle', name);
+      }
+
+      // ================= SECTION 2 =================
+      function s2SetView(name) {
+        ['cur', 'rd'].forEach(function (n) {
+          document.getElementById('s2-view-' + n).style.display = n === name ? 'flex' : 'none';
+        });
+        setToggle('s2-toggle', name);
+      }
+
+      // ---- 2a: CURRENT flow (Upload / Accounts / Categories / Transactions / Done) ----
+      var S2CUR_LABELS = [
+        'Step 1 of 5 · Upload',
+        'Step 2 of 5 · Accounts',
+        'Step 3 of 5 · Categories',
+        'Step 4 of 5 · Transactions',
+        'Step 5 of 5 · Done'
+      ];
+      var S2CUR_ACCOUNTS_LIST = ['HDFC Bank', 'ICICI Bank', 'Paytm Wallet', 'Cash', 'SBI Bank'];
+      var s2curStep = 0, s2curTaps = 0;
+      var s2curResolveState = 'unresolved'; // 'unresolved' | 'kindmodal' | 'acctmodal' | 'resolved:<name>'
+      var s2curResolveTaps = 0;
+
+      var COUNTERPARTY_NAMES = [
+        'Rajesh S', 'Priya M', 'Self (HDFC→ICICI)', 'Amit K', 'Vikram J', 'Self (Cash withdrawal)',
+        'Neha T', 'Suresh P', 'Kavya R', 'Self (ICICI→HDFC)', 'Arjun D', 'Meera L',
+        'Self (Paytm topup)', 'Rohit B', 'Sanjay G', 'Self (Wallet transfer)'
+      ];
+
+      function s2curUploadBody() {
+        return 'Pick a CSV file. <b>Tap "Continue"</b> once it parses — first forced tap.';
+      }
+      function s2curAccountsBody() {
+        var row;
+        if (s2curResolveState.indexOf('resolved:') === 0) {
+          var name = s2curResolveState.slice('resolved:'.length);
+          row = '<div class="matchrow-mini resolved"><i class="ti ti-check" style="color:var(--success)"></i> &quot;HDFC A/c XXXX1234&quot; → <b>' + name + '</b> · 12 rows — resolved</div>';
+        } else {
+          row = '<div class="matchrow-mini">&quot;HDFC A/c XXXX1234&quot; · 12 rows — needs a decision<br /><button class="btn primary" style="margin-top:8px;flex:none;padding:9px 14px" onclick="s2curOpenKind()">Resolve this account</button></div>';
+        }
+        return '2 other source accounts auto-matched cleanly. This one needs your input:<br /><br />' + row +
+          '<div class="tapline" style="margin:10px auto 0;max-width:100%">Taps to resolve THIS account: <b>' + s2curResolveTaps + '</b> of <b>4</b></div>';
+      }
+      function s2curCategoriesBody() {
+        var rows = COUNTERPARTY_NAMES.map(function (n) {
+          var isSelf = n.indexOf('Self') === 0;
+          return '<div class="explrow"><span class="ername">&quot;A/c to A/c&quot; — ' + n + '</span><span class="erarrow">→</span><span class="ertarget">' + (isSelf ? 'Transfer' : 'Lending') + '</span></div>';
+        }).join('');
+        return '<div class="banner warning" style="margin-bottom:8px"><i class="ti ti-alert-triangle"></i><div><b>1 category exploded into ' + COUNTERPARTY_NAMES.length + ' separate top-level rows</b> — MoneyView&apos;s &quot;A/c to A/c&quot; embeds the counterparty name directly, and every distinct one becomes its own forced resolution row.</div></div>' +
+          '<div class="explosionwall">' + rows + '</div>';
+      }
+      function s2curTransactionsBody() {
+        return '247 of 250 rows ready. Tap &quot;Import&quot; to commit — another forced full screen even though nothing here needed a decision.';
+      }
+      function s2curDoneBody() {
+        return '<div class="banner info"><i class="ti ti-check"></i><div>247 transactions imported.</div></div>';
+      }
+      var S2CUR_BODY_FNS = [s2curUploadBody, s2curAccountsBody, s2curCategoriesBody, s2curTransactionsBody, s2curDoneBody];
+
+      function s2curRender() {
+        var prog = document.getElementById('s2cur-prog');
+        prog.innerHTML = S2CUR_LABELS.map(function (_, i) {
+          return '<div class="seg ' + (i < s2curStep ? 'done' : i === s2curStep ? 'now' : '') + '"></div>';
+        }).join('');
+        document.getElementById('s2cur-steplabel').textContent = S2CUR_LABELS[s2curStep];
+        document.getElementById('s2cur-body').innerHTML = S2CUR_BODY_FNS[s2curStep]();
+        document.getElementById('s2cur-back').disabled = s2curStep === 0;
+        var next = document.getElementById('s2cur-next');
+        next.textContent = s2curStep === 3 ? 'Import' : s2curStep === 4 ? 'Done' : 'Continue';
+        next.disabled = s2curStep === 4;
+      }
+      function s2curNext() {
+        if (s2curStep < S2CUR_LABELS.length - 1) { s2curStep++; s2curTaps++; document.getElementById('s2cur-taps').textContent = s2curTaps; s2curRender(); }
+      }
+      function s2curBack() {
+        if (s2curStep > 0) { s2curStep--; s2curRender(); }
+      }
+      function s2curRestart() {
+        s2curStep = 0; s2curTaps = 0; s2curResolveState = 'unresolved'; s2curResolveTaps = 0;
+        document.getElementById('s2cur-taps').textContent = 0;
+        document.getElementById('s2cur-overlay').innerHTML = '';
+        s2curRender();
+      }
+      function s2curBumpResolveTaps() {
+        s2curResolveTaps++;
+        if (s2curStep === 1) document.getElementById('s2cur-body').innerHTML = s2curAccountsBody();
+      }
+      function s2curOpenKind() {
+        s2curBumpResolveTaps();
+        s2curResolveState = 'kindmodal';
+        s2curRenderOverlay();
+      }
+      function s2curPickKind(kind) {
+        s2curBumpResolveTaps();
+        if (kind === 'existing') {
+          s2curResolveState = 'acctmodal';
+          s2curRenderOverlay();
+        } else {
+          s2curResolveState = 'resolved:' + (kind === 'create' ? 'New account' : 'Skipped');
+          document.getElementById('s2cur-overlay').innerHTML = '';
+        }
+      }
+      function s2curPickAccount(name) {
+        s2curBumpResolveTaps();
+        s2curResolveState = 'resolved:' + name;
+        document.getElementById('s2cur-overlay').innerHTML = '';
+      }
+      function s2curCloseModal() {
+        document.getElementById('s2cur-overlay').innerHTML = '';
+      }
+      function s2curRenderOverlay() {
+        var el = document.getElementById('s2cur-overlay');
+        if (s2curResolveState === 'kindmodal') {
+          el.innerHTML = '<div class="backdrop"><div class="popup" style="width:100%;max-width:280px"><div class="phead"><div class="ptitle">Resolve account</div><button class="pxbtn" onclick="s2curCloseModal()">✕</button></div><div class="pbody" style="display:flex;flex-direction:column;gap:8px">' +
+            '<button class="btn secondary" onclick="s2curPickKind(\'existing\')">Map to existing account</button>' +
+            '<button class="btn secondary" onclick="s2curPickKind(\'create\')">Create new account</button>' +
+            '<button class="btn secondary" onclick="s2curPickKind(\'skip\')">Skip this account</button>' +
+            '</div></div></div>';
+        } else if (s2curResolveState === 'acctmodal') {
+          el.innerHTML = '<div class="backdrop"><div class="popup" style="width:100%;max-width:280px"><div class="phead"><div class="ptitle">Choose account</div><button class="pxbtn" onclick="s2curCloseModal()">✕</button></div><div class="pbody" style="display:flex;flex-direction:column;gap:4px">' +
+            S2CUR_ACCOUNTS_LIST.map(function (a) {
+              return '<button class="monthrow" style="justify-content:flex-start" onclick="s2curPickAccount(\'' + a + '\')"><span>' + a + '</span></button>';
+            }).join('') +
+            '</div></div></div>';
+        } else {
+          el.innerHTML = '';
+        }
+      }
+      s2curRender();
+
+      // ---- 2b: REDESIGNED flow (Upload / Accounts / Transactions / Done) ----
+      var S2RD_LABELS = [
+        'Step 1 of 3 · Upload',
+        'Step 2 of 3 · Accounts',
+        'Step 3 of 3 · Transactions'
+      ];
+      var s2rdStep = 0, s2rdTaps = 0;
+      var s2rdKind = 'existing'; // 'existing' | 'create' | 'skip'
+      var s2rdMatchState = 'guess'; // 'guess' | 'confirmed' | 'picking' | 'picked:<name>'
+      var s2rdResolveTaps = 0;
+      var s2rdChoosePickedIcon = { 'ICICI Bank': 'ti-building-bank', 'Paytm Wallet': 'ti-wallet', 'Cash': 'ti-cash' };
+
+      function s2rdUploadBody() {
+        return 'Pick a CSV file. Tap &quot;Continue&quot; — first forced tap.';
+      }
+      function s2rdMatchCardHtml() {
+        if (s2rdMatchState === 'picking') {
+          return '<div class="matchcard"><div class="mchalves">' +
+            '<div class="mchalf left"><div class="mclbl">CSV account</div><div class="mcname">HDFC A/c XXXX1234</div></div>' +
+            '<div class="mchalf right"><div class="mclbl">Pick the right one</div></div>' +
+            '</div><div class="altpillrow">' +
+            ['ICICI Bank', 'Paytm Wallet', 'Cash'].map(function (a) {
+              return '<button class="altpill" onclick="s2rdPickAlt(\'' + a + '\')">' + a + '</button>';
+            }).join('') +
+            '</div></div>';
+        }
+        var confirmedName = s2rdMatchState.indexOf('picked:') === 0 ? s2rdMatchState.slice('picked:'.length) : 'HDFC Bank';
+        var isConfirmed = s2rdMatchState === 'confirmed' || s2rdMatchState.indexOf('picked:') === 0;
+        var icon = s2rdMatchState.indexOf('picked:') === 0 ? (s2rdChoosePickedIcon[confirmedName] || 'ti-building-bank') : 'ti-building-bank';
+        return '<div class="matchcard"><div class="mchalves">' +
+          '<div class="mchalf left"><div class="mclbl">CSV account</div><div class="mcname">HDFC A/c XXXX1234</div></div>' +
+          '<div class="mchalf right"><div class="mclbl">' + (isConfirmed ? 'Confirmed match' : 'Best-guess match') + '</div>' +
+          '<div class="mcacct"><div class="icn3" style="background:rgba(59,130,246,.15)"><i class="ti ' + icon + '" style="color:#3b82f6"></i></div><div class="mcname">' + confirmedName + (confirmedName === 'HDFC Bank' ? ' <span style="color:var(--text3);font-weight:500">•••1234</span>' : '') + '</div></div>' +
+          '</div></div>' +
+          (isConfirmed
+            ? '<div class="mcfoot"><div style="flex:1;font-size:10.5px;color:var(--success);font-weight:700;display:flex;align-items:center;gap:5px"><i class="ti ti-check"></i> Confirmed</div></div>'
+            : '<div class="mcfoot"><button class="cbtn" style="flex:none;padding:8px 12px" onclick="s2rdRejectMatch()">Not this account? ›</button><button class="cbtn primary" onclick="s2rdConfirmMatch()">Looks good ✓</button></div>') +
+          '</div>';
+      }
+      function s2rdAccountsBody() {
+        var pills = ['existing', 'create', 'skip'].map(function (k) {
+          var meta = { existing: ['ti-link', 'Map existing'], create: ['ti-square-plus', 'New account'], skip: ['ti-player-skip-forward', 'Skip'] }[k];
+          return '<button class="' + (s2rdKind === k ? 'active' : '') + '" onclick="s2rdSetKind(\'' + k + '\')"><i class="ti ' + meta[0] + '"></i>' + meta[1] + '</button>';
+        }).join('');
+        var body = '<div class="segpill">' + pills + '</div><div style="height:9px"></div>';
+        if (s2rdKind === 'existing') {
+          body += s2rdMatchCardHtml();
+        } else if (s2rdKind === 'create') {
+          body += '<div class="matchrow-mini resolved"><i class="ti ti-square-plus" style="color:var(--success)"></i> New account &quot;HDFC A/c XXXX1234&quot; will be created — resolved, no extra screen.</div>';
+        } else {
+          body += '<div class="matchrow-mini resolved"><i class="ti ti-player-skip-forward" style="color:var(--text2)"></i> This account&apos;s 12 rows will be excluded — resolved, no extra screen.</div>';
+        }
+        var maxTaps = s2rdKind === 'existing' ? (s2rdMatchState === 'picking' || s2rdMatchState.indexOf('picked:') === 0 ? 2 : '1–2') : 1;
+        body += '<div class="tapline" style="margin:10px auto 0;max-width:100%">Taps to resolve THIS account: <b>' + s2rdResolveTaps + '</b> (best case 1, worst case 2) — <button class="restartlink" onclick="s2rdResetResolve()">reset this demo</button></div>';
+        return body;
+      }
+      function s2rdSetKind(k) {
+        if (k !== s2rdKind) { s2rdResolveTaps++; s2rdKind = k; if (k !== 'existing') s2rdMatchState = 'guess'; }
+        s2rdRefreshAccountsStep();
+      }
+      function s2rdConfirmMatch() {
+        s2rdResolveTaps++;
+        s2rdMatchState = 'confirmed';
+        s2rdRefreshAccountsStep();
+      }
+      function s2rdRejectMatch() {
+        s2rdResolveTaps++;
+        s2rdMatchState = 'picking';
+        s2rdRefreshAccountsStep();
+      }
+      function s2rdPickAlt(name) {
+        s2rdResolveTaps++;
+        s2rdMatchState = 'picked:' + name;
+        s2rdRefreshAccountsStep();
+      }
+      function s2rdResetResolve() {
+        s2rdKind = 'existing'; s2rdMatchState = 'guess'; s2rdResolveTaps = 0;
+        s2rdRefreshAccountsStep();
+      }
+      function s2rdRefreshAccountsStep() {
+        if (s2rdStep === 1) document.getElementById('s2rd-body').innerHTML = s2rdAccountsBody();
+      }
+      function s2rdTransactionsBody() {
+        return '<div class="banner info" style="margin-bottom:9px"><i class="ti ti-info-circle"></i><div>Every tile below is pre-assigned a best-guess category. Fully-confident tiles stay collapsed — only the ones needing a real decision demand a tap.</div></div>' +
+          '<div class="plainrow"><i class="ti ti-check"></i> <span><b>231 other transactions</b> auto-matched from memory — collapsed, nothing to tap</span></div>' +
+          '<div class="cattile2" style="margin-top:6px">' +
+          '<div class="cthead"><span class="csrc">&quot;Freecharge Recharge&quot;</span><span class="carrow">→</span><span class="ctgt">Mobile &amp; DTH</span><span class="badge">Needs confirming</span></div>' +
+          '<div class="cfoot"><button class="cbtn" onclick="this.closest(\'.cattile2\').querySelector(\'.badge\').outerHTML=\'<span class=&quot;badge match&quot;>Confirmed</span>\'">Change</button><button class="cbtn primary" onclick="this.closest(\'.cattile2\').querySelector(\'.badge\').outerHTML=\'<span class=&quot;badge match&quot;>Confirmed</span>\'">Looks good</button></div>' +
+          '</div>' +
+          '<div class="cattile2" style="margin-top:8px">' +
+          '<div class="cthead"><span class="csrc">&quot;A/c to A/c&quot;</span><span class="carrow">→</span><span class="ctgt">Transfer / Lending</span><span class="confbadge low">Mixed confidence</span><span style="margin-left:auto;font-size:9px;color:var(--text3)">16 txns</span></div>' +
+          '<div style="border-top:1px dashed var(--border);margin-top:4px;padding-top:6px">' +
+          '<div class="txrowmini"><span class="tdesc">HDFC→ICICI, 12 Aug</span><span class="cptychip self">self-transfer</span></div>' +
+          '<div class="txrowmini"><span class="tdesc">To Rajesh S, ₹5,000</span><span class="cptychip">→ Rajesh S</span></div>' +
+          '<div class="txrowmini"><span class="tdesc">To Priya M, ₹2,500</span><span class="cptychip">→ Priya M</span></div>' +
+          '<div class="txrowmini"><span class="tdesc">Paytm topup, 14 Aug</span><span class="cptychip self">self-transfer</span></div>' +
+          '<div class="txrowmini"><span class="tdesc">To Amit K, ₹1,200</span><span class="cptychip">→ Amit K</span></div>' +
+          '<div style="font-size:9px;color:var(--text3);text-align:center;padding-top:6px">…and 11 more, each individually tagged — no separate top-level rows needed.</div>' +
+          '</div>' +
+          '<div class="cfoot"><button class="cbtn">Adjust</button><button class="cbtn primary">Looks good</button></div>' +
+          '</div>' +
+          '<div class="tapline" style="margin:10px auto 0;max-width:100%">Same 16 &quot;A/c to A/c&quot; rows that exploded into a wall of top-level Categories-stage decisions on the left — here they&apos;re <b>one tile</b>, with the counterparty surfaced as a per-row chip instead.</div>';
+      }
+      function s2rdDoneBody() {
+        return '<div class="banner info"><i class="ti ti-check"></i><div>247 transactions imported.</div></div>';
+      }
+      var S2RD_BODY_FNS = [s2rdUploadBody, s2rdAccountsBody, s2rdTransactionsBody];
+
+      function s2rdRender() {
+        var prog = document.getElementById('s2rd-prog');
+        var total = S2RD_LABELS.length + 1; // + Done
+        prog.innerHTML = S2RD_LABELS.concat(['Done']).map(function (_, i) {
+          return '<div class="seg ' + (i < s2rdStep ? 'done' : i === s2rdStep ? 'now' : '') + '"></div>';
+        }).join('');
+        if (s2rdStep < S2RD_LABELS.length) {
+          document.getElementById('s2rd-steplabel').textContent = S2RD_LABELS[s2rdStep];
+          document.getElementById('s2rd-body').innerHTML = S2RD_BODY_FNS[s2rdStep]();
+        } else {
+          document.getElementById('s2rd-steplabel').textContent = 'Step ' + total + ' of ' + total + ' · Done';
+          document.getElementById('s2rd-body').innerHTML = s2rdDoneBody();
+        }
+        document.getElementById('s2rd-back').disabled = s2rdStep === 0;
+        var next = document.getElementById('s2rd-next');
+        next.textContent = s2rdStep === S2RD_LABELS.length - 1 ? 'Import' : s2rdStep === S2RD_LABELS.length ? 'Done' : 'Continue';
+        next.disabled = s2rdStep === S2RD_LABELS.length;
+      }
+      function s2rdNext() {
+        if (s2rdStep < S2RD_LABELS.length) { s2rdStep++; s2rdTaps++; document.getElementById('s2rd-taps').textContent = s2rdTaps; s2rdRender(); }
+      }
+      function s2rdBack() {
+        if (s2rdStep > 0) { s2rdStep--; s2rdRender(); }
+      }
+      function s2rdRestart() {
+        s2rdStep = 0; s2rdTaps = 0; s2rdKind = 'existing'; s2rdMatchState = 'guess'; s2rdResolveTaps = 0;
+        document.getElementById('s2rd-taps').textContent = 0;
+        s2rdRender();
+      }
+      s2rdRender();
+
+      // ================= SECTION 3 =================
+      function s3SetView(name) {
+        ['cur', 'scrub', 'flat'].forEach(function (n) {
+          document.getElementById('s3-view-' + n).style.display = n === name ? 'flex' : 'none';
+        });
+        setToggle('s3-toggle', name);
+      }
+
+      var TXN_ROWS_HTML =
+        '<div class="datehdr">Today</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#ef4444"><i class="ti ti-tools-kitchen-2"></i></div><div class="txmid"><div class="t1">Zomato</div><div class="t2">Food &amp; Dining</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹450.00</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div class="txrow"><div class="ricn" style="background:#10b981"><i class="ti ti-briefcase"></i></div><div class="txmid"><div class="t1">Salary</div><div class="t2">Income</div></div><div class="txright"><div class="amt" style="color:var(--success)">+₹85,000.00</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div class="datehdr">Yesterday</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#3b82f6"><i class="ti ti-car"></i></div><div class="txmid"><div class="t1">Uber</div><div class="t2">Transport</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹210.00</div><div class="acc">Paytm Wallet</div></div></div>' +
+        '<div class="txrow"><div class="ricn" style="background:#10b981"><i class="ti ti-percentage"></i></div><div class="txmid"><div class="t1">Interest credit</div><div class="t2">Income</div></div><div class="txright"><div class="amt" style="color:var(--success)">+₹120.50</div><div class="acc">HDFC •••1234</div></div></div>' +
+        '<div class="datehdr">12 Aug</div>' +
+        '<div class="txrow"><div class="ricn" style="background:#f59e0b"><i class="ti ti-shopping-bag"></i></div><div class="txmid"><div class="t1">Amazon</div><div class="t2">Shopping</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹1,299.00</div><div class="acc">ICICI •••7788</div></div></div>' +
+        '<div class="txrow"><div class="ricn" style="background:#8b949e"><i class="ti ti-home"></i></div><div class="txmid"><div class="t1">Rent</div><div class="t2">Housing</div></div><div class="txright"><div class="amt" style="color:var(--danger)">-₹18,000.00</div><div class="acc">HDFC •••1234</div></div></div>';
+      document.getElementById('s3a-list').innerHTML = TXN_ROWS_HTML;
+      document.getElementById('s3c-list').innerHTML = TXN_ROWS_HTML;
+      document.getElementById('s3b-list').innerHTML = TXN_ROWS_HTML;
+
+      // ---- 3a: current modal (year + grid) ----
+      var s3aYear = 2026, s3aTaps = 0, s3aSelMonth = 7; // Aug = index 7
+      var S3A_MAX_YEAR = 2026;
+      function s3aOpen() {
+        s3aTaps++;
+        document.getElementById('s3a-taps').textContent = s3aTaps;
+        s3aRenderModal();
+      }
+      function s3aRenderModal() {
+        var grid = MONTHS_SHORT.map(function (m, i) {
+          var disabled = s3aYear === S3A_MAX_YEAR && i > 7;
+          var sel = s3aYear === 2026 && i === s3aSelMonth;
+          return '<button class="monthtile' + (sel ? ' sel' : '') + '" ' + (disabled ? 'disabled' : '') +
+            ' onclick="s3aPick(' + i + ')">' + m + '</button>';
+        }).join('');
+        document.getElementById('s3a-modal').innerHTML =
+          '<div class="backdrop"><div class="popup" style="width:100%;max-width:280px">' +
+          '<div class="phead"><div class="ptitle">Select Month</div><button class="pxbtn" onclick="s3aClose()">✕</button></div>' +
+          '<div class="pbody">' +
+          '<div class="yearrow"><button class="yearbtn" onclick="s3aYearStep(-1)"><i class="ti ti-chevron-left"></i></button><span class="yr">' + s3aYear + '</span><button class="yearbtn" ' + (s3aYear >= S3A_MAX_YEAR ? 'disabled' : '') + ' onclick="s3aYearStep(1)"><i class="ti ti-chevron-right"></i></button></div>' +
+          '<div class="monthgrid">' + grid + '</div>' +
+          '</div></div></div>';
+      }
+      function s3aYearStep(delta) {
+        s3aYear += delta;
+        s3aTaps++;
+        document.getElementById('s3a-taps').textContent = s3aTaps;
+        s3aRenderModal();
+      }
+      function s3aPick(i) {
+        s3aSelMonth = i;
+        s3aTaps++;
+        document.getElementById('s3a-taps').textContent = s3aTaps;
+        document.getElementById('s3a-chiplabel').textContent = MONTHS_SHORT[i] + ' ' + s3aYear;
+        s3aClose();
+      }
+      function s3aClose() { document.getElementById('s3a-modal').innerHTML = ''; }
+
+      // ---- 3b: persistent scrub bar (6 visible chips at real 390px width) ----
+      var S3B_MONTHS = ['Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026', 'Jul 2026', 'Aug 2026', 'Sep 2026'];
+      var s3bSelected = 'Aug 2026', s3bTaps = 0;
+      function s3bRenderTrack() {
+        var track = document.getElementById('s3b-track');
+        track.innerHTML = S3B_MONTHS.map(function (m) {
+          var future = m === 'Sep 2026';
+          return '<button class="scrubchip' + (m === s3bSelected ? ' active' : '') + '" ' + (future ? 'disabled style="opacity:.35"' : '') +
+            ' onclick="s3bPick(\'' + m + '\')">' + m.split(' ')[0] + '</button>';
+        }).join('');
+      }
+      function s3bPick(m) {
+        s3bSelected = m;
+        s3bTaps++;
+        document.getElementById('s3b-taps').textContent = s3bTaps;
+        s3bRenderTrack();
+      }
+      function s3bScroll(dir) {
+        document.getElementById('s3b-track').scrollBy({ left: dir * 90, behavior: 'smooth' });
+      }
+      function s3bJumpOpen() {
+        s3bTaps++;
+        document.getElementById('s3b-taps').textContent = s3bTaps;
+        document.getElementById('s3b-modal').innerHTML =
+          '<div class="backdrop"><div class="popup" style="width:100%;max-width:280px">' +
+          '<div class="phead"><div class="ptitle">Jump to month</div><button class="pxbtn" onclick="document.getElementById(\'s3b-modal\').innerHTML=\'\'">✕</button></div>' +
+          '<div class="pbody"><div class="yearrow"><button class="yearbtn"><i class="ti ti-chevron-left"></i></button><span class="yr">2025</span><button class="yearbtn"><i class="ti ti-chevron-right"></i></button></div>' +
+          '<div class="monthgrid">' + MONTHS_SHORT.map(function (m) {
+            return '<button class="monthtile" onclick="s3bJumpPick(\'' + m + ' 2025\')">' + m + '</button>';
+          }).join('') + '</div></div></div></div>';
+      }
+      function s3bJumpPick(m) {
+        s3bSelected = m;
+        s3bTaps++;
+        document.getElementById('s3b-taps').textContent = s3bTaps;
+        document.getElementById('s3b-modal').innerHTML = '';
+        document.getElementById('s3b-track').innerHTML =
+          '<button class="scrubchip active" onclick="s3bRenderTrack()">' + m.split(' ')[0] + " '" + m.split(' ')[1].slice(2) + '</button>';
+      }
+      s3bRenderTrack();
+
+      // ---- 3c: flat scrollable list ----
+      var s3cTaps = 0, s3cSelected = 'Aug 2026';
+      function s3cMonthList() {
+        var out = [];
+        var y = 2026, m = 7; // start at Aug 2026, walk back 24 months
+        for (var n = 0; n < 24; n++) {
+          out.push(MONTHS_SHORT[m] + ' ' + y);
+          m--;
+          if (m < 0) { m = 11; y--; }
+        }
+        return out;
+      }
+      function s3cOpen() {
+        s3cTaps++;
+        document.getElementById('s3c-taps').textContent = s3cTaps;
+        var rows = s3cMonthList().map(function (label) {
+          return '<button class="monthrow' + (label === s3cSelected ? ' sel' : '') + '" onclick="s3cPick(\'' + label + '\')"><span>' + label + '</span><i class="ti ti-check"></i></button>';
+        }).join('');
+        document.getElementById('s3c-modal').innerHTML =
+          '<div class="backdrop"><div class="popup" style="width:100%;max-width:280px">' +
+          '<div class="phead"><div class="ptitle">Select Month</div><button class="pxbtn" onclick="document.getElementById(\'s3c-modal\').innerHTML=\'\'">✕</button></div>' +
+          '<div class="pbody"><div class="monthlist">' + rows + '</div></div></div></div>';
+      }
+      function s3cPick(label) {
+        s3cSelected = label;
+        s3cTaps++;
+        document.getElementById('s3c-taps').textContent = s3cTaps;
+        document.getElementById('s3c-chiplabel').textContent = label;
+        document.getElementById('s3c-modal').innerHTML = '';
+      }
+    </script>
+  </body>
+</html>

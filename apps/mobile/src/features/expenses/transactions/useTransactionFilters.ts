@@ -43,8 +43,27 @@ export function useTransactionFilters(
   // Item 26 (docs/plans/real-device-testing-pass.md Phase 2) — multi-select, OR match, same shape as
   // `eventFilters` above.
   const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
-  const [monthFilter, setMonthFilter] = useState<string | null>(null);
+  // Item 42 (docs/plans/real-device-testing-pass.md Phase 4) — defaults to the current month instead of
+  // "All time": every open of the Expenses tab used to load/decrypt/filter/group the ENTIRE transaction
+  // history (no pagination), which is both a worse default (you usually care about recent spend, not
+  // all-time) and a real performance cost at high transaction counts. The top-bar month chip
+  // (`TransactionsSlice.tsx`) and `FilterModal`'s Month section both already render off this same
+  // `monthFilter` value, so they correctly show the active month rather than "All" as soon as this
+  // changes — no separate wiring needed there.
+  const [monthFilter, setMonthFilter] = useState<string | null>(() => toMonthYearKey());
   const [paymentModeMismatchOnly, setPaymentModeMismatchOnly] = useState(false);
+
+  // Item 43 (docs/plans/real-device-testing-pass.md Phase 5) — the month-scrub-bar's chip range
+  // needs the earliest recorded transaction's month as its floor. No existing helper computes this
+  // (confirmed during investigation), so this is a simple one-time `Math.min` scan over the already-
+  // loaded `expenses` array — memoized on `expenses` so it only re-runs when the underlying data
+  // actually changes, not on every render/filter change.
+  const earliestMonth = useMemo(() => {
+    if (expenses.length === 0) return toMonthYearKey();
+    let min = Infinity;
+    for (const e of expenses) if (e.date < min) min = e.date;
+    return toMonthYearKey(new Date(min));
+  }, [expenses]);
 
   const activeFilterCount =
     (monthFilter ? 1 : 0) +
@@ -169,6 +188,7 @@ export function useTransactionFilters(
     setTagFilters,
     monthFilter,
     setMonthFilter,
+    earliestMonth,
     paymentModeMismatchOnly,
     setPaymentModeMismatchOnly,
     activeFilterCount,

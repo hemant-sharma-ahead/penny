@@ -14,6 +14,13 @@ interface CarryForwardExcludedProps {
   rows: ParsedRow[];
 }
 
+/** Same render-cap reasoning as `TileRowList.tsx`/`TransactionsStage.tsx`'s tile-list cap
+ *  (docs/ARCHITECTURE.md's "unbounded `.map()` over bulk-imported data" rule) — this list is real
+ *  MoneyView carry-forward-marker data straight from the parsed file, not a small fixed set, so it
+ *  gets the same defensive cap even though it's typically modest in practice (2026-08-21). */
+const INITIAL_RENDER_CAP = 60;
+const LOAD_MORE_BATCH = 60;
+
 /**
  * RN port of apps/web-react/src/features/import/review/CarryForwardExcluded.tsx. Surfaces
  * MoneyView-style monthly carry-forward markers ("Cash Forward" et al) that were excluded from the
@@ -25,7 +32,9 @@ interface CarryForwardExcludedProps {
 export function CarryForwardExcluded({ rows }: CarryForwardExcludedProps) {
   const theme = useThemeColors();
   const [expanded, setExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_CAP);
   if (rows.length === 0) return null;
+  const remaining = rows.length - visibleCount;
 
   return (
     <View
@@ -49,7 +58,7 @@ export function CarryForwardExcluded({ rows }: CarryForwardExcludedProps) {
             double-count it.
           </Text>
           <View>
-            {rows.map((row, i) => (
+            {rows.slice(0, visibleCount).map((row, i) => (
               <View
                 key={i}
                 className={`flex-row items-center justify-between gap-2 py-1.5 ${i > 0 ? 'border-t border-dashed border-theme' : ''}`}
@@ -63,6 +72,13 @@ export function CarryForwardExcluded({ rows }: CarryForwardExcludedProps) {
                 </Text>
               </View>
             ))}
+            {remaining > 0 && (
+              <Pressable onPress={() => setVisibleCount((v) => v + LOAD_MORE_BATCH)} className="pt-1.5">
+                <Text className="text-[10.5px] font-semibold" style={{ color: theme.primary }}>
+                  Show {Math.min(remaining, LOAD_MORE_BATCH)} more ({remaining} left)
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
       )}
