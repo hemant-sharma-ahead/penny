@@ -14,6 +14,15 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: '1.5.0',
+    highlights: [
+      'Account screen redesigned — grouped by type, tap the balance for actions, more real bank logos and colors.',
+      'Backup & restore reliability fixes — Drive and on-device backups now include accounts and more of your data, plus a new "Overwrite Drive" option when an old backup doesn\'t match this device.',
+      'New About Penny screen and a dedicated Privacy Promise page.',
+      'Analytics: fixed an Income-section grouping bug, reordered sections so Income leads, and smoother month-filter scrolling.'
+    ]
+  },
+  {
     version: '1.4.0',
     highlights: [
       'Privacy mode simplified — tap the icon to switch straight between Safe and Open, no menu.',
