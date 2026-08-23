@@ -9,7 +9,8 @@ import type { ParsedRow } from '@/core/import/importParsers';
 import type {
   AccountResolutionOrSkip,
   AccountActionOrSkip,
-  CardAccountMergeSuggestion
+  CardAccountMergeSuggestion,
+  CardAccountMergeAmbiguity
 } from '@/core/import/importAccountResolution';
 import type { RowTriage } from './useImport';
 import { AccountsSection } from './review/AccountsSection';
@@ -30,6 +31,8 @@ interface AccountsStageProps {
   parsedRows: ParsedRow[];
   rowTriage: RowTriage[];
   cardMergeSuggestions: CardAccountMergeSuggestion[];
+  /** Ambiguous card→account merges (2026-08-23, item 70) — see `AccountsSection.tsx`'s own doc comment. */
+  cardMergeAmbiguities: CardAccountMergeAmbiguity[];
   onAcceptCardMerge: (cardSourceName: string, targetSourceName: string, paymentMode: string) => void;
   onDismissCardMerge: (cardSourceName: string) => void;
   /** Accepted card→account merges, keyed by card sourceName → target sourceName (code-review fix) —
@@ -104,6 +107,7 @@ export function AccountsStage({
   parsedRows,
   rowTriage,
   cardMergeSuggestions,
+  cardMergeAmbiguities,
   onAcceptCardMerge,
   onDismissCardMerge,
   cardMergeTargets,
@@ -181,6 +185,7 @@ export function AccountsStage({
         parsedRows={parsedRows}
         rowTriage={rowTriage}
         cardMergeSuggestions={cardMergeSuggestions}
+        cardMergeAmbiguities={cardMergeAmbiguities}
         onAcceptCardMerge={onAcceptCardMerge}
         onDismissCardMerge={onDismissCardMerge}
         cardMergeTargets={cardMergeTargets}

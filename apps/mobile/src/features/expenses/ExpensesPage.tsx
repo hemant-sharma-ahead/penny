@@ -184,6 +184,9 @@ export function ExpensesPage() {
         linkedCountByEventHashtag={linkedCountByEventHashtag}
         saveExpense={saveExpense}
         accountsNeedingAttention={accountsNeedingAttention}
+        accounts={accounts}
+        iouLinkByTxn={iouLinkByTxn}
+        groups={groups}
       />
 
       <TabStrip

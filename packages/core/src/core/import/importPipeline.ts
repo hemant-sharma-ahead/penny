@@ -111,6 +111,11 @@ export interface ResolvedPreviewRow {
    *  comparison against the actual matched `Expense` (date/amount/description/category/account), not just
    *  a static "same date, amount & description" caption with nothing concrete backing it. */
   matchedExpenseId?: string;
+  /** Raw "IOU Person" text carried straight through from `ParsedRow.iouPerson` (2026-08-23, real-
+   *  device-testing-pass item 77) — resolution into a real `Person` + `LedgerEntry` happens at commit
+   *  time (`useImport.ts`'s `commitAndImport`, mirroring `seedIouFromExpense`'s linking logic), not here;
+   *  this field only survives the row transforms between parsing and writing. */
+  iouPersonName?: string;
 }
 
 export type ConfirmedCategoryMap = Map<
@@ -139,11 +144,24 @@ export type ConfirmedCategoryMap = Map<
  *  category-move override without an explicit tag still inherits the group's own tag. Deliberately
  *  narrower than a full `CategoryAction`: a row-level override only ever supports "move to this EXISTING
  *  category" (via the same `CategoryPickerModal` already used for group-level "Map Existing"), never
- *  'create'/'skip'/'transfer' — those remain exclusively group-level decisions. */
+ *  'create'/'skip' — those remain exclusively group-level decisions.
+ *
+ *  2026-08-23 (item 71 follow-up, apps/mobile only): `type`/`toAccountId` are a NARROW, ADDITIVE
+ *  exception to "never 'transfer'" above — set only by `useImport.ts`'s `acceptCashWithdrawalTransfer`,
+ *  when a cash-withdrawal suggestion (now split one-per-source-account, never a whole category group) is
+ *  accepted, so that row commits as a transfer to the chosen Cash account regardless of its own category
+ *  group's OWN decided-state — the group can no longer represent "this ONE sub-group of my rows goes to
+ *  account A, that other sub-group goes to account B" as a single group-level `CategoryAction`.
+ *  `buildResolvedPreviewRowsByIndex` below is the ONLY consumer that honors these two fields;
+ *  `buildResolvedPreviewRows` (the name-keyed sibling `apps/web-react`'s frozen pipeline still uses)
+ *  deliberately does NOT — that keeps its "an override never means transfer" contract exactly as
+ *  documented above for every existing/future web caller, since web never sets these fields anyway. */
 export interface RowOverride {
   categoryId?: string;
   categoryName?: string;
   tag?: string;
+  type?: 'transfer';
+  toAccountId?: string;
 }
 
 /** Builds the confirmed source-category-name → final-category map from the user's reviewed
@@ -247,7 +265,8 @@ export function buildResolvedPreviewRows(
       accountId: resolveAccountId(row),
       skipped: override ? false : !!resolved?.skip,
       duplicate,
-      sourceRef: ref
+      sourceRef: ref,
+      ...(row.iouPerson && { iouPersonName: row.iouPerson })
     };
   });
 }
@@ -438,10 +457,16 @@ export function buildResolvedPreviewRowsByIndex(
       date: row.date,
       amount: row.amount,
       description: row.description,
-      type: override?.categoryId ? row.type : (resolved?.type ?? row.type),
-      ...(!override?.categoryId && resolved?.type === 'transfer' && resolved.toAccountId
-        ? { toAccountId: resolved.toAccountId }
-        : {}),
+      // An override's own `type: 'transfer'` (2026-08-23, item 71 follow-up — see `RowOverride`'s doc
+      // comment) takes precedence even over its own `categoryId` presence, which otherwise always forces
+      // a row back to its natural expense/income type; every other override (a plain category move)
+      // keeps that original "override never means transfer" behavior unchanged.
+      type: override?.type === 'transfer' ? 'transfer' : override?.categoryId ? row.type : (resolved?.type ?? row.type),
+      ...(override?.type === 'transfer' && override.toAccountId
+        ? { toAccountId: override.toAccountId }
+        : !override?.categoryId && resolved?.type === 'transfer' && resolved.toAccountId
+          ? { toAccountId: resolved.toAccountId }
+          : {}),
       ...(row.paymentMode && { paymentMode: row.paymentMode }),
       hashtags,
       ...(row.notes && { notes: row.notes }),
@@ -451,7 +476,8 @@ export function buildResolvedPreviewRowsByIndex(
       skipped: override ? false : !!resolved?.skip,
       duplicate,
       sourceRef: ref,
-      ...(matchedExpenseId ? { matchedExpenseId } : {})
+      ...(matchedExpenseId ? { matchedExpenseId } : {}),
+      ...(row.iouPerson && { iouPersonName: row.iouPerson })
     };
   });
 }

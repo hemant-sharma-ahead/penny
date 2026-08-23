@@ -5,7 +5,7 @@
 // (2026-08-05) — naming the subpath directly removes that ambiguity rather than trusting resolution.
 import { Uint8ArrayWriter, Uint8ArrayReader, ZipWriter, configure } from '@zip.js/zip.js/index-native.js';
 
-export { exportExpensesAsCsv } from './exportCsv.shared';
+export { exportExpensesAsCsv, type ExportCsvContext } from './exportCsv.shared';
 
 /**
  * RN port of core/export/exportCsv.ts. Web's `downloadCsv`/`downloadProtectedZip` build a browser

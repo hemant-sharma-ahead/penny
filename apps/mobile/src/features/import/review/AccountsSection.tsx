@@ -10,7 +10,8 @@ import type { ParsedRow } from '@/core/import/importParsers';
 import type {
   AccountResolutionOrSkip,
   AccountActionOrSkip,
-  CardAccountMergeSuggestion
+  CardAccountMergeSuggestion,
+  CardAccountMergeAmbiguity
 } from '@/core/import/importAccountResolution';
 import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
 import type { AccountInput } from '~/hooks/useAccountForm';
@@ -40,6 +41,11 @@ interface AccountsSectionProps {
    *  sharing a Bank Name with another resolution. Visually distinct from the same-file/fuzzy suggestions
    *  (info-blue credit-card icon) since it's a different signal (shared bank identity + card type). */
   cardMergeSuggestions?: CardAccountMergeSuggestion[];
+  /** Ambiguous card→account merges (2026-08-23, item 70) — a card-type row whose Bank Name matches 2+
+   *  OTHER non-card resolutions, so no single confident target exists. Rendered with a distinct
+   *  "Ambiguous · pick one" treatment instead of `cardMergeSuggestions`' confident "Merge → X" banner —
+   *  see this component's own render logic below for exactly what changes. */
+  cardMergeAmbiguities?: CardAccountMergeAmbiguity[];
   onAcceptCardMerge?: (cardSourceName: string, targetSourceName: string, paymentMode: string) => void;
   onDismissCardMerge?: (cardSourceName: string) => void;
   /** Accepted card→account merges, keyed by the card's own source name, valued by its target's — see
@@ -97,6 +103,7 @@ export function AccountsSection({
   parsedRows,
   rowTriage,
   cardMergeSuggestions = [],
+  cardMergeAmbiguities = [],
   onAcceptCardMerge,
   onDismissCardMerge,
   cardMergeTargets,
@@ -146,6 +153,16 @@ export function AccountsSection({
     if (target.suggestion.kind === 'existing') return target.suggestion.accountName;
     if (target.suggestion.kind === 'create') return target.suggestion.suggestedName;
     return sourceName;
+  }
+
+  /** Renders an ambiguous card merge's candidate list as prose — `"X" or "Y"` for 2, `"X", "Y" or "Z"`
+   *  for 3+ (2026-08-23, item 70 — "scales to 3+ same-bank candidates by just growing the banner's
+   *  account list", per the approved mockup's residual note). Each name is already resolved to its
+   *  current display name via `resolveMergeTargetDisplayName` by the caller. */
+  function joinCandidateNames(names: string[]): string {
+    const quoted = names.map((n) => `"${n}"`);
+    if (quoted.length <= 1) return quoted[0] ?? '';
+    return `${quoted.slice(0, -1).join(', ')} or ${quoted[quoted.length - 1]}`;
   }
 
   /** Accepts a same-file "written two ways" merge suggestion — 2026-08-20, item 41 flow redesign: since
@@ -237,14 +254,27 @@ export function AccountsSection({
         const rowSuggestion = r.suggestion;
         const matchedAccount =
           rowSuggestion.kind === 'existing' ? accounts.find((a) => a.id === rowSuggestion.accountId) : undefined;
+        // Ambiguous card→account merge (2026-08-23, item 70) — a card-type row whose Bank Name matches
+        // 2+ real candidates, so no confident guess exists. Only ambiguous UNTIL the user has explicitly
+        // resolved this row to a real account via the dropdown (`rowSuggestion.kind === 'existing'`) —
+        // once picked, `matchedAccount` above already reflects that real choice, so this row renders
+        // exactly like any other resolved row from then on (never permanently stuck ambiguous).
+        const ambiguousMerge =
+          rowSuggestion.kind === 'existing'
+            ? undefined
+            : cardMergeAmbiguities.find((a) => a.cardSourceName === r.sourceName);
+        const isAmbiguous = !!ambiguousMerge;
         // Smart best-guess prefill (2026-08-20) — folds the old separate "same account, written
         // differently?" banner directly into the paired card: a normalized-fuzzy match against a real
         // existing account, shown as the dropdown's pre-filled value even though nothing's been picked
-        // yet. Still requires the same Confirm tap as any other pick — never auto-applied.
-        const fuzzyMatch = rowSuggestion.kind === 'create' ? r.fuzzyExistingMatch : undefined;
+        // yet. Still requires the same Confirm tap as any other pick — never auto-applied. Suppressed
+        // entirely when ambiguous (item 70) — showing ANY pre-filled guess here (even a fuzzy one) is
+        // exactly the false-confidence bug this fix removes; the row goes back to the same dashed "Choose
+        // account…" placeholder any other unresolved row shows.
+        const fuzzyMatch = !isAmbiguous && rowSuggestion.kind === 'create' ? r.fuzzyExistingMatch : undefined;
         const fuzzyGuessAccount =
           !matchedAccount && fuzzyMatch ? accounts.find((a) => a.id === fuzzyMatch.accountId) : undefined;
-        const displayedAccount = matchedAccount ?? fuzzyGuessAccount;
+        const displayedAccount = isAmbiguous ? undefined : (matchedAccount ?? fuzzyGuessAccount);
         const confirmed = !!matchedAccount && !!touchedSourceNames?.has(r.sourceName);
 
         function handleConfirm() {
@@ -346,9 +376,33 @@ export function AccountsSection({
         return (
           <View
             key={r.sourceName}
-            className="rounded-xl border overflow-hidden bg-surface"
-            style={{ borderColor: confirmed ? theme.border : theme.warning }}
+            className="rounded-xl overflow-hidden bg-surface"
+            style={{
+              borderWidth: 1,
+              borderColor: confirmed ? theme.border : theme.warning,
+              // Distinct "Ambiguous · pick one" visual treatment (2026-08-23, item 70) — a dashed border,
+              // matching the approved mockup, so this row reads as structurally different from a plain
+              // unconfirmed row (solid warning border) rather than just "also needs a decision".
+              borderStyle: isAmbiguous ? 'dashed' : 'solid'
+            }}
           >
+            {isAmbiguous && (
+              <View className="flex-row items-center px-2.5 pt-2.5">
+                <View
+                  className="flex-row items-center gap-1 rounded-full px-2 py-0.5"
+                  style={{ backgroundColor: tint(theme.warning, 22) }}
+                >
+                  <Icon name="ti-git-branch" size={9} color={theme.warning} />
+                  <Text
+                    className="text-[7.5px] font-extrabold uppercase tracking-wide"
+                    style={{ color: theme.warning }}
+                  >
+                    Ambiguous · pick one
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {isFirstOfMerge && (
               <View className="p-3 gap-2 border-b border-dashed border-theme">
                 <Text className="text-[10px]" style={{ color: theme.success }}>
@@ -475,6 +529,30 @@ export function AccountsSection({
                   <Text className="text-[9.5px] flex-1" style={{ color: theme.info }}>
                     Merging sets this row&apos;s payment mode to {cardMerge.paymentMode} instead of creating a new
                     account
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Ambiguous card→account merge banner (2026-08-23, item 70) — replaces the confident
+             *  `cardMerge` banner above (mutually exclusive: `suggestCardAccountMerges` never returns a
+             *  suggestion for a card this component is treating as ambiguous) with a single merged
+             *  message that keeps BOTH pieces of context the old design would otherwise split across two
+             *  separate banners: "this looks like a card" (why it was flagged at all) and "which of your
+             *  N same-bank accounts it could be" (why it's ambiguous). No accept button — the row's
+             *  existing "Matched account" dropdown above is the only picker; Confirm below stays disabled
+             *  until a real pick is made. */}
+            {ambiguousMerge && (
+              <View
+                className="px-2.5 py-2 gap-1.5 border-t border-dashed border-theme"
+                style={{ backgroundColor: tint(theme.warning, 10) }}
+              >
+                <View className="flex-row items-start gap-1.5">
+                  <Icon name="ti-credit-card" size={12} color={theme.warning} />
+                  <Text className="text-[10px] flex-1" style={{ color: theme.warning }}>
+                    Looks like a card — could be for{' '}
+                    {joinCandidateNames(ambiguousMerge.candidateSourceNames.map(resolveMergeTargetDisplayName))}. Pick
+                    the right one above.
                   </Text>
                 </View>
               </View>

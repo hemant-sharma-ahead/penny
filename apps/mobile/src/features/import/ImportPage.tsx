@@ -160,6 +160,7 @@ export function ImportPage() {
               parsedRows={imp.parsedRows}
               rowTriage={imp.rowTriage}
               cardMergeSuggestions={imp.cardMergeSuggestions}
+              cardMergeAmbiguities={imp.cardMergeAmbiguities}
               onAcceptCardMerge={imp.acceptCardAccountMerge}
               onDismissCardMerge={imp.dismissCardAccountMerge}
               cardMergeTargets={imp.cardMergeTargets}
@@ -235,7 +236,7 @@ export function ImportPage() {
               retrying={retrying}
               discardedCount={imp.doneSummary.discardedCount}
               stillUnresolvedCount={imp.doneSummary.stillUnresolvedCount}
-              accountSkippedCount={imp.doneSummary.accountSkippedCount}
+              accountSkipped={imp.doneSummary.accountSkipped}
               cancelled={imp.importCancelled}
               cancelledRemainingCount={imp.cancelledRemainingCount}
               importError={imp.importError}

@@ -1,10 +1,12 @@
 # Real-device testing pass — fixes & feature gaps
 
-**Status:** 🚧 In progress — Phases 1 and 2 (all quick + moderate fixes, items 1-68 except item
-42's perf half) ✅ done. Phases 1-3 (original numbering) committed at `e801e14`; everything since,
-through this doc's latest update (items 28-68), is implemented in the working tree pending its own
-commit. Remaining: item 42's Home perf half (Phase 3), and Phases 4-6 (auto-refresh audit, gesture
-survey, new-user home experience spec) — all still not started.
+**Status:** 🚧 In progress — items 1-80 ✅ done, implemented and verified, pending their own commit
+(items 1-68 already committed at `e801e14`, `a97afc8`, `e1ef947`, `c688870`, `d87fda7`; the 8th
+batch, 69-75, and the 9th batch, 76-80 — a Penny CSV export/import + Groups-leave review, mockup:
+`docs/mockups/proposals/penny-csv-mapping-and-group-leave-v1.html` — are both implemented in the
+working tree as of this doc update, not yet committed). Also still remaining: item 42's Home perf
+half (Phase 3), and Phases 4-6 (auto-refresh audit, gesture survey, new-user home experience spec)
+— all still not started.
 
 This is a living punch-list doc, not a phase/track plan in the usual `docs/plans/` sense — it
 tracks a batch of real-device testing findings (bugs + feature gaps) rather than a single
@@ -33,10 +35,16 @@ items 1-18, then 19-20, then 21-27 (all in Phase 1/2), then a 4th batch — item
 the first batches were live on a real device running longer with real data volume, then a 5th
 batch (45-48) and 6th batch (49-58) found while testing the 4th batch's fixes, then a 7th batch
 (59-68) found in a later real-device testing session covering backup polish, a person-picker
-keyboard bug, several small UI fixes, an IPO redesign, and a Cashew CSV import correctness bug.
-**Item numbers never collide across batches** (each batch continues the count rather than
-restarting it), but note items 15 and 16 (new-user home experience, Phase 6) are unrelated to the
-nearby-numbered items from later batches.
+keyboard bug, several small UI fixes, an IPO redesign, and a Cashew CSV import correctness bug,
+then an 8th batch (69-75) from a dedicated review of the MoneyView CSV import flow specifically —
+loading feedback, bank/card merge ambiguity, a cash-withdrawal-to-transfer preview, carry-forward
+exclusion, linked-transfer coverage, skipped-account accounting, and the duplicates-bucket view,
+then a 9th batch (76-80) from a dedicated review of Penny's own CSV export/import round-trip and a
+related Groups question it surfaced — export column scope (Account, IOU person, group sharing),
+Penny-format import parity with Cashew/MoneyView, dropping YNAB, fuller Custom-format column
+mapping, and what happens locally when a user leaves a Group. **Item numbers never collide across
+batches** (each batch continues the count rather than restarting it), but note items 15 and 16
+(new-user home experience, Phase 6) are unrelated to the nearby-numbered items from later batches.
 
 **Execution order:** overkill-feature removal first, then the quick/easy fixes, then moderate
 feature work, then the genuinely big items (Home perf, app-wide auto-refresh audit, gesture
@@ -116,6 +124,18 @@ exists).
 | —     | 66           | Backup & Restore screen: colored provider icons + primary-button correction | 2   | ✅ Done     |
 | —     | 67           | IPO tab: GMP edge-stripe RAG redesign + SME filter                       | 2       | ✅ Done     |
 | —     | 68           | Cashew CSV import: linked transfers not imported + double-categorization + 2-entry balance-correction handling | 2 | ✅ Done |
+| —     | 69           | MoneyView CSV import: no loading feedback between file-select and Accounts stage | 1 | ✅ Done |
+| —     | 70           | MoneyView CSV import: bank/card merge suggestion falsely confident across 2+ same-bank accounts | 2 | ✅ Done |
+| —     | 71           | MoneyView CSV import: cash-withdrawal → transfer conversion has no rich from/to preview | 2 | ✅ Done |
+| —     | 72           | MoneyView CSV import: carry-forward exclusion should also exclude the first occurrence | 1 | ✅ Done |
+| —     | 73           | MoneyView CSV import: confirm linked self-account transfers collapse to a single entry | 1 | ✅ Done |
+| —     | 74           | MoneyView CSV import: skipped-account summary should break down by account | 1 | ✅ Done |
+| —     | 75           | MoneyView/Cashew CSV import: "Already Imported" bucket should group + get a "see all" popup like the tiles | 2 | ✅ Done |
+| —     | 76           | Penny CSV export: add Account, IOU Person, and an informational shared-to-group note           | 1       | ✅ Done |
+| —     | 77           | Penny CSV import: resolve the new IOU Person column into a real Person + ledger link             | 1       | ✅ Done |
+| —     | 78           | Remove the YNAB import format                                                                   | 1       | ✅ Done |
+| —     | 79           | Custom-format mapping screen should show every Penny-supported field, including already-auto-mapped ones | 2 | ✅ Done |
+| —     | 80           | Groups: leaving a group should keep local history visible read-only, not delete it immediately   | 2       | ✅ Done |
 | 39    | 42 (perf)    | Home: dedupe redundant full-table scans/decrypts + skeleton loading      | 3       | Not started |
 | 40    | 14           | App-wide auto-refresh / stale-data audit                                | 4       | Not started |
 | 41    | 5            | Mobile gesture survey                                                   | 5       | Not started |
@@ -438,9 +458,116 @@ exists).
   restore after the fix to actually heal (the fix only takes effect going forward) — confirmed
   working end-to-end on a real device.
 
-Verification: `tsc -b` (both packages), scoped `eslint`, and the full `packages/core` vitest suite
-all pass throughout. Full sweep (prettier, mobile-wide eslint, PII gate) still deferred to commit
-time.
+### 8th batch: MoneyView CSV import review — items with no UI change (mockup-gated items 70/71/75 are in Phase 2 below)
+
+**69. No loading feedback between file-select and the Accounts stage**
+
+- Confirmed: `UploadStep.tsx`'s `pickFile()` → `useImport.ts`'s `importFromText()` (full CSV parse)
+  → `goToAccountsStage()` (account resolution, an O(rows) scan) all ran synchronously in one call
+  stack, with no loading/spinner state anywhere in between — a large file froze the UI with zero
+  feedback before jumping straight to the Accounts stage.
+- Fix: `UploadStep.tsx` now shows a full-screen `PennyLoader` the instant a file's text is read,
+  with the actual `onText(text)` call deferred via `setTimeout(0)` so React gets a chance to paint
+  the loader before the synchronous parse+resolve blocks the JS thread (same pattern already used
+  by `ExpensesPage.tsx`'s `analyticsReady`). `showParsing` is derived (`parsing && !parseError`)
+  rather than reset via its own effect, avoiding both a `react-hooks/set-state-in-effect` lint
+  violation and any risk of the loader getting stuck. A feedback fix, not a "make parsing faster"
+  fix, as intended.
+
+**72. Carry-forward exclusion should also exclude the first occurrence**
+
+- `identifyRedundantCarryForwardRows` (`importCarryForward.ts`) used to keep the chronologically
+  earliest carry-forward row per account out of the excluded set. Per explicit decision, it now
+  excludes every carry-forward row unconditionally, with no "keep the earliest" exception — the
+  stale rationale comment was removed rather than left to rot. `CarryForwardExcluded.tsx`'s caption
+  updated to match (no longer claims the earliest row "is imported"). `importCarryForward.test.ts`
+  rewritten for the new all-excluded behavior.
+- Opening balance still stays `0` for accounts created this way, matching every other
+  CSV-import-created account (`AccountsSection.tsx`/`useImport.ts` both hardcode
+  `openingBalance: 0` on create, unchanged) — no new seeding behavior was added, as decided.
+
+**73. Confirm linked self-account transfers collapse to a single entry for MoneyView too**
+
+- Not an observed bug — a proactive ask, since this exact class of bug (item 68) was real for
+  Cashew. The transfer-pairing/collapse mechanism (`detectSelfAccountMovementPairs` in
+  `importTransferPairing.ts` → `applyConfirmedTransferPairs` in `importPipeline.ts`) is already
+  generic, format-agnostic infrastructure shared by every CSV format — not Cashew-specific code
+  that needed porting or duplicating for MoneyView.
+- New `packages/core/tests/import/moneyviewTransferRegression.test.ts` — a synthetic (no real
+  personal data), MoneyView-shaped CSV with a genuine two-leg self-account transfer, parsed via the
+  real `parseByFormat`, asserting it collapses to exactly one `type:'transfer'` row — proof of
+  coverage, not a bug fix.
+
+**74. Skipped-account summary should break down by account**
+
+- Confirmed: rows belonging to a skipped account were already correctly excluded from
+  categorization and from the final import — `rowsForCategorization`/`rowIndicesByDirectionalKey`
+  (`useImport.ts`) filter them out before category resolution ever runs; that part needed no
+  change. The actual gap was the Done-screen summary
+  (`accountSkippedRowCount`/`accountSkippedCount`), which only ever surfaced one combined number.
+- Fix: `useImport.ts` now computes `accountSkippedBreakdown` (`{accountName, count}[]`) instead of
+  a bare count; `doneSummary.accountSkippedCount` became `doneSummary.accountSkipped`, threaded
+  through `ImportProgressStep.tsx`/`ImportPage.tsx`. `DoneStep.tsx` renders "142 transactions
+  skipped — Freecharge (89), Paytm (53)" instead of a bare "142 skipped."
+
+### 9th batch: Penny CSV export/import review — items with no UI change (mockup-gated items 79/80 are in Phase 2 below)
+
+Grounded in a dedicated review of Penny's own CSV export/import round-trip, prompted by the
+question "why doesn't exporting a Penny CSV carry IOU/Group data" — see items 79/80 below for the
+rest of that same review's findings (one of which, 80, is a Groups fix unrelated to CSV itself,
+surfaced while answering the "what happens if the user left the group" question).
+
+**76. Penny CSV export: add Account, IOU Person, and an informational shared-to-group note**
+
+- Confirmed: `exportExpensesAsCsv` (`packages/core/src/core/export/exportCsv.shared.ts`) wrote
+  exactly 8 columns — Date, Amount, Description, Category, Type, PaymentMode, Tags, Notes — with no
+  Account column, no IOU-person link, and no group-sharing info. No doc/comment anywhere stated
+  this scope as deliberate; it was a real gap.
+- Fix: added a new optional 3rd param, `context?: ExportCsvContext` (`{ accounts?, iouPersonByExpenseId?, groupNameById? }`)
+  to `exportExpensesAsCsv`, and 3 new trailing columns — Account, IOU Person, Shared To Group.
+  `accounts` resolves `expense.accountId` → name; `iouPersonByExpenseId` is a pre-built
+  `Map<expenseId, personName>` (via `LedgerEntry.linkedTxnId` → `personId` → `Person.name`, built by
+  the caller); `groupNameById` resolves `Expense.shareWith`'s group ids to names, comma-joined when
+  shared to multiple — explicitly informational, not re-import-actionable (see item 77). Threaded
+  through both `exportCsv.ts` (web) and `exportCsv.native.ts`, and through the actual call sites
+  (`ExpenseExportModal.tsx`, `ExpensesHeader.tsx`, `ExpensesPage.tsx`) to build the context. Added
+  synonym recognition for the 3 new headers to `FORMAT_SYNONYMS.penny`/`FORMAT_COLUMNS.penny`
+  (`importParsers.ts`) so a re-imported Penny CSV can match them by name. New test:
+  `packages/core/tests/export/exportCsv.test.ts`.
+
+**77. Penny CSV import: resolve the new IOU Person column into a real Person + ledger link**
+
+- Confirmed: the generic import pipeline already treats `'penny'` identically to Cashew/MoneyView,
+  with zero bespoke branching anywhere in `importPipeline.ts`/`importAccountResolution.ts`/
+  `importCategoryResolution.ts`/`importWriter.ts` — item 76's new Account column resolves through
+  the existing Accounts stage for free, confirmed, no new code needed there.
+- Fix: `ColumnMapping`/`ParsedRow` gained `iouPerson` (and a `sharedToGroupNote`, folded straight
+  into `notes` during parsing rather than surfaced as its own actionable field — appended, never
+  overwriting existing notes). `ResolvedPreviewRow.iouPersonName` carried through both
+  `buildResolvedPreviewRows`/`buildResolvedPreviewRowsByIndex` in `importPipeline.ts`. On commit,
+  `useImport.ts`'s IOU-info pass treats a row's `iouPerson` as a direct signal (wins over the
+  existing category-mandatory IOU flow), resolving/creating the `Person` via the canonical
+  `getOrCreatePerson` — the pre-existing local ad-hoc person-resolver closure in `useImport.ts`
+  (which had been missed by the earlier `personResolver.ts` consolidation) was replaced with it
+  rather than kept as a second parallel resolver, converging both flows onto one implementation.
+  Drive-by fix folded in: the Custom-format confirm path's hardcoded `'auto'` date-hint literal
+  became a real `FORMAT_DATE_HINT.custom` lookup.
+
+**78. Remove the YNAB import format**
+
+- Confirmed thin scope, then removed: `'ynab'` dropped from `ImportFormat`, `IMPORT_FORMATS`,
+  `FORMAT_LABELS`, `FORMAT_COLUMNS`, `FORMAT_SYNONYMS`, `FORMAT_DATE_HINT` (`importParsers.ts`);
+  stale YNAB doc-comment references in `importMatcher.ts` updated; the YNAB fixture/describe block
+  removed from `importParsers.test.ts`. `UploadStep.tsx`'s format tiles derive purely from
+  `IMPORT_FORMATS`/`FORMAT_LABELS`, so no separate UI change was needed.
+
+Verification: `tsc -b` clean for both packages; scoped `eslint --max-warnings 0` clean on every
+touched file (including 10 pre-existing lint errors found in two test files this batch happened to
+touch — `groupsService.test.ts`'s dynamic-delete and 3 non-null assertions, `importParsers.test.ts`'s
+6 non-null assertions — both traced via `git log` to commits `2481a5a`/`e801e14`, long predating
+this batch; fixed while here rather than left to block the eventual commit); full `packages/core`
+vitest suite passes. Full sweep (prettier, mobile-wide eslint,
+PII gate) still deferred to commit time.
 
 ---
 
@@ -768,6 +895,141 @@ drive-foreign-blob-override-v1.html`).
   1015/16 numbers above). Per explicit privacy instruction, no real content from the user's personal
   Cashew export was ever copied into any fixture/test/comment — synthetic data only, matching the
   existing `cashew-april-synthetic.csv` precedent.
+
+### 8th batch: MoneyView CSV import review — mockup-gated items (70/71/75; the 4 non-UI items from this batch are in Phase 1 above)
+
+Grounded in a dedicated review of the MoneyView CSV import flow — see items 69/72/73/74 above for
+the rest of that same review's findings. Mockup: `docs/mockups/proposals/
+moneyview-import-review-v1.html` (one file, all three items, iterated to a final locked-in design
+before any code changed).
+
+**70. Bank/card merge suggestion is falsely confident across 2+ same-bank accounts**
+
+- Confirmed: `suggestCardAccountMerges` (`importAccountResolution.ts`) matched purely by normalized
+  bank name/key and picked the first non-card resolution sharing that key — first-match-wins, with
+  no disambiguation when the user has 2+ existing accounts for the same bank (e.g. two separate SBI
+  accounts).
+- Fix: new `findAmbiguousCardAccountMerges` export (+ `CardAccountMergeAmbiguity` type) alongside a
+  shared `cardMergeCandidatesBySource` helper — a card only gets a confident suggestion when
+  exactly one non-card resolution shares its bank key; 2+ goes to the new ambiguous list instead.
+  `AccountsSection.tsx`'s row (via a new `cardMergeAmbiguities` prop, threaded through
+  `AccountsStage.tsx`/`useImport.ts`/`ImportPage.tsx`) forces the "Matched account" field blank
+  (suppressing the fuzzy prefill too) for an ambiguous row, drops the old confident hint text +
+  "Merge → X" button, and shows a merged banner naming every real candidate ("Looks like a card —
+  could be for 'X' or 'Y'. Pick the right one above.") with a dashed "Ambiguous · pick one" border
+  ribbon; Confirm stays disabled until the user picks manually via the existing dropdown (unchanged
+  — it already lists every account).
+- Note: ambiguity is computed from resolutions already derived from this file's own account rows
+  (not a fresh scan of every real `Account`), since that's what `suggestCardAccountMerges` already
+  had in hand — this matches the reported bug shape exactly (both real accounts appear as separate
+  CSV account rows in the same file) but wouldn't catch the rarer case of a second same-bank account
+  that never appears anywhere in this particular file at all.
+
+**71. Cash-withdrawal → transfer conversion has no rich from/to preview**
+
+- Confirmed: once a cash-withdrawal suggestion was accepted, `CashWithdrawalSuggestionCard.tsx`
+  collapsed to a one-line text banner with just an Undo link — no account icons, no amount
+  breakdown — unlike a real detected linked-transfer pair's `TransferPairCard.tsx` treatment.
+- Fix: the accepted state now renders a `TransferPairCard`-style from→to card (source bank account
+  → the chosen cash account) with each row's own date + amount listed inline for the first 4 rows
+  — `TileRowList.tsx`'s existing auto-collapse threshold, now exported as `INLINE_ROW_THRESHOLD`
+  instead of an inline literal so it's genuinely shared — and a "See all" beyond that opening the
+  new `CashWithdrawalSeeAllModal.tsx` (a plain virtualized date+amount list, same `Modal` shell as
+  `TransactionBrowserModal.tsx`, no side-by-side pairing since these aren't duplicate rows).
+  `CashWithdrawalSuggestion` (`useImport.ts`) now carries each row's detail plus a
+  `fromAccountResolved`/`fromAccountLabel`.
+- Confirmed unchanged (verified in `useImport.ts`'s doc comment on `cashWithdrawalTargets`): each
+  row still commits as its own individual transfer with its own date/amount through the existing
+  write path — this was purely a review-time presentation change, nothing about the commit
+  semantics moved.
+- **Follow-up fix, found on real-device/RN-Web testing**: the "Multiple accounts" fallback above
+  wasn't a rare edge case — it was the common case (real report: a 217-row "Cash Withdrawal"
+  category spanning several real bank accounts, collapsed into one vague card). New
+  `packages/core/src/core/import/importCashWithdrawalGrouping.ts` (`groupCashWithdrawalCandidates`,
+  unit-tested) partitions each category group's rows by resolved source account *first*, so it now
+  produces one suggestion per `(fullKey, sourceAccount)` pair — a separate, accurate card per real
+  account — instead of one suggestion with a fallback label. Each suggestion carries a unique
+  compound `key`; `cashWithdrawalTargets`/`dismissedCashWithdrawalKeys` and
+  `acceptCashWithdrawalTransfer`/`dismissCashWithdrawalSuggestion`/`undoCashWithdrawalTransfer` are
+  all now scoped to that `key`, so accepting/dismissing/undoing one account's card never touches a
+  sibling card sharing the same original category. `importPipeline.ts`'s `RowOverride` gained
+  optional `type?: 'transfer'`/`toAccountId?: string` so an accepted card's rows redirect via the
+  same `rowOverrides` mechanism `moveRowsToCategory` already uses (correct readiness/counts for
+  free) — `apps/web-react`'s frozen, name-keyed sibling pipeline function was deliberately left
+  untouched, since it never sets these new fields. One visible side effect worth a look on-device:
+  accepted rows now surface in a synthetic "Bank Transfer" tile (`MovedRowsTile.tsx`, the same
+  mechanism `moveRowsToCategory` already produces elsewhere) rather than marking the original "Cash
+  Withdrawal" tile itself decided — existing, already-correct app behavior being reused, not new
+  bespoke UI, but a real behavior change from before this follow-up.
+
+**75. "Already Imported" duplicates bucket should group like the tiles + get a "see all" popup**
+
+- Confirmed: `DuplicatesBucket.tsx` was one flat, ungrouped list with its own "Show N more"
+  pagination (`INITIAL_RENDER_CAP`/`LOAD_MORE_BATCH`, both 60), never grouped by CSV category the
+  way the Needs-Review/Ready/Skipped tiles are.
+- Fix: `DuplicatesBucket.tsx` rewritten to group by `row.categoryName` (the same key `CategoryTile`
+  groups by) into collapsible tiles matching `CategoryTile`'s header style, with the existing 60/60
+  cap now applied **per group** rather than once for the whole bucket, and a "See all N →" per
+  group opening the new `DuplicatesSeeAllModal.tsx` — the same side-by-side CSV-row/matched-expense
+  pairing the bucket already rendered today, just scoped to one group inside a modal (reusing
+  `TransactionBrowserModal.tsx`'s shell, stripped of checkboxes/categorize-footer/month-scrub, none
+  of which apply here). The paired-card row itself was extracted into a new shared
+  `DuplicatePairRow.tsx` rather than duplicated between the inline list and the modal. Purely a
+  reorganization — no new actions/capabilities beyond what already existed, as decided.
+
+### 9th batch: Penny CSV export/import review — mockup-gated items (79/80; the 3 non-UI items from this batch are in Phase 1 above)
+
+Grounded in the same dedicated review as items 76/77/78 above. Both items below change something
+the user sees, so per this doc's mockup-first rule neither gets touched until a mockup (one file,
+covering both) is built and signed off.
+
+**79. Custom-format mapping screen should show every Penny-supported field**
+
+- Confirmed: `MapColumnsStep.tsx` hardcoded exactly 6 target concepts — Date, Description,
+  Amount (or Debit/Credit split), Category, Account, Notes — while `ColumnMapping`
+  (`importMatcher.ts`) actually models 14 fields, deliberately not read from `PENNY_FIELDS` per its
+  own doc comment, so an auto-matched field outside those 6 was never shown to the user at all.
+- Fix: `MapColumnsStep.tsx` rewritten per the finalized mockup — Required (Date, Description,
+  Amount/split) and Optional-commonly-used (Category, Account, Notes, plus newly-added Payment
+  mode) stay flat; the 4 rarer fields (Tags, a Transaction-type text/income-flag segmented toggle,
+  Bank name, Account type) live in a collapsible "More fields" disclosure reusing
+  `DuplicatesBucket.tsx`'s chevron-header pattern, auto-expanding with an "N auto-matched" `Badge`
+  whenever the initial guess pre-filled anything inside it — never letting a pre-filled value hide
+  unseen. Confirmed (via separate investigation): closes a real parity gap, since nothing
+  downstream of `ColumnMapping` branches on which format produced it and the date-parsing hint
+  already resolves identically for `custom`/`cashew`/`moneyview` — a fully-populated Custom mapping
+  can now behave identically to picking the Cashew/MoneyView preset directly, which wasn't
+  reachable before this fix since these 6 fields had no manual picker at all.
+
+**80. Groups: leaving a group should keep local history visible read-only**
+
+- Confirmed, traced directly through the code (not assumed): `leaveGroup()`
+  (`packages/core/src/core/groups/groupsService.ts`) deleted the local `groups` record and
+  membership row immediately on leave, leaving `group_events` orphaned — unreachable once the
+  owning `groups` record was gone, so the group and its entire history simply vanished from the
+  device the moment the user left. Real gap, not a documented decision.
+- Fix: `GroupStatus` gained a `'left'` value alongside the existing `'active'`/`'closed'`
+  mechanism; `leaveGroup()` now only deletes the caller's own `group_members` row and sets
+  `status: 'left'` on the group — the `groups` record and its `group_events` survive untouched.
+  `GroupDashboard.tsx`: a left group hides the settings gear entirely (nothing to manage once your
+  own membership is gone), shows a real `Banner` ("You left this group. You can still see
+  everything that happened before — it just won't update, and you can't add anything new."), all
+  balance/member/feed content renders frozen (add-expense/settle-up/invite/edit actions hidden,
+  reusing the existing `canAct = status === 'active'` gate `FeedRow` already had rather than a
+  parallel check), and balance labels switch to past tense. The existing `closed` group's old
+  plain-text explanatory line was unified onto the same real `Banner` component too (own copy,
+  settings gear stays visible there since reopening is still a real action) — per explicit
+  decision, for one consistent "why is this read-only" visual language app-wide. Pull-to-refresh
+  left enabled on a `left` group, no special-casing, as decided.
+- Also fixed, a real pre-existing bug found while investigating where else groups surface:
+  `HomeGroupsCard.tsx`'s group list (`activeGroups.length ? activeGroups : groups`) was silently
+  hiding any non-active group whenever at least one active group existed — already broken for
+  `closed` groups today, and would have done the same to `left`. Now always shows every group with
+  an inline "· closed"/"· you left" suffix; the same status-suffix fix applied to
+  `ContextSwitcher.tsx`'s group-switcher menu, which had no status indicator at all. Fixed for both
+  statuses in one pass, per explicit decision, rather than only unblocking `left`.
+- `GroupMembersModal.tsx`'s "Leave this group?" confirmation copy updated to reflect that history
+  stays visible read-only, rather than implying the group disappears.
 
 ---
 

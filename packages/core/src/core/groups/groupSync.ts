@@ -67,7 +67,9 @@ async function nextLamport(groupId: string): Promise<number> {
 export async function appendGroupEvent(groupId: string, type: GroupEventType, payload: unknown): Promise<GroupEvent> {
   const group = await groupsRepo.get(groupId);
   if (!group) throw new Error(`Unknown group ${groupId}`);
-  if (group.status !== 'active') throw new Error('Group is closed');
+  if (group.status !== 'active') {
+    throw new Error(group.status === 'left' ? 'You left this group' : 'Group is closed');
+  }
   const now = Date.now();
   const event: GroupEvent = {
     id: crypto.randomUUID(),

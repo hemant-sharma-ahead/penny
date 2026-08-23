@@ -36,7 +36,8 @@ interface ImportProgressStepProps {
   retrying: boolean;
   discardedCount: number;
   stillUnresolvedCount: number;
-  accountSkippedCount: number;
+  /** Per-skipped-account breakdown (2026-08-23, item 74) — see `DoneStep.tsx`'s own doc comment. */
+  accountSkipped: { accountName: string; count: number }[];
   cancelled: boolean;
   cancelledRemainingCount: number;
   /** Set only when `commitAndImport()` itself threw something genuinely UNEXPECTED (2026-08-14, severe
@@ -80,7 +81,7 @@ export function ImportProgressStep({
   retrying,
   discardedCount,
   stillUnresolvedCount,
-  accountSkippedCount,
+  accountSkipped,
   cancelled,
   cancelledRemainingCount,
   importError,
@@ -111,7 +112,7 @@ export function ImportProgressStep({
         retrying={retrying}
         discardedCount={discardedCount}
         stillUnresolvedCount={stillUnresolvedCount}
-        accountSkippedCount={accountSkippedCount}
+        accountSkipped={accountSkipped}
         cancelled={cancelled}
         cancelledRemainingCount={cancelledRemainingCount}
         importError={importError}

@@ -78,6 +78,9 @@ export function GroupDashboard({ group }: { group: Group }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const bump = useCallback(() => setRefreshKey((k) => k + 1), []);
   const closed = group.status === 'closed';
+  const left = group.status === 'left';
+  // Same gate FeedRow already uses below — covers both read-only statuses with zero parallel logic.
+  const canAct = group.status === 'active';
 
   useEffect(() => {
     let cancelled = false;
@@ -156,20 +159,44 @@ export function GroupDashboard({ group }: { group: Group }) {
           <Text className="text-xs text-tertiary">
             {members.length} member{members.length === 1 ? '' : 's'}
             {closed && ' · closed'}
+            {left && ' · you left'}
           </Text>
         </View>
-        <Pressable
-          onPress={() => setModal('members')}
-          accessibilityLabel="Group settings"
-          className="w-9 h-9 items-center justify-center rounded-lg"
-        >
-          <Icon name="ti-settings" size={19} color={theme.textSecondary} />
-        </Pressable>
+        {/* Settings gear — hidden entirely once you've left: your own membership row is gone, so
+            there's nothing left to manage (no invite, no role changes, no delete, and "Leave group"
+            itself must never be offered again on a group you've already left). Still shown for
+            `closed` — reopening is a real action. */}
+        {!left && (
+          <Pressable
+            onPress={() => setModal('members')}
+            accessibilityLabel="Group settings"
+            className="w-9 h-9 items-center justify-center rounded-lg"
+          >
+            <Icon name="ti-settings" size={19} color={theme.textSecondary} />
+          </Pressable>
+        )}
       </View>
+
+      {/* Read-only explanation — closed and left share one Banner-based visual language, own copy per
+          state (item 80). Sits above the balance card since it's the first thing that answers "why is
+          this frozen". */}
+      {closed && (
+        <Banner variant="info" icon="ti-lock" title="This group is closed.">
+          You can still see everything that happened before, but nothing new can be added.
+        </Banner>
+      )}
+      {left && (
+        <Banner variant="info" icon="ti-door-exit" title="You left this group.">
+          You can still see everything that happened before — it just won&apos;t update, and you can&apos;t add anything
+          new.
+        </Banner>
+      )}
 
       {/* Your balance */}
       <View className="bg-surface border border-theme rounded-2xl p-4 items-center">
-        <Text className="text-xs text-secondary">Your balance in this group</Text>
+        <Text className="text-xs text-secondary">
+          {left ? 'Your balance when you left' : 'Your balance in this group'}
+        </Text>
         <Text
           className="text-3xl font-bold mt-1"
           style={{ color: myNet > 0 ? theme.success : myNet < -0.99 ? theme.danger : theme.textPrimary }}
@@ -177,7 +204,15 @@ export function GroupDashboard({ group }: { group: Group }) {
           {Math.abs(myNet) < 1 ? '₹0' : formatCurrency(Math.abs(myNet))}
         </Text>
         <Text className="text-xs text-tertiary mt-0.5">
-          {Math.abs(myNet) < 1 ? 'all settled up' : myNet > 0 ? "you're owed" : 'you owe'}
+          {Math.abs(myNet) < 1
+            ? 'all settled up'
+            : left
+              ? myNet > 0
+                ? 'you were owed'
+                : 'you owed'
+              : myNet > 0
+                ? "you're owed"
+                : 'you owe'}
         </Text>
       </View>
 
@@ -189,12 +224,9 @@ export function GroupDashboard({ group }: { group: Group }) {
         </Banner>
       )}
 
-      {/* Actions */}
-      {closed ? (
-        <Text className="text-center text-xs text-tertiary -mt-1">
-          This group is settled &amp; closed — reopen it from settings to add more.
-        </Text>
-      ) : (
+      {/* Actions — hidden for both read-only states; the Banner above already explains why (closed's
+          old plain-text "reopen it from settings" line was folded into that Banner, per item 80). */}
+      {!closed && !left && (
         <View className="flex-row gap-2">
           <View className="flex-1">
             <Button icon="ti-plus" fullWidth onPress={() => setModal('add')}>
@@ -234,9 +266,13 @@ export function GroupDashboard({ group }: { group: Group }) {
                 ? { text: 'written off', color: theme.textTertiary }
                 : settled
                   ? { text: 'settled up', color: theme.textTertiary }
-                  : net > 0
-                    ? { text: `owes you ${formatCurrency(net)}`, color: theme.success }
-                    : { text: `you owe ${formatCurrency(-net)}`, color: theme.danger };
+                  : left
+                    ? net > 0
+                      ? { text: `owed you ${formatCurrency(net)}`, color: theme.success }
+                      : { text: `you owed ${formatCurrency(-net)}`, color: theme.danger }
+                    : net > 0
+                      ? { text: `owes you ${formatCurrency(net)}`, color: theme.success }
+                      : { text: `you owe ${formatCurrency(-net)}`, color: theme.danger };
             return (
               <View key={m.id} className="px-4 py-3 flex-row items-center gap-3">
                 <View className="w-8 h-8 rounded-full bg-surface-3 items-center justify-center">
@@ -261,14 +297,14 @@ export function GroupDashboard({ group }: { group: Group }) {
                       {label.text}
                     </Text>
                   </View>
-                  {!closed && !isMe && writtenOff && settlementId && (
+                  {canAct && !isMe && writtenOff && settlementId && (
                     <Pressable onPress={() => void handleUndoWriteOff(settlementId)}>
                       <Text className="text-[11px] font-medium" style={{ color: theme.primary }}>
                         Undo write-off
                       </Text>
                     </Pressable>
                   )}
-                  {!closed && !isMe && !writtenOff && Math.abs(net) >= 1 && (
+                  {canAct && !isMe && !writtenOff && Math.abs(net) >= 1 && (
                     <Pressable
                       onPress={() => {
                         setSettleWith(m.userId);

@@ -122,6 +122,24 @@ Use these shared building blocks so a new screen feels familiar. Cohesion across
   both GMP on open IPOs and the real listing-gain figure on listed ones), `Card.tsx`'s `style` prop
   supports the stripe. Reach for this over a plain colored figure/pill when the metric's *degree* (not
   just its direction) is the thing worth signalling at a glance across a whole list of cards.
+- **Collapsible "More fields" disclosure** (2026-08-23) — a bordered card with a tinted, chevron-header
+  `Pressable` ("More fields" + count/chevron, `ti-chevron-down`/`ti-chevron-up`) that expands onto a plain
+  `theme.surface` body; auto-expands on mount (rather than defaulting closed) whenever anything inside it
+  was already auto-filled, with an "N auto-matched" `Badge` in the header so a pre-filled value is never
+  hidden from view unseen. First used for `DuplicatesBucket.tsx`'s own per-category groups, reused as-is
+  for `MapColumnsStep.tsx`'s rarer Custom-import fields (Tags/Type/Bank name/Account type). Reach for this
+  over a plain always-visible field list when a screen has a required/commonly-used tier plus a longer
+  tail of rarer fields that would otherwise make the common case feel cluttered — the auto-expand-if-
+  populated rule is what keeps it from ever functioning as a way to quietly hide something the user
+  should see.
+- **Unified read-only `Banner` for a frozen/settled entity** (2026-08-23) — when an entity has more than
+  one distinct "why can't I edit this" reason (e.g. a group that's `closed` vs. one the user `left`), give
+  each its own copy but render both through the **same** `Banner` component/placement rather than one real
+  `Banner` for one state and a plain text line for another — a user landing on either state should get the
+  same visual weight and "this is deliberately frozen" language, not a stronger signal for one reason than
+  the other. Reference: `GroupDashboard.tsx`'s `closed`/`left` banners (`docs/features/groups.md`'s
+  "Leaving a group" section) — `closed`'s previous plain-text explanatory line was folded into a real
+  `Banner` specifically to close this inconsistency.
 
 ---
 

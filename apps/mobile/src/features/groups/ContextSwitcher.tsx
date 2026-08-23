@@ -132,6 +132,7 @@ export function ContextSwitcher({ variant = 'bar' }: { variant?: 'bar' | 'inline
                 key={g.id}
                 icon={TYPE_ICON[g.type] ?? 'ti-users-group'}
                 label={g.name || 'Group'}
+                suffix={g.status === 'closed' ? ' · closed' : g.status === 'left' ? ' · you left' : undefined}
                 active={g.id === activeContext}
                 onPress={() => choose(g.id)}
                 right={<BalancePill net={summaries[g.id]?.myNet ?? 0} />}
@@ -191,12 +192,17 @@ export function ContextSwitcher({ variant = 'bar' }: { variant?: 'bar' | 'inline
 function MenuRow({
   icon,
   label,
+  suffix,
   active,
   onPress,
   right
 }: {
   icon: string;
   label: string;
+  /** " · closed" / " · you left" — same inline status suffix as HomeGroupsCard's group list, so
+   *  switching into a closed/left group from this menu doesn't look identical to an active one until
+   *  the dashboard itself loads. */
+  suffix?: string;
   active: boolean;
   onPress: () => void;
   right?: ReactNode;
@@ -213,6 +219,7 @@ function MenuRow({
       </View>
       <Text className="flex-1 text-sm font-medium text-primary" numberOfLines={1}>
         {label}
+        {suffix && <Text className="text-[11px] text-tertiary font-normal">{suffix}</Text>}
       </Text>
       {active ? <Icon name="ti-check" size={15} color={theme.primary} /> : right}
     </Pressable>

@@ -965,7 +965,7 @@ export interface SyncCursor {
 // All three stores are DMK-encrypted like every other store and ride recovery via BACKUP_STORES.
 
 export type GroupType = 'family' | 'trip' | 'roommates' | 'other';
-export type GroupStatus = 'active' | 'closed';
+export type GroupStatus = 'active' | 'closed' | 'left';
 /** `full` = a joiner can decrypt all prior epochs; `from_join` = only the epoch active at join onward. */
 export type GroupHistoryVisibility = 'full' | 'from_join';
 export type GroupRole = 'owner' | 'admin' | 'member';

@@ -38,10 +38,12 @@ interface TransactionsStageProps {
    *  Transactions-stage row-group data, just triggered by a different signal (a single-leg cash/ATM
    *  withdrawal category vs. a two-row same-file pairing). */
   cashWithdrawalSuggestions: CashWithdrawalSuggestion[];
+  /** Keyed by `CashWithdrawalSuggestion.key` (2026-08-23, item 71 follow-up — one per source account
+   *  within a category, not the shared `fullKey` alone). */
   cashWithdrawalTargets: Map<string, { accountId: string; accountName: string }>;
-  onAcceptCashWithdrawalTransfer: (fullKey: string, accountId: string, accountName: string) => void;
-  onDismissCashWithdrawalSuggestion: (fullKey: string) => void;
-  onUndoCashWithdrawalTransfer: (fullKey: string) => void;
+  onAcceptCashWithdrawalTransfer: (key: string, accountId: string, accountName: string) => void;
+  onDismissCashWithdrawalSuggestion: (key: string) => void;
+  onUndoCashWithdrawalTransfer: (key: string) => void;
   /** Creates a real `Account` immediately — backs the cash-withdrawal suggestion card's "+ Create a
    *  Cash account" sub-flow. See `useImport.ts`'s `createAccount` doc comment. */
   createAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
@@ -335,10 +337,10 @@ export function TransactionsStage({
           <View className="gap-2">
             {cashWithdrawalSuggestions.map((s) => (
               <CashWithdrawalSuggestionCard
-                key={s.fullKey}
+                key={s.key}
                 suggestion={s}
                 accounts={accounts}
-                target={cashWithdrawalTargets.get(s.fullKey)}
+                target={cashWithdrawalTargets.get(s.key)}
                 onAccept={onAcceptCashWithdrawalTransfer}
                 onDismiss={onDismissCashWithdrawalSuggestion}
                 onUndo={onUndoCashWithdrawalTransfer}

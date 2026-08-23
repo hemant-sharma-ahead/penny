@@ -117,6 +117,10 @@ IOU tab) until that screen's hook happened to reload — typing the same name in
 `core/iou/personResolver.ts`, that always re-reads `personsRepo` fresh (never a caller-supplied array,
 generalizing the pattern `useBankImport.ts`'s own `resolvePerson` already used correctly) — all three
 call sites now point at it. Backs both the person-name type-ahead above and the duplicate-name fix.
+A 4th independent ad-hoc resolver — inside the generic CSV-import flow's `useImport.ts`, missed by the
+2026-08-18 consolidation above — was found and converged onto `getOrCreatePerson` too (2026-08-23, see
+`docs/features/expenses.md`'s Penny CSV export/import review entry), while wiring up a re-imported Penny
+CSV's new "IOU Person" column to actually create/link a real `Person` + `LedgerEntry`.
 
 **Totals and Net Worth exclude archived persons.** The "Owed to you" / "You owe" strip is computed from
 `activeBalances` (`useIou` filters `!isArchived`), and Home's `netIou` sums only `activePersonIds`

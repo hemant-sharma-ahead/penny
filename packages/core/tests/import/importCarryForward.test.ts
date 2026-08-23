@@ -14,46 +14,58 @@ function row(overrides: Partial<ParsedRow> & { date: number }): ParsedRow {
 }
 
 describe('identifyRedundantCarryForwardRows', () => {
-  it('keeps only the earliest carry-forward row per account, flagging the rest as redundant', () => {
+  it('excludes every carry-forward row for an account, including the chronologically earliest one (item 72)', () => {
     const rows = [
       row({ date: new Date('2023-01-01').getTime(), account: 'cash' }),
       row({ date: new Date('2022-11-01').getTime(), account: 'cash' }),
       row({ date: new Date('2022-12-01').getTime(), account: 'cash' })
     ];
-    const redundant = identifyRedundantCarryForwardRows(rows);
-    // Earliest is index 1 (Nov) — indices 0 (Jan) and 2 (Dec) are redundant.
-    expect(redundant.has(1)).toBe(false);
-    expect(redundant.has(0)).toBe(true);
-    expect(redundant.has(2)).toBe(true);
-    expect(redundant.size).toBe(2);
+    const excluded = identifyRedundantCarryForwardRows(rows);
+    expect(excluded.size).toBe(3);
+    expect(excluded.has(0)).toBe(true);
+    expect(excluded.has(1)).toBe(true);
+    expect(excluded.has(2)).toBe(true);
   });
 
-  it('treats each account independently — not a single global "keep only one" cut', () => {
+  it('treats each account independently, excluding every carry-forward row per account', () => {
     const rows = [
       row({ date: new Date('2022-10-01').getTime(), account: 'cash' }),
       row({ date: new Date('2022-10-01').getTime(), account: 'hdfc-bank' }),
       row({ date: new Date('2022-11-01').getTime(), account: 'cash' }),
       row({ date: new Date('2022-11-01').getTime(), account: 'hdfc-bank' })
     ];
-    const redundant = identifyRedundantCarryForwardRows(rows);
-    // Each account's own earliest (index 0 for cash, index 1 for hdfc-bank) survives independently.
-    expect(redundant.has(0)).toBe(false);
-    expect(redundant.has(1)).toBe(false);
-    expect(redundant.has(2)).toBe(true);
-    expect(redundant.has(3)).toBe(true);
-    expect(redundant.size).toBe(2);
+    const excluded = identifyRedundantCarryForwardRows(rows);
+    expect(excluded.size).toBe(4);
+    expect([0, 1, 2, 3].every((i) => excluded.has(i))).toBe(true);
   });
 
-  it('excludes nothing when an account has only a single occurrence', () => {
+  it('excludes a carry-forward row even when it is the sole occurrence for its account (item 72 — no earliest-row exception anymore)', () => {
     const rows = [
       row({ date: new Date('2022-10-01').getTime(), account: 'cash' }),
       row({ date: new Date('2022-10-15').getTime(), account: 'hdfc-bank', categoryName: 'Groceries', type: 'expense' })
     ];
-    const redundant = identifyRedundantCarryForwardRows(rows);
-    expect(redundant.size).toBe(0);
+    const excluded = identifyRedundantCarryForwardRows(rows);
+    expect(excluded.size).toBe(1);
+    expect(excluded.has(0)).toBe(true);
+    expect(excluded.has(1)).toBe(false);
   });
 
-  it('regression: the real MoneyView sample row (account `cash`, amount 530, "Cash Forward", the file\'s first timestamp) is never flagged when it is the only occurrence', () => {
+  it('never flags a row whose category name does not look like a carry-forward marker', () => {
+    const rows = [
+      row({
+        date: new Date('2022-10-01T00:00:00').getTime(),
+        amount: 530,
+        description: 'Groceries',
+        categoryName: 'Groceries',
+        type: 'expense',
+        account: 'cash'
+      })
+    ];
+    const excluded = identifyRedundantCarryForwardRows(rows);
+    expect(excluded.size).toBe(0);
+  });
+
+  it('excludes a carry-forward row with no account column at all (grouping key falls back to a shared empty string, but the row is still excluded regardless of grouping)', () => {
     const rows: ParsedRow[] = [
       {
         date: new Date('2022-10-01T00:00:00').getTime(),
@@ -61,11 +73,10 @@ describe('identifyRedundantCarryForwardRows', () => {
         description: 'Cash Forward',
         categoryName: 'Cash Forward',
         type: 'income',
-        account: 'cash',
         hashtags: []
       }
     ];
-    const redundant = identifyRedundantCarryForwardRows(rows);
-    expect(redundant.size).toBe(0);
+    const excluded = identifyRedundantCarryForwardRows(rows);
+    expect(excluded.size).toBe(1);
   });
 });

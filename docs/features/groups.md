@@ -37,12 +37,15 @@ groups they've been shown but a "Claim a username to use Groups" CTA in place of
   history) — irreversible, distinct from close/reopen (a status flip either the owner or an admin can do).
 - **Leave / remove / change a member's role** — blocked server-side if it would leave the group with
   active members but **zero remaining admin/owner** (a 409 with an explanatory message), unless it's the
-  lone remaining member leaving (nothing left to be "admin-less" for).
+  lone remaining member leaving (nothing left to be "admin-less" for). **Leaving keeps the group's history
+  on-device, read-only** (fixed 2026-08-23, see below) — it no longer deletes the local group and its
+  event history the moment you leave.
 - **Promote a personal IOU person to a group** — see [`docs/features/iou.md`](iou.md)'s
   `PromoteToGroupWizard.tsx` entry; the reverse direction (personal ledger → new Group) lives there since
   it's initiated from the IOU screen, not from Groups.
 - Settled/closed groups keep their history visible but **immutable** — every edit/flag/delete action is
-  disabled the moment a group's status isn't `active`.
+  disabled the moment a group's status isn't `active`. A group you've **left** behaves the same way
+  (read-only, not gone) — see "Leaving a group" below.
 
 > **Settle-up never touches money.** Same as personal IOU — Penny stores no UPI VPA and generates no
 > payee QR; only the ledger entry (or write-off) is recorded.
@@ -94,6 +97,40 @@ Deleting a personal `Expense` now emits `expense_delete` to every group it was s
 Best-effort per group (a temporarily-unreachable group must never block the personal delete — the local
 tombstone event is durably queued by `appendGroupEvent` regardless, resyncing whenever that group is next
 opened).
+
+### Leaving a group — read-only history, not deletion (fixed 2026-08-23)
+
+`GroupStatus` gained a third value, `'left'`, alongside `'active'`/`'closed'`. `leaveGroup()`
+(`groupsService.ts`) used to delete the local `groups` record and membership row immediately on leave —
+`group_events` was left orphaned (unreachable once its owning `groups` record was gone), so the group and
+its entire history vanished from the device the moment the user left. It now only deletes the caller's
+own `group_members` row and sets `status: 'left'` on the group; the `groups` record and its `group_events`
+survive untouched, so `GroupDashboard` can keep rendering everything that happened before, frozen.
+`appendGroupEvent()` (`groupSync.ts`) also gives a status-aware error — "You left this group" vs. "Group is
+closed" — instead of one generic message for both non-active states.
+
+On `GroupDashboard`: a left group hides the settings gear entirely (nothing left to manage once your own
+membership is gone — unlike `closed`, where the gear stays since reopening is still a real action), shows
+a `Banner` ("You left this group. You can still see everything that happened before — it just won't
+update, and you can't add anything new."), and all balance/member/feed actions are hidden via the same
+`canAct = status === 'active'` gate `FeedRow` already had (no parallel check). The `closed` state's old
+plain-text explanatory line was unified onto the same `Banner` component, own copy, for one consistent
+"why is this read-only" visual language across both states. Balance labels switch to past tense ("you
+were owed" / "you owed") for a left group. Pull-to-refresh stays enabled on a `left` group, no
+special-casing.
+
+A real pre-existing bug was found and fixed alongside this: `HomeGroupsCard.tsx`'s group list
+(`activeGroups.length ? activeGroups : groups`) silently hid every non-active group whenever at least one
+active group existed — already broken for `closed` groups, and would have done the same to `left`. It now
+always shows every group, with an inline "· closed"/"· you left" suffix; the same suffix was added to
+`ContextSwitcher.tsx`'s group-switcher menu, which previously had no status indicator at all.
+`GroupMembersModal.tsx`'s "Leave this group?" confirmation copy was updated to reflect that history stays
+visible read-only, rather than implying the group disappears.
+
+Demo data (`seedGroupFixtures.ts`) gained a 5th fixture, "College Reunion," demonstrating the `left` state
+— owned by a different demo user (a real leave is more realistic for a plain member than an owner), with
+the demo user's own membership omitted via a new `omitSelfMembership` option that mirrors exactly what
+`leaveGroup()` itself does.
 
 ### Static (accountless) members
 

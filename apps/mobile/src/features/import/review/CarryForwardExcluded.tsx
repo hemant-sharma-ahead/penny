@@ -53,9 +53,8 @@ export function CarryForwardExcluded({ rows }: CarryForwardExcludedProps) {
       {expanded && (
         <View className="px-3 pb-3 pt-2 border-t border-theme gap-1.5">
           <Text className="text-[10.5px] text-tertiary leading-relaxed">
-            Already reflected in your other transactions — only the earliest carry-forward marker per account is
-            imported (as that account&apos;s starting balance); later ones each repeat the same leftover cash and would
-            double-count it.
+            Already reflected in your other transactions — every carry-forward marker just repeats the same leftover
+            cash your real transactions already account for, so none of them are imported.
           </Text>
           <View>
             {rows.slice(0, visibleCount).map((row, i) => (

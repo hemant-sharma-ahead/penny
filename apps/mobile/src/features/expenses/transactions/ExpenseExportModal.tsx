@@ -1,16 +1,24 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Pressable, TextInput as RNTextInput, Text } from 'react-native';
 import { Modal, Button, DateInput, FormField } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useToast } from '~/context/ToastContext';
-import type { Expense, ExpenseCategory } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Group } from '@/core/db/types';
 import { exportExpensesAsCsv, downloadProtectedZip } from '@/core/export/exportCsv';
 import { tint } from '~/lib/color';
 
 interface ExpenseExportModalProps {
   expenses: Expense[];
   expenseCategories: ExpenseCategory[];
+  /** For the export's Account column (2026-08-23, real-device-testing-pass item 76). */
+  accounts: Account[];
+  /** For the export's IOU Person column — `useExpenses.ts`'s `iouLinkByTxn`, already resolved via
+   *  `LedgerEntry.linkedTxnId`/`personId` → `Person.name` (there's no direct field on `Expense` for
+   *  this — the link is reverse, via the ledger entry). */
+  iouLinkByTxn: Map<string, { personName: string }>;
+  /** For the export's informational "Shared to: X" note, resolving `Expense.shareWith`'s group ids. */
+  groups: Group[];
   onClose: () => void;
 }
 
@@ -21,7 +29,14 @@ const RANGES = [
   { value: 'custom', label: 'Custom range' }
 ] as const;
 
-export function ExpenseExportModal({ expenses, expenseCategories, onClose }: ExpenseExportModalProps) {
+export function ExpenseExportModal({
+  expenses,
+  expenseCategories,
+  accounts,
+  iouLinkByTxn,
+  groups,
+  onClose
+}: ExpenseExportModalProps) {
   const theme = useThemeColors();
   const { showToast } = useToast();
   const [exportRange, setExportRange] = useState<'this_month' | 'last_3' | 'all_time' | 'custom'>('this_month');
@@ -30,6 +45,12 @@ export function ExpenseExportModal({ expenses, expenseCategories, onClose }: Exp
   const [exportPassword, setExportPassword] = useState('');
   const [showExportPassword, setShowExportPassword] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  const iouPersonByExpenseId = useMemo(
+    () => new Map([...iouLinkByTxn].map(([expenseId, link]) => [expenseId, link.personName])),
+    [iouLinkByTxn]
+  );
+  const groupNameById = useMemo(() => new Map(groups.map((g) => [g.id, g.name])), [groups]);
 
   // `downloadProtectedZip` is async on native (writes to expo-file-system's cache dir + hands off to
   // expo-sharing's native share sheet, vs. web's synchronous Blob/`<a download>` click) — must be awaited.
@@ -53,7 +74,7 @@ export function ExpenseExportModal({ expenses, expenseCategories, onClose }: Exp
         label = exportFrom && exportTo ? `${exportFrom}-to-${exportTo}` : 'custom';
       }
       const filtered = expenses.filter((e) => e.date >= startMs && e.date <= endMs);
-      const csv = exportExpensesAsCsv(filtered, expenseCategories);
+      const csv = exportExpensesAsCsv(filtered, expenseCategories, { accounts, iouPersonByExpenseId, groupNameById });
       await downloadProtectedZip(csv, `penny-expenses-${label}.zip`, exportPassword);
       setExportPassword('');
       onClose();

@@ -61,6 +61,12 @@ const LOAD_MORE_BATCH = 60;
  *  unbounded `.map()`, the same shape of bug that already caused a real on-device crash elsewhere in
  *  this same PR). No expand toggle needed at all now — the list itself scrolls within this box. */
 const SCROLL_MAX_HEIGHT = 260;
+/** Row count beyond which this list switches from a plain inline `.map()` to the scrollable
+ *  `SCROLL_MAX_HEIGHT` box (`needsScroll` below). Exported (2026-08-23, item 71) so
+ *  `CashWithdrawalSuggestionCard.tsx`'s accepted-state card can reuse the exact same "how many rows
+ *  render inline before something else takes over" threshold instead of an independently-hardcoded
+ *  number that could silently drift from this one. */
+export const INLINE_ROW_THRESHOLD = 4;
 
 /**
  * Shared row-list rendering for the Expense Import review screen (2026-08-13, review redesign) —
@@ -87,7 +93,7 @@ export function TileRowList({
   const allChecked = !!selection && (uncheckedIndices?.size ?? 0) === 0;
   const visibleRows = rows.slice(0, visibleCount);
   const remaining = rows.length - visibleRows.length;
-  const needsScroll = rows.length > 4;
+  const needsScroll = rows.length > INLINE_ROW_THRESHOLD;
 
   const listContent = visibleRows.map(({ row, index }, i) => {
     const override = rowOverrides.get(index);

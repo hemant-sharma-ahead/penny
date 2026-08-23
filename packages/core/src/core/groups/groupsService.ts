@@ -215,14 +215,17 @@ export async function setMemberRole(groupId: string, userId: string, role: Group
   if (rec) await groupMembersRepo.put({ ...rec, role, updatedAt: Date.now() });
 }
 
-/** Leave a group: tell the server, drop the local mirror. The caller should trigger rotation from an
- *  admin device (a leaver can't rotate for others). */
+/** Leave a group: tell the server, drop the caller's own local membership row, and mark the group
+ *  `left` so it stays on-device as read-only history — the `groups` record and its `group_events`
+ *  are kept intact (not deleted) so GroupDashboard can keep rendering everything that happened
+ *  before the leave, frozen. The caller should trigger rotation from an admin device (a leaver
+ *  can't rotate for others). */
 export async function leaveGroup(groupId: string): Promise<void> {
   const userId = await currentUserId();
   await api.leaveGroup(groupId);
   await groupMembersRepo.delete(`${groupId}:${userId}`);
   const group = await groupsRepo.get(groupId);
-  if (group) await groupsRepo.delete(groupId);
+  if (group) await groupsRepo.put({ ...group, status: 'left', updatedAt: Date.now() });
 }
 
 /**

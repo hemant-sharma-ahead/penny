@@ -47,6 +47,10 @@ vi.mock('@/core/groups/groupsClient', () => ({
   deleteGroup: async (groupId: string) => {
     (calls.deleteGroup ??= []).push(groupId);
     return { ok: true };
+  },
+  leaveGroup: async (groupId: string) => {
+    (calls.leaveGroup ??= []).push(groupId);
+    return { ok: true };
   }
 }));
 
@@ -61,6 +65,7 @@ import {
   createInvite,
   deleteGroup,
   flagSharedExpense,
+  leaveGroup,
   notifyExpenseDeletedToGroups,
   redeemInvite,
   rotateGroupKey,
@@ -100,7 +105,7 @@ async function reset() {
     createdAt: now,
     updatedAt: now
   });
-  for (const k of Object.keys(calls)) delete calls[k];
+  for (const k of Object.keys(calls)) calls[k] = [];
 }
 
 describe('groupsService.createGroup', () => {
@@ -118,7 +123,8 @@ describe('groupsService.createGroup', () => {
     // …and it round-trips with the stored Group Key.
     const key = await loadGroupKey('g1', 1);
     expect(key).toBeDefined();
-    expect(await decryptFromGroup(key!, sent.encName)).toBe('Goa Trip');
+    if (!key) throw new Error('unreachable — asserted above');
+    expect(await decryptFromGroup(key, sent.encName)).toBe('Goa Trip');
 
     // Local mirror: group + owner membership.
     expect((await groupsRepo.get('g1'))?.name).toBe('Goa Trip');
@@ -162,8 +168,9 @@ describe('groupsService.rotateGroupKey', () => {
     expect((await groupsRepo.get('g1'))?.keyEpoch).toBe(2);
     const newKey = await loadGroupKey('g1', 2);
     expect(newKey).toBeDefined();
+    if (!newKey) throw new Error('unreachable — asserted above');
     const sent = calls.rotateGroup?.[0] as { encName: string };
-    expect(await decryptFromGroup(newKey!, sent.encName)).toBe('Flat 402');
+    expect(await decryptFromGroup(newKey, sent.encName)).toBe('Flat 402');
   });
 });
 
@@ -191,7 +198,7 @@ describe('groupsService.shareExpenseToGroup', () => {
     // A shared_expense event was created locally, split equally, paid by me.
     const events = (await groupEventsRepo.getAll()).filter((e) => e.type === 'shared_expense');
     expect(events).toHaveLength(1);
-    const payload = events[0]!.payload as { payer: string; shares: Record<string, number>; amount: number };
+    const payload = events[0]?.payload as { payer: string; shares: Record<string, number>; amount: number };
     expect(payload.payer).toBe('u1');
     expect(payload.shares).toEqual({ u1: 500, b: 500 });
 
@@ -354,5 +361,38 @@ describe('groupsService.deleteGroup', () => {
     expect(await groupsRepo.get('g1')).toBeUndefined();
     expect((await groupMembersRepo.getAll()).filter((m) => m.groupId === 'g1')).toHaveLength(0);
     expect((await groupEventsRepo.getAll()).filter((e) => e.groupId === 'g1')).toHaveLength(0);
+  });
+});
+
+describe('groupsService.leaveGroup', () => {
+  beforeEach(reset);
+
+  it('tells the server, drops only the caller\'s own membership row, and marks the group "left" — keeping the group record and its history intact', async () => {
+    await createGroup({ name: 'Goa Trip', type: 'trip', historyVisibility: 'from_join' });
+    const now = Date.now();
+    await groupMembersRepo.put({
+      id: 'g1:b',
+      groupId: 'g1',
+      userId: 'b',
+      displayName: 'Rohit',
+      role: 'member',
+      status: 'active',
+      joinedAt: now,
+      createdAt: now,
+      updatedAt: now
+    });
+    await shareExpenseToGroup('g1', { expenseId: 'e1', amount: 500, description: 'Snacks' });
+    const eventsBefore = (await groupEventsRepo.getAll()).filter((e) => e.groupId === 'g1');
+    expect(eventsBefore.length).toBeGreaterThan(0);
+
+    await leaveGroup('g1');
+
+    expect(calls.leaveGroup).toEqual(['g1']);
+    // group record + its events survive, now flagged 'left'
+    expect((await groupsRepo.get('g1'))?.status).toBe('left');
+    expect((await groupEventsRepo.getAll()).filter((e) => e.groupId === 'g1')).toHaveLength(eventsBefore.length);
+    // only the caller's own membership row is gone — other members' rows survive
+    expect(await groupMembersRepo.get('g1:u1')).toBeUndefined();
+    expect((await groupMembersRepo.get('g1:b'))?.status).toBe('active');
   });
 });

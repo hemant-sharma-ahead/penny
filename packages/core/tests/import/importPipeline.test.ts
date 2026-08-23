@@ -195,6 +195,19 @@ describe('buildResolvedPreviewRows', () => {
       expect(preview[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining & Café' });
     });
   });
+
+  // 2026-08-23, real-device-testing-pass item 77 — a re-imported Penny CSV's "IOU Person" column
+  // survives this row transform as `iouPersonName`, for `useImport.ts`'s commit-time Person/LedgerEntry
+  // resolution to consume later.
+  it('carries ParsedRow.iouPerson through as iouPersonName', () => {
+    const preview = buildResolvedPreviewRows([row({ iouPerson: 'Rahul' })], categoryMap, resolveAccountId, new Set());
+    expect(preview[0]?.iouPersonName).toBe('Rahul');
+  });
+
+  it('omits iouPersonName entirely when the row has no IOU-person value', () => {
+    const preview = buildResolvedPreviewRows([row()], categoryMap, resolveAccountId, new Set());
+    expect(preview[0]).not.toHaveProperty('iouPersonName');
+  });
 });
 
 function resolvedRow(overrides: Partial<ResolvedPreviewRow> = {}): ResolvedPreviewRow {
@@ -640,5 +653,14 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
     const rows = [row()];
     const result = buildResolvedPreviewRowsByIndex(rows, new Map(), resolveAccountId, new Map());
     expect(result[0]).toMatchObject({ categoryId: 'cat-other', categoryName: 'Other' });
+  });
+
+  // 2026-08-23, real-device-testing-pass item 77 — same carry-through as the name-keyed
+  // buildResolvedPreviewRows sibling above, for apps/mobile's actual index-keyed write path.
+  it('carries ParsedRow.iouPerson through as iouPersonName', () => {
+    const rows = [row({ iouPerson: 'Priya' })];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-food', categoryName: 'Food' }]]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
+    expect(result[0]?.iouPersonName).toBe('Priya');
   });
 });

@@ -15,10 +15,12 @@ import {
   guessMappingForFormat,
   validateMappingForFormat,
   readHeader,
+  FORMAT_DATE_HINT,
   type ImportFormat,
   type ParsedRow,
   type RejectedRow
 } from '@/core/import/importParsers';
+import { getOrCreatePerson } from '@/core/iou/personResolver';
 import { parseFlexibleDate, type ColumnMapping } from '@/core/import/importMatcher';
 import {
   dedupKey,
@@ -39,19 +41,24 @@ import {
 import {
   resolveAccounts,
   suggestCardAccountMerges,
+  findAmbiguousCardAccountMerges,
   type AccountResolutionOrSkip,
   type AccountActionOrSkip,
-  type CardAccountMergeSuggestion
+  type CardAccountMergeSuggestion,
+  type CardAccountMergeAmbiguity
 } from '@/core/import/importAccountResolution';
 import { findDuplicateAccountName } from '@/core/accounts/accountValidation';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import {
   detectSelfAccountMovementPairs,
-  isLikelyCashWithdrawal,
   transferPairKey,
   type TransferPair
 } from '@/core/import/importTransferPairing';
 import { identifyRedundantCarryForwardRows } from '@/core/import/importCarryForward';
+import {
+  groupCashWithdrawalCandidates,
+  CASH_WITHDRAWAL_NO_ACCOUNT_KEY
+} from '@/core/import/importCashWithdrawalGrouping';
 import {
   writeImportBatch,
   writeImportBatchDetailed,
@@ -147,11 +154,48 @@ export interface TransactionsRowGroup extends CategoryRowGroup {
  *  pass) — see `useImport.ts`'s "Cash-withdrawal → transfer" section for the detection/accept/dismiss
  *  logic this feeds. `count` is the group's row count MINUS any rows already claimed by a confirmed
  *  `transferPairs` pairing (so an already-linked-transfer row is never double-suggested here too); a
- *  group whose every row is already paired never appears here at all. */
+ *  group whose every row is already paired never appears here at all.
+ *
+ *  2026-08-23 (item 71, real-device follow-up): ONE suggestion used to cover a WHOLE category group
+ *  (`fullKey`) regardless of how many distinct real bank accounts its rows actually came from, falling
+ *  back to a vague "Multiple accounts" label whenever they didn't all agree — found on-device to be the
+ *  COMMON case, not a rare edge: a real "Cash Withdrawal" category can easily span every bank account the
+ *  user ever pulled cash from. Fixed by partitioning each category group's rows by their own raw CSV
+ *  source account FIRST (`cashWithdrawalSuggestions`' own doc comment below) and emitting one suggestion
+ *  PER (category, source account) pair instead — `key` (not `fullKey`) is now the actual unique identity
+ *  this feature's accept/dismiss/undo/target state is keyed by. */
 export interface CashWithdrawalSuggestion {
+  /** Unique identity for THIS suggestion — `${fullKey}::${rawSourceAccountKey}` — since 2026-08-23 (item
+   *  71) multiple suggestions can now share the same `fullKey` (one per distinct source account within
+   *  that category), `accept`/`dismiss`/`undo`/`cashWithdrawalTargets` are all keyed by THIS, never the
+   *  bare `fullKey` alone. */
+  key: string;
+  /** The ORIGINAL category-resolution group this suggestion's rows belong to — informational only now
+   *  (e.g. the "category" caption on the accepted-state card); no longer a unique identity on its own. */
   fullKey: string;
   label: string;
   count: number;
+  /** Indices into `parsedRows` for exactly this suggestion's own rows (one source account's worth,
+   *  NOT already claimed by a confirmed transfer pair) — added 2026-08-23 (item 71 follow-up) so
+   *  `acceptCashWithdrawalTransfer`/`undoCashWithdrawalTransfer` can scope their row-level
+   *  `rowOverrides` writes to exactly this sub-group, never the whole original category group. */
+  rowIndices: number[];
+  /** This group's own rows (date/amount/description), NOT already claimed by a confirmed transfer pair
+   *  (same rows `count` reflects) — added 2026-08-23 (item 71) so the accepted-state card
+   *  (`CashWithdrawalSuggestionCard.tsx`) can render a real per-row breakdown
+   *  (`TransferPairCard.tsx`'s visual language) instead of collapsing to a flat one-line summary. Each
+   *  row still commits as its own individual transfer with its own date/amount through the existing
+   *  write path regardless — this is purely a review-time presentation change. */
+  rows: { date: number; amount: number; description: string }[];
+  /** The source bank account these rows debit from, resolved to a real Penny `Account` when this
+   *  suggestion's shared raw CSV account name is currently matched to a real account — `undefined`
+   *  otherwise. `fromAccountLabel` is always a display string regardless: the resolved account's name,
+   *  or the raw CSV account name itself when unresolved. Every row in a single suggestion now shares
+   *  exactly one raw source account by construction (2026-08-23, item 71 follow-up — see
+   *  `cashWithdrawalSuggestions`' partitioning below), so this is never ambiguous the way a
+   *  "Multiple accounts" fallback used to paper over. */
+  fromAccountResolved?: Account;
+  fromAccountLabel: string;
 }
 
 /** Fallback transfer category for an accepted cash-withdrawal suggestion — "Bank Transfer" reads best
@@ -331,10 +375,16 @@ export function useImport() {
    *  `rejectedRows`) keeps changing shape after commit as other state resets, so the summary line
    *  (redesign §9.1: "N discarded, N still unresolved"; manual-testing gap #1: "N excluded — account
    *  skipped") needs a stable snapshot. */
-  const [doneSummary, setDoneSummary] = useState({
+  const [doneSummary, setDoneSummary] = useState<{
+    discardedCount: number;
+    stillUnresolvedCount: number;
+    /** Per-skipped-account breakdown (2026-08-23, item 74 — was a single combined `accountSkippedCount`
+     *  number before this fix). See `accountSkippedBreakdown`'s own doc comment above. */
+    accountSkipped: { accountName: string; count: number }[];
+  }>({
     discardedCount: 0,
     stillUnresolvedCount: 0,
-    accountSkippedCount: 0
+    accountSkipped: []
   });
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -450,7 +500,10 @@ export function useImport() {
 
   function confirmMapping(confirmed: ColumnMapping) {
     setMapping(confirmed);
-    const { rows, rejected } = parseWithMapping(rawText, confirmed, 'auto');
+    // Was a hardcoded literal `'auto'` (2026-08-23 fix, real-device-testing-pass item 79 drive-by) —
+    // every OTHER format already looks its date hint up from this shared table; Custom's own hint
+    // happens to also be `'auto'` today, so this was never observably wrong, just not the real lookup.
+    const { rows, rejected } = parseWithMapping(rawText, confirmed, FORMAT_DATE_HINT.custom);
     if (rows.length === 0 && rejected.length === 0) {
       setParseError('No valid rows found with this column mapping. Check your selections and try again.');
       setStep('upload');
@@ -530,6 +583,16 @@ export function useImport() {
         (s) => !dismissedCardMerges.has(s.cardSourceName)
       ),
     [parsedRows, accountResolutions, dismissedCardMerges]
+  );
+
+  /** Ambiguous card→account merges (2026-08-23, item 70) — see `importAccountResolution.ts`'s own doc
+   *  comment on `findAmbiguousCardAccountMerges`/`CardAccountMergeAmbiguity`. Never filtered by
+   *  `dismissedCardMerges` (there's nothing to accept/dismiss here, only a real pick via the row's own
+   *  dropdown — `AccountsSection.tsx` itself stops treating a row as ambiguous the moment its resolution
+   *  becomes `'existing'`). */
+  const cardMergeAmbiguities: CardAccountMergeAmbiguity[] = useMemo(
+    () => findAmbiguousCardAccountMerges(parsedRows, accountResolutions),
+    [parsedRows, accountResolutions]
   );
 
   /** `accountResolutions`, with any accepted card→account merge's `suggestion` LIVE-MIRRORED from its
@@ -644,13 +707,23 @@ export function useImport() {
     (row: ParsedRow): boolean => !!row.account && skippedAccountSourceNames.has(row.account),
     [skippedAccountSourceNames]
   );
-  /** How many parsed rows belong to a skipped account — surfaced on the Done step ("N transactions
-   *  excluded — account skipped") so this is never silent, same principle as the existing discarded/
-   *  still-unresolved counts. */
-  const accountSkippedRowCount = useMemo(
-    () => parsedRows.filter(isRowAccountSkipped).length,
-    [parsedRows, isRowAccountSkipped]
-  );
+  /** Per-skipped-account breakdown of how many parsed rows belong to a skipped account — surfaced on the
+   *  Done step ("N transactions excluded — account skipped") so this is never silent, same principle as
+   *  the existing discarded/still-unresolved counts. 2026-08-23 (item 74): rows belonging to a skipped
+   *  account were already correctly excluded from categorization/import before this fix; the only gap
+   *  was the Done-screen summary only ever showing one opaque combined total, never which account(s) it
+   *  came from (e.g. "142 transactions skipped — Freecharge (89), Paytm (53)"). Sorted by count
+   *  descending — the biggest loss first; `DoneStep.tsx` sums it for the plain total it also needs. */
+  const accountSkippedBreakdown = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of parsedRows) {
+      if (!row.account || !skippedAccountSourceNames.has(row.account)) continue;
+      counts.set(row.account, (counts.get(row.account) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([accountName, count]) => ({ accountName, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [parsedRows, skippedAccountSourceNames]);
 
   // ─── Category resolution — direction-aware resolution + counterparty sub-split ──────────────────────
 
@@ -836,6 +909,25 @@ export function useImport() {
     [parsedRows, unpairedTransferKeys]
   );
 
+  /** Resolves a transfer pair leg's raw CSV account `sourceName` to its matched real Penny `Account`,
+   *  when the Accounts stage has actually resolved one to `'existing'` — mirrors `AccountsSection.tsx`'s
+   *  `resolveMergeTargetDisplayName()` pattern (read live from `effectiveAccountResolutions`, not baked in
+   *  at detection time, since a resolution can change as the user makes decisions elsewhere in the
+   *  wizard). Returns `undefined` (raw CSV label fallback) for an unresolved/skipped/`'create'` source. */
+  const resolveTransferLegAccount = useCallback(
+    (sourceName: string): Account | undefined => {
+      const target = effectiveAccountResolutions.find((r) => r.sourceName === sourceName);
+      if (!target) return undefined;
+      // Assigned to a local const first — TS control-flow narrowing on `target.suggestion.kind` doesn't
+      // survive an optional-chained `.find()` result otherwise (same limitation `AccountsSection.tsx`'s
+      // `resolveMergeTargetDisplayName()` works around identically).
+      const suggestion = target.suggestion;
+      if (suggestion.kind !== 'existing') return undefined;
+      return accounts.find((a) => a.id === suggestion.accountId);
+    },
+    [effectiveAccountResolutions, accounts]
+  );
+
   // ─── Cash-withdrawal → transfer-to-Cash-account suggestion (2026-08-20, real-device testing pass) ───
   // A real cash/ATM withdrawal is a SINGLE row (a bank debit) with no reciprocal row to pair against —
   // most bank exports never include a ledger for the "Cash" account itself, so `transferPairs` above
@@ -843,62 +935,99 @@ export function useImport() {
   // as their own opt-in suggestion instead, always asking (never auto-applying) before turning them into
   // a real `type: 'transfer'` into one of the user's actual Cash-type accounts.
 
+  // 2026-08-23 (item 71 follow-up, real-device report): the actual partitioning-by-source-account logic
+  // (a real "Cash Withdrawal" category can span every bank account the user ever pulled cash from —
+  // confirmed on-device: a single 217-row group spanning multiple real accounts, previously collapsed
+  // into one vague "Multiple accounts → Cash" card) lives in packages/core's
+  // `groupCashWithdrawalCandidates` — pure, unit-tested there since apps/mobile has no test harness of
+  // its own for this hook. This memo only adds what needs LIVE hook state (account resolution) on top:
+  // each row's own date/amount/description, and the candidate's real `fromAccountResolved`/
+  // `fromAccountLabel` — never a "Multiple accounts" fallback anymore, since every candidate now shares
+  // exactly one raw source account by construction.
   const cashWithdrawalSuggestions: CashWithdrawalSuggestion[] = useMemo(() => {
-    const pairedIndices = new Set<number>();
-    for (const p of transferPairs) {
-      pairedIndices.add(p.outgoingIndex);
-      pairedIndices.add(p.incomingIndex);
-    }
-    return categoryRowGroups
-      .filter((g) => g.type === 'expense' && isLikelyCashWithdrawal(g.parentSourceName))
-      .map((g) => ({
-        fullKey: g.fullKey,
-        label: g.label,
-        count: g.rowIndices.filter((i) => !pairedIndices.has(i)).length
-      }))
-      .filter((g) => g.count > 0 && !dismissedCashWithdrawalKeys.has(g.fullKey));
-  }, [categoryRowGroups, transferPairs, dismissedCashWithdrawalKeys]);
-
-  /** Accepts a cash-withdrawal group's suggestion — sets its category decision straight to a real
-   *  `type: 'transfer'` targeting the chosen Cash account, exactly as if the user had picked "Transfer"
-   *  + that account themselves on the Transactions-stage tile. Always an explicit tap (`accountId`/
-   *  `accountName` come from the card's own picker or its "create a Cash account" sub-flow — never
-   *  defaulted/applied automatically just because a suggestion was detected). */
-  function acceptCashWithdrawalTransfer(fullKey: string, accountId: string, accountName: string) {
-    updateCategoryDecision(fullKey, {
-      kind: 'transfer',
-      categoryId: CASH_WITHDRAWAL_TRANSFER_CATEGORY.id,
-      categoryName: CASH_WITHDRAWAL_TRANSFER_CATEGORY.name,
-      toAccountId: accountId
+    const candidates = groupCashWithdrawalCandidates(
+      parsedRows,
+      categoryRowGroups,
+      transferPairs,
+      dismissedCashWithdrawalKeys
+    );
+    return candidates.map((c) => {
+      const rows = c.rowIndices.map((i) => {
+        const row = parsedRows[i];
+        return { date: row?.date ?? 0, amount: row?.amount ?? 0, description: row?.description ?? '' };
+      });
+      const isNoAccount = c.accountKey === CASH_WITHDRAWAL_NO_ACCOUNT_KEY;
+      const fromAccountResolved = isNoAccount ? undefined : resolveTransferLegAccount(c.accountKey);
+      const fromAccountLabel = isNoAccount ? 'Unknown account' : (fromAccountResolved?.name ?? c.accountKey);
+      return {
+        key: c.key,
+        fullKey: c.fullKey,
+        label: c.label,
+        count: c.count,
+        rowIndices: c.rowIndices,
+        rows,
+        fromAccountResolved,
+        fromAccountLabel
+      };
     });
-    setCashWithdrawalTargets((prev) => new Map(prev).set(fullKey, { accountId, accountName }));
-  }
+  }, [categoryRowGroups, transferPairs, dismissedCashWithdrawalKeys, parsedRows, resolveTransferLegAccount]);
 
-  /** "Keep as separate expense category" — permanently dismisses the suggestion for this group; the
-   *  group's category resolution is left exactly as it already was (never touched here), so it falls
-   *  through to today's normal category-resolution behavior with zero change. */
-  function dismissCashWithdrawalSuggestion(fullKey: string) {
-    setDismissedCashWithdrawalKeys((prev) => new Set(prev).add(fullKey));
-  }
-
-  /** Reverses an accepted cash-withdrawal transfer — drops the group's forced `categoryDecisions`/
-   *  `categoryTouchedKeys` entries so it falls back to its own normal auto-suggested default (mirrors
-   *  `unmergeCardAccount`'s identical "just remove what we added" reversal). */
-  function undoCashWithdrawalTransfer(fullKey: string) {
-    setCategoryDecisions((prev) => {
+  /** Accepts a cash-withdrawal suggestion — scoped to exactly THIS suggestion's own `rowIndices`
+   *  (2026-08-23, item 71 follow-up: a category group can now produce 2+ independent suggestions, one
+   *  per source account, so this can never again be a whole-category-group decision). Writes a
+   *  `rowOverrides` entry for each of those row indices — the SAME per-row mechanism
+   *  `moveRowsToCategory`/`tagRows` already use for a bulk-select "move these specific rows" action —
+   *  rather than `updateCategoryDecision` (which is keyed by the shared `fullKey` alone and so could
+   *  never represent two different sub-groups of the same category resolving to two different destination
+   *  accounts). `rowOverrides` already makes a row unconditionally "ready"/writable regardless of its
+   *  own category group's decided-ness (see `isRowWritable`/`rowTriage` below) and already redirects it
+   *  into its own tile display for the same reason `moveRowsToCategory` does — both are already-correct,
+   *  already-tested behavior this reuses instead of inventing a parallel mechanism. Always an explicit
+   *  tap (`accountId`/`accountName` come from the card's own picker or its "create a Cash account"
+   *  sub-flow — never defaulted/applied automatically just because a suggestion was detected). */
+  function acceptCashWithdrawalTransfer(key: string, accountId: string, accountName: string) {
+    const suggestion = cashWithdrawalSuggestions.find((s) => s.key === key);
+    if (!suggestion) return;
+    setRowOverrides((prev) => {
       const next = new Map(prev);
-      next.delete(fullKey);
+      for (const i of suggestion.rowIndices) {
+        next.set(i, {
+          categoryId: CASH_WITHDRAWAL_TRANSFER_CATEGORY.id,
+          categoryName: CASH_WITHDRAWAL_TRANSFER_CATEGORY.name,
+          type: 'transfer',
+          toAccountId: accountId
+        });
+      }
       return next;
     });
-    setCategoryTouchedKeys((prev) => {
-      if (!prev.has(fullKey)) return prev;
-      const next = new Set(prev);
-      next.delete(fullKey);
-      return next;
-    });
+    setCashWithdrawalTargets((prev) => new Map(prev).set(key, { accountId, accountName }));
+  }
+
+  /** "Keep as separate expense category" — permanently dismisses THIS suggestion (one source account
+   *  within a category, since 2026-08-23's item 71 follow-up); every other suggestion sharing the same
+   *  `fullKey` (a different source account) is entirely unaffected. The rows themselves are left exactly
+   *  as they already were (never touched here), so they fall through to today's normal category-
+   *  resolution behavior with zero change. */
+  function dismissCashWithdrawalSuggestion(key: string) {
+    setDismissedCashWithdrawalKeys((prev) => new Set(prev).add(key));
+  }
+
+  /** Reverses an accepted cash-withdrawal transfer — drops exactly this suggestion's own `rowOverrides`
+   *  entries (never any OTHER suggestion's, even one sharing the same `fullKey`) so those rows fall back
+   *  to their own normal auto-suggested default, and clears this suggestion's `cashWithdrawalTargets`
+   *  entry (mirrors `unmergeCardAccount`'s identical "just remove what we added" reversal). */
+  function undoCashWithdrawalTransfer(key: string) {
+    const suggestion = cashWithdrawalSuggestions.find((s) => s.key === key);
+    if (suggestion) {
+      setRowOverrides((prev) => {
+        const next = new Map(prev);
+        for (const i of suggestion.rowIndices) next.delete(i);
+        return next;
+      });
+    }
     setCashWithdrawalTargets((prev) => {
       const next = new Map(prev);
-      next.delete(fullKey);
+      next.delete(key);
       return next;
     });
   }
@@ -1138,25 +1267,6 @@ export function useImport() {
   const readyCount = readyRows.length;
   const totalRowsRead = parsedRows.length + rejectedRows.length;
   const actualTransactionCount = readyCount - confirmedTransferPairs.length;
-
-  /** Resolves a transfer pair leg's raw CSV account `sourceName` to its matched real Penny `Account`,
-   *  when the Accounts stage has actually resolved one to `'existing'` — mirrors `AccountsSection.tsx`'s
-   *  `resolveMergeTargetDisplayName()` pattern (read live from `effectiveAccountResolutions`, not baked in
-   *  at detection time, since a resolution can change as the user makes decisions elsewhere in the
-   *  wizard). Returns `undefined` (raw CSV label fallback) for an unresolved/skipped/`'create'` source. */
-  const resolveTransferLegAccount = useCallback(
-    (sourceName: string): Account | undefined => {
-      const target = effectiveAccountResolutions.find((r) => r.sourceName === sourceName);
-      if (!target) return undefined;
-      // Assigned to a local const first — TS control-flow narrowing on `target.suggestion.kind` doesn't
-      // survive an optional-chained `.find()` result otherwise (same limitation `AccountsSection.tsx`'s
-      // `resolveMergeTargetDisplayName()` works around identically).
-      const suggestion = target.suggestion;
-      if (suggestion.kind !== 'existing') return undefined;
-      return accounts.find((a) => a.id === suggestion.accountId);
-    },
-    [effectiveAccountResolutions, accounts]
-  );
 
   const displayTransferPairs: DisplayTransferPair[] = useMemo(
     () =>
@@ -1509,12 +1619,21 @@ export function useImport() {
       // never got one at all (it isn't a member of that category's own `g.rowIndices`) — found in review.
       const iouInfoByRef = new Map<string, { personName: string; kind: 'lent' | 'borrowed' }>();
       parsedRows.forEach((row, i) => {
-        const override = rowOverrides.get(i);
-        const effectiveCategoryId = override?.categoryId ?? finalRowActions.get(i)?.categoryId;
-        if (!effectiveCategoryId || !IOU_MANDATORY_CATEGORY_IDS.has(effectiveCategoryId)) return;
         // A category-move override never changes the row's own expense/income direction — same rule
         // `buildResolvedPreviewRowsByIndex` uses for `type`.
         const kind: 'lent' | 'borrowed' = row.type === 'income' ? 'borrowed' : 'lent';
+        // An explicit "IOU Person" COLUMN value on the row itself (2026-08-23, item 77 — a re-imported
+        // Penny CSV's own Account/IOU Person/Shared To Group columns from item 76's export) is a direct
+        // per-row signal from the source file — it always wins, independent of which category this row
+        // landed in, unlike the category-mandatory flow below which needs a specific category to even ask.
+        const columnPersonName = row.iouPerson?.trim();
+        if (columnPersonName) {
+          iouInfoByRef.set(dedupKey(row.date, row.amount, row.description), { personName: columnPersonName, kind });
+          return;
+        }
+        const override = rowOverrides.get(i);
+        const effectiveCategoryId = override?.categoryId ?? finalRowActions.get(i)?.categoryId;
+        if (!effectiveCategoryId || !IOU_MANDATORY_CATEGORY_IDS.has(effectiveCategoryId)) return;
         // An overridden row's person comes from its own per-row capture (`rowIouPersonNames`, set by the
         // partial-selection apply that created this exact override) — the group-level `iouPersonNames`
         // value belongs to whichever OTHER rows are still ungrouped members, not to this one.
@@ -1569,15 +1688,18 @@ export function useImport() {
       // useBankImport.ts's identical commit-time equivalent (2026-08-14, redesign §9.6).
       if (iouInfoByRef.size > 0) {
         const now = Date.now();
-        const personCache = new Map((await personsRepo.getAll()).map((p) => [p.name.toLowerCase(), p]));
+        // Reuses the single canonical resolve-or-create implementation
+        // (packages/core/src/core/iou/personResolver.ts) instead of matching against a locally-built
+        // snapshot (2026-08-23 fix — this local closure predated that consolidation and had drifted from
+        // it) — this cache only avoids repeating the same resolution N times for N rows sharing one
+        // person within a single batch; the actual resolve/create/revive logic, and the fresh
+        // `personsRepo.getAll()` read it depends on, both live in exactly one place now.
+        const personCache = new Map<string, Person>();
         async function resolvePerson(name: string): Promise<Person> {
           const key = name.trim().toLowerCase();
           const cached = personCache.get(key);
-          if (cached && !cached.isArchived) return cached;
-          const person: Person = cached
-            ? { ...cached, isArchived: false, updatedAt: now }
-            : { id: crypto.randomUUID(), name: name.trim(), createdAt: now, updatedAt: now };
-          await personsRepo.put(person);
+          if (cached) return cached;
+          const { person } = await getOrCreatePerson(name);
           personCache.set(key, person);
           return person;
         }
@@ -1607,7 +1729,7 @@ export function useImport() {
       setDoneSummary({
         discardedCount: discardedRejectedRowIndices.size,
         stillUnresolvedCount: attentionCount + rejectedRows.length + notReadyAccountRowCount,
-        accountSkippedCount: accountSkippedRowCount
+        accountSkipped: accountSkippedBreakdown
       });
       if (succeededCount > 0) notifyTxnChanged();
     } catch (err) {
@@ -1628,7 +1750,7 @@ export function useImport() {
       setDoneSummary({
         discardedCount: discardedRejectedRowIndices.size,
         stillUnresolvedCount: attentionCount + rejectedRows.length + notReadyAccountRowCount,
-        accountSkippedCount: accountSkippedRowCount
+        accountSkipped: accountSkippedBreakdown
       });
       setImportError(err instanceof Error ? err.message : 'Something unexpected went wrong while importing.');
       if (succeededCount > 0) notifyTxnChanged();
@@ -1705,6 +1827,7 @@ export function useImport() {
     // card's own displayed (mirrored) row, always targets ITS OWN raw entry.
     accountResolutions: effectiveAccountResolutions,
     cardMergeSuggestions,
+    cardMergeAmbiguities,
     cardMergeTargets,
     acceptCardAccountMerge,
     dismissCardAccountMerge,

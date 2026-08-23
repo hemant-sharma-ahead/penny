@@ -591,7 +591,7 @@ A group the user belongs to. `role`/`status` are **this user's own** membership.
 | type              | string | `family` \| `trip` \| `roommates` \| `other`    |
 | name              | string | Decrypted group name (server stores `enc_name`) |
 | role              | string | `owner` \| `admin` \| `member` (this user)      |
-| status            | string | `active` \| `closed`                            |
+| status            | string | `active` \| `closed` \| `left` (2026-08-23 — leaving no longer deletes the group; see `docs/features/groups.md`) |
 | ownerId           | string | `userId` of the owner                           |
 | keyEpoch          | number | Current Group-Key rotation epoch                |
 | historyVisibility | string | `full` \| `from_join`                           |

@@ -70,7 +70,9 @@ Track all asset classes in one place:
 - Transaction list (expense/income/transfer) with type-specific display
 - Category system: intentGroup (parent) → ExpenseCategory (child) → Hashtags (free-form tags)
 - Recurring transactions: daily/weekly/bi-weekly/monthly/quarterly/half-yearly/yearly rules with vacation guard
-- Import: Penny CSV template + YNAB/Cashew/MoneyView parsers, 3-step UI
+- Import: Penny CSV template + Cashew/MoneyView parsers (YNAB removed 2026-08-23 — never reached the
+  confirmed-adoption bar the other formats did; Custom/map-your-own-columns covers the same ground), plus
+  a Custom format for any other CSV, 6-step wizard on `apps/mobile`
 - Export: AES-256 password-protected ZIP with CSV, date range picker
 - Analytics tab: spending by category, trends, month comparison
 - Budgets: per-category budget with spend tracking

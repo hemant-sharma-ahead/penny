@@ -107,6 +107,29 @@ export interface CardAccountMergeSuggestion {
   paymentMode: 'Debit Card' | 'Credit Card';
 }
 
+// ─── Ambiguous card→account merge (2026-08-23, item 70, 8th batch real-device testing pass) ───────────
+// `suggestCardAccountMerges` below used to pick the FIRST non-card resolution sharing a card's bank key
+// via `resolutions.find(...)` — first-match-wins, with zero disambiguation when 2+ such resolutions
+// exist (e.g. the user's file has two separate SBI accounts, "SBI Savings" and "SBI Salary", both
+// sharing Bank Name "SBI"). Confidently guessing one is worse than not guessing at all — see
+// docs/mockups/proposals/moneyview-import-review-v1.html's item 70 frame. `CardAccountMergeAmbiguity` is
+// a NEW, separate suggestion shape (never returned by `suggestCardAccountMerges` itself, which now only
+// ever emits a confident single-candidate suggestion) so every existing caller/type of
+// `CardAccountMergeSuggestion` keeps its exact existing shape.
+
+export interface CardAccountMergeAmbiguity {
+  /** Source name of the card-type resolution whose bank identity is ambiguous. */
+  cardSourceName: string;
+  /** Every non-card resolution sharing this card's normalized Bank Name (2+, always) — named by their
+   *  RAW source name, same convention as `CardAccountMergeSuggestion.targetSourceName`; the review UI
+   *  resolves each to its current display name (mirrors `AccountsSection.tsx`'s
+   *  `resolveMergeTargetDisplayName`) since a resolution's own state can change after this is computed. */
+  candidateSourceNames: string[];
+  /** Payment mode that WOULD apply if the user later resolves this row to a real account — carried
+   *  through so the UI doesn't need to re-derive it once disambiguated. */
+  paymentMode: 'Debit Card' | 'Credit Card';
+}
+
 function normalizeCardAccountType(raw: string): 'debit-card' | 'credit-card' | null {
   const lower = raw.toLowerCase().replace(/[-_\s]/g, '');
   if (lower.includes('creditcard')) return 'credit-card';
@@ -114,21 +137,21 @@ function normalizeCardAccountType(raw: string): 'debit-card' | 'credit-card' | n
   return null;
 }
 
-/** One suggestion per distinct source account name whose rows carry a card-type `Account Type`
- *  (`debit-card`/`credit-card`) AND share a normalized `Bank Name` with another resolution's rows — e.g.
- *  a real MoneyView export's "Account Id"-keyed card row sharing "HDFC Bank" with the underlying bank
- *  account's own resolution. Independent suggestion per card (confirmed 2026-08-14, post-mockup-review —
- *  no bulk "merge all cards on this bank" shortcut); never auto-applied, same as the existing same-file
- *  (`suggestAccountMerges`, apps/mobile's own review/accountMergeSuggestion.ts) and fuzzy-vs-existing
- *  (`findFuzzyExistingMatch` above) suggestion types this is visually/behaviorally parallel to. */
-export function suggestCardAccountMerges(
+/** Shared candidate computation for both `suggestCardAccountMerges` (confident, exactly 1 candidate) and
+ *  `findAmbiguousCardAccountMerges` (2+ candidates) below — every OTHER gate (card-type detection, same
+ *  normalized Bank Name, never a card-into-card target) is identical between the two; only the resulting
+ *  candidate COUNT decides which of the two a given card source name shows up in. Returns every card
+ *  source name that has at least one candidate — a card with ZERO candidates (no other resolution shares
+ *  its bank key) appears in neither caller's output, exactly matching the pre-2026-08-23 behavior for
+ *  that case. */
+function cardMergeCandidatesBySource(
   rows: ParsedRow[],
   // Deliberately the narrowest shape this function actually reads (only `sourceName`) rather than the
   // full `AccountResolution[]` — so a caller storing a WIDER per-row type (e.g. apps/mobile's own
   // `AccountResolutionOrSkip[]`, once "skip this account" exists) can pass it straight through with no
   // cast. This function never reads `.suggestion` at all.
   resolutions: Pick<AccountResolution, 'sourceName'>[]
-): CardAccountMergeSuggestion[] {
+): Map<string, { candidates: string[]; paymentMode: 'Debit Card' | 'Credit Card' }> {
   const bankNameBySource = new Map<string, string>();
   const cardTypeBySource = new Map<string, 'debit-card' | 'credit-card' | null>();
 
@@ -140,7 +163,7 @@ export function suggestCardAccountMerges(
     }
   }
 
-  const suggestions: CardAccountMergeSuggestion[] = [];
+  const result = new Map<string, { candidates: string[]; paymentMode: 'Debit Card' | 'Credit Card' }>();
   for (const res of resolutions) {
     const cardType = cardTypeBySource.get(res.sourceName);
     if (!cardType) continue;
@@ -149,24 +172,63 @@ export function suggestCardAccountMerges(
     const bankKey = normalize(bank);
     if (!bankKey) continue;
 
-    const target = resolutions.find((other) => {
-      if (other.sourceName === res.sourceName) return false;
-      const otherBank = bankNameBySource.get(other.sourceName);
-      if (!otherBank || normalize(otherBank) !== bankKey) return false;
-      // Never suggest merging a card INTO another card row — the target must be the underlying
-      // (non-card) bank account itself.
-      return !cardTypeBySource.get(other.sourceName);
-    });
-    if (!target) continue;
+    const candidates = resolutions
+      .filter((other) => {
+        if (other.sourceName === res.sourceName) return false;
+        const otherBank = bankNameBySource.get(other.sourceName);
+        if (!otherBank || normalize(otherBank) !== bankKey) return false;
+        // Never suggest merging a card INTO another card row — a candidate must be the underlying
+        // (non-card) bank account itself.
+        return !cardTypeBySource.get(other.sourceName);
+      })
+      .map((c) => c.sourceName);
+    if (candidates.length === 0) continue;
 
-    suggestions.push({
-      cardSourceName: res.sourceName,
-      targetSourceName: target.sourceName,
-      paymentMode: cardType === 'credit-card' ? 'Credit Card' : 'Debit Card'
-    });
+    result.set(res.sourceName, { candidates, paymentMode: cardType === 'credit-card' ? 'Credit Card' : 'Debit Card' });
   }
+  return result;
+}
 
+/** One CONFIDENT suggestion per distinct source account name whose rows carry a card-type `Account Type`
+ *  (`debit-card`/`credit-card`) AND share a normalized `Bank Name` with EXACTLY ONE other resolution's
+ *  rows — e.g. a real MoneyView export's "Account Id"-keyed card row sharing "HDFC Bank" with the
+ *  underlying bank account's own resolution. Independent suggestion per card (confirmed 2026-08-14,
+ *  post-mockup-review — no bulk "merge all cards on this bank" shortcut); never auto-applied, same as the
+ *  existing same-file (`suggestAccountMerges`, apps/mobile's own review/accountMergeSuggestion.ts) and
+ *  fuzzy-vs-existing (`findFuzzyExistingMatch` above) suggestion types this is visually/behaviorally
+ *  parallel to. 2026-08-23 (item 70): a card sharing its bank key with 2+ non-card resolutions no longer
+ *  appears here at all — see `findAmbiguousCardAccountMerges` below, which now owns that case instead of
+ *  this function silently guessing the first match. */
+export function suggestCardAccountMerges(
+  rows: ParsedRow[],
+  resolutions: Pick<AccountResolution, 'sourceName'>[]
+): CardAccountMergeSuggestion[] {
+  const candidatesBySource = cardMergeCandidatesBySource(rows, resolutions);
+  const suggestions: CardAccountMergeSuggestion[] = [];
+  for (const [cardSourceName, { candidates, paymentMode }] of candidatesBySource) {
+    // 0 candidates: nothing to suggest (never reached this map at all — see
+    // `cardMergeCandidatesBySource`); 2+: ambiguous, see `findAmbiguousCardAccountMerges` below.
+    const targetSourceName = candidates.length === 1 ? candidates[0] : undefined;
+    if (!targetSourceName) continue;
+    suggestions.push({ cardSourceName, targetSourceName, paymentMode });
+  }
   return suggestions;
+}
+
+/** The AMBIGUOUS counterpart to `suggestCardAccountMerges` above (item 70) — one entry per card-type
+ *  source name whose bank key matches 2+ OTHER non-card resolutions, so no single confident target
+ *  exists. `suggestCardAccountMerges` never returns anything for a card source name that appears here. */
+export function findAmbiguousCardAccountMerges(
+  rows: ParsedRow[],
+  resolutions: Pick<AccountResolution, 'sourceName'>[]
+): CardAccountMergeAmbiguity[] {
+  const candidatesBySource = cardMergeCandidatesBySource(rows, resolutions);
+  const ambiguities: CardAccountMergeAmbiguity[] = [];
+  for (const [cardSourceName, { candidates, paymentMode }] of candidatesBySource) {
+    if (candidates.length < 2) continue;
+    ambiguities.push({ cardSourceName, candidateSourceNames: candidates, paymentMode });
+  }
+  return ambiguities;
 }
 
 /** One suggested resolution per distinct raw account name found in the parsed rows. Returns an empty

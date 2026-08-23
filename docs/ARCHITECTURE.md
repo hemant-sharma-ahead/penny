@@ -2629,6 +2629,38 @@ genuinely reusable lesson worth its own note here:
   too. Worth checking both paths, not just the one a unit test can reach, whenever a bug report describes
   something the user sees mid-flow (not just in the final imported result).
 
+### Decision: Real-device-testing-pass 8th/9th batches (2026-08-23) — MoneyView CSV import review + Penny CSV export/import + Groups-leave review
+
+**Rationale:** two dedicated reviews on top of the general real-device-testing pass above, fully detailed
+in [`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md)'s "8th batch" (items
+69–75, MoneyView CSV import) and "9th batch" (items 76–80, Penny CSV export/import + a Groups fix found
+while investigating it). `apps/web-react` stays untouched (frozen). Full detail already covered by
+`docs/features/expenses.md`'s two new dated entries and `docs/features/groups.md`'s new "Leaving a group"
+section; one cross-cutting note worth keeping here:
+
+- **New files**: `packages/core/src/core/import/importCashWithdrawalGrouping.ts`
+  (`groupCashWithdrawalCandidates`, unit-tested) partitions a cash-withdrawal category's rows by resolved
+  source account *before* generating suggestions, so a category spanning several real accounts produces
+  one accurate suggestion per account instead of one vague "Multiple accounts" fallback.
+  `apps/mobile/src/features/import/review/CashWithdrawalSeeAllModal.tsx` (virtualized date+amount list,
+  same `Modal` shell as `TransactionBrowserModal.tsx`), `DuplicatesSeeAllModal.tsx` (same shell, reused
+  for a duplicates group's own paired-card list), and `DuplicatePairRow.tsx` (the paired CSV-row/matched-
+  expense card, extracted so `DuplicatesBucket.tsx`'s inline list and its new "See all" modal share one
+  implementation instead of two).
+- **A generic import pipeline paying off again**: item 77 (resolving a re-imported Penny CSV's IOU-person
+  column) needed zero bespoke branching anywhere in `importPipeline.ts`/`importAccountResolution.ts`/
+  `importCategoryResolution.ts`/`importWriter.ts` — confirming the same "Penny/Cashew/MoneyView/Custom are
+  presets over one generic engine, not per-format code paths" design (see the platform-variance
+  decision above and `docs/features/expenses.md`'s Import section) held up cleanly for a fully new column
+  a year after the engine was first built.
+- **`GroupStatus` gaining `'left'`** (`leaveGroup()` no longer deletes the local group/`group_events` on
+  leave) is the same event-sourced, never-delete-history principle the rest of Groups already follows
+  (balances/feed are folded projections, never mutated in place) — leaving is now just another status
+  transition alongside `closed`/`active`, not a special-cased hard delete.
+- Two pre-existing lint errors (unrelated to this batch, found only because it happened to touch the same
+  test files) were fixed while here rather than left to block the eventual commit — see the plan doc's
+  8th-batch verification note for the exact commits they trace to.
+
 ---
 
 ## Dependency graph (simplified)

@@ -322,7 +322,7 @@ export function GroupMembersModal({
       <ConfirmDialog
         isOpen={confirmLeave}
         title="Leave this group?"
-        message="You'll stop receiving its shared expenses on this device. Balances aren't deleted for others."
+        message="You'll keep seeing everything that happened before, read-only — it just won't update, and you can't add anything new or rejoin from here. Balances aren't deleted for others."
         confirmLabel="Leave"
         confirmVariant="danger"
         onConfirm={() => {

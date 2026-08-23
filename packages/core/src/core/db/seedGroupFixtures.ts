@@ -62,6 +62,17 @@ export async function seedGroupFixtures(now: number): Promise<void> {
     memberIds: string[];
     createdDaysAgo: number;
     events: EventInput[];
+    /** My own role in this group. Defaults to 'owner' — every fixture before the `left` one below
+     *  cast the demo user as the group's creator; a group you left is more realistic as a plain
+     *  member of someone else's group. */
+    myRole?: GroupRole;
+    ownerId?: string;
+    /** Real `leaveGroup()` deletes only the caller's own `group_members` row — set this to leave
+     *  `meId` out of `memberIds`' repo writes (while still counting as a member of the group
+     *  record itself), mirroring that exact effect for a `status: 'left'` fixture. */
+    omitSelfMembership?: boolean;
+    /** When set, overrides `updatedAt` on the group record — e.g. the moment you actually left. */
+    updatedDaysAgo?: number;
   }): Promise<void> {
     const createdAt = ago(opts.createdDaysAgo);
     const key = await generateGroupKey();
@@ -71,33 +82,35 @@ export async function seedGroupFixtures(now: number): Promise<void> {
       id: opts.id,
       type: opts.type,
       name: opts.name,
-      role: 'owner',
+      role: opts.myRole ?? 'owner',
       status: opts.status,
-      ownerId: meId,
+      ownerId: opts.ownerId ?? meId,
       keyEpoch: 1,
       historyVisibility: 'full',
       joinedAt: createdAt,
       createdAt,
-      updatedAt: now
+      updatedAt: opts.updatedDaysAgo != null ? ago(opts.updatedDaysAgo) : now
     };
     await groupsRepo.put(group);
 
     await Promise.all(
-      opts.memberIds.map((userId, i) => {
-        const role: GroupRole = userId === meId ? 'owner' : 'member';
-        const rec: GroupMember = {
-          id: `${opts.id}:${userId}`,
-          groupId: opts.id,
-          userId,
-          displayName: displayName[userId] ?? 'Member',
-          role,
-          status: 'active',
-          joinedAt: createdAt + i,
-          createdAt: createdAt + i,
-          updatedAt: now
-        };
-        return groupMembersRepo.put(rec);
-      })
+      opts.memberIds
+        .filter((userId) => !(opts.omitSelfMembership && userId === meId))
+        .map((userId, i) => {
+          const role: GroupRole = userId === (opts.ownerId ?? meId) ? 'owner' : 'member';
+          const rec: GroupMember = {
+            id: `${opts.id}:${userId}`,
+            groupId: opts.id,
+            userId,
+            displayName: displayName[userId] ?? 'Member',
+            role,
+            status: 'active',
+            joinedAt: createdAt + i,
+            createdAt: createdAt + i,
+            updatedAt: now
+          };
+          return groupMembersRepo.put(rec);
+        })
     );
 
     await Promise.all(
@@ -283,6 +296,34 @@ export async function seedGroupFixtures(now: number): Promise<void> {
           'Activities advance'
         )
       }
+    ]
+  });
+
+  // 5) COLLEGE REUNION — a trip you left after settling up. Owned by someone else, not you (a real
+  //    leave is far more realistic for a plain member than an owner). Demonstrates the read-only
+  //    `left` state (item 80, docs/plans/real-device-testing-pass.md) without needing a real
+  //    join-then-leave cycle against a live server — `omitSelfMembership` mirrors exactly what
+  //    `leaveGroup()` itself does: only the caller's own `group_members` row is gone, the group
+  //    record and its full event history survive untouched.
+  await seedGroup({
+    id: 'demo-grp-college',
+    type: 'trip',
+    name: 'College Reunion',
+    status: 'left',
+    myRole: 'member',
+    ownerId: U.rohit,
+    memberIds: [U.rohit, U.neha, meId],
+    omitSelfMembership: true,
+    createdDaysAgo: 70,
+    updatedDaysAgo: 15, // left 15 days ago
+    events: [
+      {
+        type: 'shared_expense',
+        author: U.rohit,
+        daysAgo: 65,
+        payload: expense('cx1', 6000, U.rohit, { [meId]: 2000, [U.rohit]: 2000, [U.neha]: 2000 }, 'Reunion dinner')
+      },
+      { type: 'settlement', author: meId, daysAgo: 60, payload: { from: meId, to: U.rohit, amount: 2000 } }
     ]
   });
 

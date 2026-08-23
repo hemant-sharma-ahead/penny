@@ -7,16 +7,20 @@ import {
   validateMappingForFormat
 } from '@/core/import/importParsers';
 
+/** `guessMappingForFormat` returns `null` only when the header itself can't be read at all — every
+ *  fixture below has a real header, so this narrows the `| null` return type without a non-null
+ *  assertion. */
+function mustGuessMapping(
+  mapping: ReturnType<typeof guessMappingForFormat>
+): NonNullable<ReturnType<typeof guessMappingForFormat>> {
+  if (!mapping) throw new Error('expected a non-null column mapping guess');
+  return mapping;
+}
+
 const PENNY_CSV = [
   'Date,Amount,Description,Category,Type,PaymentMode,Tags,Notes',
   '14/06/2026,450,Groceries from DMart,Groceries,expense,UPI,#groceries,Weekly shop',
   '12/06/2026,95000,Salary credit,Salary,income,NetBanking,,'
-].join('\n');
-
-const YNAB_CSV = [
-  'Date,Payee,Category,Memo,Outflow,Inflow',
-  '06/14/2026,DMart,Groceries,Weekly shop,450.00,0.00',
-  '06/12/2026,Employer,Salary,,0.00,95000.00'
 ].join('\n');
 
 // Excerpted rows from the real Cashew export provided as a reference file.
@@ -41,15 +45,6 @@ describe('parseByFormat — penny', () => {
     expect(rejected).toHaveLength(0);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ amount: 450, description: 'Groceries from DMart', type: 'expense' });
-    expect(rows[1]).toMatchObject({ amount: 95000, type: 'income' });
-  });
-});
-
-describe('parseByFormat — ynab', () => {
-  it('parses the Outflow/Inflow split-amount pattern', () => {
-    const { rows, rejected } = parseByFormat(YNAB_CSV, 'ynab');
-    expect(rejected).toHaveLength(0);
-    expect(rows[0]).toMatchObject({ amount: 450, type: 'expense', description: 'DMart' });
     expect(rows[1]).toMatchObject({ amount: 95000, type: 'income' });
   });
 });
@@ -110,7 +105,7 @@ describe('validateMappingForFormat', () => {
     // mapping invalid. (Cashew's `description` synonym "name" happens to substring-match MoneyView's
     // "Bank Name" column, so description is NOT the field that fails here, unlike a naive guess might
     // suggest — the wrong-column match is real, but it's amount that trips the validation.)
-    const mapping = guessMappingForFormat(MONEYVIEW_CSV, 'cashew')!;
+    const mapping = mustGuessMapping(guessMappingForFormat(MONEYVIEW_CSV, 'cashew'));
     expect(mapping.amount).toBe(-1);
     expect(mapping.outflow).toBe(-1);
     expect(mapping.inflow).toBe(-1);
@@ -122,22 +117,21 @@ describe('validateMappingForFormat', () => {
   });
 
   it('passes for the real Cashew header against Cashew synonyms', () => {
-    const mapping = guessMappingForFormat(CASHEW_CSV, 'cashew')!;
+    const mapping = mustGuessMapping(guessMappingForFormat(CASHEW_CSV, 'cashew'));
     expect(validateMappingForFormat(mapping, 'cashew')).toBeNull();
   });
 });
 
 describe('custom format (guessed mapping + parseWithMapping)', () => {
   it('pre-fills a non-blank mapping guess for an arbitrary header', () => {
-    const mapping = guessMappingForFormat(MONEYVIEW_CSV, 'custom');
-    expect(mapping).not.toBeNull();
-    expect(mapping!.date).toBeGreaterThanOrEqual(0);
-    expect(mapping!.outflow).toBeGreaterThanOrEqual(0);
-    expect(mapping!.inflow).toBeGreaterThanOrEqual(0);
+    const mapping = mustGuessMapping(guessMappingForFormat(MONEYVIEW_CSV, 'custom'));
+    expect(mapping.date).toBeGreaterThanOrEqual(0);
+    expect(mapping.outflow).toBeGreaterThanOrEqual(0);
+    expect(mapping.inflow).toBeGreaterThanOrEqual(0);
   });
 
   it('parses correctly once the user confirms (or accepts) the guessed mapping', () => {
-    const mapping = guessMappingForFormat(CASHEW_CSV, 'custom')!;
+    const mapping = mustGuessMapping(guessMappingForFormat(CASHEW_CSV, 'custom'));
     const { rows } = parseWithMapping(CASHEW_CSV, mapping, 'auto');
     expect(rows.length).toBeGreaterThan(0);
   });
@@ -178,6 +172,41 @@ describe('rejected rows are surfaced, not silently dropped', () => {
     expect(rows).toHaveLength(0);
     expect(rejected).toHaveLength(1);
     expect(rejected[0]?.reason).toMatch(/description|amount/i);
+  });
+});
+
+// A synthetic re-import of item 76's export shape (Date,...,Notes,Account,IOU Person,Shared To Group) —
+// proves the Penny-format preset recognises all three new columns by name (2026-08-23, real-device-
+// testing-pass item 76/77 — the export→import round trip at the parsing layer; the resulting Person +
+// LedgerEntry creation itself happens in apps/mobile's useImport.ts, which has no test harness).
+const PENNY_CSV_WITH_NEW_COLUMNS = [
+  'Date,Amount,Description,Category,Type,PaymentMode,Tags,Notes,Account,IOU Person,Shared To Group',
+  '14/06/2026,450,Dinner with Rahul,Dining & Café,expense,UPI,,,HDFC Savings,Rahul,',
+  '13/06/2026,3200,Beach shack dinner,Dining & Café,expense,Card,,Split the bill,HDFC Savings,,Shared to: Trip to Goa'
+].join('\n');
+
+describe('parseByFormat — penny (item 76/77 Account/IOU Person/Shared To Group columns)', () => {
+  it('resolves the Account column to the raw account name', () => {
+    const { rows, rejected } = parseByFormat(PENNY_CSV_WITH_NEW_COLUMNS, 'penny');
+    expect(rejected).toHaveLength(0);
+    expect(rows[0]?.account).toBe('HDFC Savings');
+    expect(rows[1]?.account).toBe('HDFC Savings');
+  });
+
+  it('carries the IOU Person column through as ParsedRow.iouPerson, blank when absent', () => {
+    const { rows } = parseByFormat(PENNY_CSV_WITH_NEW_COLUMNS, 'penny');
+    expect(rows[0]?.iouPerson).toBe('Rahul');
+    expect(rows[1]?.iouPerson).toBeUndefined();
+  });
+
+  it('folds the Shared To Group informational note into Notes, appending rather than overwriting', () => {
+    const { rows } = parseByFormat(PENNY_CSV_WITH_NEW_COLUMNS, 'penny');
+    // Row 0 had no existing note — the shared-to-group text is blank too, so notes stays unset.
+    expect(rows[0]?.notes).toBeUndefined();
+    // Row 1 already had "Split the bill" — the shared-to-group note is appended, not overwritten.
+    expect(rows[1]?.notes).toBe('Split the bill · Shared to: Trip to Goa');
+    // The shared-to-group text is never exposed as its own field — purely folded into notes.
+    expect(rows[1]).not.toHaveProperty('sharedToGroupNote');
   });
 });
 
