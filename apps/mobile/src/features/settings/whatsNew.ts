@@ -14,6 +14,16 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: '1.5.2',
+    highlights: [
+      'CSV import shows a loading indicator on large files instead of appearing to freeze.',
+      'Cash-withdrawal imports now show a clear card per account, instead of one vague "multiple accounts" entry.',
+      'Exporting your data now includes account names and lending/borrowing info.',
+      'Custom CSV import can now map more fields — tags, payment mode, bank name, and account type.',
+      'Leaving a group now keeps its past history visible instead of deleting it.'
+    ]
+  },
+  {
     version: '1.5.1',
     highlights: [
       "Fixed a bug where typing a person's name for lending/borrowing could dismiss the keyboard mid-word.",
