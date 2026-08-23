@@ -67,16 +67,31 @@ export const PersonTypeahead = forwardRef<RNTextInput, PersonTypeaheadProps>(fun
   }
 
   return (
-    <View style={{ position: 'relative', zIndex: showList ? 50 : undefined }}>
+    // `zIndex` deliberately fixed, not toggled on `showList`/`focused` (real-device testing, 2026-08-21):
+    // every single tap into this field produced a `focus` immediately followed by a self-inflicted
+    // `blur` within milliseconds, confirmed via on-device focus/blur tracing — every time, not
+    // sporadically. Root cause: this wrapper's `zIndex` used to flip `undefined → 50` on the exact
+    // same state change (`focused` becoming true) that fires the focus event; changing a View's
+    // `zIndex` on Android can force it to recreate its native rendering layer, and doing that to the
+    // direct ancestor of a view that just received IME focus is enough for Android to defensively drop
+    // the keyboard. The dropdown below already carries its own fixed `zIndex: 50`, so this wrapper never
+    // needed a dynamic value in the first place.
+    <View style={{ position: 'relative', zIndex: 50 }}>
       <RNTextInput
         ref={ref}
         value={query}
         autoFocus={autoFocus}
         placeholder={placeholder}
         placeholderTextColor={theme.textTertiary}
-        onChangeText={onQueryChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 120)}
+        onChangeText={(v) => {
+          onQueryChange(v);
+        }}
+        onFocus={() => {
+          setFocused(true);
+        }}
+        onBlur={() => {
+          setTimeout(() => setFocused(false), 120);
+        }}
         className="bg-surface-2 text-primary border w-full rounded-xl px-3 py-2.5 text-sm"
         style={{
           borderColor: error ? theme.danger : theme.border,
@@ -84,37 +99,52 @@ export const PersonTypeahead = forwardRef<RNTextInput, PersonTypeaheadProps>(fun
           textAlignVertical: 'center'
         }}
       />
-      {showList && (
-        <View
-          className="bg-surface border border-theme rounded-xl overflow-hidden"
-          style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, elevation: 6, zIndex: 50 }}
-        >
-          {matches.map((p) => (
-            <Pressable
-              key={p.id}
-              onPress={() => {
-                onSelect(p);
-                setFocused(false);
-              }}
-              className="px-3 py-2 border-b border-theme"
-            >
-              {renderMatch(p.name)}
-            </Pressable>
-          ))}
-          {showCreate && (
-            <Pressable
-              onPress={() => {
-                onQueryChange(query.trim());
-                setFocused(false);
-              }}
-              className="flex-row items-center gap-1.5 px-3 py-2"
-            >
-              <Icon name="ti-plus" size={14} color={theme.textPrimary} />
-              <Text className="text-sm text-primary">Create &quot;{query.trim()}&quot;</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
+      {/* Always mounted (never conditionally rendered) — real-device testing feedback, 2026-08-21:
+       *  "keyboard appears then disappears right as the Create suggestion comes in". Root cause:
+       *  this whole subtree used to only get created the instant `showList` first became true (e.g.
+       *  the very first keystroke that produces a "Create '<name>'" row) — inserting a brand-new
+       *  native view into the tree while the `RNTextInput` above is actively focused is a known way
+       *  Android's keyboard/focus handling gets confused and dismisses the keyboard. Toggling `display`
+       *  on an already-mounted view has none of that risk — nothing new gets inserted mid-typing,
+       *  only content/visibility on a view that's existed since this component's own first render. */}
+      <View
+        className="bg-surface border border-theme rounded-xl overflow-hidden"
+        style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          marginTop: 4,
+          elevation: 6,
+          zIndex: 50,
+          display: showList ? 'flex' : 'none'
+        }}
+      >
+        {matches.map((p) => (
+          <Pressable
+            key={p.id}
+            onPress={() => {
+              onSelect(p);
+              setFocused(false);
+            }}
+            className="px-3 py-2 border-b border-theme"
+          >
+            {renderMatch(p.name)}
+          </Pressable>
+        ))}
+        {showCreate && (
+          <Pressable
+            onPress={() => {
+              onQueryChange(query.trim());
+              setFocused(false);
+            }}
+            className="flex-row items-center gap-1.5 px-3 py-2"
+          >
+            <Icon name="ti-plus" size={14} color={theme.textPrimary} />
+            <Text className="text-sm text-primary">Create &quot;{query.trim()}&quot;</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 });

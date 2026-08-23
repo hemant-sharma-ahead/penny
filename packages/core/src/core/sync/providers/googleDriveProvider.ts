@@ -26,6 +26,26 @@ export function isCloudBackupConfigured(): boolean {
   return typeof id === 'string' && id.length > 0;
 }
 
+/** Account identity for the Drive row's account-hero display (Backup & Restore redesign, Option B).
+ *  Same shape as googleDriveProvider.native.ts's real `GoogleSignin.getCurrentUser()`-backed version —
+ *  the browser Google Identity Services token flow this file uses has no equivalent persistent
+ *  "signed-in user" object to read synchronously (it's a bare access-token exchange, not a session),
+ *  so this always returns null here. Native (the primary, actively-developed target) is where this is
+ *  real; revisit only if RN Web Drive backup becomes a genuinely supported surface. */
+export interface DriveAccountInfo {
+  email: string;
+  name: string | null;
+  photoUrl: string | null;
+}
+
+export function getConnectedGoogleAccount(): DriveAccountInfo | null {
+  return null;
+}
+
+export async function disconnectGoogleAccount(): Promise<void> {
+  // No persistent session to sign out of on this platform — see DriveAccountInfo's doc comment above.
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function gis(): any {
   return (window as { google?: any }).google;

@@ -45,6 +45,7 @@ export function buildMemory(expense: Expense, previous?: MerchantMemory): Mercha
     categoryId: expense.categoryId,
     ...(expense.accountId && { accountId: expense.accountId }),
     ...(expense.paymentMode && { paymentMode: expense.paymentMode }),
+    amount: expense.amount,
     usageCount: (previous?.usageCount ?? 0) + 1,
     updatedAt: Date.now()
   };
@@ -78,9 +79,39 @@ export function buildMemoriesFromExpenses(expenses: Expense[]): MerchantMemory[]
     categoryId: latest.categoryId,
     ...(latest.accountId && { accountId: latest.accountId }),
     ...(latest.paymentMode && { paymentMode: latest.paymentMode }),
+    amount: latest.amount,
     usageCount: count,
     updatedAt: latest.updatedAt
   }));
+}
+
+/**
+ * The exact set of merchant-memory keys a given set of expenses would still justify —
+ * i.e., every key `memoryKey()` would produce for at least one of them. `MerchantMemory.id`
+ * IS a `memoryKey()` string, so this is exactly what `backupManager.ts`'s `importBackup()`
+ * needs to drop orphaned memory rows on restore.
+ *
+ * Found 2026-08-21 via real-device testing: a backup/restore can legitimately carry
+ * merchant-memory rows with no matching expense at all — memory is a deliberately
+ * independent "learned preference" that already outlives any single expense being
+ * deleted (see `buildMemory`'s own doc comment: `usageCount` persists across the
+ * originating transaction's own deletion, by design, the same way browser autofill
+ * remembers a value after the record that first typed it is gone). A destructive restore
+ * doesn't introduce this on its own — it just makes an already-possible inconsistency
+ * reproducible and visible ("why does it suggest 'Test Expense' when there's no such
+ * transaction at all"), so this is the one point worth reconciling against: a restore is
+ * supposed to be a clean, full replacement of state, not a mix of the new snapshot plus
+ * incidental leftover traces from wherever the backup happened to be pushed from.
+ */
+export function validMerchantMemoryKeys(expenses: Pick<Expense, 'type' | 'description' | 'categoryId'>[]): Set<string> {
+  const keys = new Set<string>();
+  for (const e of expenses) {
+    const type = e.type ?? 'expense';
+    if (type === 'transfer') continue;
+    const key = memoryKey(type, e.description, e.categoryId);
+    if (key) keys.add(key);
+  }
+  return keys;
 }
 
 /**

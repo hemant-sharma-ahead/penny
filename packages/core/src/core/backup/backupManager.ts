@@ -16,11 +16,12 @@
 // On restore: passphrase → DMK → decrypt bundle → bulk-put records → lock session →
 // user re-enters PIN.
 
-import { db } from '@/core/db/schema';
+import { db, restoreTables } from '@/core/db/schema';
 import { deriveKey, decrypt, encrypt, unwrapKey } from '@/core/crypto/engine';
 import { keystore } from '@/core/crypto/keystore';
 import { lockSession } from '@/core/crypto/securityManager';
-import type { SecurityRecord } from '@/core/db/types';
+import { validMerchantMemoryKeys } from '@/core/expenses/merchantMemory';
+import type { Expense, SecurityRecord } from '@/core/db/types';
 
 const BACKUP_VERSION = 2 as const;
 const MK_ITERATIONS = 600_000;
@@ -172,13 +173,65 @@ function resetLockoutState(rows: unknown[]): unknown[] {
   }));
 }
 
-export async function importBackup(fileText: string, passphrase: string): Promise<void> {
+// 2026-08-21, real-device testing feedback ("restored a backup with one transaction, but it never
+// showed up anywhere after unlocking again"): traced (not assumed) to `SessionGate.tsx` — it toggles
+// a `locked` boolean and never remounts `children`, so every screen/hook already mounted before the
+// restore (`useHome`, `useExpenses`, `useAccounts`, etc.) keeps its pre-restore in-memory state
+// forever; nothing here ever broadcast the app's existing `notifyTxnChanged()`/`notifyAccountsChanged()`
+// staleness bus (`useTxnRefresh.ts`/`useDataRefresh.ts`) to tell them to reload, the same bus every
+// other cross-hook writer in the app already relies on for this exact problem (see e.g.
+// `useBankImport.ts`'s own comment on the identical failure mode). Firing that broadcast immediately
+// here would be wrong too — the session is locked (`lockSession()` below) at exactly this point, so
+// any reload callback that touches an `EncryptedRepository` would throw. Instead, set a flag the UI
+// consumes exactly once, right after the user's *next* successful unlock (see `SessionGate.tsx`).
+let pendingFullRefresh = false;
+
+/** Consumed once by `SessionGate.tsx` immediately after a successful post-restore unlock — see the
+ *  doc comment above `importBackup` for why the broadcast can't fire any earlier than that. */
+export function consumePendingFullRefresh(): boolean {
+  const pending = pendingFullRefresh;
+  pendingFullRefresh = false;
+  return pending;
+}
+
+/** Thrown when `options.signal` is aborted during phase 1 (see {@link importBackup}'s doc comment). */
+export class RestoreCancelledError extends Error {
+  constructor() {
+    super('Restore cancelled');
+    this.name = 'RestoreCancelledError';
+  }
+}
+
+export interface ImportBackupOptions {
+  /** Called exactly once, immediately before the atomic `restoreTables()` write begins — the real code
+   *  boundary between "nothing's touched the database yet" and "an irreversible write is in flight"
+   *  (Backup & Restore redesign's two-phase progress/cancel UI maps its phase transition to this, not a
+   *  fixed delay). */
+  onPhase2Start?: () => void;
+  /** Checked at each cancellable point during phase 1 (parse/derive-key/decrypt) only. Phase 2's bulk
+   *  write is atomic and, once started, always runs to completion — cancelling mid-write would be
+   *  unsafe, so this is never consulted after `onPhase2Start` fires. Throws {@link RestoreCancelledError}
+   *  when aborted. */
+  signal?: AbortSignal;
+}
+
+export async function importBackup(
+  fileText: string,
+  passphrase: string,
+  options: ImportBackupOptions = {}
+): Promise<void> {
+  const { onPhase2Start, signal } = options;
+  function checkCancelled(): void {
+    if (signal?.aborted) throw new RestoreCancelledError();
+  }
+
   let file: BackupFile;
   try {
     file = JSON.parse(fileText) as BackupFile;
   } catch {
     throw new Error('Invalid backup file — could not parse JSON');
   }
+  checkCancelled();
 
   // Recover the data key from the passphrase.
   let mk: CryptoKey;
@@ -188,36 +241,77 @@ export async function importBackup(fileText: string, passphrase: string): Promis
     try {
       const passKek = await deriveKey(passphrase, base64ToBuffer(file.passphraseKekSalt), MK_ITERATIONS);
       mk = await unwrapKey(base64ToBuffer(file.wrappedMasterKeyByPassphrase), passKek);
-    } catch {
-      throw new Error('Incorrect passphrase or corrupted backup file');
+    } catch (err) {
+      throw new Error('Incorrect passphrase or corrupted backup file', { cause: err });
     }
   } else {
     throw new Error(`Unsupported backup version: ${String((file as { version: unknown }).version)}`);
   }
+  checkCancelled();
 
   let plaintext: ArrayBuffer;
   try {
     plaintext = await decrypt(mk, base64ToBuffer(file.iv), base64ToBuffer(file.ciphertext));
-  } catch {
-    throw new Error('Incorrect passphrase or corrupted backup file');
+  } catch (err) {
+    throw new Error('Incorrect passphrase or corrupted backup file', { cause: err });
   }
+  checkCancelled();
 
   const bundle = JSON.parse(new TextDecoder().decode(plaintext)) as {
     exportedAt: number;
     stores: Record<string, unknown[]>;
   };
 
-  // Restore each store: clear existing records, then bulk-put from backup.
-  for (const name of BACKUP_STORES) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = (db as any)[name] as { clear(): Promise<void>; bulkPut(rows: unknown[]): Promise<unknown> };
-    await table.clear();
+  // Real root cause of a real-device-only "undefined is not a function", found 2026-08-21 via a
+  // captured on-device stack trace (reading the code alone never surfaced it, across two separate
+  // investigation rounds): `apps/mobile` doesn't run on Dexie at all — `schema.native.ts` replaces it
+  // with an op-sqlite-backed object implementing only this project's own `RowStore` abstraction
+  // (`store.ts`: `get`/`put`/`toArray`/`delete`/`count`/`update`/`clear` — no `bulkPut`, no
+  // `transaction`). This loop used to call `.bulkPut()` directly on `db[name]` — a real Dexie-only
+  // method that only ever existed on the web build's actual Dexie tables (which is also why the vitest
+  // suite never caught this: tests import the bare `schema.ts`, which Node has no Metro-style
+  // `.native.ts` override for). A first fix (looping individual `RowStore.put()` calls, one per row,
+  // with a manual snapshot-and-rollback for atomicity) was correct but took literal minutes on a real
+  // transaction history — thousands of individual awaited native round-trips. `restoreTables()`
+  // (exported from both `schema.ts` and `schema.native.ts`, same contract) replaces all of that with
+  // one real bulk primitive per platform — Dexie's own `transaction()`/`bulkPut()` on web,
+  // `op-sqlite`'s `executeBatch()` (many statements, one native round-trip, one real SQLite
+  // transaction) on native — genuinely atomic on both, and fast.
+
+  // Drop orphaned merchant-memory rows before they're restored — see `validMerchantMemoryKeys`'s own
+  // doc comment for the full explanation (real-device testing, 2026-08-21: a restored vault suggested
+  // "Test Expense" with zero actual matching transactions in it). `MerchantMemory.id` is a plaintext
+  // `memoryKey()` string (only `iv`/`ciphertext` are encrypted), so only the incoming `expenses` rows
+  // need decrypting here, not the memory rows themselves. Skipped entirely when there's no memory to
+  // reconcile in the first place, to avoid decrypting a whole transaction history for nothing.
+  const rawMemoryRows = bundle.stores['merchant_memory'] as { id: string }[] | undefined;
+  if (rawMemoryRows?.length) {
+    const rawExpenseRows = (bundle.stores['expenses'] as { id: string; iv: string; ciphertext: string }[]) ?? [];
+    const decryptedExpenses = await Promise.all(
+      rawExpenseRows.map(async (row) => {
+        const rowPlaintext = await decrypt(mk, base64ToBuffer(row.iv), base64ToBuffer(row.ciphertext));
+        return JSON.parse(new TextDecoder().decode(rowPlaintext)) as Expense;
+      })
+    );
+    const validKeys = validMerchantMemoryKeys(decryptedExpenses);
+    bundle.stores['merchant_memory'] = rawMemoryRows.filter((row) => validKeys.has(row.id));
+  }
+  checkCancelled();
+
+  const entries = BACKUP_STORES.map((name) => {
     let rows = bundle.stores[name as BackupStore];
     if (name === 'security' && rows) rows = resetLockoutState(rows);
-    if (rows?.length) {
-      await table.bulkPut(rows);
-    }
-  }
+    return { name, rows };
+  });
+  // Last cancellable point — phase 1 (parse/derive-key/decrypt) is done and nothing has touched the
+  // database yet. Once `onPhase2Start` fires, the write below is atomic and always runs to completion.
+  checkCancelled();
+  onPhase2Start?.();
+  await restoreTables(entries);
+
+  // Every already-mounted screen/hook needs to reload once the session is unlocked again — see the
+  // doc comment above `consumePendingFullRefresh` for the full explanation.
+  pendingFullRefresh = true;
 
   // Lock session — user must re-enter their original PIN after restore.
   lockSession();

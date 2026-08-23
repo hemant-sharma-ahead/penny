@@ -7,6 +7,7 @@ import {
   buildResolvedPreviewRowsByIndex,
   toConfirmedCategoryMap,
   applyConfirmedTransferPairs,
+  releaseConfirmedPairsFromGroupSkip,
   type ConfirmedCategoryMap,
   type ResolvedPreviewRow,
   type RowOverride,
@@ -196,24 +197,24 @@ describe('buildResolvedPreviewRows', () => {
   });
 });
 
-describe('applyConfirmedTransferPairs', () => {
-  function resolvedRow(overrides: Partial<ResolvedPreviewRow> = {}): ResolvedPreviewRow {
-    return {
-      date: 100,
-      amount: 5000,
-      description: 'Cash withdrawal',
-      type: 'expense',
-      hashtags: [],
-      categoryId: 'cat-tr-other',
-      categoryName: 'Other Transfer',
-      accountId: 'acc-hdfc',
-      skipped: false,
-      duplicate: false,
-      sourceRef: 'ref-1',
-      ...overrides
-    };
-  }
+function resolvedRow(overrides: Partial<ResolvedPreviewRow> = {}): ResolvedPreviewRow {
+  return {
+    date: 100,
+    amount: 5000,
+    description: 'Cash withdrawal',
+    type: 'expense',
+    hashtags: [],
+    categoryId: 'cat-tr-other',
+    categoryName: 'Other Transfer',
+    accountId: 'acc-hdfc',
+    skipped: false,
+    duplicate: false,
+    sourceRef: 'ref-1',
+    ...overrides
+  };
+}
 
+describe('applyConfirmedTransferPairs', () => {
   it('merges a confirmed pair into ONE row with type transfer, accountId, and toAccountId', () => {
     const rows: ResolvedPreviewRow[] = [
       resolvedRow({ accountId: 'acc-hdfc', type: 'expense', amount: 5000 }),
@@ -250,6 +251,242 @@ describe('applyConfirmedTransferPairs', () => {
     const rows: ResolvedPreviewRow[] = [resolvedRow(), resolvedRow({ sourceRef: 'ref-2' })];
     const result = applyConfirmedTransferPairs(rows, []);
     expect(result).toEqual(rows);
+  });
+});
+
+describe('releaseConfirmedPairsFromGroupSkip (2026-08-22 real-device regression)', () => {
+  const fallback = { id: 'cat-tr-other', name: 'Other Transfer' };
+
+  it('un-skips a paired row that was force-skipped by its GROUP-level readiness gate', () => {
+    const actions = new Map<number, RowAction>([
+      [0, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }],
+      [1, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }]
+    ]);
+    const pairs: TransferPair[] = [
+      { outgoingIndex: 0, incomingIndex: 1, fromAccount: 'HDFC1234', toAccount: 'Cash', amount: 5000, date: 100 }
+    ];
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+    expect(result.get(0)).toMatchObject({
+      type: 'transfer',
+      categoryId: 'cat-tr-other',
+      categoryName: 'Other Transfer'
+    });
+    expect(result.get(1)).toMatchObject({
+      type: 'transfer',
+      categoryId: 'cat-tr-other',
+      categoryName: 'Other Transfer'
+    });
+    expect(result.get(0)?.skip).toBeUndefined();
+  });
+
+  it('the real reported bug: 16 confirmed pairs sharing ONE category with a single unpaired straggler no longer all get force-skipped', () => {
+    // Mirrors the exact shape of `useImport.ts`'s `transactionsRowGroups` commit loop: one category
+    // group ("Cash Withdrawal::expense") owns 17 row indices — 16 that each pair with a reciprocal
+    // "Cash Withdrawal::income" row, plus ONE unpaired straggler (index 32) needing its own manual
+    // destination-account pick. Because the group has ANY undecided row, `g.transactionsReady` is false
+    // for the WHOLE group, so every one of its 17 rows starts out force-skipped by the group loop —
+    // exactly the real regression (16 correctly-detected, correctly-confirmed pairs writing zero rows).
+    const groupRowIndices = Array.from({ length: 17 }, (_, i) => i * 2); // 0,2,4,...,32 (17 expense legs)
+    const incomeRowIndices = Array.from({ length: 16 }, (_, i) => i * 2 + 1); // 1,3,...,31 (16 income legs)
+    const actions = new Map<number, RowAction>();
+    for (const i of [...groupRowIndices, ...incomeRowIndices]) {
+      actions.set(i, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true });
+    }
+    const pairs: TransferPair[] = Array.from({ length: 16 }, (_, i) => ({
+      outgoingIndex: i * 2,
+      incomingIndex: i * 2 + 1,
+      fromAccount: 'HDFC1234',
+      toAccount: 'Cash',
+      amount: 5000,
+      date: 100
+    }));
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+
+    // All 16 confirmed pairs (32 row indices) are released from the group-level skip.
+    for (const pair of pairs) {
+      expect(result.get(pair.outgoingIndex)).toMatchObject({ type: 'transfer' });
+      expect(result.get(pair.outgoingIndex)?.skip).toBeUndefined();
+      expect(result.get(pair.incomingIndex)).toMatchObject({ type: 'transfer' });
+      expect(result.get(pair.incomingIndex)?.skip).toBeUndefined();
+    }
+    // The unpaired straggler (index 32) correctly stays skipped — it was never confirmed, and this
+    // function must never widen its scope beyond rows that are ACTUALLY part of a confirmed pair.
+    expect(result.get(32)).toMatchObject({ skip: true, categoryName: 'Needs review — not yet resolved' });
+  });
+
+  it('leaves a normal, non-forced-skip action untouched even if the row happens to be paired', () => {
+    // A row whose group WAS ready (e.g. `kind: 'existing'`, already decided) must be passed through
+    // exactly as-is — `applyConfirmedTransferPairs` overrides `type`/`amount`/`toAccountId` anyway, so
+    // there is nothing for this function to "fix" here, and it must never invent work.
+    const readyAction: RowAction = { categoryId: 'cat-groceries', categoryName: 'Groceries' };
+    const actions = new Map<number, RowAction>([
+      [0, readyAction],
+      [1, readyAction]
+    ]);
+    const pairs: TransferPair[] = [
+      { outgoingIndex: 0, incomingIndex: 1, fromAccount: 'HDFC1234', toAccount: 'Cash', amount: 5000, date: 100 }
+    ];
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+    expect(result.get(0)).toBe(readyAction);
+    expect(result.get(1)).toBe(readyAction);
+  });
+
+  it('never touches a row that is not part of any confirmed pair', () => {
+    const actions = new Map<number, RowAction>([
+      [0, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }]
+    ]);
+    const result = releaseConfirmedPairsFromGroupSkip(actions, [], fallback);
+    expect(result.get(0)).toMatchObject({ skip: true });
+  });
+
+  it('the SECOND real reported bug: an explicit user "Skip" on the visible stragglers must not also skip the invisible paired rows sharing that group (2026-08-22 follow-up)', () => {
+    // This reproduces `useImport.ts`'s LIVE `rowActions` memo, not the commit-time `finalRowActions` —
+    // the actual reported regression this time. The "Balance Correction" tile only ever DISPLAYS its 7
+    // unpaired rows (both legs of every one of the 16 pairs are excluded from the tile by
+    // `groupRowsForTransactionsStage`) — so when the user explicitly taps "Skip" for what they see, that
+    // decision is recorded once at the GROUP's key and the per-group loop applies `{ skip: true }` to
+    // EVERY row index the group owns, uniformly — all 39, not just the 7 the user actually acted on.
+    // Simulates exactly that: one group's `RowAction` map, ALL 39 rows uniformly skipped by the user's
+    // own explicit tile-level decision (deliberately NOT the `!transactionsReady` reason — proving this
+    // function fixes a group-level skip regardless of WHY the group ended up skip).
+    const pairedIndices = Array.from({ length: 16 }, (_, i) => [i * 2, i * 2 + 1] as const);
+    const stragglerIndices = [32, 33, 34, 35, 36, 37, 38];
+    const actions = new Map<number, RowAction>();
+    for (const [out, inc] of pairedIndices) {
+      actions.set(out, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+      actions.set(inc, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    }
+    for (const i of stragglerIndices) {
+      actions.set(i, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    }
+    const pairs: TransferPair[] = pairedIndices.map(([outgoingIndex, incomingIndex]) => ({
+      outgoingIndex,
+      incomingIndex,
+      fromAccount: 'HDFC XX8112',
+      toAccount: 'Cash',
+      amount: 5000,
+      date: 100
+    }));
+
+    // This is the LIVE-layer release — called with every currently-still-paired `transferPairs` entry
+    // (not the narrower `confirmedTransferPairs`, which doesn't exist yet at this point in the real hook).
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+
+    for (const [out, inc] of pairedIndices) {
+      expect(result.get(out)).toMatchObject({ type: 'transfer' });
+      expect(result.get(out)?.skip).toBeUndefined();
+      expect(result.get(inc)).toMatchObject({ type: 'transfer' });
+      expect(result.get(inc)?.skip).toBeUndefined();
+    }
+    // The 7 stragglers are exactly what the user actually chose to skip — must stay skipped.
+    for (const i of stragglerIndices) {
+      expect(result.get(i)).toMatchObject({ skip: true, categoryName: 'Balance Correction' });
+    }
+  });
+
+  it('full real-shape simulation: 999 other-category rows + 16 confirmed transfers + 7 user-skipped stragglers = 1015 written, 0 silently lost', () => {
+    // End-to-end proof against the exact real numbers reported: 1038 total rows, 39 "Balance
+    // Correction" (16 pairs + 7 stragglers the user explicitly skips), 999 everything else. Simulates
+    // both the LIVE release (fixing `confirmedTransferPairs`) and the COMMIT release (the first
+    // regression's fix), then the real merge + duplicate/skip filter a write loop applies.
+    const pairedIndices = Array.from({ length: 16 }, (_, i) => [i * 2, i * 2 + 1] as const);
+    const stragglerIndices = Array.from({ length: 7 }, (_, i) => 32 + i);
+    const otherIndices = Array.from({ length: 999 }, (_, i) => 39 + i);
+
+    const liveActions = new Map<number, RowAction>();
+    for (const [out, inc] of pairedIndices) {
+      liveActions.set(out, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+      liveActions.set(inc, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    }
+    for (const i of stragglerIndices)
+      liveActions.set(i, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    for (const i of otherIndices) liveActions.set(i, { categoryId: 'cat-other', categoryName: 'Other' });
+
+    const pairs: TransferPair[] = pairedIndices.map(([outgoingIndex, incomingIndex]) => ({
+      outgoingIndex,
+      incomingIndex,
+      fromAccount: 'HDFC XX8112',
+      toAccount: 'Cash',
+      amount: 5000,
+      date: 100
+    }));
+
+    // Step 1 (live layer fix): `confirmedTransferPairs`'s equivalent — a pair only counts as confirmed
+    // if BOTH legs are not skipped in the (now correctly released) live actions.
+    const releasedLive = releaseConfirmedPairsFromGroupSkip(liveActions, pairs, fallback);
+    const confirmedPairs = pairs.filter(
+      (p) => !releasedLive.get(p.outgoingIndex)?.skip && !releasedLive.get(p.incomingIndex)?.skip
+    );
+    expect(confirmedPairs).toHaveLength(16);
+
+    // Step 2 (commit layer): rebuild a fresh, commit-shaped action map from scratch (mirrors
+    // `finalRowActions` never reusing `rowActions`) and apply the SAME release using the now-correct
+    // `confirmedPairs`.
+    const commitActions = new Map<number, RowAction>(liveActions);
+    const releasedCommit = releaseConfirmedPairsFromGroupSkip(commitActions, confirmedPairs, fallback);
+
+    const allIndices = [...pairedIndices.flat(), ...stragglerIndices, ...otherIndices];
+    const totalRows = allIndices.length;
+    expect(totalRows).toBe(1038);
+
+    const previewRows: ResolvedPreviewRow[] = allIndices.map((i) => {
+      const action = releasedCommit.get(i);
+      return {
+        date: 100,
+        amount: 5000,
+        description: 'row',
+        type: action?.type ?? 'expense',
+        hashtags: [],
+        categoryId: action?.categoryId ?? 'cat-other',
+        categoryName: action?.categoryName ?? 'Other',
+        accountId: i % 2 === 0 ? 'acc-hdfc' : 'acc-cash',
+        skipped: !!action?.skip,
+        duplicate: false,
+        sourceRef: `ref-${i}`
+      };
+    });
+
+    const merged = applyConfirmedTransferPairs(previewRows, confirmedPairs);
+    const written = merged.filter((r) => !r.skipped && !r.duplicate);
+
+    // 999 other-category rows + 16 MERGED transfer rows = 1015 written. The 7 stragglers stay excluded
+    // (the user's own explicit choice — shown and actable-on, never silently imported either way).
+    expect(written).toHaveLength(1015);
+    expect(written.filter((r) => r.type === 'transfer')).toHaveLength(16);
+    expect(merged.filter((r) => r.skipped)).toHaveLength(7);
+  });
+
+  it('end to end: a released pair action survives into a real merged type-transfer row via applyConfirmedTransferPairs', () => {
+    // The full real chain this bug lived in: group loop force-skips → this function releases the
+    // confirmed pair → `buildResolvedPreviewRowsByIndex`-shaped preview rows are no longer `skipped` →
+    // `applyConfirmedTransferPairs` merges them into one real `type: 'transfer'` row that a write loop
+    // filtering on `!row.skipped` will actually persist.
+    const actions = new Map<number, RowAction>([
+      [0, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }],
+      [1, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }]
+    ]);
+    const pairs: TransferPair[] = [
+      { outgoingIndex: 0, incomingIndex: 1, fromAccount: 'HDFC1234', toAccount: 'Cash', amount: 5000, date: 100 }
+    ];
+    const released = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+
+    // Simulate what `buildResolvedPreviewRowsByIndex` would now produce given the released actions —
+    // `skipped: !!resolved?.skip` is the exact expression that function uses.
+    const preview: ResolvedPreviewRow[] = [
+      resolvedRow({ accountId: 'acc-hdfc', type: 'expense', skipped: !!released.get(0)?.skip }),
+      resolvedRow({ accountId: 'acc-cash', type: 'income', sourceRef: 'ref-2', skipped: !!released.get(1)?.skip })
+    ];
+    expect(preview[0]?.skipped).toBe(false);
+    expect(preview[1]?.skipped).toBe(false);
+
+    const merged = applyConfirmedTransferPairs(preview, pairs);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      type: 'transfer',
+      accountId: 'acc-hdfc',
+      toAccountId: 'acc-cash',
+      skipped: false
+    });
   });
 });
 

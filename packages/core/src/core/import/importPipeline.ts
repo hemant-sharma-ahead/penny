@@ -293,6 +293,61 @@ export function applyConfirmedTransferPairs(rows: ResolvedPreviewRow[], pairs: T
   return merged;
 }
 
+/** Un-does an over-broad category-GROUP-level skip for any row that's ALSO a member of a still-paired
+ *  `TransferPair` — a group's `RowAction` is built ONCE per group and applied to EVERY row index the
+ *  group owns, uniformly (see apps/mobile's `useImport.ts`, both the live `rowActions` memo and
+ *  `commitAndImport()`'s `finalRowActions`), which is wrong for a paired row for TWO independent real
+ *  reasons found via 2026-08-22 real-device tests against the same file:
+ *
+ *  1. **An unready group** (`!g.transactionsReady`, `commitAndImport()`): a file with 16 genuine paired
+ *     "Balance Correction" transfers plus 7 unpaired single-leg stragglers (each needing its own manual
+ *     destination-account pick) left the ENTIRE "Balance Correction::expense"/`::income` groups
+ *     undecided, force-skipping all 39 rows they own — including the 32 rows belonging to the 16
+ *     confirmed pairs — even though each pair individually already satisfied `confirmedTransferPairs`'s
+ *     own narrower gate and was correctly shown in the "Linked transfers" card (whose count is sourced
+ *     from every DETECTED pair, `transferPairs`, never from this write path — nothing about that card
+ *     would have caught pairs silently writing zero rows on commit).
+ *  2. **A DECIDED-but-wrong group** (the live `rowActions` memo): a category tile only ever DISPLAYS its
+ *     unpaired rows (`groupRowsForTransactionsStage` correctly excludes both legs of every pair from the
+ *     tile's own row list) — but a decision made ON that tile (e.g. the user explicitly tapping "Skip"
+ *     for the 7 stragglers they can actually see) is recorded at the GROUP's key, and applies to every
+ *     row the group owns, including the 32 invisible paired rows the user never saw and never intended
+ *     to affect. Left unfixed, THIS is the more insidious of the two — it poisons `preview[i].skipped`
+ *     for the paired rows upstream of `confirmedTransferPairs` itself, so by the time reason #1's fix
+ *     runs at commit, `confirmedTransferPairs` is already empty for these rows and there is nothing left
+ *     to release.
+ *
+ *  Both call sites matter — the live `rowActions` memo (passing every currently-still-paired
+ *  `transferPairs` entry, so `confirmedTransferPairs` itself comes out correct) AND `commitAndImport()`'s
+ *  `finalRowActions` (passing the resulting `confirmedTransferPairs`, since that map is freshly rebuilt
+ *  from each group's commit-time `effectiveSuggestion` and doesn't reuse `rowActions` at all). A
+ *  category-wide "needs review"/"skip" decision should only ever hold back the OTHER, non-paired rows
+ *  sharing that category name — never a row already independently decided at the pair level, unless the
+ *  user explicitly un-pairs it (which removes it from `transferPairs` entirely, so it no longer reaches
+ *  this function at all and correctly falls through to normal per-row category handling).
+ *
+ *  Call this AFTER building a group-derived `RowAction` map and BEFORE any subsequent per-row override
+ *  pass that has a LEGITIMATE reason to still skip a row (e.g. an unconfirmed account) — such a pass must
+ *  keep running after this one so it can still correctly re-skip a paired row whose account genuinely
+ *  isn't ready; this function only ever reverses a GROUP-level skip, never any other skip reason. Returns
+ *  a NEW map (existing `RowAction`s not touched by a pair are the exact same object references), matching
+ *  this file's other transform functions' immutable-input convention. */
+export function releaseConfirmedPairsFromGroupSkip(
+  actions: Map<number, RowAction>,
+  pairs: TransferPair[],
+  transferFallback: { id: string; name: string }
+): Map<number, RowAction> {
+  const result = new Map(actions);
+  for (const pair of pairs) {
+    for (const i of [pair.outgoingIndex, pair.incomingIndex]) {
+      const current = result.get(i);
+      if (!current?.skip) continue; // already a normal, non-forced-skip action — leave it alone
+      result.set(i, { categoryId: transferFallback.id, categoryName: transferFallback.name, type: 'transfer' });
+    }
+  }
+  return result;
+}
+
 // ─── Row-index-keyed pipeline (2026-08-14, CSV-import redesign Chunk B, apps/mobile only) ────────────
 // `buildResolvedPreviewRows` above is keyed by source CATEGORY NAME (`ConfirmedCategoryMap`) — correct
 // for the flow apps/web-react's frozen `useImport.ts` still uses, but genuinely insufficient for the new

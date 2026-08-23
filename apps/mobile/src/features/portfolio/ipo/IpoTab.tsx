@@ -64,7 +64,10 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
   // reordering (open first). The two are independent constants, not derived from one another — see
   // `ipoHelpers.ts`'s own doc comment on IPO_SUBTAB_ORDER's ordering rationale.
   const [ipoSubTab, setIpoSubTab] = useState<IpoStatus>('open');
-  const [ipoShowMainboardOnly, setIpoShowMainboardOnly] = useState(false);
+  // 2026-08-22: was a boolean (All / Mainboard only) — added the missing third option since `IpoCategory`
+  // itself has always been `'mainboard' | 'sme'` (see packages/core/src/core/ipo/ipoTypes.ts); the filter
+  // just never exposed the SME half of that split.
+  const [ipoBoardFilter, setIpoBoardFilter] = useState<'all' | 'mainboard' | 'sme'>('all');
   const [ipoListedFy, setIpoListedFy] = useState<string>(currentFyLabel());
   const [ipoListedSearch, setIpoListedSearch] = useState('');
   const [historicalListedIpos, setHistoricalListedIpos] = useState<IpoItem[]>([]);
@@ -121,7 +124,7 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
     });
   }, []);
   const ipoFilteredList = (() => {
-    let list = ipoShowMainboardOnly ? ipoSubList.filter((i) => i.category === 'mainboard') : ipoSubList;
+    let list = ipoBoardFilter === 'all' ? ipoSubList : ipoSubList.filter((i) => i.category === ipoBoardFilter);
     if (ipoSubTab === 'listed') {
       const q = ipoListedSearch.trim().toLowerCase();
       if (q) list = list.filter((i) => i.name.toLowerCase().includes(q));
@@ -182,16 +185,17 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
         </View>
       )}
 
-      {/* Mainboard / All filter */}
+      {/* All / Mainboard / SME filter */}
       {ipoSubList.length > 0 && (
         <View className="px-4 pt-2.5 pb-0.5">
           <SegmentedControl
             options={[
               { value: 'all', label: 'All' },
-              { value: 'mainboard', label: 'Mainboard' }
+              { value: 'mainboard', label: 'Mainboard' },
+              { value: 'sme', label: 'SME' }
             ]}
-            value={ipoShowMainboardOnly ? 'mainboard' : 'all'}
-            onChange={(v) => setIpoShowMainboardOnly(v === 'mainboard')}
+            value={ipoBoardFilter}
+            onChange={(v) => setIpoBoardFilter(v as 'all' | 'mainboard' | 'sme')}
           />
         </View>
       )}
@@ -233,8 +237,8 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
             <EmptyState
               icon={activeIpoMeta.icon}
               title={
-                ipoShowMainboardOnly && ipoSubList.length > 0
-                  ? 'No mainboard IPOs in this category.'
+                ipoBoardFilter !== 'all' && ipoSubList.length > 0
+                  ? `No ${ipoBoardFilter === 'mainboard' ? 'mainboard' : 'SME'} IPOs in this category.`
                   : activeIpoMeta.emptyMessage
               }
             />
@@ -251,18 +255,43 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
     const catLabel = ipo.category === 'mainboard' ? 'MAIN' : 'SME';
     const closingDays = daysUntil(ipo.closeDate);
     const safeGmpPct = !ipo.gmpPercent || isNaN(ipo.gmpPercent) ? 0 : ipo.gmpPercent;
-    const gmpColor =
-      ipo.gmpValue !== null && ipo.gmpValue > 0
-        ? theme.success
-        : ipo.gmpValue !== null && ipo.gmpValue < 0
-          ? theme.danger
-          : theme.textTertiary;
+
+    // Option 5 (docs/mockups/proposals/backup-icons-and-ipo-gmp-v1.html §2b) — a 3-tier RAG confidence
+    // gradient scaled off GMP magnitude, not a plain positive/negative split: red below zero, amber for
+    // a weak positive (0–8%), green at/above 8% ("higher the GMP, more likely the chance of profit").
+    // `null` means no GMP data at all — stays plain/neutral, no tier.
+    const ragTier = (value: number | null, percent: number): 'red' | 'amber' | 'green' | null => {
+      if (value === null) return null;
+      if (value < 0) return 'red';
+      return percent >= 8 ? 'green' : 'amber';
+    };
+    const RAG_COLOR = { red: theme.danger, amber: theme.warning, green: theme.success } as const;
+
+    const gmpTier = ragTier(ipo.gmpValue, safeGmpPct);
+    // Same RAG treatment applied to `listingGain` for a `listed` card's headline — the analogous
+    // "how strong is the signal" magnitude once an IPO has actually listed.
+    const gainTier = ipo.status === 'listed' ? ragTier(ipo.listingGain, ipo.listingGain ?? 0) : null;
+
+    // Left-edge stripe for ambient RAG scanning down the list. For upcoming/open/closed this tracks the
+    // live GMP tier. For `listed`, the mockup explicitly calls this out as an open design question (tier
+    // the stripe off the old GMP estimate vs. the actual listingGain outcome) — resolved here in favor
+    // of listingGain (the real, decision-relevant number for a card that's no longer actionable),
+    // always faded since a listed card is historical, not actionable. No GMP data at all → no stripe,
+    // same neutral treatment as today's "no GMP" case.
+    const stripeTier = ipo.status === 'listed' ? gainTier : gmpTier;
+    const stripeStyle = stripeTier
+      ? {
+          borderLeftWidth: 3,
+          borderLeftColor: ipo.status === 'listed' ? tint(RAG_COLOR[stripeTier], 40) : RAG_COLOR[stripeTier]
+        }
+      : undefined;
 
     return (
       <View className="px-4">
-        <Card padding="sm" radius="md" onPress={() => setSelectedIpo(ipo)}>
+        <Card padding="sm" radius="md" onPress={() => setSelectedIpo(ipo)} style={stripeStyle}>
           <View className="flex-row gap-3">
-            {/* Left column: name, price/lot, subscription, GMP/gain */}
+            {/* Left column: name, price/lot, subscription, listing headline (listed only — GMP moved
+                entirely to the right column for every other status, per Option 5) */}
             <View className="flex-1 gap-1">
               {/* Name + category badge inline */}
               <View className="flex-row items-baseline gap-1.5 flex-wrap">
@@ -294,37 +323,35 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
                 </Text>
               )}
 
-              {/* GMP row (upcoming/open/closed) or listing gain (listed) */}
-              {ipo.status === 'listed' ? (
-                ipo.listingGain !== null && (
-                  <Text
-                    className="text-xs font-semibold"
-                    style={{ color: ipo.listingGain >= 0 ? theme.success : theme.danger }}
-                  >
-                    Listed {ipo.listingGain >= 0 ? '+' : ''}
-                    {ipo.listingGain.toFixed(1)}%
-                  </Text>
-                )
-              ) : (
-                <Text className="text-xs">
-                  <Text className="text-tertiary">GMP: </Text>
-                  {ipo.gmpValue !== null ? (
-                    <Text className="font-medium" style={{ color: gmpColor }}>
-                      ₹{Math.abs(ipo.gmpValue)} ({safeGmpPct > 0 ? '+' : ''}
-                      {safeGmpPct.toFixed(1)}%)
-                      {ipo.status === 'upcoming' && (
-                        <Text className="text-tertiary font-normal text-[10px]"> est.</Text>
-                      )}
-                    </Text>
-                  ) : (
-                    <Text className="text-tertiary">—</Text>
-                  )}
+              {/* Listing headline — `listed` only. Always rendered whenever listingGain isn't null
+                  (never silently dropped — a real bug in earlier options this mockup fixed). */}
+              {ipo.status === 'listed' && ipo.listingGain !== null && (
+                <Text
+                  className="text-xs font-semibold"
+                  style={{ color: gainTier ? RAG_COLOR[gainTier] : theme.textTertiary }}
+                >
+                  Listed {ipo.listingGain >= 0 ? '+' : ''}
+                  {ipo.listingGain.toFixed(1)}%
                 </Text>
               )}
             </View>
 
-            {/* Right column: dates stacked, right-aligned */}
+            {/* Right column: GMP (upcoming/open/closed, plain text, no chip) above dates; listed keeps
+                the historical "GMP was" line alongside dates/listing info */}
             <View className="gap-1 items-end">
+              {ipo.status !== 'listed' &&
+                (ipo.gmpValue !== null ? (
+                  <Text
+                    className="text-xs font-bold"
+                    style={{ color: gmpTier ? RAG_COLOR[gmpTier] : theme.textTertiary }}
+                  >
+                    ₹{Math.abs(ipo.gmpValue)} ({safeGmpPct > 0 ? '+' : ''}
+                    {safeGmpPct.toFixed(1)}%){ipo.status === 'upcoming' ? ' est.' : ''}
+                  </Text>
+                ) : (
+                  <Text className="text-xs text-tertiary">GMP: —</Text>
+                ))}
+
               {ipo.status === 'upcoming' &&
                 (ipo.openDate ? (
                   <Text className="text-xs text-tertiary" numberOfLines={1}>
@@ -367,6 +394,18 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
 
               {ipo.status === 'listed' && (
                 <>
+                  {/* Historical "GMP was" — muted/faded (tier preserved but non-actionable now that
+                      the IPO has actually listed), sitting above the dates per Option 5. */}
+                  {safeGmpPct !== 0 && (
+                    <Text
+                      className="text-xs font-bold"
+                      style={{ color: gmpTier ? tint(RAG_COLOR[gmpTier], 80) : theme.textTertiary }}
+                      numberOfLines={1}
+                    >
+                      GMP was ~{safeGmpPct > 0 ? '+' : ''}
+                      {safeGmpPct.toFixed(1)}%
+                    </Text>
+                  )}
                   {ipo.listingDate && (
                     <Text className="text-xs text-tertiary" numberOfLines={1}>
                       Listed: {formatIpoDate(ipo.listingDate)}
@@ -375,12 +414,6 @@ export function IpoTab({ onRefreshStateChange }: IpoTabProps) {
                   {ipo.listingPrice && (
                     <Text className="text-xs text-tertiary" numberOfLines={1}>
                       At: ₹{ipo.listingPrice}
-                    </Text>
-                  )}
-                  {safeGmpPct !== 0 && (
-                    <Text className="text-xs text-tertiary" numberOfLines={1}>
-                      GMP was: ~{safeGmpPct > 0 ? '+' : ''}
-                      {safeGmpPct.toFixed(1)}%
                     </Text>
                   )}
                 </>

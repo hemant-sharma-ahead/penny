@@ -14,7 +14,7 @@ import {
 import type { BackupTarget } from './decide';
 
 interface BackupContextValue extends BackupEngineState {
-  runNow: () => Promise<void>;
+  runNow: (manual?: boolean) => Promise<void>;
   setTarget: (target: BackupTarget) => Promise<void>;
   connect: () => Promise<void>;
   overwriteRemoteWithLocal: () => Promise<void>;

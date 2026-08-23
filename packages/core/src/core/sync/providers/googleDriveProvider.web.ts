@@ -27,6 +27,22 @@ export function isCloudBackupConfigured(): boolean {
   return typeof id === 'string' && id.length > 0;
 }
 
+/** See googleDriveProvider.ts's identical stub for why RN Web (like plain web) has no persistent
+ *  signed-in-user object to read here — only googleDriveProvider.native.ts's real device build does. */
+export interface DriveAccountInfo {
+  email: string;
+  name: string | null;
+  photoUrl: string | null;
+}
+
+export function getConnectedGoogleAccount(): DriveAccountInfo | null {
+  return null;
+}
+
+export async function disconnectGoogleAccount(): Promise<void> {
+  // No persistent session to sign out of on this platform — see DriveAccountInfo's doc comment above.
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function gis(): any {
   return (globalThis as { google?: any }).google;

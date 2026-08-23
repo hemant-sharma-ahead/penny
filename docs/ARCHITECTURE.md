@@ -2589,6 +2589,46 @@ untouched (frozen). Durable architectural notes beyond what the feature docs
   `review/CarryForwardExcluded.tsx`'s own previously-uncapped row list. A reminder that this rule needs
   checking at every `.map()` over bulk/imported data in a render tree, not just the first one found.
 
+### Decision: Real-device-testing-pass follow-up session (items 59–68) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a further round of real-device findings on top of the two entries above, fully detailed
+in [`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md)'s "7th batch" (plus
+items 59–64). `apps/web-react` stays untouched (frozen). Most items are one-file bug fixes already fully
+covered by `docs/features/backup.md`, `docs/features/expenses.md`, and `docs/SCHEMA.md` — one is a
+genuinely reusable lesson worth its own note here:
+
+- **A dynamic `zIndex` toggle on Android can recreate a native view mid-keystroke and silently dismiss
+  the soft keyboard.** `PersonTypeahead.tsx` (the shared person-suggestion field used by
+  `ExpenseForm.tsx`'s Lent/Borrowed panel and `BulkAddToIouModal.tsx`) toggled its outer wrapper's
+  `zIndex` between `50` and `undefined` depending on whether its suggestion dropdown was showing. On
+  Android, changing a view's `zIndex` at the native rendering layer isn't a cheap style tweak — it can
+  force that view to be torn down and recreated, and when that happened to land mid-keystroke while the
+  soft keyboard's IME still held focus, the IME was dismissed with no error, no crash, just a keyboard
+  that silently closed while typing. This is the *real* root cause of a bug two earlier fix rounds
+  (items 24/36, a missing `onShow`+ref pattern for `autoFocus` inside a `Modal`) had misattributed —
+  that pattern is real and still correct for its own bug (`ExpenseForm.tsx`'s description field), but it
+  never explained this one, and wasn't confirmed end-to-end on-device before being treated as the fix.
+  The actual fix: keep `zIndex` fixed at all times, and toggle only the dropdown's own
+  `display: 'flex'/'none'` to show/hide it — never let a visibility toggle double as a style change that
+  can trigger a native view remount. Worth checking for on any other Android-facing component that
+  conditionally applies `zIndex` (or other native-remount-prone style props) based on transient UI state,
+  not just this one.
+- New mobile-only `apps/mobile/src/components/shared/BackupProviderLogo.tsx` (`DriveLogo`, `AppleLogo`,
+  `DRIVE_BLUE`) — real colored Drive/Apple marks for the Automatic Backup card's destination tabs,
+  rendered via `IconBadge`'s `iconElement` prop; see `docs/features/backup.md`.
+- `apps/mobile/src/components/ui/Card.tsx` gained an optional `style` prop (mobile's `Card`, distinct
+  from the `className`-based web-react `Card.tsx` documented in the Component inventory above) so
+  `IpoTab.tsx` could render a colored left-edge GMP stripe without a one-off wrapper component.
+- **A live-preview path and a final-commit path in the same pipeline can drift out of sync, and a fix
+  applied only to one of them won't be visible to the user until commit.** The Cashew CSV import
+  transfer-pairing bug (item 68) took 3 rounds to actually close: rounds 1–2 were real, correct fixes in
+  isolation (a category-defaulting improvement, then a pure function that resolved confirmed transfer
+  pairs) but both landed only in the commit-time path (`useImport.ts`'s `commitAndImport()`) while the
+  *live* `rowActions` memo — the thing actually driving what the categorization UI shows the user while
+  reviewing — kept re-poisoning the same rows. Round 3 applied the identical resolution at the live memo
+  too. Worth checking both paths, not just the one a unit test can reach, whenever a bug report describes
+  something the user sees mid-flow (not just in the final imported result).
+
 ---
 
 ## Dependency graph (simplified)

@@ -13,6 +13,9 @@ Penny's IPO Tracker shows you the full lifecycle of Indian IPOs — from announc
 - Tap any IPO for a detailed modal with company details, financials, issue dates, price band, lot size, issue size, and promoter holding.
 - Filter the Listed tab by financial year (April–March) and search by company name.
 - See listing gain/loss percentage for every listed IPO.
+- **`apps/mobile` (2026-08-19):** filter by board type — All, Mainboard, or SME (`ipoBoardFilter`,
+  replacing an earlier Mainboard-only toggle) — and see GMP at a glance via a colored left-edge stripe
+  on each IPO card (red / amber / green) instead of a plain figure.
 
 ## How it works
 
@@ -46,6 +49,8 @@ Penny's IPO Tracker shows you the full lifecycle of Indian IPOs — from announc
 
 **Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/ipo/` mirrors the web files above. `IpoDetailModal`'s hand-rolled `fixed inset-0` overlay was rebuilt on the real ported `Modal` component, same fix as Real Assets'/Retirement's hand-rolled overlays; its CSS-grid stat blocks became `flex-row flex-wrap` `StatBox` cells. The day-wise subscription table became a `flex-row` header + row list (no RN table primitive). `core/ipo/ipoClient.ts`'s IPO-list and historical-IPO caches both used synchronous `localStorage` (incompatible with RN) — fixed via `ipoClient.native.ts`, which keeps an in-memory-only cache (giving `forceRefresh`/`getCachedIpos` the same real meaning they have on web, just not persisted across cold app starts) rather than dropping the caching logic outright.
 
+**GMP edge-stripe RAG redesign + SME filter (2026-08-19, real-device-testing pass, mobile-only).** `IpoTab.tsx`'s `renderIpoCard()` gained a `ragTier(value, percent)` helper — red if GMP `< 0`, amber if `0%–8%`, green if `≥ 8%`, a magnitude-scaled confidence gradient (not a plain sign split), matching the framing "the higher the GMP, the more likely the chance of profit." Rendered as a colored left-edge stripe on the card (`~/components/ui/Card.tsx` gained an optional `style` prop to support it) rather than the previous plain left-column GMP figure; GMP itself moved to right-aligned RAG-colored text. A listed IPO's listing-gain figure uses the same RAG tiering applied to the real outcome (`listingGain`), not the pre-listing GMP estimate. Separately, the old `ipoShowMainboardOnly` boolean toggle was replaced with `ipoBoardFilter: 'all' | 'mainboard' | 'sme'`, giving the tab an explicit SME filter alongside All/Mainboard. Mockup: `docs/mockups/proposals/backup-icons-and-ipo-gmp-v1.html` (IPO section).
+
 ## Current limitations
 
 - Live data only — demo mode does not seed IPO data (intentionally skipped; live API is read-only and safe to call).
@@ -65,4 +70,3 @@ Penny's IPO Tracker shows you the full lifecycle of Indian IPOs — from announc
 - What information matters most to you when evaluating an IPO — GMP, subscription numbers, financials, or something else?
 - Would you want to log your IPO applications manually (amount applied, lot count, allotment result) even without broker integration?
 - Are there other IPO data points (anchor investor details, registrar, market maker) that would help your research?
-- How should unlisted/SME IPOs be handled — separate tab, same list with a badge, or filtered out entirely?

@@ -26,9 +26,13 @@ export const BANK_PRESET_LABELS: Record<BankPresetId, string> = {
   custom: 'Other / custom'
 };
 
-/** Picker-ready options, `'custom'` excluded — see doc comment above. */
+/** Picker-ready options, `'custom'` excluded — see doc comment above. Alphabetical by label
+ *  (2026-08-22 real-device testing feedback) — `BANK_PRESET_LABELS`' own insertion order isn't
+ *  alphabetical (grouped roughly by how presets were added over time), which made the picker's list
+ *  harder to scan for a specific bank. */
 export const BANK_PRESET_OPTIONS: { value: BankPresetId; label: string }[] = (
   Object.keys(BANK_PRESET_LABELS) as BankPresetId[]
 )
   .filter((id) => id !== 'custom')
-  .map((value) => ({ value, label: BANK_PRESET_LABELS[value] }));
+  .map((value) => ({ value, label: BANK_PRESET_LABELS[value] }))
+  .sort((a, b) => a.label.localeCompare(b.label));

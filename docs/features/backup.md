@@ -8,11 +8,11 @@ A way to export all your Penny data as a single encrypted file you control, and 
 
 Three cards, each doing one thing (consolidated from five on 2026-07-27 — see "Consolidation" below):
 
-- **Automatic backup (Track D)** — Penny backs up on its own (shortly after changes, and at least daily). You choose a **destination** via 3 tabs, each fully self-sufficient (own info text, own "Back up now" action):
+- **Automatic backup (Track D)** — Penny backs up on its own, on a **1/3/7/14-day frequency you choose** (`getBackupFrequencyDays()`/`setBackupFrequencyDays()`, `backupPrefs.ts`). You choose a **destination** via 3 tabs, each fully self-sufficient (own info text, own "Back up now" action, styled as a primary button since it's always a primary action):
   - **This device** — a private on-device copy kept silently in the background as a daily safety floor, **and** "Back up now" shares/downloads a `.penny` file on demand (this is where "Export backup" now lives).
-  - **Google Drive** — uploads the encrypted `.penny` to your own Drive (a private app folder); "Back up now" pushes immediately through the sync engine.
-  - **iCloud** — native-app only, still dormant (no Capacitor bridge yet).
-    A status line shows the last backup, "syncing", "paused (offline)", "storage full", "reconnect", or (2026-08-18) **"this backup needs a manual restore"** — see below.
+  - **Google Drive** — uploads the encrypted `.penny` to your own Drive (a private app folder); "Back up now" pushes immediately through the sync engine. A real colored Drive mark (`BackupProviderLogo.tsx`'s `DriveLogo`) identifies the tab instead of a flat monochrome icon, and its "Active" pill/buttons are tinted `DRIVE_BLUE`.
+  - **iCloud** — native-app only, still dormant (no Capacitor bridge yet). Identified by `BackupProviderLogo.tsx`'s `AppleLogo`.
+    A status line shows the last backup **with date and time** (`formatDateTime`, not just the day), "syncing", "paused (offline)", "storage full", "reconnect", or (2026-08-18) **"this backup needs a manual restore"** — see below.
 - **Restore from backup** — pick a `.penny` file (or, once Drive is configured, restore straight from the latest Drive backup), enter your passphrase, and replace the current data. The session re-locks afterwards — **unlock with the PIN that was active when the backup was created**, not necessarily this device's current one (that's expected: the wrapped key material comes from the backup as-is). Any stale lockout/attempt-counter state from the source device is reset on restore so it can't block that correct PIN — only the counters are reset, never the key-wrapping material itself. If the restore button seems permanently disabled, it's waiting on the passphrase field above it — a helper text under the button now says so.
 - **Restore / reclaim without a file** — a lost or reinstalled device can come back through onboarding: **Restore** re-imports a backup (full recovery incl. data), while **Reclaim** recovers just your **identity + group membership** from your username + passphrase (no personal data without a backup). See the Onboarding doc.
 - **Reset Penny** — erases everything on the device and returns to onboarding. For a **claimed** account it first **deregisters from the server** (releasing your username) while the keys are still present; if that call fails (offline / server error) it **warns instead of silently wiping** ("Couldn't release your username" — the `orphanWarnUser` dialog) so you can retry online before orphaning the handle. Irreversible unless you have a backup (no key escrow).
@@ -61,6 +61,24 @@ throws a real, readable `Error`.
   change, older backup files simply have nothing to restore for these (already handled by the existing
   `if (rows?.length)` guard).
 
+**Automatic push now actually honors the configured frequency (real-device-testing pass).** `runNow()`'s
+cloud branch previously pushed on every single data change whenever `decision.push` was true and
+auto-backup was enabled — the 1/3/7/14-day frequency control only ever governed the *pull* side, so an
+active user's device pushed to Drive far more often than the setting implied. Fixed to
+`const push = manual ? decision.push : dueDaily && getAutoBackupEnabled();` — an automatic push now
+only fires once the configured day boundary (`dueDaily`) has passed; manual "Back up now" is
+unaffected and still pushes immediately on demand.
+
+**Settings-initiated restore now also re-claims device identity.** `BackupPage.tsx`'s two restore
+success paths (`handleImport()`, `handleCloudRestore()`) previously never set the `RECONCILE_FLAG` that
+`IdentityReconciler` (see the Onboarding doc) checks to re-run `claimAccount()` after a restore — the
+onboarding restore path already did this, but a device restored through **Settings** (not onboarding)
+kept a stale/mismatched device registration, and the Groups worker's `device.revoked` check on
+`/register` legitimately rejected it as "unknown or revoked device" the next time it tried a Groups
+action. Both `BackupPage.tsx` success paths now call `await setItem(RECONCILE_FLAG, '1')` right before
+their existing `notifyAuthShouldRecheck()` call, matching what onboarding already did. A device already
+stuck in this state needs one more restore after the fix to actually heal.
+
 **Overriding the `foreign_blob` state without a restore.** The banner above only ever offered
 "Restore with my passphrase" — no way to say "keep this device's current data, stop offering me that
 old Drive backup." `runNow()`'s cycle always attempts a pull first while `foreign_blob` is active, which
@@ -78,7 +96,7 @@ Key files:
 - `src/core/sync/` — `backupEngine.ts` (auto-backup engine; `overwriteRemoteWithLocal()` force-pushes past a `foreign_blob` state without a pull), `decide.ts` (pure logic), `SyncProvider.tsx` / `useBackupStatus`, `providers/` (`googleDriveProvider` + `.native.ts`/`.web.ts` + shared `googleDriveProvider.constants.ts`, dormant `icloudProvider`, `localBackup` + `.native.ts`)
 - `src/core/backup/cloudBackup.ts` — thin manual-backup adapter over the Drive provider, `isCloudBackupConfigured()`
 - `src/core/identity/` — `claim.ts` (`deregisterAccount` on erase, `reclaimAccount`, `claimAccount`) + `recovery.ts` (passphrase-derived recovery keypair)
-- `src/features/backup/BackupPage.tsx` + `AutoBackupCard.tsx` — the UI (3 cards: auto-backup chooser + status/export/backup-now per tab, restore incl. Drive, reset with deregister-first + orphan warning)
+- `src/features/backup/BackupPage.tsx` + `AutoBackupCard.tsx` — the UI (3 cards: auto-backup chooser + status/export/backup-now per tab, restore incl. Drive, reset with deregister-first + orphan warning); mobile-only `~/components/shared/BackupProviderLogo.tsx` (`DriveLogo`, `AppleLogo`, `DRIVE_BLUE`) renders the real colored provider marks used in the destination tabs
 - `src/core/crypto/securityManager.ts` — `wipeAllData()` (full reset), `getRecoveryVerifier()`
 
 **Mobile (`apps/mobile`):** ported alongside the rest of Track 4's remaining-modules pass, then upgraded 2026-07-27 to real native Google Drive + real on-device backup (previously both were honest no-ops — see below). RN Web (`expo start --web`) needed its own further branch for export/restore, since `expo-file-system`'s web build is a no-op stub (`new File(...)` throws `"this.validatePath is not a function"` there) — export falls back to a plain Blob-URL `<a download>` (same as web-react) on that target, and restore reads the picked file via `expo-document-picker`'s own web build (which hands back a real browser `File` at `asset.file`) instead of touching `expo-file-system` at all.

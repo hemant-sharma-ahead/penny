@@ -129,6 +129,25 @@ Phase 1.
   sites at once (manual/auto backup export, CSV/ZIP export, XLSX export, SMS export) via a real
   "can't restore any backup" report — see `docs/features/backup.md` and `docs/ARCHITECTURE.md`'s
   2026-08-19 real-device-testing-pass entry.
+- **`packages/core/src/core/db/schema.ts` is never what actually runs on `apps/mobile`** —
+  Metro resolves `schema.native.ts` instead (an `@op-engineering/op-sqlite`-backed object, not
+  Dexie), which implements only this project's own `RowStore` interface
+  (`packages/core/src/core/db/store.ts`: `get`/`put`/`toArray`/`delete`/`count`/`update`/`clear`
+  — no `bulkPut`, no `transaction`, no `where`/`orderBy`/`each`/`modify`, none of Dexie's other
+  `Table` methods). Any code that reaches past `EncryptedRepository`/`RowStore` to call a
+  Dexie-specific method directly on `db[tableName]` will type-check fine and pass in `vitest`
+  (which has no Metro-style `.native.ts` override, so tests always exercise the Dexie-backed
+  `schema.ts`) while being **completely broken on every real device** — a real,
+  previously-shipped bug (`backupManager.ts`'s restore path calling `.bulkPut()`/`.transaction()`
+  directly) that two full investigation rounds of reading code, checking library docs, and
+  capturing a real on-device stack trace were needed to actually find, because `docs/
+ARCHITECTURE.md`'s own storage-adapter writeup (search "Track 2" / "RowStore") was never
+  consulted first. Before writing or debugging *any* code that touches `db[tableName]` directly
+  (not through `EncryptedRepository`) — check `docs/ARCHITECTURE.md`'s storage-adapter section
+  and `store.ts`'s `RowStore` interface first, every time; never assume `schema.ts` alone is the
+  whole picture for any `packages/core/src/core/db/` file, the same way rule 5 above already
+  requires checking for a platform-suffixed sibling before treating any bare file as
+  authoritative.
 
 ## Working style
 

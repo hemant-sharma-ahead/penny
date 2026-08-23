@@ -580,6 +580,11 @@ export interface MerchantMemory {
   categoryId: string;
   accountId?: string;
   paymentMode?: string;
+  /** The most recent matching transaction's amount (2026-08-22) — shown alongside the suggestion in
+   *  `ExpenseForm.tsx` and pre-filled (still user-editable) on tap, same "comes from the most recent
+   *  matching txn" convention `categoryId`/`accountId`/`paymentMode` already use. Optional: records
+   *  written before this field existed won't have it until the next save re-derives them. */
+  amount?: number;
   usageCount: number;
   updatedAt: number;
 }

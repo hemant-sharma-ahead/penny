@@ -24,6 +24,7 @@ import {
   dedupKey,
   buildResolvedPreviewRowsByIndex,
   applyConfirmedTransferPairs,
+  releaseConfirmedPairsFromGroupSkip,
   type ResolvedPreviewRow,
   type RowOverride,
   type RowAction
@@ -160,6 +161,15 @@ export interface CashWithdrawalSuggestion {
  *  unlikely case `DEFAULT_TRANSFER_CATEGORIES` is ever reordered/renamed without updating this id. */
 const CASH_WITHDRAWAL_TRANSFER_CATEGORY =
   DEFAULT_TRANSFER_CATEGORIES.find((c) => c.id === 'cat-tr-bank') ?? DEFAULT_TRANSFER_CATEGORIES[0];
+
+/** Generic transfer-category fallback for `releaseConfirmedPairsFromGroupSkip` (importPipeline.ts) —
+ *  used both in the LIVE `rowActions` memo and at commit time in `finalRowActions` (see both call
+ *  sites' own doc comments for why a row belonging to a still-paired `transferPairs` entry must never
+ *  inherit its category-GROUP's decision, skip or otherwise). */
+const GENERIC_TRANSFER_FALLBACK = DEFAULT_TRANSFER_CATEGORIES.find((c) => c.id === 'cat-tr-other') ?? {
+  id: 'cat-tr-other',
+  name: 'Other Transfer'
+};
 
 /**
  * RN port of apps/web-react/src/features/import/useImport.ts. This hook is pure business-logic/state
@@ -897,7 +907,7 @@ export function useImport() {
   // the old per-sourceName ConfirmedCategoryMap can't represent this new direction/counterparty model) ─
 
   const rowActions: Map<number, RowAction> = useMemo(() => {
-    const actions = new Map<number, RowAction>();
+    let actions = new Map<number, RowAction>();
     for (const g of categoryRowGroups) {
       const suggestion = categoryDecisions.get(g.fullKey) ?? g.defaultSuggestion;
       const tag = categoryTagsByKey.get(g.fullKey);
@@ -925,6 +935,26 @@ export function useImport() {
       }
       for (const i of g.rowIndices) actions.set(i, action);
     }
+
+    // A row belonging to a still-PAIRED `transferPairs` entry must never inherit its category-GROUP's
+    // decision — real bug found via a 2026-08-22 real-device test: the "Balance Correction" tile only
+    // ever DISPLAYS its unpaired rows (`groupRowsForTransactionsStage` correctly excludes both legs of
+    // every pair from the tile's own row list), but a decision made ON that tile (`updateCategoryDecision`,
+    // e.g. explicitly "Skip" for the leftover unpaired stragglers the user actually sees) is recorded at
+    // the GROUP's `fullKey`, and the per-group loop above applies it to EVERY row index the group owns —
+    // including the invisible paired rows the user never saw and never intended to touch. That silently
+    // set `skip: true` on all 32 paired-leg rows too, which fed straight into `preview[i].skipped`, which
+    // is exactly what `confirmedTransferPairs` (below) gates on — so those pairs got dropped from
+    // `confirmedTransferPairs` itself, upstream of and invisible to the later, commit-time
+    // `releaseConfirmedPairsFromGroupSkip` call (which only ever had `confirmedTransferPairs` to iterate,
+    // and by then it was already empty for these rows). `transferPairs` (every currently-still-paired
+    // detection, already excluding anything the user explicitly un-paired via the "Linked transfers"
+    // card) is the correct, independent authority for these rows — a still-paired row stays immune to
+    // its group's decision at every layer, live preview included, until the user explicitly un-pairs it.
+    // Must run BEFORE the skipped-account pass right below — an unresolved/skipped ACCOUNT is still a
+    // legitimate reason to exclude a paired row, and that pass must keep the final say over this one.
+    actions = releaseConfirmedPairsFromGroupSkip(actions, transferPairs, GENERIC_TRANSFER_FALLBACK);
+
     // Every skipped-account row (gap #1) — never a member of any `categoryRowGroups` entry above (see
     // `rowIndicesByDirectionalKey`'s doc comment), so without this explicit pass
     // `buildResolvedPreviewRowsByIndex` would fall back to its "no action found" default (`cat-other`,
@@ -941,7 +971,8 @@ export function useImport() {
     categoryTagsByKey,
     parsedRows,
     skippedAccountSourceNames,
-    isRowAccountSkipped
+    isRowAccountSkipped,
+    transferPairs
   ]);
 
   const preview: ResolvedPreviewRow[] = useMemo(() => {
@@ -1401,7 +1432,7 @@ export function useImport() {
       // this path was never actually reachable with an unready group present. A row-level `RowOverride`
       // (bulk "move N checked rows to an existing category") still wins regardless — that's applied by
       // `buildResolvedPreviewRowsByIndex` itself afterward, independent of what's set here.
-      const finalRowActions = new Map<number, RowAction>();
+      let finalRowActions = new Map<number, RowAction>();
       for (const g of transactionsRowGroups) {
         const tag = categoryTagsByKey.get(g.fullKey);
         let action: RowAction;
@@ -1433,6 +1464,25 @@ export function useImport() {
         }
         for (const i of g.rowIndices) finalRowActions.set(i, action);
       }
+
+      // A row belonging to a CONFIRMED transfer pair must never be force-skipped just because some
+      // OTHER, unrelated row sharing its raw category name left the whole GROUP undecided (an unready
+      // group), OR because the group's decision — set from what the tile actually DISPLAYS, i.e. only
+      // its unpaired rows — silently also applies to the invisible paired ones (a decided-but-wrong
+      // group). The live `rowActions` memo above already runs the equivalent release keyed on the full
+      // `transferPairs` list (see its own doc comment for the real 2026-08-22 regression this fixes) so
+      // `confirmedTransferPairs` itself is correctly non-empty for these rows; this second pass exists
+      // because `finalRowActions` is a SEPARATE map, freshly rebuilt from each group's CURRENT
+      // `effectiveSuggestion` for commit (real category ids instead of preview placeholders) — it does
+      // not reuse `rowActions` at all, so the same release must happen again here. Must run BEFORE the
+      // account-readiness pass right below — that pass has a LEGITIMATE reason to still skip a paired
+      // row (an unconfirmed account) and must keep the final say over this one.
+      finalRowActions = releaseConfirmedPairsFromGroupSkip(
+        finalRowActions,
+        confirmedTransferPairs,
+        GENERIC_TRANSFER_FALLBACK
+      );
+
       // Same explicit skip pass as the live-preview `rowActions` memo above — a skipped-account row is
       // never a member of `transactionsRowGroups` and must never silently fall back to a real category.
       // ALSO excludes a not-yet-confirmed 'create' account's rows (2026-08-14, manual-testing finding,

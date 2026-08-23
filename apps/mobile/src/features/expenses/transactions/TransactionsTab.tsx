@@ -391,7 +391,16 @@ const TransactionRow = memo(function TransactionRow({
           >
             <Icon name={icon} size={13} color="#fff" />
           </View>
-          <View style={{ width: 1, flex: isLastRowOverall ? 0 : 1, backgroundColor: theme.border }} />
+          {/* Real-device testing feedback, 2026-08-22 (screenshot): the earliest transaction overall
+           *  (the very last row — sorted newest-first) had its icon sitting visibly lower than every
+           *  other row's, not centered with its own text. Root cause: this spacer used to collapse to
+           *  `flex: 0` for that one row (to stop the connecting line dangling below the last item), but
+           *  the icon's vertical centering above depends on the top AND bottom spacers being equal
+           *  flex-1 — collapsing this one broke that symmetry and dragged the icon down with it.
+           *  Keeping `flex: 1` for every row (so centering math never changes) and instead making the
+           *  *line* transparent for the last row cleanly separates "is the icon centered" from
+           *  "does the connecting line extend past it". */}
+          <View style={{ width: 1, flex: 1, backgroundColor: isLastRowOverall ? 'transparent' : theme.border }} />
         </View>
         {content}
       </View>

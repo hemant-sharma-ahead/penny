@@ -35,6 +35,7 @@ import { initialize } from '@/core/crypto/securityManager';
 import { syncCursorRepo } from '@/core/db/repositories';
 import { QuotaExceededError } from '@/core/sync/providers/types';
 import { getBackupState, runNow, setTarget } from '@/core/sync/backupEngine';
+import { setAutoBackupEnabled } from '@/core/sync/backupPrefs';
 
 const PASS = 'correct horse battery staple';
 const PIN = '123456';
@@ -101,5 +102,23 @@ describe('backupEngine.runNow', () => {
     await runNow();
     expect(h.provider.remoteTag).not.toHaveBeenCalled();
     expect(h.provider.push).not.toHaveBeenCalled();
+  });
+
+  // Backup & Restore redesign (docs/mockups/proposals/backup-restore-redesign-v1.html) — the Drive
+  // row's auto-backup on/off toggle. Code-review finding, 2026-08-21: this new gating had zero test
+  // coverage; the `manual` param is the only thing that should ever bypass it.
+  it('cloud: a non-manual run skips the automatic push when auto-backup is disabled, but still pulls', async () => {
+    localStorage.setItem('penny_backup_target', 'google-drive');
+    setAutoBackupEnabled(false);
+    await runNow(); // manual defaults to false — the engine's own periodic/debounced trigger shape
+    expect(h.provider.pull).toHaveBeenCalled();
+    expect(h.provider.push).not.toHaveBeenCalled();
+  });
+
+  it('cloud: a manual run ("Back up now") pushes even when auto-backup is disabled', async () => {
+    localStorage.setItem('penny_backup_target', 'google-drive');
+    setAutoBackupEnabled(false);
+    await runNow(true);
+    expect(h.provider.push).toHaveBeenCalled();
   });
 });

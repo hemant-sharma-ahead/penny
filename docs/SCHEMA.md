@@ -502,6 +502,7 @@ Remembers the category/account/payment last used per merchant for Add-transactio
 | categoryId  | string                                | Remembered category                                                                                           |
 | accountId   | string?                               | Remembered account                                                                                            |
 | paymentMode | string?                               | Remembered payment mode                                                                                       |
+| amount      | number?                               | (2026-08-22) The most recent matching transaction's amount — shown alongside the suggestion and pre-filled (still user-editable) on tap in `ExpenseForm.tsx`. Optional: rows written before this field existed won't have it until the next matching save re-derives them. |
 | usageCount  | number                                | Incremented on each matching save                                                                             |
 | updatedAt   | number                                | Epoch ms                                                                                                      |
 

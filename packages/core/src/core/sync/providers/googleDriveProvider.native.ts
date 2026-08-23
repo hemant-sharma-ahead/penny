@@ -34,6 +34,30 @@ export function isCloudBackupConfigured(): boolean {
   return typeof id === 'string' && id.length > 0;
 }
 
+/** The signed-in Google account's identity, for the Drive row's account-hero display (Backup &
+ *  Restore redesign, Option B) — email + display name + profile photo, exactly what
+ *  `GoogleSignin.getCurrentUser()`'s cached `User` object already carries (no new native field). */
+export interface DriveAccountInfo {
+  email: string;
+  name: string | null;
+  photoUrl: string | null;
+}
+
+/** Synchronous — reads the module's own cached signed-in user, no network round-trip. Null if nothing
+ *  is signed in (not yet connected, or after `disconnectGoogleAccount`). */
+export function getConnectedGoogleAccount(): DriveAccountInfo | null {
+  const current = GoogleSignin.getCurrentUser();
+  if (!current) return null;
+  return { email: current.user.email, name: current.user.name, photoUrl: current.user.photo };
+}
+
+/** Signs out of the native Google Sign-In session. Does not touch anything already backed up in
+ *  Drive — just this device's connection to the account. The caller (AutoBackupCard's "Disconnect")
+ *  is responsible for deciding what backup destination to fall back to afterward. */
+export async function disconnectGoogleAccount(): Promise<void> {
+  await GoogleSignin.signOut();
+}
+
 let configured = false;
 function ensureConfigured(id: string): void {
   if (configured) return;
@@ -75,8 +99,8 @@ async function getAccessToken(interactive: boolean): Promise<string> {
   try {
     const { accessToken } = await GoogleSignin.getTokens();
     return accessToken;
-  } catch {
-    throw new Error('Could not get a Google Drive access token — try signing in again.');
+  } catch (err) {
+    throw new Error('Could not get a Google Drive access token — try signing in again.', { cause: err });
   }
 }
 
@@ -160,27 +184,31 @@ export const googleDriveProvider: CloudProvider = {
   },
 
   async push(blob: Blob): Promise<{ tag: string }> {
-    return withRetry(async (token) => {
-      const existing = await findFileMeta(token);
-      const metadata = { name: FILE_NAME, parents: existing ? undefined : ['appDataFolder'] };
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', blob);
-      const base = existing
-        ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}`
-        : 'https://www.googleapis.com/upload/drive/v3/files';
-      const res = await fetch(`${base}?uploadType=multipart&fields=id,headRevisionId,modifiedTime`, {
-        method: existing ? 'PATCH' : 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: form
-      });
-      if (res.status === 401) throw new NeedsConsentError('google-drive');
-      if (!res.ok) {
-        if (await isQuotaError(res)) throw new QuotaExceededError('google-drive');
-        throw new Error(`Upload to Google Drive failed (${await describeDriveError(res)})`);
-      }
-      const saved = (await res.json()) as { id: string; headRevisionId?: string; modifiedTime?: string };
-      return { tag: saved.headRevisionId ?? saved.modifiedTime ?? saved.id };
-    });
+    return pushImpl(blob);
   }
 };
+
+async function pushImpl(blob: Blob): Promise<{ tag: string }> {
+  return withRetry(async (token) => {
+    const existing = await findFileMeta(token);
+    const metadata = { name: FILE_NAME, parents: existing ? undefined : ['appDataFolder'] };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', blob);
+    const base = existing
+      ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}`
+      : 'https://www.googleapis.com/upload/drive/v3/files';
+    const res = await fetch(`${base}?uploadType=multipart&fields=id,headRevisionId,modifiedTime`, {
+      method: existing ? 'PATCH' : 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form
+    });
+    if (res.status === 401) throw new NeedsConsentError('google-drive');
+    if (!res.ok) {
+      if (await isQuotaError(res)) throw new QuotaExceededError('google-drive');
+      throw new Error(`Upload to Google Drive failed (${await describeDriveError(res)})`);
+    }
+    const saved = (await res.json()) as { id: string; headRevisionId?: string; modifiedTime?: string };
+    return { tag: saved.headRevisionId ?? saved.modifiedTime ?? saved.id };
+  });
+}

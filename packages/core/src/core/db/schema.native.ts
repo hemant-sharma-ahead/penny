@@ -1,4 +1,4 @@
-import { open } from '@op-engineering/op-sqlite';
+import { open, type SQLBatchTuple } from '@op-engineering/op-sqlite';
 import type { RowStore } from './store';
 import type {
   Account,
@@ -317,3 +317,29 @@ export const db = {
   // that's needed is `.clear()`.
   tables: Object.values(tableStores) as RowStore<unknown>[]
 };
+
+/** Atomically clears and repopulates many tables from a backup restore (2026-08-21, real-device
+ *  performance + correctness fix — see `backupManager.ts`'s doc comment on `importBackup` for the full
+ *  incident). `RowStore` deliberately has no bulk-write or cross-table transaction primitive (see its
+ *  own doc comment) — this is a purpose-built exception for the one legitimate caller that needs one,
+ *  built directly on `op-sqlite`'s real `executeBatch()` (many statements, one native round-trip,
+ *  automatically wrapped in a single SQLite transaction) instead of looping individual `put()` calls,
+ *  which is what made the very first correct-but-slow fix for this take literal minutes on a real
+ *  transaction history. `schema.ts` (web) implements the identical contract via Dexie's own
+ *  `transaction()`/`bulkPut()`, which already do this natively. */
+export async function restoreTables(entries: Array<{ name: string; rows: unknown[] | undefined }>): Promise<void> {
+  await ready;
+  const commands: SQLBatchTuple[] = [];
+  for (const { name, rows } of entries) {
+    commands.push([`DELETE FROM ${name}`]);
+    if (!rows?.length) continue;
+    if (ENCRYPTED_TABLES.includes(name)) {
+      const params = (rows as EncryptedRow[]).map((r) => [r.id, r.iv, r.ciphertext]);
+      commands.push([`INSERT INTO ${name} (id, iv, ciphertext) VALUES (?, ?, ?)`, params]);
+    } else {
+      const params = rows.map((r) => [(r as { id: string }).id, JSON.stringify(r)]);
+      commands.push([`INSERT INTO ${name} (id, data) VALUES (?, ?)`, params]);
+    }
+  }
+  await sqlite.executeBatch(commands);
+}

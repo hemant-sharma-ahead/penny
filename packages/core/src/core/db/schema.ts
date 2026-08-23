@@ -1,4 +1,4 @@
-import Dexie, { type EntityTable } from 'dexie';
+import Dexie, { type EntityTable, type Table } from 'dexie';
 import type {
   Account,
   ActivityLog,
@@ -178,3 +178,26 @@ export class PennyDatabase extends Dexie {
 }
 
 export const db = new PennyDatabase();
+
+/** Web/Dexie counterpart to `schema.native.ts`'s `restoreTables()` — see that file's doc comment for
+ *  the full contract and why this exists as its own purpose-built exception to `RowStore`, not a
+ *  general-purpose addition to it. Dexie already has both halves natively: a real cross-table
+ *  `transaction()` (spread arguments — `transaction(mode, table1, table2, ..., scope)`, not an array;
+ *  passing an array here would repeat the exact argument-shape bug this whole fix started from) and a
+ *  real `bulkPut()` per table. */
+export async function restoreTables(entries: Array<{ name: string; rows: unknown[] | undefined }>): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const withTables = entries.map((e) => ({ ...e, table: (db as any)[e.name] as Table }));
+  const scope = async () => {
+    for (const { rows, table } of withTables) {
+      await table.clear();
+      if (rows?.length) await table.bulkPut(rows);
+    }
+  };
+  // Dexie's real TS overloads for `transaction()` are fixed-arity (2 tables, 3 tables, ...) — there's
+  // no true variadic signature to satisfy a runtime-length array against, hence the cast. The runtime
+  // call shape itself (spread, not an array) is correct — see the doc comment above for why that
+  // distinction is exactly what this fix is about.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (db.transaction as any)('rw', ...withTables.map((e) => e.table), scope);
+}

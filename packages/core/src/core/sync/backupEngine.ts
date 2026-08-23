@@ -11,7 +11,7 @@ import type { SyncCursor } from '@/core/db/types';
 import { DAY_MS } from '@/lib/date';
 import { debounce } from '@/lib/debounce';
 import { decideSync, type BackupTarget } from './decide';
-import { getBackupTarget, setBackupTarget } from './backupPrefs';
+import { getAutoBackupEnabled, getBackupFrequencyDays, getBackupTarget, setBackupTarget } from './backupPrefs';
 import { getProvider } from './providers';
 import { NeedsConsentError, QuotaExceededError } from './providers/types';
 import { saveLocalSnapshot } from './providers/localBackup';
@@ -73,8 +73,17 @@ function online(): boolean {
   return typeof navigator === 'undefined' || navigator.onLine !== false;
 }
 
-/** Run one sync cycle. Safe to call anytime; a mutex prevents overlap and it no-ops when nothing's due. */
-export async function runNow(): Promise<void> {
+/**
+ * Run one sync cycle. Safe to call anytime; a mutex prevents overlap and it no-ops when nothing's due.
+ *
+ * @param manual - `true` for a user-initiated press ("Back up now"/switching destination); `false`
+ *   (default) for the engine's own periodic/debounced/foreground-return triggers. The only behavioral
+ *   difference: when the user has turned automatic backup off (backupPrefs's `getAutoBackupEnabled`),
+ *   a non-manual cloud run skips the push entirely (pull still runs) — a manual run always attempts it,
+ *   same as before this setting existed. Manual does *not* bypass the existing due/dirty gating itself,
+ *   so a press with nothing changed can still be a legitimate no-op (unchanged from before).
+ */
+export async function runNow(manual = false): Promise<void> {
   if (running) return;
   if (!keystore.isUnlocked()) return;
   running = true;
@@ -82,7 +91,6 @@ export async function runNow(): Promise<void> {
     const target = getBackupTarget();
     setState({ target });
     const cursor = await loadCursor();
-    const dueDaily = !cursor.lastBackupAt || Date.now() - cursor.lastBackupAt > DAY_MS;
     const localDirty = maxActivityTs > (cursor.pushedAt ?? 0);
 
     // ── Cloud target ──────────────────────────────────────────────────────────
@@ -98,10 +106,19 @@ export async function runNow(): Promise<void> {
         return;
       }
 
+      const dueDaily = !cursor.lastBackupAt || Date.now() - cursor.lastBackupAt > getBackupFrequencyDays() * DAY_MS;
       const tag = await provider.remoteTag();
       const remoteChanged = tag !== (cursor.remoteTag ?? null);
       const decision = decideSync({ target, canRun: true, remoteChanged, localDirty, dueDaily });
-      if (!decision.pull && !decision.push) {
+      // Automatic (non-manual) pushes are throttled to the configured frequency — only `dueDaily`
+      // gates them, not `localDirty`. Real-device report, 2026-08-21: `decision.push`
+      // (`localDirty || dueDaily`) meant any single change pushed within the 4s debounce regardless of
+      // the 1–14 day frequency setting — the frequency control has to actually be the schedule, not
+      // just a floor that a same-second edit always beats anyway. A manual "Back up now" (or switching
+      // destination, which also calls this with manual:true) still always attempts a push immediately,
+      // same as before.
+      const push = manual ? decision.push : dueDaily && getAutoBackupEnabled();
+      if (!decision.pull && !push) {
         setState({ status: 'idle', error: null });
         return;
       }
@@ -114,7 +131,7 @@ export async function runNow(): Promise<void> {
           cursor.remoteTag = pulled.tag;
         }
       }
-      if (decision.push) {
+      if (push) {
         const { tag: newTag } = await provider.push(await exportBackup());
         cursor.remoteTag = newTag;
         cursor.pushedAt = maxActivityTs;
@@ -125,7 +142,9 @@ export async function runNow(): Promise<void> {
       return;
     }
 
-    // ── On-device daily floor (target 'local' or none) ─────────────────────────
+    // ── On-device daily floor (target 'local' or none) — always daily, unaffected by the cloud-only
+    // auto-backup toggle/frequency above (no such control exists for this destination). ───────────────
+    const dueDaily = !cursor.lastBackupAt || Date.now() - cursor.lastBackupAt > DAY_MS;
     const decision = decideSync({ target, canRun: true, remoteChanged: false, localDirty, dueDaily });
     if (decision.localSnapshot) {
       setState({ status: 'syncing', error: null });
@@ -162,11 +181,12 @@ export async function runNow(): Promise<void> {
 
 const debouncedRun = debounce(() => void runNow(), DEBOUNCE_MS);
 
-/** Switch backup destination and sync immediately. */
+/** Switch backup destination and sync immediately (manual — always attempts a push regardless of the
+ *  auto-backup toggle, same as a "Back up now" press). */
 export async function setTarget(target: BackupTarget): Promise<void> {
   setBackupTarget(target);
   setState({ target });
-  await runNow();
+  await runNow(true);
 }
 
 /** Force-overwrites the current cloud target's backup with this device's current data, skipping the
@@ -211,7 +231,7 @@ export async function connect(): Promise<void> {
   const target = getBackupTarget();
   if (target !== 'google-drive' && target !== 'icloud') return;
   const status = await getProvider(target).ensureConnected(true);
-  if (status === 'ok') await runNow();
+  if (status === 'ok') await runNow(true);
   else setState({ status: status === 'needs_consent' ? 'needs_reconnect' : 'error' });
 }
 

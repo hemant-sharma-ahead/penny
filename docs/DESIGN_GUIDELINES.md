@@ -115,6 +115,13 @@ Use these shared building blocks so a new screen feels familiar. Cohesion across
   grouped-flat-list + tap-to-reveal pattern for any list whose rows carry 3+ possible actions that don't
   all need to be visible at once — it keeps the resting row calm and dense without permanently hiding
   the actions behind a second screen.
+- **RAG edge-stripe card** (2026-08-19) — a colored left-edge stripe on a card conveys a **magnitude-scaled
+  confidence gradient** (red / amber / green tiers, not a plain sign/binary split) at a glance, for a
+  figure whose sign alone understates how good/bad it is. Reference: `apps/mobile`'s IPO tab
+  (`IpoTab.tsx`'s `ragTier(value, percent)` — red if negative, amber if 0–8%, green if ≥8% — applied to
+  both GMP on open IPOs and the real listing-gain figure on listed ones), `Card.tsx`'s `style` prop
+  supports the stripe. Reach for this over a plain colored figure/pill when the metric's *degree* (not
+  just its direction) is the thing worth signalling at a glance across a whole list of cards.
 
 ---
 

@@ -1,31 +1,45 @@
 # Real-device testing pass — fixes & feature gaps
 
-**Status:** 🚧 In progress — Phases 1-5, 6b, and 6c (items 1-58 except item 42's perf half) ✅ done.
-Phases 1-3 committed at `e801e14`; everything through Phase 6c (items 28-58) is implemented in the
-working tree as of this doc update, pending its own commit. Remaining: item 42's Home perf half
-(Phase 6), and Phases 7-9 (auto-refresh audit, gesture survey, new-user home experience spec) — all
-still not started.
+**Status:** 🚧 In progress — Phases 1 and 2 (all quick + moderate fixes, items 1-68 except item
+42's perf half) ✅ done. Phases 1-3 (original numbering) committed at `e801e14`; everything since,
+through this doc's latest update (items 28-68), is implemented in the working tree pending its own
+commit. Remaining: item 42's Home perf half (Phase 3), and Phases 4-6 (auto-refresh audit, gesture
+survey, new-user home experience spec) — all still not started.
 
 This is a living punch-list doc, not a phase/track plan in the usual `docs/plans/` sense — it
 tracks a batch of real-device testing findings (bugs + feature gaps) rather than a single
 architectural initiative. Kept here per the project's plan-file convention so the source list and
-its status survive beyond the originating chat session. Three items (Groups redesign, new-user
-home experience, CSV import flow rethink) are large enough to warrant their own follow-up plan
-docs once designed — see Phase 3, Phase 5, and Phase 9 below.
+its status survive beyond the originating chat session.
+
+As originally intended, this doc has exactly two "done" phases — **Phase 1 (quick fixes)** and
+**Phase 2 (moderate fixes)** — covering every item that's shipped, regardless of which testing
+batch it was found in. The Groups (multi-party) redesign and the four mockup-gated 4th-batch
+redesigns were briefly tracked as their own numbered phases (3 and 5) while in progress; now that
+they're done, their content has been folded back into Phase 2 as subsections, consistent with how
+every other batch of moderate work already lives there. The genuinely big, still-not-started items
+(Home perf, the auto-refresh audit, the gesture survey, and the new-user home experience spec) are
+now **Phases 3-6** (previously numbered 6-9 while Phases 3-5 were still separately in flight).
+Three of those — the Groups redesign (now shipped, folded into Phase 2 below) and, separately, the
+new-user home experience (Phase 6) — are large enough to have warranted (or still warrant) their
+own follow-up plan docs once designed; the CSV import flow's own rethink already has one
+(`docs/plans/csv-expense-import-redesign.md`, shipped 2026-08-14, referenced from Phase 2 below).
 
 ## Context
 
 The app is in real-device testing. This doc works through a running punch list from that testing
 (bugs, missing features, and several open-ended product questions) without regressing anything
-and without re-touching the same area of the app twice. The list grew across four batches: items
-1-18, then 19-20, then 21-27 (all folded into Phases 1-3, done), then a 4th batch — items 28-43 —
-found once Phases 1-3 were live on a real device, running longer with real data volume. **Item
-numbers 1-27 and 28-43 are two separate sequences that never collide** (the 4th batch continues
-the count rather than restarting it), but note the original list's own items 15 and 16 (new-user
-home experience, Phase 9) are unrelated to this doc's items 28-43 despite the nearby numbers.
+and without re-touching the same area of the app twice. The list grew across several batches:
+items 1-18, then 19-20, then 21-27 (all in Phase 1/2), then a 4th batch — items 28-43 — found once
+the first batches were live on a real device running longer with real data volume, then a 5th
+batch (45-48) and 6th batch (49-58) found while testing the 4th batch's fixes, then a 7th batch
+(59-68) found in a later real-device testing session covering backup polish, a person-picker
+keyboard bug, several small UI fixes, an IPO redesign, and a Cashew CSV import correctness bug.
+**Item numbers never collide across batches** (each batch continues the count rather than
+restarting it), but note items 15 and 16 (new-user home experience, Phase 6) are unrelated to the
+nearby-numbered items from later batches.
 
 **Execution order:** overkill-feature removal first, then the quick/easy fixes, then moderate
-feature work, then the genuinely big items (Groups redesign, app-wide auto-refresh audit, gesture
+feature work, then the genuinely big items (Home perf, app-wide auto-refresh audit, gesture
 survey, new-user experience) last. The source list below is sorted in that pick-up order (not
 original item number) and carries a **Status** column — flip it to ✅ as each item actually ships,
 so this table stays the single source of truth for "what's left." Phases group items by subsystem
@@ -60,46 +74,57 @@ exists).
 | 18    | 17 (partial) | Cash-negative check in IOU forms + demo-data audit                      | 2       | ✅ Done     |
 | 19    | 24           | Analytics: "Set Aside" groups don't expand like Daily Routine           | 2       | ✅ Done     |
 | 20    | 22/23        | Subscriptions "seen N times" → transaction popup with count             | 2       | ✅ Done     |
-| 21    | 9, 17 (rest) | Groups (multi-party) redesign — full track                              | 3       | ✅ Done |
-| 22    | 29           | ExpenseForm: discard-changes confirmation on close                       | 4       | ✅ Done |
-| 23    | 30           | Transactions: auto-scroll to newly-added transaction                    | 4       | ✅ Done |
-| 24    | 32, 36       | Shared TextInput ref-forwarding fix (PIN keypad autofocus + PersonTypeahead keyboard flicker) | 4       | ✅ Done |
-| 25    | 33           | App-wide 2-decimal-place currency formatting (now decided, see note)    | 4       | ✅ Done |
-| 26    | 34           | Transactions: hardware back exits select mode                           | 4       | ✅ Done |
-| 27    | 35           | Long-press-to-select latency (renderItem re-render scope)               | 4       | ✅ Done |
-| 28    | 37           | Tags missing from Manage Tags/Filter despite being used (needs 1 more investigation pass) | 4 | ✅ Done |
-| 29    | 38           | Category rename: "Legal Transport" → "Legal Transport & Hotels"         | 4       | ✅ Done |
-| 30    | 39           | Notary Charges missing icon + audit all category icons                  | 4       | ✅ Done |
-| 31    | 40           | CSV import: backport "Show N more" from DuplicatesBucket.tsx to TileRowList.tsx | 4 | ✅ Done |
-| 32    | 41 (tags)    | CSV import: tag suggestions during categorization (port BulkHashtagModal's pattern) | 4 | ✅ Done |
-| 33    | 42 (default) | Transactions tab: default to current month instead of All-time          | 4       | ✅ Done |
-| 34    | 28           | Analytics Cash Flow card row layout — design approved (v5)              | 5       | ✅ Done |
-| 35    | 44           | Real per-bank icon/logo system, app-wide (Simple Icons for 3 banks + placeholder) | 5 | ✅ Done |
-| 36    | 41 (flow)    | CSV import Accounts + Categorization redesign — design approved (v5)    | 5       | ✅ Done |
-| 37    | 43           | Month-filter UX — persistent scrub bar — design approved (v5)           | 5       | ✅ Done |
-| 38    | 31           | About Penny screen — content sign-off needed before its own mockup      | 5       | ✅ Done     |
-| 39    | 42 (perf)    | Home: dedupe redundant full-table scans/decrypts + skeleton loading      | 6       | Not started |
-| —     | 45           | Manual-entry category suggestions never see CSV-imported history        | 6b      | ✅ Done |
-| —     | 46           | Analytics: no Income card                                                | 6b      | ✅ Done |
-| —     | 47           | Filter icon too similar to Select icon                                   | 6b      | ✅ Done |
-| —     | 49           | Account list redesign — grouped by type, tap-to-reveal actions, real bank logos+colors | 6c | ✅ Done |
-| —     | 50           | Real HSBC bank logo (item 44 follow-up — was missed, not actually unavailable) | 6c | ✅ Done |
-| —     | 51           | Analytics: Income section mis-grouping + cross-contaminated drill-downs | 6c      | ✅ Done |
-| —     | 52           | Analytics: Income + Total Spent moved above the ring graph, all views   | 6c      | ✅ Done |
-| —     | 53           | Analytics Cash Flow card: numbers row not vertically centered on icon   | 6c      | ✅ Done |
-| —     | 54           | Month scrub bar: auto-scroll broken on RN-Web specifically               | 6c      | ✅ Done |
-| —     | 55           | Backup/export: missing `await` on `File.write()` — 6 call sites          | 6c      | ✅ Done |
-| —     | 56           | Backup: `accounts` + 7 other real tables missing from `BACKUP_STORES`   | 6c      | ✅ Done |
-| —     | 57           | Backup: no override for the Drive foreign-blob state                    | 6c      | ✅ Done |
-| —     | 58           | CSV import: tile-list (not just row-list) render caps missing            | 6c      | ✅ Done |
-| 40    | 14           | App-wide auto-refresh / stale-data audit                                | 7       | Not started |
-| 41    | 5            | Mobile gesture survey                                                   | 8       | Not started |
-| 42    | 15, 16       | New-user / progressive home experience — spec + mockup only             | 9       | Not started |
+| 21    | 9, 17 (rest) | Groups (multi-party) redesign — full track                              | 2       | ✅ Done     |
+| 22    | 29           | ExpenseForm: discard-changes confirmation on close                       | 1       | ✅ Done     |
+| 23    | 30           | Transactions: auto-scroll to newly-added transaction                    | 1       | ✅ Done     |
+| 24    | 32, 36       | Shared TextInput ref-forwarding fix (PIN keypad autofocus) — see #63 for the PersonTypeahead correction | 1 | ✅ Done |
+| 25    | 33           | App-wide 2-decimal-place currency formatting (now decided, see note)    | 1       | ✅ Done     |
+| 26    | 34           | Transactions: hardware back exits select mode                           | 1       | ✅ Done     |
+| 27    | 35           | Long-press-to-select latency (renderItem re-render scope)               | 1       | ✅ Done     |
+| 28    | 37           | Tags missing from Manage Tags/Filter despite being used                 | 1       | ✅ Done     |
+| 29    | 38           | Category rename: "Legal Transport" → "Legal Transport & Hotels"         | 1       | ✅ Done     |
+| 30    | 39           | Notary Charges missing icon + audit all category icons                  | 1       | ✅ Done     |
+| 31    | 40           | CSV import: backport "Show N more" from DuplicatesBucket.tsx to TileRowList.tsx | 1 | ✅ Done |
+| 32    | 41 (tags)    | CSV import: tag suggestions during categorization (port BulkHashtagModal's pattern) | 1 | ✅ Done |
+| 33    | 42 (default) | Transactions tab: default to current month instead of All-time          | 1       | ✅ Done     |
+| 34    | 28           | Analytics Cash Flow card row layout — design approved (v5)              | 2       | ✅ Done     |
+| 35    | 44           | Real per-bank icon/logo system, app-wide (Simple Icons for 4 banks + placeholder) | 2 | ✅ Done |
+| 36    | 41 (flow)    | CSV import Accounts + Categorization redesign — design approved (v5)    | 2       | ✅ Done     |
+| 37    | 43           | Month-filter UX — persistent scrub bar — design approved (v5)           | 2       | ✅ Done     |
+| 38    | 31           | About Penny screen                                                      | 2       | ✅ Done     |
+| —     | 45           | Manual-entry category suggestions never see CSV-imported history        | 2       | ✅ Done     |
+| —     | 46           | Analytics: no Income card                                                | 2       | ✅ Done     |
+| —     | 47           | Filter icon too similar to Select icon                                   | 1       | ✅ Done     |
+| —     | 48           | "Maximum call stack size exceeded" crash on large CSV import commit     | 1       | ✅ Done     |
+| —     | 49           | Account list redesign — grouped by type, tap-to-reveal actions, real bank logos+colors | 2 | ✅ Done |
+| —     | 50           | Real HSBC bank logo (item 44 follow-up — was missed, not actually unavailable) | 1 | ✅ Done |
+| —     | 51           | Analytics: Income section mis-grouping + cross-contaminated drill-downs | 1       | ✅ Done     |
+| —     | 52           | Analytics: Income + Total Spent moved above the ring graph, all views   | 1       | ✅ Done     |
+| —     | 53           | Analytics Cash Flow card: numbers row not vertically centered on icon   | 1       | ✅ Done     |
+| —     | 54           | Month scrub bar: auto-scroll broken on RN-Web specifically               | 1       | ✅ Done     |
+| —     | 55           | Backup/export: missing `await` on `File.write()` — 6 call sites          | 1       | ✅ Done     |
+| —     | 56           | Backup: `accounts` + 7 other real tables missing from `BACKUP_STORES`   | 1       | ✅ Done     |
+| —     | 57           | Backup: no override for the Drive foreign-blob state                    | 2       | ✅ Done     |
+| —     | 58           | CSV import: tile-list (not just row-list) render caps missing            | 1       | ✅ Done     |
+| —     | 59           | Transactions: first row's icon misaligned with its row (rail flex math) | 1       | ✅ Done     |
+| —     | 60           | Add Account: Bank dropdown should list banks alphabetically              | 1       | ✅ Done     |
+| —     | 61           | Automatic Drive backup firing on every change, not once/configured-day | 1       | ✅ Done     |
+| —     | 62           | Backup timestamps missing time-of-day (date only)                       | 1       | ✅ Done     |
+| —     | 63           | PersonTypeahead keyboard-dismiss bug — real root cause (corrects #24)   | 1       | ✅ Done     |
+| —     | 64           | Groups: "unknown or revoked device" error when creating a new group     | 1       | ✅ Done     |
+| —     | 65           | Description-suggestion row: tap-anywhere + show/apply the suggested amount | 2   | ✅ Done     |
+| —     | 66           | Backup & Restore screen: colored provider icons + primary-button correction | 2   | ✅ Done     |
+| —     | 67           | IPO tab: GMP edge-stripe RAG redesign + SME filter                       | 2       | ✅ Done     |
+| —     | 68           | Cashew CSV import: linked transfers not imported + double-categorization + 2-entry balance-correction handling | 2 | ✅ Done |
+| 39    | 42 (perf)    | Home: dedupe redundant full-table scans/decrypts + skeleton loading      | 3       | Not started |
+| 40    | 14           | App-wide auto-refresh / stale-data audit                                | 4       | Not started |
+| 41    | 5            | Mobile gesture survey                                                   | 5       | Not started |
+| 42    | 15, 16       | New-user / progressive home experience — spec + mockup only             | 6       | Not started |
 | —     | 13           | SMS tracking optimization                                               | Backlog | Not started |
 
 ---
 
-## Phase 1 — Quick fixes (do first) — ✅ Complete
+## Phase 1 — Quick fixes — ✅ Complete
 
 **1. Privacy mode → Safe/Open only** _(overkill removal)_
 
@@ -122,7 +147,7 @@ exists).
   still open, not decided" line (now resolved), `docs/features/home.md`,
   `docs/features/cash-flow.md`.
 
-**2/3/4. Backup & Restore**
+**2/3/4. Backup & Restore — undefined error, disabled-button copy, foreign-blob messaging**
 
 - **2 — "undefined" error**: `googleDriveProvider.native.ts`'s `getAccessToken()` — wrapped the
   previously-unguarded `GoogleSignin.getTokens()` call; throws a real, readable `Error` now.
@@ -167,359 +192,451 @@ exists).
   `usageCount`). `BulkHashtagModal.tsx`: added an Add/Remove toggle; Remove mode only shows tags
   actually present across the current selection — no free-text entry.
 
+**29. Discard-changes confirmation on closing the transaction popup**
+
+- `ExpenseForm.tsx`: the X button, backdrop tap, and Android hardware back (`Modal.tsx`'s
+  `onRequestClose`) all currently call `onClose` unconditionally — no comparison against the
+  form's initial state. Added a dirty check (any field differs from its value when the form opened)
+  and, if dirty, a confirmation (reusing the existing `ConfirmDialog`) with **Discard**/**Cancel**
+  before actually closing. Applies to all three close paths identically.
+
+**30. Auto-scroll to a newly-added transaction**
+
+- `TransactionsSlice.tsx`'s `handleSaveExpense` → `closeForm()` previously only hid the modal, no
+  scroll. `TransactionsTab.tsx` already held a `FlashList` ref (`listRef`) and already had a
+  working scroll-to-item precedent (the bank-import checkpoint-highlight flow) — extended that same
+  call to fire after a successful *new* transaction save (not edit).
+
+**32. Shared TextInput ref-forwarding fix (PIN keypad autofocus)**
+
+- Root cause: the shared `ui/TextInput` wrapper didn't forward a ref, so the app's own established
+  fix for "autoFocus inside a native Modal doesn't reliably work" (`Modal`'s `onShow` prop + a ref →
+  `.focus()`, already used by `ExpenseForm.tsx`'s description field) couldn't be applied anywhere
+  that used the wrapped component instead of a raw `RNTextInput`. `PrivacyModeSwitcher.tsx`'s PIN
+  step uses the wrapped `TextInput` with `autoFocus` but the surrounding `Modal` had no `onShow` —
+  even adding `onShow` wouldn't have helped without a ref to focus. Fix: added ref-forwarding to
+  the shared `ui/TextInput`, then applied the `onShow`+ref pattern to `PrivacyModeSwitcher.tsx`'s
+  PIN field.
+- Note: this same investigation originally also targeted `BulkAddToIouModal.tsx`'s
+  `PersonTypeahead` keyboard-dismiss symptom (item 36) as a second instance of the same
+  autoFocus-into-Modal race. On-device testing showed that theory didn't actually explain the
+  PersonTypeahead bug — see **#63** below for the real root cause and its fix.
+
+**33. App-wide 2-decimal-place currency formatting — now decided**
+
+- Confirmed: whole-rupee rounding (`formatCurrency`, `toIndianGrouping`) was the app-wide
+  convention at 590 call sites; `formatCurrencyDecimal` existed but was used nowhere. Per explicit
+  decision, this became the new app-wide standard everywhere, not just Transactions. Verified tight
+  layouts (`CashFlowTile`, `GlanceHeader`) still fit with the 2 extra characters (`.00`).
+
+**34. Hardware back should exit select mode**
+
+- `TransactionsTab.tsx`/`TransactionsSlice.tsx` had no `BackHandler` listener at all — back fell
+  through to React Navigation's default (exiting the tab), stranding select-mode state. Added the
+  same `BackHandler.addEventListener('hardwareBackPress', ...)` pattern already used in
+  `ChangePinPage.tsx`/`ImportPage.tsx` — exits select mode and consumes the event while
+  `selectMode` is true.
+
+**35. Long-press-to-select latency**
+
+- Root cause: `TransactionsTab.tsx`'s `renderItem` listed `selectMode`/`selectedIds` in its
+  dependency array, so entering select mode changed `renderItem`'s identity and forced `FlashList`
+  to re-render every currently mounted/recycled row, not just the pressed one. Fixed by scoping
+  that re-render instead of touching the (already-faster-than-default) 350ms `delayLongPress`.
+
+**37. Tags missing from Manage Tags/Filter despite being used elsewhere**
+
+- Confirmed root cause: Manage Tags/Filter read from the `Hashtag` table while Analytics reads tag
+  strings directly off live `Expense.hashtags[]` — a tag whose `Hashtag` row was never created (or
+  got removed) while the string still lived on real expenses produced exactly this asymmetry. Fixed
+  every tag-adding code path (including CSV/bank-import) to reliably upsert a `Hashtag` row, and
+  wired `notifyTagsChanged()` into `useExpenses.ts`'s tag-mutating functions so Manage Tags/Filter
+  and the Expenses screen's own `hashtagsRepo` state can't go stale relative to each other.
+
+**38. Category rename**
+
+- `defaultCategories.ts`: `cat-legal-transport`'s `name` field, `'Legal Transport'` →
+  `'Legal Transport & Hotels'`.
+
+**39. Notary Charges icon + category-icon audit**
+
+- `cat-legal-notary`'s `icon` field was `'ti-stamp'`, which doesn't exist in the installed
+  `@tabler/icons-react-native` package — `Icon.tsx` silently renders nothing for any unmatched
+  name, by design, so this had never surfaced as an error. Fixed to a real icon name
+  (`ti-rubber-stamp`); audited every other `icon:` field in `defaultCategories.ts` against the
+  actual installed icon exports for the same never-noticed-gap risk.
+
+**40. CSV import: backport the 60-row "Show more" pattern**
+
+- `TileRowList.tsx`'s `RENDER_CAP = 60` had no escape — rows past 60 were simply never reachable.
+  Ported `DuplicatesBucket.tsx`'s existing "Show N more" pattern (`INITIAL_RENDER_CAP`/
+  `LOAD_MORE_BATCH`, both 60) into `TileRowList.tsx` verbatim.
+
+**41 (tags only). CSV import: tag suggestions during categorization**
+
+- `ImportCategorizeModal.tsx`'s tag field was a bare `TextInput` with zero suggestions. Threaded
+  `hashtags` into it and ported `BulkHashtagModal.tsx`'s existing "Frequent" row (top-5 by
+  `usageCount`) + live `startsWith` suggestion pattern.
+
+**42 (default-month only). Transactions tab: default to current month**
+
+- `useTransactionFilters.ts`'s `monthFilter` started `null` ("All time") — every open of the
+  Expenses tab loaded, decrypted, filtered, and grouped the *entire* transaction history. Defaulted
+  `monthFilter` to the current month instead — both a better default and a meaningful performance
+  win at high transaction counts.
+
+**47. Filter icon looked too similar to the Select icon**
+
+- `TransactionsSlice.tsx`'s Filter button used `ti-adjustments-horizontal` (sliders), visually
+  close to the Select button's `ti-list-check` at small size. Swapped to `ti-filter` (Tabler's real
+  funnel-shaped icon). Left the two other `ti-adjustments-horizontal` usages alone
+  (`AccountsPage.tsx`'s "Merchant recognition settings", `BankImportOverridesPage.tsx`'s empty
+  state) — genuine settings icons, unrelated to this confusion.
+
+**48. "Maximum call stack size exceeded" crash on a large (~9,000-row) CSV import commit**
+
+- Pre-existing bug in the core encryption layer used by every encrypted write in the app.
+  `packages/core/src/core/db/repository.ts`'s `bufferToBase64()` built its output via
+  `btoa(String.fromCharCode(...bytes))`, spreading the entire byte array as individual function
+  arguments — blows the JS call stack once the buffer is large enough. Reproduced directly (a
+  synthetic 9,000-row `writeImportBatch` call threw the identical error before the fix), fixed by
+  building the base64 string in safe-sized (32KB) chunks instead of one spread, confirmed all
+  existing encryption/repository tests still pass (identical output), and added a permanent
+  regression test (`tests/db/repository.test.ts`, a large-payload round-trip).
+
+**50. Real HSBC bank logo**
+
+- Item 44 (Phase 2 below) originally asserted only 3 of 12 preset banks had a CC0-licensed mark
+  available (Simple Icons) — wrong for HSBC specifically, which Simple Icons does carry (slug
+  `hsbc`); never actually checked before that claim was written. Verified the real path/color
+  (`#DB0011`) against two independent CDN mirrors and added it to `BankLogo.tsx` (now 4 of 12
+  presets have a real logo). Re-checked the remaining 8 — confirmed genuinely unavailable under any
+  clear license; sourcing those from each bank's own official brand page remains its own separate
+  follow-up.
+
+**51. Analytics: Income section mis-grouping + cross-contaminated drill-downs**
+
+- Root cause: `Loan EMI`/`Savings Transfer`/`Insurance Premium` are `applicableTo: 'expense'`
+  categories, but some real income-type transactions carry them anyway (pre-existing data, from
+  before the category picker enforced `applicableTo`). `buildIncomeData` grouped by the category's
+  raw `groupKey()`, so those rows rendered under a "Financial" sub-group — the identical string
+  `buildSetAsideData` uses for its own expense-side row — which both mislabeled the row and collided
+  `expandedGroup` with the unrelated Set Aside row. Separately, the shared `viewGroup`/
+  `viewCategory` drill-down callbacks had no `e.type` check at all, so "View all transactions in
+  Financial" opened from *either* side could leak the *other* side's transactions into the popup.
+- Fix: new `incomeGroupKey()` (`useExpenseAnalytics.ts`) — a category only ever gets its own row if
+  it's itself `applicableTo: 'income'`; anything else folds into the fixed `'income'` bucket. New
+  `viewIncomeGroup`/`viewIncomeCategory` (`AnalyticsSlice.tsx`), explicitly `e.type === 'income'`-
+  scoped and wired only to `IncomeSection`; `viewGroup`/`viewCategory` now explicitly require
+  `e.type === 'expense'` too, closing the leak in both directions.
+
+**52. Analytics: Income + Total Spent moved above the ring graph**
+
+- Per explicit request: in all three views (Monthly/Annual/All-time), `PulseCard` ("Total spent")
+  now renders before `DailyLivingCard` (the ring), and `IncomeSection` now leads the whole view,
+  ahead of even those two.
+
+**53. Analytics Cash Flow card: numbers not centered on the account icon**
+
+- The per-account row's outer `flex-row` used `items-start`; the icon+name column is taller than
+  the single-line number row, so the numbers sat above the icon's true vertical center. Changed to
+  `items-center`.
+
+**54. Month scrub bar: auto-scroll broken on RN-Web**
+
+- The previous fix (item 43 follow-up, `measureLayout` for a fresh same-tick read) resolved the
+  original bug on-device but not on RN-Web — `measureLayout` is a native-bridge measurement call;
+  react-native-web's shim for it doesn't reliably return scroll-aware coordinates. Dropped
+  `measureLayout` entirely for the plain `onLayout`-cached offset (identical on every platform),
+  deferring the read two `requestAnimationFrame` ticks instead of racing it with a same-tick native
+  measurement call.
+
+**55. Backup/export: missing `await` on `File.write()` — 6 call sites**
+
+- `expo-file-system`'s `File.write()` is async (`Promise<void>`); 6 places called it without
+  `await`, immediately followed by something that reads/shares/deletes that same file — a real race
+  that can hand a still-writing/truncated file to the next step. Fixed in: `AutoBackupCard.tsx`
+  (manual "This device" export), `localBackup.native.ts` (the silent daily on-device snapshot),
+  `exportCsv.native.ts` (both plain CSV and password-protected ZIP), `PlannerResults.tsx` and
+  `RetirementCard.tsx` (XLSX export), and `UnparsedMessagesPage.tsx` (SMS export).
+
+**56. Backup: `accounts` + 7 other real tables missing from `BACKUP_STORES`**
+
+- `BACKUP_STORES` (`backupManager.ts`) had silently drifted behind `schema.ts` — `accounts`,
+  `activity_log`, `merchant_memory`, `transaction_templates`, `bank_cash_withdrawal_codes`,
+  `sms_transactions`, `sms_account_mappings`, and `sms_excluded_senders` were never included in any
+  backup. `accounts` is the severe one: every `Expense.accountId` references it, so restoring onto
+  a wiped/new device brought back every transaction with zero accounts for them to belong to. All 8
+  added; backward-compatible with older backup files.
+
+**58. CSV import: tile-list render caps missing**
+
+- Item 40 capped the ROWS inside one category tile (`TileRowList.tsx`) but never capped the number
+  of TILES itself — `TransactionsStage.tsx`'s `needsInputGroups`/`stagedGroups`/`skippedGroups` each
+  rendered as a plain, fully-unbounded `.map()` of tiles. Added the same "Show N more" pattern to
+  all three (cap 25, smaller than `TileRowList`'s 60 since each tile is a much heavier component).
+  Also capped `CarryForwardExcluded.tsx`'s row list, which had no cap at all.
+
+**59. Transactions: first row's icon misaligned with its row**
+
+- Root cause: `TransactionsTab.tsx`'s rail uses two equal `flex: 1` spacers around a fixed-size
+  icon to keep it vertically centered against a variable-height row; the bottom spacer's flex value
+  was previously collapsed to `0` for the last row overall (to hide the connecting line there),
+  which broke the centering math for every row, most visibly the very first one seen on open. Fix:
+  decoupled "is centered" from "is the line visible" — both spacers now keep `flex: 1` always, and
+  only `backgroundColor` (`theme.border` vs `'transparent'`) toggles whether the connecting line is
+  actually visible.
+
+**60. Add Account: Bank dropdown should list banks alphabetically**
+
+- `apps/mobile/src/lib/bankPresetLabels.ts`: `BANK_PRESET_OPTIONS` now
+  `.sort((a, b) => a.label.localeCompare(b.label))`.
+
+**61. Automatic Drive backup firing on every change, not once per configured day**
+
+- `backupEngine.ts`'s `runNow(manual = false)` cloud branch previously pushed whenever
+  `decision.push` was true AND (manual OR auto-backup enabled) — meaning every single data change
+  queued an immediate push regardless of the user's configured 1–14 day frequency; the frequency
+  setting was only ever honored on the *pull* side. Fix:
+  `const push = manual ? decision.push : dueDaily && getAutoBackupEnabled();` — automatic
+  (non-manual) pushes now only fire once the configured day boundary (`dueDaily`) has actually
+  passed. Manual "Back up now" is unaffected — still pushes immediately on demand.
+
+**62. Backup timestamps missing time-of-day**
+
+- `AutoBackupCard.tsx`'s "Backed up ·"/"Last daily snapshot ·" captions used a date-only
+  `formatDate`; switched to a new `formatDateTime` so the exact backup time is visible, not just
+  the day.
+
+**63. PersonTypeahead keyboard-dismiss bug — real root cause (corrects #24/#36)**
+
+- Symptom: whenever setting a person for an IOU (Lent/Borrowed panel in `ExpenseForm.tsx`, or
+  bulk-add in `BulkAddToIouModal.tsx`), typing into the person field would show the "create
+  suggestion," then the keyboard would appear and immediately disappear, making it impossible to
+  actually type a full query or select a suggestion.
+- Item 24/36's original theory (a missing `onShow`+ref pattern for `autoFocus` inside a `Modal`)
+  turned out not to be the actual cause once tested end-to-end. Real root cause:
+  `PersonTypeahead.tsx`'s outer wrapper toggled `zIndex` between `50` and `undefined` depending on
+  `showList`; on Android that style change forces the native view to be recreated at the rendering
+  layer, which happened to land mid-keystroke while the soft keyboard's IME was still focused —
+  dismissing it.
+- Fix: `zIndex` is now a fixed `50` regardless of `showList` (only the dropdown's
+  `display: 'flex'/'none'` toggles, no longer a conditional mount/unmount). Confirmed fixed in both
+  usages — `ExpenseForm.tsx`'s Lent/Borrowed panel and `BulkAddToIouModal.tsx`.
+
+**64. Groups: "unknown or revoked device" error when creating a new group**
+
+- Root cause: `BackupPage.tsx`'s restore success paths (`handleImport()`, `handleCloudRestore()`)
+  never set the `RECONCILE_FLAG` that `IdentityReconciler.tsx` checks to re-run `claimAccount()`
+  after a restore — unlike the onboarding restore path (`AccountRecoveryScreen.tsx`), which already
+  did. A device that restored a backup through Settings (not onboarding) kept a stale/mismatched
+  device registration, and the Groups worker's `device.revoked` check on `/register` legitimately
+  rejected it.
+- Fix: both `BackupPage.tsx` success paths now call `await setItem(RECONCILE_FLAG, '1')` right
+  before their existing `notifyAuthShouldRecheck()` call, so the next unlock re-claims the device
+  identity, same as onboarding already did. A device already stuck in this state needs one more
+  restore after the fix to actually heal (the fix only takes effect going forward) — confirmed
+  working end-to-end on a real device.
+
 Verification: `tsc -b` (both packages), scoped `eslint`, and the full `packages/core` vitest suite
-(1112 tests) all pass. Full sweep (prettier, mobile-wide eslint, PII gate) still deferred to commit
+all pass throughout. Full sweep (prettier, mobile-wide eslint, PII gate) still deferred to commit
 time.
 
 ---
 
-## Phase 2 — Moderate fixes (bounded, single-area, more design but not "big")
+## Phase 2 — Moderate fixes (bounded, single-area, more design but not "big") — ✅ Complete
 
-**21. Tag case normalization** _(do first in this phase — other items depend on clean tag data)_
+**21. Tag case normalization** _(done first in this phase — other items depended on clean tag data)_
 
-- Manual entry, `BulkHashtagModal.tsx`, and `bulkAddHashtag` already lowercase on save. Gap: CSV/
-  bank-import's `parseTags()` in `packages/core/src/core/import/importParsers.ts` doesn't
-  lowercase — fix to match. Also fix Analytics' `buildHashtagSummary()` (groups by raw string
-  today, no `.toLowerCase()`).
-- One-time migration: iterate `hashtagsRepo`/`expensesRepo`, lowercase `Hashtag.name` and every
-  `Expense.hashtags[]` entry, merge duplicates that collapse to the same lowercase form (combine
-  `usageCount`). Follow the existing idempotent-repair pattern (`repairCategoryIcons()`/
-  `reconcileDefaultCategories()` in `dedupeDemoCategories.ts`) — boot-time repair pass, not a
-  versioned Dexie migration.
+- Manual entry, `BulkHashtagModal.tsx`, and `bulkAddHashtag` already lowercased on save. Gap fixed:
+  CSV/bank-import's `parseTags()` (`packages/core/src/core/import/importParsers.ts`) now lowercases
+  to match, as does Analytics' `buildHashtagSummary()` (previously grouped by raw string).
+- One-time migration added: iterates `hashtagsRepo`/`expensesRepo`, lowercases `Hashtag.name` and
+  every `Expense.hashtags[]` entry, merges duplicates that collapse to the same lowercase form
+  (combining `usageCount`) — a boot-time repair pass following the existing
+  `repairCategoryIcons()`/`reconcileDefaultCategories()` idempotent-repair pattern.
 
 **26. Filter by tag**
 
-- Add a "Tag" section to `FilterModal.tsx`, right after Account and before Category group. New
-  `tagFilters: string[]` on `FilterState`; chips from `hashtagsRepo`, multi-select OR match.
-  Reuses the existing chip-section pattern already in this modal.
+- Added a "Tag" section to `FilterModal.tsx`, right after Account and before Category group. New
+  `tagFilters: string[]` on `FilterState`; chips from `hashtagsRepo`, multi-select OR match —
+  reuses the existing chip-section pattern already in this modal.
 
-**7. Duplicate person on repeat name entry** _(do before 12/11 — they depend on this fix)_
+**7. Duplicate person on repeat name entry** _(done before 12/11 — they depended on this fix)_
 
-- Root cause: `getOrCreatePerson` is independently reimplemented in `useIou.ts`, `useExpenses.ts`,
-  and `useBankImport.ts` (`resolvePerson`), each matching against its own stale in-memory
-  `persons` copy. Consolidate into one `packages/core` function that always does a fresh
-  `personsRepo.getAll()` match (mirroring `useBankImport.ts`'s already-correct pattern); point all
-  three call sites at it.
+- Root cause: `getOrCreatePerson` was independently reimplemented in `useIou.ts`, `useExpenses.ts`,
+  and `useBankImport.ts` (`resolvePerson`), each matching against its own stale in-memory `persons`
+  copy. Consolidated into one `packages/core` function that always does a fresh
+  `personsRepo.getAll()` match; all three call sites now point at it.
 
 **12. Person-name suggestions**
 
-- Scope: personal IOU persons only (Groups is a separate, unreconciled data model — future item).
-  `ExpenseForm.tsx`'s Lent/Borrowed panel uses a plain `TextInput` + suggestion chips off a
-  possibly-stale prop. Align to the type-ahead pattern `PersonPicker.tsx` already uses in
-  `EntryForm.tsx` — pills below the field as the user types, single-select, backed by item 7's fix.
+- Scope: personal IOU persons only (Groups is a separate, unreconciled data model). Aligned
+  `ExpenseForm.tsx`'s Lent/Borrowed panel to the type-ahead pattern `PersonPicker.tsx` already uses
+  in `EntryForm.tsx` — pills below the field as the user types, single-select, backed by item 7's
+  fix. (See item 63 above for the later real fix to this component's keyboard-dismiss bug.)
 
 **8. Delete/archive a person's IOU entry — corrected after user feedback**
 
-- Verified: delete already exists, in more depth than first assumed. `useIou.ts`'s `removePerson`
-  hard-deletes when a person has zero ledger entries, and silently auto-archives
-  (`isArchived=true`, no user choice) when entries exist. `IouView.tsx`'s `purgePerson` (only
-  reachable from the Archived section) hard-cascades: deletes `ledger_entries` **and their linked
-  `Expense` rows**, then the `Person` — fully unguarded, no confirmation, no balance check; the
-  only safety net today is an after-the-fact Undo toast.
-- Real gaps against what was actually asked for:
-  1. **Bug**: `purgePerson` deletes linked `Expense` rows — directly violates "transactions
-     recorded should never be removed." Fix: it must delete only the `Person` + its
-     `ledger_entries`; linked `Expense` rows stay (they keep their category, just lose the IOU
-     person link).
-  2. **Missing**: no confirmation popup exists anywhere (both paths are silent, Undo-only). Add:
-     when a person with settled history (balance ~0) is removed, show a warning popup with an
-     explicit **Archive** or **Delete permanently** choice, instead of today's silent auto-archive.
-     Delete uses the fixed, non-cascading purge from (1).
-  3. **Missing guard**: `purgePerson` has no balance check at all — an archived person with a real
-     outstanding balance can be purged today with zero warning. Add a block (or at minimum a
-     strong warning) preventing permanent delete while a balance is still outstanding.
-  4. No-history case (never had entries) already works correctly as a direct hard delete — no
-     change needed.
+- Verified: delete already existed, in more depth than first assumed. `useIou.ts`'s `removePerson`
+  hard-deletes when a person has zero ledger entries, and silently auto-archived
+  (`isArchived=true`, no user choice) when entries existed. `IouView.tsx`'s `purgePerson` (only
+  reachable from the Archived section) hard-cascaded: deleted `ledger_entries` **and their linked
+  `Expense` rows**, then the `Person` — fully unguarded, no confirmation, no balance check.
+- Real gaps fixed:
+  1. **Bug**: `purgePerson` deleted linked `Expense` rows — directly violated "transactions
+     recorded should never be removed." Fixed to delete only the `Person` + its `ledger_entries`;
+     linked `Expense` rows now stay (keeping their category, just losing the IOU person link).
+  2. **Missing**: added a warning popup with an explicit **Archive** or **Delete permanently**
+     choice when removing a person with settled history (balance ~0), replacing the old silent
+     auto-archive. Delete uses the fixed, non-cascading purge from (1).
+  3. **Missing guard**: added a block preventing permanent delete while a balance is still
+     outstanding.
+  4. No-history case (never had entries) already worked correctly as a direct hard delete — no
+     change needed there.
 
 **11. Bulk-add existing transactions to a person's IOU ledger**
 
-- Reuse the existing bulk-select pattern from `TransactionsSlice.tsx`. Flow: select transactions →
+- Reused the existing bulk-select pattern from `TransactionsSlice.tsx`. Flow: select transactions →
   pick one person (once, for the batch) → app auto-splits the selection by `type` (expense vs
-  income) → for whichever direction(s) are present, ask one category choice for that direction
-  (expense: Lending or Return Borrowed; income: Borrowed Money or Collected Money) → apply
-  category + person + create matching `ledger_entries` (reusing `seedIouFromExpense`'s linking
+  income) → for whichever direction(s) are present, one category choice for that direction
+  (expense: Lending or Return Borrowed; income: Borrowed Money or Collected Money) → applies
+  category + person + creates matching `ledger_entries` (reusing `seedIouFromExpense`'s linking
   logic) per direction-group. No per-row picker.
 
 **6. Switch transaction type after save**
 
-- `ExpenseForm.tsx`: type `SegmentedControl` only renders on add. Enable in edit mode too, scoped
-  to Expense ⟷ Income only (Transfer excluded — structurally needs two accounts). On switch, clear
-  the category (type-scoped) and require a re-pick. Block the switch when the transaction has an
-  IOU ledger link, is shared to a Group, or is linked to a Goal contribution.
+- `ExpenseForm.tsx`: type `SegmentedControl` now also renders in edit mode, scoped to Expense ⟷
+  Income only (Transfer excluded — structurally needs two accounts). On switch, the category
+  (type-scoped) clears and requires a re-pick. Blocked when the transaction has an IOU ledger link,
+  is shared to a Group, or is linked to a Goal contribution.
 
 **17 (partial) — cash-negative check in IOU forms**
 
-- `ExpenseForm.tsx` already has a non-blocking `cashWarningBalance` check; `EntryForm.tsx`
-  (lend/borrow) and `SettleUpModal.tsx` (settle-up) have no equivalent. Add the same
-  `projectedBalance()`-based warning to both. Audit `seedDemoData.ts`'s simulated timeline for any
-  point Cash goes negative and add a lightweight assertion so it can't silently regress.
+- `ExpenseForm.tsx` already had a non-blocking `cashWarningBalance` check; added the same
+  `projectedBalance()`-based warning to `EntryForm.tsx` (lend/borrow) and `SettleUpModal.tsx`
+  (settle-up). Audited `seedDemoData.ts`'s simulated timeline for any point Cash goes negative and
+  added a lightweight assertion so it can't silently regress.
 
 **24. Set Aside not expanding**
 
-- `DailyRoutineSection` and `SetAsideSection` are two differently-built components — only
-  `DailyRoutineSection` has expand/collapse (lifted `expandedGroup` state) and nested categories;
-  `SetAsideSection` taps straight to the transactions modal. Rebuild `SetAsideSection` to mirror
-  `DailyRoutineSection`'s exact expand/collapse pattern.
+- `DailyRoutineSection` and `SetAsideSection` were two differently-built components — only
+  `DailyRoutineSection` had expand/collapse and nested categories. Rebuilt `SetAsideSection` to
+  mirror `DailyRoutineSection`'s exact expand/collapse pattern (shared `expandedGroup` state).
 
 **22/23. Subscriptions "seen N times" → transaction popup with count**
 
-- `DetectedSubCard.tsx`'s "Seen N times" text isn't pressable at all — wrap in `Pressable`. No
-  transaction-id list exists on the subscription object, only `merchantCategory`; on tap, filter
-  `expenses` by `normalize(e.description) === candidate.merchantCategory` (reusing `detector.ts`'s
-  `normalize()`) and open the existing `EntityTransactionsModal` (already used for Analytics'
-  tag/category drill-down — no new modal).
-- Count: put it in `subtitle` (e.g. "12 transactions") rather than fighting over the single
-  `statLabel`/`statValue` slot some callers already use for something else (e.g. account balance).
-  Update all current callers (Analytics' `viewGroup`/`viewCategory`/`viewTag`, plus the new
-  Subscriptions caller) to pass it consistently.
+- `DetectedSubCard.tsx`'s "Seen N times" text is now wrapped in a `Pressable`; on tap, filters
+  `expenses` by `normalize(e.description) === candidate.merchantCategory` and opens the existing
+  `EntityTransactionsModal` (already used for Analytics' tag/category drill-down — no new modal).
+  Count moved into `subtitle` (e.g. "12 transactions"); all current callers (Analytics'
+  `viewGroup`/`viewCategory`/`viewTag`, plus the new Subscriptions caller) updated to pass it
+  consistently.
 
-Mockup: one file covering — simplified Privacy switcher (Phase 1 carry-over), edit-mode type
-toggle, person-suggestion pills, the new delete/archive-person warning popup, bulk-add-to-IOU
-flow, and the new Tag filter section. All reuse existing `SegmentedControl`, `ConfirmDialog`,
-`Banner`, category picker, and the bulk-action-bar/chip-section patterns already in the app.
+Mockup covering this phase's earlier items: simplified Privacy switcher (Phase 1 carry-over),
+edit-mode type toggle, person-suggestion pills, the delete/archive-person warning popup,
+bulk-add-to-IOU flow, and the Tag filter section — reusing existing `SegmentedControl`,
+`ConfirmDialog`, `Banner`, category picker, and bulk-action-bar/chip-section patterns.
 
----
+### Groups (multi-party, Track E) redesign — full track
 
-## Phase 3 — Groups (multi-party, Track E) redesign
+Originally tracked as its own phase while in progress (touching `GroupDashboard.tsx` /
+`groupsService.ts` / `workers/groups` membership logic coherently as one track); folded back in
+here now that it's shipped.
 
-One full track — these all touch `GroupDashboard.tsx` / `groupsService.ts` / `workers/groups`
-membership logic and are easier to design coherently together than piecemeal.
-
-- **Orphaned shared transactions (9)**: deleting a personal `Expense` never touches `group_events`
-  even when shared. The event schema already supports `expense_delete` tombstones (folded out
-  already) — no caller ever emits one. Wire `useExpenses.ts`'s delete path to emit one for every
-  group the deleted transaction was shared to.
-- **Remove/flag a transaction from a group (9)**: per-row action in `GroupDashboard.tsx`'s feed —
-  the original recorder can delete/edit their own entry (`expense_edit`/`expense_delete`, both
-  already supported by the fold engine); another member gets a lighter "flag as not needed" that
-  notifies the recorder instead of unilaterally removing someone else's entry.
-- **Admin-less group protection (9)**: no check today prevents the last admin/owner from leaving
-  or being demoted. Add a server-side guard blocking a leave/role-change that would leave zero
-  admins, unless it's the group's only remaining member (prompt them to close/delete instead).
-- **Delete-when-empty for creator (9)**: only `closeGroup`/`reopenGroup` (status flip) exist today.
-  Add a real delete, creator-only, allowed only when the group has zero non-deleted
-  `shared_expense` events.
-- **Write-off / "never coming back" marking (17)**: add a `written_off` settlement variant
+- **Orphaned shared transactions (9)**: deleting a personal `Expense` never touched `group_events`
+  even when shared. The event schema already supported `expense_delete` tombstones — no caller
+  ever emitted one. Wired `useExpenses.ts`'s delete path to emit one for every group the deleted
+  transaction was shared to.
+- **Remove/flag a transaction from a group (9)**: added a per-row action in `GroupDashboard.tsx`'s
+  feed — the original recorder can delete/edit their own entry (`expense_edit`/`expense_delete`,
+  both already supported by the fold engine); another member gets a lighter "flag as not needed"
+  that notifies the recorder instead of unilaterally removing someone else's entry.
+- **Admin-less group protection (9)**: added a server-side guard blocking a leave/role-change that
+  would leave zero admins, unless it's the group's only remaining member (prompts them to
+  close/delete instead).
+- **Delete-when-empty for creator (9)**: added a real delete, creator-only, allowed only when the
+  group has zero non-deleted `shared_expense` events (previously only `closeGroup`/`reopenGroup`
+  existed).
+- **Write-off / "never coming back" marking (17)**: added a `written_off` settlement variant
   (distinct from a real repayment), both in personal IOU and Groups.
-- **Personal ledger → Group promotion (17)**: no bridge exists (`GroupMember.linkedPersonId` is
-  reserved/unused). Design a one-way "promote this person's ledger to a Group" action that creates
-  a Group, invites that person, seeds it from ledger history, and archives (not deletes) the
-  superseded personal ledger.
-- **Static (non-app) members (17)**: add a lightweight "placeholder member" (name only, no
-  account/invite) that participates in splits/balances but can't sync/confirm anything — closest
-  precedent is the personal-IOU `Person`, reusable/extendable rather than a new entity.
-- **Settled-group historical lock (17)**: once a group is fully settled/closed, lock its
-  historical `group_events` from edit — build alongside the `expense_edit` feature above.
+- **Personal ledger → Group promotion (17)**: added a one-way "promote this person's ledger to a
+  Group" action that creates a Group, invites that person, seeds it from ledger history, and
+  archives (not deletes) the superseded personal ledger.
+- **Static (non-app) members (17)**: added a lightweight "placeholder member" (name only, no
+  account/invite) that participates in splits/balances but can't sync/confirm anything.
+- **Settled-group historical lock (17)**: once a group is fully settled/closed, its historical
+  `group_events` now lock from edit.
 - **Per-person balance view (17)**: already implemented (`GroupDashboard.tsx`'s per-member "owes
-  you"/"you owe" breakdown) — just confirm it stays visible once other Group changes land.
+  you"/"you owe" breakdown) — confirmed it stays visible with the above changes.
 
 Mockup: one consolidated file (GroupDashboard feed row actions, delete-group flow, write-off
-marking UI, promote-to-group flow, add-static-member UI) — reuse `ConfirmDialog`, `Banner`,
+marking UI, promote-to-group flow, add-static-member UI) — reused `ConfirmDialog`, `Banner`,
 existing member-list rows.
 
----
+### Mockup-gated UI/UX redesigns (4th batch) — design approved (v5)
 
-## Phase 4 — Quick fixes, 4th batch (do first, same as Phases 1-2)
+Five iterations (`docs/mockups/proposals/fourth-batch-redesigns-v1.html` through `-v5.html`),
+originally tracked as their own phase while in progress; folded back in here now that they're
+shipped.
 
-All either confirmed bugs with a clear fix, or already-decided formatting/behavior changes — no
-mockup needed for anything in this phase (two items are straight ports of an already-shipped
-pattern to a new location; the rest are behavior fixes).
+**28. Analytics Cash Flow card — row layout**
 
-**29. Discard-changes confirmation on closing the transaction popup**
-- `ExpenseForm.tsx`: the X button, backdrop tap, and Android hardware back (`Modal.tsx`'s
-  `onRequestClose`) all currently call `onClose` unconditionally — no comparison against the
-  form's initial state. Add a dirty check (any field differs from its value when the form opened)
-  and, if dirty, show a confirmation (reuse the existing `ConfirmDialog` — this app has no prior
-  discard-confirmation pattern anywhere, so this is the first one, not a port) with **Discard**/
-  **Cancel** before actually closing. Applies to all three close paths identically.
-
-**30. Auto-scroll to a newly-added transaction**
-- `TransactionsSlice.tsx`'s `handleSaveExpense` → `closeForm()` today only hides the modal, no
-  scroll. `TransactionsTab.tsx` already holds a `FlashList` ref (`listRef`) and already has a
-  working scroll-to-item precedent (the bank-import checkpoint-highlight flow,
-  `listRef.current?.scrollToItem(...)`) — extend that same call to fire after a successful *new*
-  transaction save (not edit). Confirm the list's actual sort order first so "scroll" actually
-  lands on the transaction just added.
-
-**32 + 36. Shared TextInput ref-forwarding fix (fixes two symptoms at once)**
-- Root cause (confirmed, shared by both): the shared `ui/TextInput` wrapper doesn't forward a
-  ref, so the app's own established fix for "autoFocus inside a native Modal doesn't reliably
-  work" (`Modal`'s `onShow` prop + a ref → `.focus()`, already used by `ExpenseForm.tsx`'s
-  description field) can't be applied anywhere that uses the wrapped component instead of a raw
-  `RNTextInput`.
-  - **32 — Open-mode PIN keypad doesn't auto-open**: `PrivacyModeSwitcher.tsx`'s PIN step uses the
-    wrapped `TextInput` with `autoFocus` but the surrounding `Modal` has no `onShow` — even adding
-    `onShow` wouldn't help without a ref to focus.
-  - **36 — PersonTypeahead keyboard flicker + "full query not coming"**: `BulkAddToIouModal.tsx`'s
-    usage of `PersonTypeahead` has the identical `autoFocus`-into-`Modal`-without-`onShow` shape.
-    The "partial query" symptom is very likely a side effect of the same focus race interrupting
-    typing mid-stream, not a separate filter bug — the query-filtering logic itself was checked
-    and is clean (no debounce, no stale closure). `ExpenseForm.tsx`'s Lent/Borrowed usage of
-    `PersonTypeahead` has no `autoFocus` so this specific race doesn't apply there, but it sits
-    inside a `ScrollView` unlike the other usage — treat as a separate, unconfirmed lead, verify
-    on-device separately rather than assuming it's the same bug.
-- Fix: add ref-forwarding to the shared `ui/TextInput` (or an equivalent imperative-focus escape
-  hatch), then apply the `onShow`+ref pattern to `PrivacyModeSwitcher.tsx`'s PIN field and
-  `BulkAddToIouModal.tsx`'s `PersonTypeahead`. One architectural fix, not two one-off patches —
-  this exact shape will keep recurring anywhere `autoFocus` meets a native `Modal`.
-
-**33. App-wide 2-decimal-place currency formatting — now decided**
-- Confirmed: whole-rupee rounding (`formatCurrency`, `toIndianGrouping`) is the current app-wide
-  convention at 590 call sites; `formatCurrencyDecimal` exists but is used nowhere. Per explicit
-  decision, this becomes the new app-wide standard everywhere, not just Transactions — change the
-  single shared formatter (or swap all call sites to the decimal variant) rather than patching the
-  Transactions row alone, so the whole app stays consistent.
-- **Verify tight layouts still fit** with 2 extra characters (`.00`) before shipping — `CashFlowTile`
-  (item 28 below) already needs `adjustsFontSizeToFit`/`minimumFontScale={0.7}` to avoid wrapping;
-  check it (and any other narrow number-grid layout, e.g. `GlanceHeader`) doesn't break. Fold this
-  check into item 28's mockup review rather than treating it as a separate design pass.
-
-**34. Hardware back should exit select mode**
-- `TransactionsTab.tsx`/`TransactionsSlice.tsx` have no `BackHandler` listener at all — back
-  currently falls through to React Navigation's default (exiting the tab), stranding select-mode
-  state. Add the same `BackHandler.addEventListener('hardwareBackPress', ...)` pattern already
-  used in `ChangePinPage.tsx`/`ImportPage.tsx` — exit select mode and consume the event, don't
-  navigate away, while `selectMode` is true.
-
-**35. Long-press-to-select latency**
-- The 350ms `delayLongPress` itself is already faster than RN's 500ms default — don't shorten it
-  further (risks accidental selects during normal scrolling/tapping). The likely real cause:
-  `TransactionsTab.tsx`'s `renderItem` lists `selectMode`/`selectedIds` in its dependency array, so
-  entering select mode changes `renderItem`'s identity and forces `FlashList` to re-render every
-  currently mounted/recycled row, not just the pressed one. Investigate scoping that re-render
-  (e.g. read `selectMode`/`selectedIds` inside the row component via context/a stable ref instead
-  of through `renderItem`'s closure) before touching the press-delay value.
-
-**37. Tags missing from Manage Tags/Filter despite being used elsewhere — investigate further, then fix**
-- Two real, confirmed-but-insufficient leads so far: (a) `saveExpenseWithHashtags` increments every
-  tag's `usageCount` on every save with no comparison to the prior state (count only ever drifts
-  high, doesn't explain a tag vanishing); (b) `notifyTagsChanged()` is never called from any of
-  `useExpenses.ts`'s tag-mutating functions, so `ManageTagsPage.tsx` and the Expenses screen's own
-  `hashtagsRepo` state can go stale relative to each other (a staleness gap, not a permanent
-  disappearance). Neither fully explains the reported asymmetry (one tag invisible in Manage
-  Tags/Filter, its sibling tag fine, both visible in Analytics). Leading hypothesis, not yet
-  confirmed: Manage Tags/Filter read from the `Hashtag` table while Analytics reads tag strings
-  directly off live `Expense.hashtags[]` — if the missing tag's `Hashtag` row was never created
-  (or got removed) while the string still lives on real expenses, that would exactly produce this.
-  **Trace whether every tag-adding code path actually upserts a `Hashtag` row** (including any CSV/
-  bank-import path) before writing the fix — this is a real data-consistency bug, worth pinning
-  down precisely rather than patching the two confirmed-but-insufficient leads and hoping.
-
-**38. Category rename**
-- `defaultCategories.ts`: `cat-legal-transport`'s `name` field, `'Legal Transport'` →
-  `'Legal Transport & Hotels'`. Only other reference is prose in `docs/features/expenses.md`
-  (update for consistency); the id (unaffected) is what tests actually reference.
-
-**39. Notary Charges icon + category-icon audit**
-- `cat-legal-notary`'s `icon` field is `'ti-stamp'`, which doesn't exist in the installed
-  `@tabler/icons-react-native` package (only `IconRubberStamp`/`IconRubberStampOff`/
-  `IconEmailStamp` do) — `Icon.tsx` silently renders nothing for any unmatched name, by design, so
-  this has never surfaced as an error. Fix to a real icon name (e.g. `ti-rubber-stamp`). While in
-  there: grep every `icon:` field in `defaultCategories.ts` against the actual installed icon
-  exports, since the silent-failure behavior means other categories could have the same
-  never-noticed gap — cheap to check now, not urgent on its own.
-
-**40. CSV import: backport the 60-row "Show more" pattern**
-- `TileRowList.tsx`'s `RENDER_CAP = 60` has no escape — rows past 60 are simply never reachable.
-  `DuplicatesBucket.tsx` (same directory) already solved the identical complaint with a real "Show
-  N more" button (`INITIAL_RENDER_CAP`/`LOAD_MORE_BATCH`, both 60). Port that exact pattern into
-  `TileRowList.tsx` — no new design, just applying an already-shipped fix to its sibling.
-
-**41 (tags only). CSV import: tag suggestions during categorization**
-- `ImportCategorizeModal.tsx`'s tag field is a bare `TextInput` with zero suggestions — no
-  `hashtags` prop even threaded in today. `BulkHashtagModal.tsx` (used elsewhere in the app) already
-  has the exact wanted pattern: a "Frequent" row (top-5 by `usageCount`) plus live `startsWith`
-  suggestions as the user types. Thread `hashtags` into `ImportCategorizeModal.tsx` and port that
-  same pattern in — no new design, reusing what already exists.
-
-**42 (default-month only). Transactions tab: default to current month**
-- `useTransactionFilters.ts`'s `monthFilter` starts `null` ("All time") — every open of the
-  Expenses tab loads, decrypts, filters, and groups the *entire* transaction history (confirmed:
-  no pagination, a full `getAll()` + per-row AES-decrypt on every load). Default `monthFilter` to
-  the current month instead of `null`. This is both a better default (you usually care about
-  recent spend, not all-time) and a meaningful performance win at high transaction counts, cutting
-  the per-load filter/group work from O(entire history) to O(one month) for the common case.
-
-No mockup needed for this phase — 29/30/34/35/37/38/39/42 are behavior/bug fixes; 32+36 apply an
-existing app pattern (`onShow`+ref) to two new places; 33 is a formatting-convention change (with
-its one layout-fit check folded into item 28's mockup instead of a separate pass); 40/41(tags) port
-already-shipped patterns verbatim into a new screen.
-
----
-
-## Phase 5 — Mockup-gated UI/UX redesigns (4th batch) — ✅ Design approved (v5), ready to implement
-
-Five iterations (`docs/mockups/proposals/fourth-batch-redesigns-v1.html` through `-v5.html`) to
-land on the final approved design below. **31 (About Penny) is still held out pending a content
-decision — see below — and gets its own, smaller mockup once that's settled; everything else in
-this phase is approved and unblocked.**
-
-**28. Analytics Cash Flow card — row layout — APPROVED**
 - Final design: account icon stacked above a truncated account name in a narrow (~54px) left
   column, freeing the rest of the row for all 4 numbers (Initial/Income/Spend/Computed left) at
-  real size in one row — solves "one row" via vertical stacking rather than cramming, so the
-  numbers never need to shrink further than they already do. Decimals always show (item 33).
+  real size in one row. Decimals always show (item 33).
 
-**44. Real per-bank icon/logo system — NEW, approved for real implementation, not just this card**
-- No per-bank icon/logo system exists today — only 4 generic icons, one per `AccountType`. The
-  user wants real per-bank logos added app-wide (every place `account.icon`/`account.color`
-  render: `CashFlowTile`, `AccountsStrip.tsx`, `AccountChips.tsx` in `ExpenseForm.tsx`, and
-  anywhere else), keyed off the already-existing-but-unused `Account.bankId` field.
-- Sourcing (per explicit decision): check an open icon package first, fall back to official public
-  sources for gaps. **Simple Icons** (CC0-licensed) covers exactly 3 of the 12 banks in
-  `bankPresetLabels.ts` — HDFC Bank, ICICI Bank, Axis Bank — their real SVG paths are already
-  pulled and verified in the v3+ mockups. The other 9 (SBI, IndusInd, HSBC, Bank of Baroda, Yes
-  Bank, PNB, Canara, IDFC First, plus "custom") need sourcing from official public brand pages —
-  **scope that as its own follow-up task**, not part of this implementation pass; ship the 3
-  real logos + an honest generic-icon placeholder (not a fabricated logo) for the other 9 now.
+**44. Real per-bank icon/logo system**
 
-**41 (flow). CSV import — Accounts & Categorization — APPROVED**
+- No per-bank icon/logo system existed before this — only 4 generic icons, one per `AccountType`.
+  Added real per-bank logos app-wide (every place `account.icon`/`account.color` render:
+  `CashFlowTile`, `AccountsStrip.tsx`, `AccountChips.tsx` in `ExpenseForm.tsx`, and elsewhere),
+  keyed off the already-existing-but-unused `Account.bankId` field.
+- Sourcing: **Simple Icons** (CC0-licensed) covers 4 of 12 banks in `bankPresetLabels.ts` — HDFC
+  Bank, ICICI Bank, Axis Bank, and (per item 50's follow-up) HSBC. The other 8 (SBI, IndusInd, Bank
+  of Baroda, Yes Bank, PNB, Canara, IDFC First, plus "custom") need sourcing from official public
+  brand pages — scoped as its own follow-up task; shipped the 4 real logos + an honest generic-icon
+  placeholder (not a fabricated logo) for the rest.
+
+**41 (flow). CSV import — Accounts & Categorization**
+
 - Not re-litigating what `docs/plans/csv-expense-import-redesign.md` (shipped 2026-08-14) already
   decided (6-stage wizard split, in-memory-until-commit, CSV-import staying separate from
   bank-import, the bucket pattern).
-- **Accounts stage**: drop "New account" as a per-row kind option entirely — add a **"+ Create
-  Account"** button at the top of the stage screen instead, opening the real `AccountFormModal`
-  (same modal used everywhere else); a newly-created account immediately becomes available as a
-  match target. Each row keeps the real side-by-side paired-card visual (`DuplicatesBucket.tsx`
-  language — CSV account on the left, matched account on the right) — the right side is a real
-  dropdown/selector (bordered, chevron, showing the matched account's real logo per item 44),
-  pre-filled with a smart best-guess, changeable by tapping. Below the card: explicit **Confirm**
-  (left) / **Skip** (right) buttons while undecided; once confirmed, a green "✓ Confirmed" line
-  **plus a subtle, low-key "Skip" text link next to it** (not a button — stays available even
-  after confirming, so a confirmed row can still be skipped without reopening the dropdown).
-  **Confirm is now a required explicit tap for every row, including a confident existing-account
-  match** — this is a deliberate behavior change from today's app (which currently auto-readies an
-  "existing" match with no confirm step; only "create new" has a confirm gate today). Apply this
-  exact same paired-card shape to BOTH the Needs-Review and the already-matched Ready bucket rows
-  — never a collapsed/lesser format for Ready. Keep the real `BucketCard` Needs-Review/Ready/
-  Skipped count badges, unchanged.
-- **Categorization — explicitly NOT redesigned**: keep today's real pattern as-is — a collapsible
-  accordion tile per category (`CategoryTile.tsx`) with the existing "Categorize N selected ›"
-  button opening the real `ImportCategorizeModal` (2×2 existing/create/transfer/skip grid). The
-  one improvement: when the user picks "Create" inside that modal, it should open the real
-  `CategoryEditorModal` (name/icon-grid/color-swatches/group) instead of today's bespoke inline
-  name+group fields — that's the only change here, everything else about the tile/modal
-  interaction stays exactly as it works today. (There is no real "+ Create Category" top-level
-  button in the app to add here — confirmed via the mockup process, don't invent one.)
+- **Accounts stage**: dropped "New account" as a per-row kind option entirely — added a
+  **"+ Create Account"** button at the top of the stage screen instead, opening the real
+  `AccountFormModal`; a newly-created account immediately becomes available as a match target. Each
+  row keeps the real side-by-side paired-card visual (`DuplicatesBucket.tsx` language) — the right
+  side is a real dropdown/selector (bordered, chevron, real bank logo per item 44), pre-filled with
+  a smart best-guess, changeable by tapping. Below the card: explicit **Confirm** (left) / **Skip**
+  (right) while undecided; once confirmed, a green "✓ Confirmed" line plus a subtle "Skip" text link
+  next to it (stays available even after confirming). **Confirm is now a required explicit tap for
+  every row**, including a confident existing-account match — a deliberate behavior change from the
+  prior auto-ready-with-no-confirm-step behavior. Applied identically to both Needs-Review and Ready
+  bucket rows. Kept the real `BucketCard` count badges, unchanged.
+- **Categorization — explicitly NOT redesigned**: kept today's real pattern as-is — the
+  collapsible accordion tile per category (`CategoryTile.tsx`) with the existing "Categorize N
+  selected ›" button opening the real `ImportCategorizeModal`. The one change: picking "Create"
+  inside that modal now opens the real `CategoryEditorModal` instead of the old bespoke inline
+  name+group fields.
 
-**43. Month-filter UX — persistent scrub bar — APPROVED**
+**43. Month-filter UX — persistent scrub bar**
+
 - Final design: a persistent horizontal month-chip strip below the top filter bar, no visible
-  scrollbar track (matches a real RN `ScrollView`'s default — `showsHorizontalScrollIndicator`
-  off), scrolling all the way back to the user's actual earliest recorded transaction (no existing
-  helper computes this — needs a one-time `Math.min` scan over `expensesRepo.getAll()`'s dates,
-  cached). A chip shows just the month name when its year matches the real current calendar year,
-  else "Mon YYYY". A pinned **"All"** chip sits outside the scrollable strip (always reachable,
-  doesn't scroll away) so the classic unfiltered all-time view stays one tap away even though a
-  month is now always active by default (item 42's default-to-current-month). A calendar-icon
-  button at the strip's end opens the real `MonthPickerModal` for jumping further back than what's
-  visible.
+  scrollbar track, scrolling all the way back to the user's actual earliest recorded transaction
+  (a one-time `Math.min` scan over `expensesRepo.getAll()`'s dates, cached). A chip shows just the
+  month name when its year matches the real current calendar year, else "Mon YYYY". A pinned
+  **"All"** chip sits outside the scrollable strip (always reachable) so the classic unfiltered
+  all-time view stays one tap away even though a month is now always active by default (item 42). A
+  calendar-icon button at the strip's end opens the real `MonthPickerModal` for jumping further back
+  than what's visible. (See item 54 above for a later RN-Web-specific auto-scroll follow-up fix.)
 
-**31. About Penny screen — ✅ Done**
+**31. About Penny screen**
+
 - Content signed off (no build number — none exists anywhere in `app.json`, version-only via
   `expo-constants`; mission statement reused verbatim from onboarding's `PrivacyPromiseScreen.tsx`;
-  a link into Privacy Promise content; a hand-maintained "what's new" changelog per version, scope
-  explicitly confirmed after initially being deferred). Mockup: `docs/mockups/proposals/
-about-penny-v1.html`.
+  a link into Privacy Promise content; a hand-maintained "what's new" changelog per version).
+  Mockup: `docs/mockups/proposals/about-penny-v1.html`.
 - New: `AboutPennyPage.tsx`, `whatsNew.ts` (the hand-maintained `{version, highlights}[]` array —
   update this at each release), `apps/mobile/src/lib/appVersion.ts` (shared `APP_VERSION`, factored
   out of `FeedbackPage.tsx`'s previously-local constant), `privacyPillars.ts` (mission/pillars
@@ -527,19 +644,139 @@ about-penny-v1.html`.
   `PrivacyPromisePage.tsx` — a real deviation from the original plan: the onboarding
   `PrivacyPromiseScreen` has no header/back button (built to be seen exactly once, pre-unlock), so
   linking an already-onboarded user there from Settings would strand them; this new screen is the
-  same content with a proper back button instead. Routes (`AboutPenny`, `PrivacyPromise`) registered
-  in `HomeStack.tsx`, not `MainNavigator.tsx` (the latter only holds `MainTabs`/`OnboardingFlow`;
-  `SettingsPage.tsx`'s own comment pointing there was stale). Row added last in Settings' "Data &
-  activity" card, after Discover Penny. Mobile-only — `apps/web-react` has no equivalent and is
-  frozen; confirmed no parity gap (same precedent as `PennyLoader`/"Did You Know").
+  same content with a proper back button instead. Routes (`AboutPenny`, `PrivacyPromise`)
+  registered in `HomeStack.tsx`. Row added last in Settings' "Data & activity" card, after Discover
+  Penny. Mobile-only — `apps/web-react` has no equivalent and is frozen; confirmed no parity gap.
+
+### 5th batch: found while testing the above on-device
+
+**45. Manual-entry category suggestion never sees CSV-imported history**
+
+- Root cause: two entirely separate "remembered category" systems existed. `ExpenseForm.tsx`'s
+  live suggestions came from `merchantMemoryRepo` (a Dexie table, populated by a one-time backfill
+  plus an incremental update on every manual save). CSV import's own remembered-category logic was a
+  totally different, AsyncStorage-backed mapping keyed on the CSV's category-column label, not the
+  transaction description — `importWriter.ts`'s commit path never touched `merchantMemoryRepo` at
+  all, so CSV-imported expenses were structurally invisible to `ExpenseForm`'s suggestion engine.
+- Fix: wired `importWriter.ts` (and bank-import's commit path) to also call `buildMemory()`/upsert
+  into `merchantMemoryRepo` for every committed row. Bumped the backfill version flag
+  (`penny_merchant_memory_v2` → `v3`) so the one-time backfill re-ran once more, retroactively
+  indexing already-imported history too.
+
+**46. Analytics: no Income card**
+
+- Confirmed income had zero category-wise visibility anywhere in Analytics — `buildGroupData`/
+  `buildSetAsideData` both explicitly excluded `type !== 'expense'` before `classify()` ever ran, so
+  income wasn't misclassified into Set Aside, it was just silently dropped entirely. Added an Income
+  card to Monthly/Annual/All-time Analytics, mirroring `SetAsideSection`'s exact expand/collapse
+  pattern grouped over the 15 default income categories, slotted right after `SetAsideSection`,
+  before `HashtagsSection`, in all three views, sharing the same lifted `expandedGroup` state.
+
+### 6th batch: found while testing Phases above on-device (account cards, Analytics, backup/restore, CSV import)
+
+**49. Account list redesign**
+
+- The gradient "mini card" pattern (`docs/DESIGN_GUIDELINES.md`'s "Identity-colour gradient mini
+  card" section) was reported as not following the theme, wasting space, and still not using real
+  bank icons in several places despite item 44 shipping. 7 mockup concepts explored
+  (`docs/mockups/proposals/account-list-redesign-v1.html` through `-v3.html`) before landing on:
+  cards grouped by account type (Bank Accounts / Cash & Wallets / Credit Cards), a flat bordered
+  list row (gradient dropped entirely), a vertical `ti-dots-vertical` kebab beside the balance that
+  tap-reveals exactly 3 action icons below (Import XOR Reconcile + Edit + Delete), and the real
+  `includeInNetWorth` caption carried over unchanged. Whole-row tap still opens the transaction
+  popup. `AccountList.tsx` rewritten; `docs/DESIGN_GUIDELINES.md`'s gradient section is now stale
+  (flagged for the docs pass).
+- Real per-bank logos in this redesign: HDFC/ICICI/Axis/HSBC (item 50); SBI/Kotak/IndusInd get
+  their real official brand color tinting a generic fallback icon (SBI `#00B5EF`, Kotak `#ED1C24`,
+  IndusInd `#98272A`) — never a fabricated logo mark.
+
+**57. Backup: no override for the Drive foreign-blob state**
+
+- The `foreign_blob` banner (item 3) only ever offered "Restore with my passphrase" — no way to say
+  "keep this device's current data and stop offering me that old backup." Traced in
+  `backupEngine.ts`: while `foreign_blob` is active, `runNow()`'s cycle always attempted a pull
+  first, which threw before a push ever got a chance to run — no path to a fresh push other than
+  resolving the state via restore. New `overwriteRemoteWithLocal()` (`backupEngine.ts`) skips the
+  pull entirely and force-pushes this device's current export, exposed through the native
+  `SyncProvider`. New destructive, confirm-gated "Overwrite Drive with this device's data instead"
+  button in `AutoBackupCard.tsx`'s banner (mockup: `docs/mockups/proposals/
+drive-foreign-blob-override-v1.html`).
+
+### 7th batch: found in the follow-up real-device testing session (backup polish, IPO redesign, Cashew import)
+
+**65. Description-suggestion row: tap-anywhere + show/apply the suggested amount**
+
+- `ExpenseForm.tsx`'s merchant-memory suggestion rows previously required tapping a small trailing
+  "Use" button; the row itself wasn't pressable, and the suggested amount was never shown or
+  applied. Fix: the suggestion row itself is now the tap target (`applyMemory(mem)` fires on row
+  press); the trailing "Use" text was replaced with the suggestion's formatted amount (when known);
+  `applyMemory()` now also fills the Amount field from `mem.amount` (only if present), leaving it
+  editable afterward. Backed by `MerchantMemory` gaining an `amount?: number` field, populated by
+  `buildMemory()`/`buildMemoriesFromExpenses()` from the matching expense's real amount.
+
+**66. Backup & Restore screen: colored provider icons + primary-button correction**
+
+- Mockup: `docs/mockups/proposals/backup-icons-and-ipo-gmp-v1.html` (3 tiers explored for the
+  icon/button treatment; the "moderate" tier was picked). New `BackupProviderLogo.tsx`
+  (`DriveLogo`, `AppleLogo({size, dark})`, `DRIVE_BLUE`) renders real colored Drive/Apple marks in
+  the Automatic Backup card's tap-to-reveal rows (device/Drive/iCloud) via `IconBadge`'s
+  `iconElement` prop, replacing the flat monochrome icons. "Restore from Drive" and every "Back up
+  now" button (device/Drive/iCloud) were promoted from secondary to `variant="primary"` styling —
+  they were always primary actions, just styled as secondary; Drive's variant is additionally
+  tinted `DRIVE_BLUE`. Drive's "Active" pill also tinted Drive-blue (a judgment call beyond the 3
+  explicitly named buttons, flagged and kept without objection).
+
+**67. IPO tab: GMP edge-stripe RAG redesign + SME filter**
+
+- Same mockup file as item 66, IPO section (6 additional design options explored beyond the first 2
+  per explicit request; the edge-stripe option was chosen). `IpoTab.tsx`'s `renderIpoCard()` gained
+  a `ragTier(value, percent)` helper — red if GMP `< 0`, amber if `0%–8%`, green if `≥ 8%`, matching
+  the explicit framing "higher the GMP, more likely the chance of profit" (a magnitude-scaled
+  confidence gradient, not a plain sign split) — rendered as a colored left-edge stripe on the card
+  (`Card.tsx` gained a `style` prop to support it) rather than the old plain-left-column GMP figure;
+  GMP moved to a right-aligned RAG-colored text. Listed IPOs' listing-gain figure uses the same RAG
+  tiering on the real outcome (`listingGain`) rather than the pre-listing GMP estimate.
+- Filter: `ipoShowMainboardOnly` (boolean) replaced with `ipoBoardFilter: 'all' | 'mainboard' |
+  'sme'` — the tab now has All/Mainboard/SME filters instead of just All/Mainboard.
+
+**68. Cashew CSV import: linked transfers not imported + double-categorization + 2-entry balance-correction handling**
+
+- Regression: transfer-pairing detection (`detectSelfAccountMovementPairs`) correctly identified
+  linked transfer pairs during import, but they were silently dropped instead of committed as a
+  single `type:'transfer'` row, and the same rows still appeared for manual categorization. Root
+  cause took 3 fix rounds to fully close:
+  1. Round 1 (`isLikelySelfAccountMovement`/`isLikelyCashWithdrawal`, `importCategoryResolution.ts`)
+     — a real category-defaulting improvement, but not the actual cause of the reported "Balance
+     Correction" case.
+  2. Round 2 — new `releaseConfirmedPairsFromGroupSkip()` (`importPipeline.ts`) applied only at
+     final commit time (`useImport.ts`'s `commitAndImport()`) — correct in isolation (passed unit
+     tests against the extracted pure function) but didn't close the loop because the poisoning
+     actually happened one layer earlier, in the *live* `rowActions` memo that drives what the
+     categorization UI shows, not at commit.
+  3. Round 3 (the fix that actually worked end-to-end) — applied
+     `releaseConfirmedPairsFromGroupSkip()` at the live `rowActions` memo too, keyed on all
+     `transferPairs` (not just confirmed ones), immediately after the per-group loop and before the
+     account-skip pass. Verified against the user's real-file arithmetic: 1038 total rows, 16
+     linked-transfer pairs, 7 "stragglers" (single-entry balance corrections, shown for user action
+     rather than auto-imported), 1015 rows written, 16 of them as real `type:'transfer'` rows.
+- Also addressed: Cashew records a transfer as **two** separate rows under a "Balance Correction"
+  category (one debit, one credit); Penny's data model has no such split — a transfer is a single
+  `Expense` row with a `toAccountId`. `applyConfirmedTransferPairs()` merges each detected pair into
+  exactly one transfer row on import, rather than importing both halves.
+- New tests: `packages/core/tests/import/importCategoryResolution.test.ts`,
+  `cashewTransferRegression.test.ts`, additions to `importPipeline.test.ts` (asserting the exact
+  1015/16 numbers above). Per explicit privacy instruction, no real content from the user's personal
+  Cashew export was ever copied into any fixture/test/comment — synthetic data only, matching the
+  existing `cashew-april-synthetic.csv` precedent.
 
 ---
 
-## Phase 6 — Performance: Home cold-start + redundant data loading
+## Phase 3 — Performance: Home cold-start + redundant data loading
 
 No mockup needed — behavior/performance-only, no new UI.
 
 **42 (perf only). Home: dedupe redundant full-table scans + skeleton loading**
+
 - Confirmed: `useHome`, `useHomeStats`, and `useHealthScore` each independently call
   `expensesRepo.getAll()` on every cold Home load — 3x redundant full-table AES-decrypt of the same
   transactions before anything paints. On top of that, `useHome.ts`'s `loadSummary` calls
@@ -548,7 +785,7 @@ No mockup needed — behavior/performance-only, no new UI.
   N accounts and M≈10,000 transactions, instead of one grouped pass.
 - Fix: share a single `expensesRepo.getAll()` result across the three Home hooks (a shared load, or
   a short-lived in-memory cache) instead of three independent calls; replace the repeated per-account
-  `computeBalance()` scans with one grouped pass over the transaction list. 
+  `computeBalance()` scans with one grouped pass over the transaction list.
 - Separately: Home currently shows **nothing** (not a skeleton — the relevant sections are absent
   from the tree) while `summary`/stats are loading, which is what makes a slow load read as "blank."
   Add real skeleton states to `GlanceHeader`/`AccountsStrip`/`MoneyStatsCard`/`FinancialHealthCard`'s
@@ -557,170 +794,7 @@ No mockup needed — behavior/performance-only, no new UI.
 
 ---
 
-## Phase 6b — 5th batch: found while testing Phases 4-5 on-device
-
-**45. Manual-entry category suggestion never sees CSV-imported history — ✅ Done**
-- Root cause (confirmed): two entirely separate "remembered category" systems exist.
-  `ExpenseForm.tsx`'s live suggestions come from `merchantMemoryRepo` (a Dexie table, matched by
-  normalized description substring, populated by a one-time backfill gated on
-  `penny_merchant_memory_v2` that only ever runs once, plus an incremental update on every manual
-  save). CSV import's own remembered-category logic is a totally different, AsyncStorage-backed
-  mapping keyed on the CSV's *category-column label*, not the transaction description.
-  `packages/core/src/core/import/importWriter.ts`'s actual commit path never touches
-  `merchantMemoryRepo` at all — so CSV-imported expenses are structurally invisible to
-  `ExpenseForm`'s suggestion engine, both going forward and retroactively.
-- Fix: wire `importWriter.ts` (and bank-import's own commit path, if it has the same gap) to also
-  call `buildMemory()`/upsert into `merchantMemoryRepo` for every committed row, matching what
-  manual saves already do. Bump the backfill version flag (`penny_merchant_memory_v2` → `v3`) so
-  the one-time backfill re-runs once more, retroactively indexing already-imported history too.
-
-**46. Analytics: no Income card — ✅ Done**
-- Confirmed: income has zero category-wise visibility anywhere in Analytics today —
-  `buildGroupData`/`buildSetAsideData` both explicitly exclude `type !== 'expense'` before
-  `classify()` ever runs, so income isn't misclassified into Set Aside, it's just silently
-  dropped entirely. `CashFlowTile`'s per-account "Income" figure is raw balance-delta cash
-  movement, not a category-tagged total. Add an Income card to Monthly/Annual/All-time Analytics,
-  mirroring `SetAsideSection`'s exact expand/collapse pattern (no budget concept, matching
-  `SetAsideSegment`'s shape) grouped over the 15 default income categories
-  (`DEFAULT_INCOME_CATEGORIES`) — reusing an already-approved pattern verbatim, no new mockup
-  needed. Slot it in the existing render order right after `SetAsideSection`, before
-  `HashtagsSection`, in all three views. Share the same lifted `expandedGroup` state already used
-  by `DailyRoutineSection`/`SetAsideSection` (safe — `income`'s intent-group key never collides
-  with any expense group key).
-
-**47. Filter icon looked too similar to the Select icon — ✅ Done**
-- `TransactionsSlice.tsx`'s Filter button used `ti-adjustments-horizontal` (sliders), visually close
-  to the Select button's `ti-list-check` at small size. Swapped to `ti-filter` (Tabler's real
-  funnel-shaped icon, confirmed present in the installed package). Left the two other
-  `ti-adjustments-horizontal` usages alone (`AccountsPage.tsx`'s "Merchant recognition settings",
-  `BankImportOverridesPage.tsx`'s empty state) — genuine settings icons, unrelated to this
-  confusion, not filter buttons.
-
-**48. "Maximum call stack size exceeded" crash on a large (~9,000-row) CSV import commit — ✅ Done**
-- Not specific to any import path or anything else from this batch of work — a pre-existing bug in
-  the core encryption layer used by every encrypted write in the app. `packages/core/src/core/db/
-repository.ts`'s `bufferToBase64()` built its output via `btoa(String.fromCharCode(...bytes))`,
-  spreading the entire byte array as individual function arguments — blows the JS call stack once
-  the buffer is large enough. A large import's activity-log entry (which encrypts something
-  proportional to batch size) was big enough to hit it.
-- Reproduced directly (a synthetic 9,000-row `writeImportBatch` call threw the identical error
-  before the fix), fixed by building the base64 string in safe-sized (32KB) chunks instead of one
-  spread, confirmed all existing encryption/repository tests still pass (identical output), and
-  added a permanent regression test (`tests/db/repository.test.ts`, a large-payload round-trip)
-  so this can't silently regress. Any sufficiently large batch write (CSV import, bank-import,
-  or otherwise) could have hit this — not just this one file.
-
----
-
-## Phase 6c — 6th batch: found while testing Phases 5-6b on-device (account cards, Analytics, backup/restore, CSV import)
-
-**49. Account list redesign — ✅ Done**
-- The gradient "mini card" pattern (documented in `docs/DESIGN_GUIDELINES.md`'s "Identity-colour
-  gradient mini card" section) was reported as not following the theme, wasting space, and still
-  not using real bank icons in several places despite item 44 shipping. 7 genuinely different
-  mockup concepts explored (`docs/mockups/proposals/account-list-redesign-v1.html` through `-v3.html`,
-  the last with a "✅ FINAL DIRECTION" section) before landing on: cards grouped by account type
-  (Bank Accounts / Cash & Wallets / Credit Cards), a flat bordered list row (gradient dropped
-  entirely — doesn't read well across light/dark), a vertical `ti-dots-vertical` kebab beside the
-  balance that tap-reveals exactly 3 action icons below (Import XOR Reconcile + Edit + Delete —
-  `RECONCILABLE`/`STATEMENT_IMPORTABLE` still partition all 4 account types with no overlap), and
-  the real `includeInNetWorth` caption carried over unchanged. Whole-row tap still opens the
-  transaction popup, unchanged. `AccountList.tsx` rewritten; `docs/DESIGN_GUIDELINES.md`'s gradient
-  section is now stale (flagged for the docs pass).
-- Real per-bank logos in this redesign: HDFC/ICICI/Axis/HSBC (see item 50); SBI/Kotak/IndusInd get
-  their real official brand color tinting a generic fallback icon (SBI `#00B5EF`, Kotak `#ED1C24`,
-  IndusInd `#98272A`) — never a fabricated logo mark.
-
-**50. Real HSBC bank logo — ✅ Done**
-- Item 44 asserted only 3 of 12 preset banks had a CC0-licensed mark available (Simple Icons) —
-  wrong for HSBC specifically, which Simple Icons does carry (slug `hsbc`); never actually checked
-  before that claim was written. Verified the real path/color (`#DB0011`) against two independent
-  CDN mirrors and added it to `BankLogo.tsx` (now 4 of 12 presets have a real logo). Re-checked the
-  remaining 8 (sbi/kotak/indusind/bob/yesbank/pnb/canara/idfcfirst) — confirmed genuinely
-  unavailable under any clear license (Simple Icons doesn't carry them; the one place with real SVG
-  marks, `github.com/praveenpuglia/indian-banks`, ships with no LICENSE file — not safe to
-  redistribute) — sourcing real logos for those from each bank's own official brand page remains its
-  own separate follow-up, unchanged from item 44's original scope note.
-
-**51. Analytics: Income section mis-grouping + cross-contaminated drill-downs — ✅ Done**
-- Root cause: `Loan EMI`/`Savings Transfer`/`Insurance Premium` are `applicableTo: 'expense'`
-  categories, but some real income-type transactions carry them anyway (pre-existing data, from
-  before the category picker enforced `applicableTo`). `buildIncomeData` grouped by the category's
-  raw `groupKey()`, so those rows rendered under a "Financial" sub-group — the identical string
-  `buildSetAsideData` uses for its own expense-side row — which both mislabeled the row and collided
-  `expandedGroup` with the unrelated Set Aside row (expanding one expanded the other). Separately,
-  the shared `viewGroup`/`viewCategory` drill-down callbacks had no `e.type` check at all, so "View
-  all transactions in Financial" opened from *either* side could leak the *other* side's
-  transactions into the popup.
-- Fix: new `incomeGroupKey()` (`useExpenseAnalytics.ts`) — a category only ever gets its own row if
-  it's itself `applicableTo: 'income'`; anything else folds into the fixed `'income'` bucket (still
-  fully visible in `cats[]`, just never owns a top-level row/key). New `viewIncomeGroup`/
-  `viewIncomeCategory` (`AnalyticsSlice.tsx`), explicitly `e.type === 'income'`-scoped and wired only
-  to `IncomeSection`; `viewGroup`/`viewCategory` now explicitly require `e.type === 'expense'` too,
-  closing the leak in both directions.
-
-**52. Analytics: Income + Total Spent moved above the ring graph — ✅ Done**
-- Per explicit request: in all three views (Monthly/Annual/All-time), `PulseCard` ("Total spent")
-  now renders before `DailyLivingCard` (the ring), and `IncomeSection` now leads the whole view,
-  ahead of even those two. Nothing else in the render order moved (Daily Routine ahead of Set Aside,
-  Cash Flow at the very end, both pre-existing decisions, unchanged).
-
-**53. Analytics Cash Flow card: numbers not centered on the account icon — ✅ Done**
-- The per-account row's outer `flex-row` used `items-start`; the icon+name column is taller than
-  the single-line number row, so the numbers sat above the icon's true vertical center instead of
-  level with it. Changed to `items-center`.
-
-**54. Month scrub bar: auto-scroll broken on RN-Web — ✅ Done**
-- The previous fix (item 43 follow-up, `measureLayout` for a fresh same-tick read) resolved the
-  original bug on-device but not on RN-Web — `measureLayout` is a native-bridge measurement call;
-  react-native-web's shim for it doesn't reliably return scroll-aware coordinates the way native's
-  does. Dropped `measureLayout` entirely for the plain `onLayout`-cached offset (identical on every
-  platform), fixing the real underlying race (a state update landing before its own layout pass has
-  run) by deferring the read two `requestAnimationFrame` ticks instead of racing it with a
-  same-tick native measurement call.
-
-**55. Backup/export: missing `await` on `File.write()` — ✅ Done**
-- `expo-file-system`'s `File.write()` is async (`Promise<void>`); 6 places called it without
-  `await`, immediately followed by something that reads/shares/deletes that same file — a real race
-  that can hand a still-writing/truncated file to the next step. Found while investigating "can't
-  restore any local backup." Fixed in: `AutoBackupCard.tsx` (manual "This device" export),
-  `localBackup.native.ts` (the silent daily on-device snapshot), `exportCsv.native.ts` (both plain
-  CSV and password-protected ZIP), `PlannerResults.tsx` and `RetirementCard.tsx` (XLSX export), and
-  `UnparsedMessagesPage.tsx` (SMS export).
-
-**56. Backup: `accounts` + 7 other real tables missing from `BACKUP_STORES` — ✅ Done**
-- `BACKUP_STORES` (`backupManager.ts`) had silently drifted behind `schema.ts` — `accounts`,
-  `activity_log`, `merchant_memory`, `transaction_templates`, `bank_cash_withdrawal_codes`,
-  `sms_transactions`, `sms_account_mappings`, and `sms_excluded_senders` were never included in any
-  backup. `accounts` is the severe one: every `Expense.accountId` references it, so restoring onto
-  a wiped/new device brought back every transaction with zero accounts for them to belong to. All 8
-  added; backward-compatible with older backup files (absent fields are just skipped on restore, as
-  already handled by the existing `if (rows?.length)` guard).
-
-**57. Backup: no override for the Drive foreign-blob state — ✅ Done**
-- The `foreign_blob` banner (item 3) only ever offered "Restore with my passphrase" — no way to say
-  "keep this device's current data and stop offering me that old backup." Traced in
-  `backupEngine.ts`: while `foreign_blob` is active, `runNow()`'s cycle always attempts a pull
-  first, which throws before a push ever gets a chance to run — so there was genuinely no path to a
-  fresh push other than resolving the state via restore. New `overwriteRemoteWithLocal()`
-  (`backupEngine.ts`) skips the pull entirely and force-pushes this device's current export,
-  exposed through the native `SyncProvider`. New destructive, confirm-gated "Overwrite Drive with
-  this device's data instead" button in `AutoBackupCard.tsx`'s banner (mockup:
-  `docs/mockups/proposals/drive-foreign-blob-override-v1.html`).
-
-**58. CSV import: tile-list render caps missing — ✅ Done**
-- Item 40 capped the ROWS inside one category tile (`TileRowList.tsx`) but never capped the number
-  of TILES itself — `TransactionsStage.tsx`'s `needsInputGroups`/`stagedGroups`/`skippedGroups` each
-  rendered as a plain, fully-unbounded `.map()` of tiles. A CSV export that groups more granularly
-  than a bank statement (many distinct source-name/category groups) could realistically exceed this.
-  Added the same "Show N more" pattern to all three (cap 25, smaller than `TileRowList`'s 60 since
-  each tile is a much heavier component). Also capped `CarryForwardExcluded.tsx`'s row list, which
-  had no cap at all — MoneyView-specific and typically modest in practice, but a real gap against
-  the project's own bulk-import render-cap rule regardless.
-
----
-
-## Phase 7 — App-wide auto-refresh audit
+## Phase 4 — App-wide auto-refresh audit
 
 - Current mechanism: hand-rolled pub/sub, `useTxnRefresh`/`notifyTxnChanged`
   (`packages/core/src/hooks/useTxnRefresh.ts`) — not React Query/live-query. There's precedent for
@@ -737,7 +811,7 @@ No mockup needed — behavior-only.
 
 ---
 
-## Phase 8 — Mobile gesture survey (item 5)
+## Phase 5 — Mobile gesture survey (item 5)
 
 Deliverable: a findings list for review, not a blanket implementation.
 
@@ -753,7 +827,7 @@ Deliverable: a findings list for review, not a blanket implementation.
 
 ---
 
-## Phase 9 — New-user / home experience (items 15, 16) — spec + mockup only
+## Phase 6 — New-user / home experience (items 15, 16) — spec + mockup only
 
 This round produces the design, not code.
 

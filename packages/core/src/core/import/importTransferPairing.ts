@@ -25,7 +25,16 @@
 // confidently pair just render normally as two separate transactions — this is a nice-to-have
 // simplification of the preview, never a hard requirement.
 import type { ParsedRow } from './importParsers';
-import { isLikelyTransfer } from './importCategoryResolution';
+import { isLikelyTransfer, isLikelySelfAccountMovement, isLikelyCashWithdrawal } from './importCategoryResolution';
+
+// `isLikelySelfAccountMovement`/`isLikelyCashWithdrawal` are DEFINED in `importCategoryResolution.ts`
+// (alongside `isLikelyTransfer`/`isLikelyIouSuspect`/`isLikelyInvestmentMovement` — all the "does this
+// category name look like X" predicates live together there) and re-exported here for every existing
+// caller of this file (apps/mobile's `useImport.ts`, this file's own tests) — moved 2026-08-22 so
+// `importCategoryResolution.ts`'s `suggestForNameDirectional` can use `isLikelySelfAccountMovement` for
+// its own category-default-suggestion fix without a circular import (this file already imports
+// `isLikelyTransfer` FROM `importCategoryResolution.ts`, so the reverse import would cycle back here).
+export { isLikelySelfAccountMovement, isLikelyCashWithdrawal };
 
 export interface TransferPair {
   /** Index into the original rows array of the outgoing (expense-type) row. */
@@ -130,55 +139,6 @@ export function detectTransferPairs(rows: ParsedRow[]): TransferPair[] {
 // above), not a parallel system — but is its OWN new function, never a modification of
 // `detectTransferPairs` itself, so `apps/web-react`'s frozen direct call to that function keeps its
 // exact existing behavior.
-
-/** Keywords for a genuine CASH/ATM withdrawal specifically — the subset of `SELF_ACCOUNT_MOVEMENT_KEYWORDS`
- *  below that means "money left a bank account and became physical cash," used on its own by
- *  `isLikelyCashWithdrawal` (2026-08-20, real-device testing pass) to power apps/mobile's Transactions
- *  stage "turn these into transfers to your Cash account?" suggestion — see that function's own doc
- *  comment for why this needs to be single-row (group-level) detection, structurally different from the
- *  two-row pairing this file otherwise does. Kept as its own array (rather than three separate literals
- *  duplicated into `SELF_ACCOUNT_MOVEMENT_KEYWORDS` below) so the two lists can never silently drift —
- *  `SELF_ACCOUNT_MOVEMENT_KEYWORDS` spreads this one in rather than repeating the three strings. */
-const CASH_WITHDRAWAL_KEYWORDS = ['cash withdrawal', 'atm withdrawal', 'cash wdl'];
-
-/** Keywords for a self-account movement NOT already covered by `TRANSFER_KEYWORDS`
- *  (importCategoryResolution.ts's `isLikelyTransfer`) — cash withdrawal and CC bill payment phrasing.
- *  Kept as its own list (not an addition to `TRANSFER_KEYWORDS`) for the same reason
- *  `isLikelyIouSuspect`/`isLikelyInvestmentMovement` are their own lists in importCategoryResolution.ts:
- *  `isLikelyTransfer` feeds `resolveCategories()`, which `apps/web-react` calls directly — broadening
- *  that shared list would silently change web's category-resolution suggestions too. This list only
- *  ever feeds `detectSelfAccountMovementPairs` below, used exclusively by apps/mobile's new Categories
- *  wizard stage. */
-const SELF_ACCOUNT_MOVEMENT_KEYWORDS = [
-  ...CASH_WITHDRAWAL_KEYWORDS,
-  'wallet recharge',
-  'wallet reload',
-  'wallet load',
-  'add money',
-  'credit card bill',
-  'credit card payment',
-  'cc bill',
-  'cc payment',
-  'card bill payment'
-];
-
-export function isLikelySelfAccountMovement(categoryName: string): boolean {
-  const lower = categoryName.toLowerCase().trim();
-  return SELF_ACCOUNT_MOVEMENT_KEYWORDS.some((k) => lower.includes(k));
-}
-
-/** True when a source category name reads as a cash/ATM withdrawal specifically (see
- *  `CASH_WITHDRAWAL_KEYWORDS` above) — narrower than `isLikelySelfAccountMovement`, which also matches
- *  wallet top-ups and credit-card bill payments that this feature deliberately does NOT offer a
- *  Cash-account transfer suggestion for. Used by apps/mobile's `useImport.ts` to flag a
- *  `CategoryRowGroup` (a single-leg, unpaired bank-debit row — no reciprocal "Cash account" ledger row
- *  ever exists in a real export to pair against, unlike `detectSelfAccountMovementPairs` above's two-row
- *  case) as a candidate for its own "turn these into transfers to your Cash account?" suggestion card,
- *  always requiring an explicit user accept — see docs/plans/real-device-testing-pass.md. */
-export function isLikelyCashWithdrawal(categoryName: string): boolean {
-  const lower = categoryName.toLowerCase().trim();
-  return CASH_WITHDRAWAL_KEYWORDS.some((k) => lower.includes(k));
-}
 
 /** Same conservative pairing algorithm as `detectTransferPairs` (identical amount/date-window/opposite-
  *  direction gates — see this file's header comment), but with a BROADER "does this look like one

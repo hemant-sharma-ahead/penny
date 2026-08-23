@@ -620,6 +620,13 @@ export function ExpenseForm({
     } else if (mem.paymentMode) {
       setPaymentMode(couplePaymentToAccount(selectedAccount, mem.paymentMode));
     }
+    // Pre-fills the most recent matching amount too (2026-08-22) — same "comes from the most recent
+    // matching txn" convention as category/account/payment mode above. Still a plain editable
+    // `AmountInput` afterward, not locked — the user can change it same as any other field.
+    if (mem.amount != null) {
+      setAmount(String(mem.amount));
+      if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
+    }
     setMemPicked(true);
     setErrors((e) => ({ ...e, desc: false, cat: false }));
   }
@@ -1140,9 +1147,14 @@ export function ExpenseForm({
                         {[cat?.name, acct?.name, mem.paymentMode?.toUpperCase()].filter(Boolean).join(' · ')}
                       </Text>
                     </View>
-                    <Text className="text-[11px] font-semibold" style={{ color: theme.primary }}>
-                      Use
-                    </Text>
+                    {/* Most recent matching amount (2026-08-22) — shown so the tap's effect (also
+                        pre-filling the amount, see `applyMemory`) isn't a surprise; the whole row has
+                        always been the tap target (see `Pressable` above), this is display only. */}
+                    {mem.amount != null && (
+                      <Text className="text-[11px] font-semibold" style={{ color: theme.primary }}>
+                        {formatCurrency(mem.amount)}
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
