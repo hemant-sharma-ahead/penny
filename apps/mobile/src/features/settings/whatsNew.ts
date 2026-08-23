@@ -14,6 +14,16 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW: WhatsNewEntry[] = [
   {
+    version: '1.5.1',
+    highlights: [
+      "Fixed a bug where typing a person's name for lending/borrowing could dismiss the keyboard mid-word.",
+      'Automatic Drive backups now respect your chosen frequency instead of backing up on every change; backup times now show alongside the date.',
+      'Fixed a "revoked device" error that could block creating a new group after restoring a backup.',
+      'Cashew CSV import: transfers between your own accounts now import correctly instead of being skipped.',
+      'IPO tracker redesigned with color-coded GMP indicators and a new SME filter.'
+    ]
+  },
+  {
     version: '1.5.0',
     highlights: [
       'Account screen redesigned — grouped by type, tap the balance for actions, more real bank logos and colors.',
