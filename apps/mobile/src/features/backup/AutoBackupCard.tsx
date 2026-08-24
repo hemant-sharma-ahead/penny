@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, Image, Platform } from 'react-native';
-import { File, Paths } from 'expo-file-system';
+import { View, Text, Pressable, Image } from 'react-native';
 import { Banner, Button, Card, ConfirmDialog, IconBadge, SegmentedControl, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { AppleLogo, DriveLogo, DRIVE_BLUE } from '~/components/shared';
@@ -11,7 +10,12 @@ import { useBackupStatus } from '@/core/sync/SyncProvider';
 import { getBackupState } from '@/core/sync/backupEngine';
 import { exportBackup } from '@/core/backup/backupManager';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
-import { getProvider, getConnectedGoogleAccount, disconnectGoogleAccount } from '@/core/sync/providers';
+import {
+  getProvider,
+  getConnectedGoogleAccount,
+  disconnectGoogleAccount,
+  saveLocalSnapshot
+} from '@/core/sync/providers';
 import { isLocalBackupAvailable } from '@/core/sync/providers/localBackup';
 import {
   getAutoBackupEnabled,
@@ -21,6 +25,8 @@ import {
 } from '@/core/sync/backupPrefs';
 import { formatDateTime } from '@/lib/date';
 import { tint } from '~/lib/color';
+import { BackupHistoryModal } from './BackupHistoryModal';
+import { shareBackupFile } from './shareBackupFile';
 
 type TargetChoice = 'local' | 'google-drive' | 'icloud';
 
@@ -80,6 +86,10 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
   const [exporting, setExporting] = useState(false);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [overwriting, setOverwriting] = useState(false);
+  // Backup History — which destination's popup (if any) is open. Two independent single-destination
+  // popups (per the mockup's own decision), not one combined tabbed modal, so this is just which one
+  // (or none) rather than a boolean per destination.
+  const [historyTarget, setHistoryTarget] = useState<'local' | 'google-drive' | null>(null);
 
   const driveAvailable = hasEntitlement('cloud_backup') && getProvider('google-drive').isAvailable();
   const icloudAvailable = getProvider('icloud').isAvailable();
@@ -170,33 +180,20 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
   }
 
   /** "This device" shares/downloads a copy on demand — the same action "Export backup" used to be, now
-   *  the one place that capability lives. Distinct from the silent daily on-device snapshot the engine
-   *  keeps in the background (localBackup.native.ts) — that's an invisible safety floor; this is an
-   *  explicit "give me a copy" action, so it always does something visible when pressed. Same
-   *  RN-Web-vs-native branch as BackupPage.tsx's old handleExport (expo-file-system has no web build). */
+   *  the one place that capability lives. Also, since Backup History (decided scope: "Manual back up
+   *  now always creates a new entry"), this now saves a real `'manual'` history entry alongside the
+   *  share/download — previously this action was purely ephemeral (nothing persisted, unlike the
+   *  engine's own silent `'auto'` daily snapshot in `localBackup.native.ts`), which would have left This
+   *  device's manual backups invisible in its own History popup. The actual write-to-temp/share dance is
+   *  `shareBackupFile()` (shared with `BackupHistoryModal.tsx`'s per-entry Download action). */
   async function exportToDevice() {
     setExporting(true);
     try {
       const blob = await exportBackup();
+      const text = await new Response(blob).text();
+      await saveLocalSnapshot(blob, 'manual');
       const date = new Date().toISOString().slice(0, 10);
-      if (Platform.OS === 'web') {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `penny-backup-${date}.penny`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } else {
-        const text = await new Response(blob).text();
-        const file = new File(Paths.cache, `penny-backup-${date}.penny`);
-        // `File.write()` is async (returns a `Promise<void>`) — this was firing `shareAsync` without
-        // waiting for it, racing the actual disk write. On a large enough backup (real transaction
-        // history, not the tiny demo dataset) the share sheet could hand off a still-writing/truncated
-        // file. Found 2026-08-21 while investigating "can't restore any local backup" on-device.
-        await file.write(text);
-        const Sharing = await import('expo-sharing');
-        if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(file.uri, { mimeType: 'application/json' });
-      }
+      await shareBackupFile(text, `penny-backup-${date}.penny`);
       showToast({ message: 'Backup shared.' });
     } catch (err) {
       showToast({ message: err instanceof Error ? err.message : 'Export failed' });
@@ -252,9 +249,20 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
           </Text>
         )}
         <View className="flex-row items-center justify-between gap-3">
-          <Text className="text-[11px] text-tertiary flex-1">
-            {lastBackupAt ? `Last daily snapshot · ${formatDateTime(lastBackupAt)}` : 'No daily snapshot yet'}
-          </Text>
+          {/* Tappable (Backup History) — same label+chevron affordance SettingsPage.tsx's Row already
+           *  uses elsewhere in this app, appended inline right after the existing caption text rather
+           *  than turning this into a full icon+label row (the minimal diff for a caption that wasn't
+           *  one before). Opens This device's own History popup — a distinct list from Drive's below. */}
+          <Pressable
+            onPress={() => setHistoryTarget('local')}
+            accessibilityLabel="View This device's backup history"
+            className="flex-row items-center gap-1 flex-1"
+          >
+            <Text className="text-[11px] text-tertiary flex-1">
+              {lastBackupAt ? `Last daily snapshot · ${formatDateTime(lastBackupAt)}` : 'No daily snapshot yet'}
+            </Text>
+            <Icon name="ti-chevron-right" size={13} color={theme.textTertiary} />
+          </Pressable>
           <Button variant="primary" loading={exporting} onPress={handleBackupNow}>
             Back up now
           </Button>
@@ -411,13 +419,22 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
 
         {driveAccount && status !== 'foreign_blob' && (
           <View className="flex-row items-center justify-between gap-3">
-            <Text className="text-[11px] text-tertiary flex-1">
-              {status === 'syncing'
-                ? STATUS_TEXT.syncing
-                : lastBackupAt
-                  ? `Backed up · ${formatDateTime(lastBackupAt)}`
-                  : 'Not backed up yet'}
-            </Text>
+            {/* Same tappable-caption treatment as This device's panel above — opens Drive's own
+             *  History popup, a distinct list from This device's. */}
+            <Pressable
+              onPress={() => setHistoryTarget('google-drive')}
+              accessibilityLabel="View Google Drive's backup history"
+              className="flex-row items-center gap-1 flex-1"
+            >
+              <Text className="text-[11px] text-tertiary flex-1">
+                {status === 'syncing'
+                  ? STATUS_TEXT.syncing
+                  : lastBackupAt
+                    ? `Backed up · ${formatDateTime(lastBackupAt)}`
+                    : 'Not backed up yet'}
+              </Text>
+              <Icon name="ti-chevron-right" size={13} color={theme.textTertiary} />
+            </Pressable>
             <Button variant="primary" color={DRIVE_BLUE} loading={status === 'syncing'} onPress={handleBackupNow}>
               Back up now
             </Button>
@@ -522,6 +539,13 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
         confirmVariant="danger"
         loading={overwriting}
       />
+
+      {historyTarget && (
+        <BackupHistoryModal
+          destination={historyTarget === 'local' ? 'local' : 'drive'}
+          onClose={() => setHistoryTarget(null)}
+        />
+      )}
     </>
   );
 }

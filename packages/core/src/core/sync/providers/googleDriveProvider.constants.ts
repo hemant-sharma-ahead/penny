@@ -8,6 +8,16 @@
  *  normal Drive UI and inaccessible to any other app. */
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
+/** The legacy single fixed-name Drive backup file, from before the Backup History feature (one file,
+ *  always PATCHed in place). `googleDriveProvider.native.ts`/`.web.ts` no longer ever write here —
+ *  every push now creates its own new timestamped file (see `backupNaming.ts`) — but this name is still
+ *  recognized on read (`list()`/`pull()`/`remoteTag()`) so a pre-existing device's old backup isn't
+ *  silently orphaned; it's surfaced as one ordinary history entry (timestamp inferred from Drive's own
+ *  `modifiedTime`, trigger defaulted to `'manual'` since the pre-history code had no auto/manual
+ *  distinction to recover) and ages out of the retention cap exactly like any other entry. The frozen,
+ *  web-react-only `googleDriveProvider.ts` variant is untouched by this feature and still writes here
+ *  via its original PATCH-in-place flow — this constant stays shared so that file's output keeps being
+ *  recognized by the two variants that did adopt the new scheme. */
 export const DRIVE_BACKUP_FILE_NAME = 'penny-backup.penny';
 
 /** Turns a failed Drive API response into an actually-diagnosable string (`"403: Drive API has not

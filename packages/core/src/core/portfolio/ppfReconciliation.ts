@@ -59,9 +59,11 @@ function findExistingInterestForFy(existing: PpfTransaction[], fyStartYear: numb
  *  silently written or silently dropped; the review screen decides what to do with each case.
  *
  *  `rateTable`, if supplied, additionally populates `calculatedInterest` on every interest-type row
- *  — recalculated using ALL context Penny has for that financial year (the already-logged
- *  transactions, PLUS every other deposit/withdrawal row in this same statement, since a freshly
- *  imported statement is often the FIRST time Penny has seen that year's deposits at all). Pass
+ *  — recalculated using ALL context Penny has for that financial year: the already-logged
+ *  transactions, PLUS every other row in this same statement (deposits/withdrawals, AND every OTHER
+ *  financial year's own interest row — a freshly imported statement is often the FIRST time Penny
+ *  has seen that history at all, so excluding it would understate the running balance for every FY
+ *  after the first). Only THIS row's own FY's interest is excluded, to avoid circularity. Pass
  *  `null`/omit to skip this (e.g. while offline and the rate table genuinely isn't available) — the
  *  reconciliation itself (new/matches/conflict) works identically either way. */
 export function reconcilePpfRows(
@@ -89,13 +91,27 @@ export function reconcilePpfRows(
       // entirely rather than set it to `undefined`.
       let calculatedInterest: { amount: number; basedOnIncompleteHistory: boolean; mismatched: boolean } | null = null;
       if (rateTable) {
-        // Every other row/existing txn Penny knows about for this FY, EXCLUDING this statement's own
-        // interest row(s) for the same FY (and any pre-existing interest txn for it) — we're
-        // recalculating what the interest SHOULD be from deposits/withdrawals alone, not trusting
-        // any previously recorded interest figure as an input to itself.
+        // Every other row/existing txn Penny knows about for this FY, EXCLUDING only THIS FY's own
+        // interest row(s) — we're recalculating what this FY's interest SHOULD be, so it can't use
+        // its own figure as an input (that would be circular). Every OTHER financial year's interest
+        // — whether already logged or sitting elsewhere in this same freshly-parsed statement — is a
+        // real, already-credited amount that legitimately forms part of the running balance for this
+        // FY and must stay in context. A real 2026-08-24 bug lived here: the statement-side half of
+        // this filter used to strip out ALL interest rows regardless of financial year
+        // (`t.type !== 'interest'`), not just this FY's — so for a fresh multi-year import (the
+        // normal case, since `existingTransactions` starts empty), every FY after the first computed
+        // its comparison figure against a balance basis missing every prior year's real credited
+        // interest, understating it more with each additional year. Confirmed against a real
+        // multi-year PPF statement: only the very first FY calculated correctly; every later one was
+        // wrong, growing worse each year — exactly the shape this filter gap produces. This never
+        // corrupted anything committed (commit always writes the statement's own stated amount, never
+        // this recalculation) — it only broke the review screen's "Imported vs Calculated" sanity
+        // check, which is why it was only ever visible during import.
         const context = [
           ...existingTransactions.filter((t) => !(t.type === 'interest' && dateToFyStartYear(t.date) === fyStartYear)),
-          ...parsedAsTransactions.filter((t, j) => j !== i && t.type !== 'interest')
+          ...parsedAsTransactions.filter(
+            (t, j) => j !== i && !(t.type === 'interest' && dateToFyStartYear(t.date) === fyStartYear)
+          )
         ];
         const result: PpfInterestCalculationResult = calculatePpfInterestForFy(context, fyStartYear, rateTable);
         calculatedInterest = result.rateFullyConfirmed

@@ -442,6 +442,14 @@ itself** (`.husky/pre-commit` only runs lint-staged + the PII gate + tests) — 
   definition rather than forcing every call site into a conditional spread.
 - **No implicit returns** in a function that returns a value — every code path must
   explicitly return.
+- **`react-hooks/set-state-in-effect`** — never call a state setter (or an async function that
+  eventually calls one) directly in a `useEffect` body. Wrap the actual state-setting work in a
+  same-tick `setTimeout(fn, 0)` (or the effect's own real debounce delay, if it already has one)
+  with a matching `clearTimeout` in the cleanup — established first in
+  `apps/mobile/src/features/portfolio/holdings/equity/useLivePrice.ts`, reused since in
+  `RetirementSheets.tsx`'s PPF calc-prefill effect and `BackupHistoryModal.tsx`'s load-on-mount
+  effect. Don't reach for a suppressing comment here; this mechanical rewrite is the established
+  fix.
 
 ## Branch rules
 

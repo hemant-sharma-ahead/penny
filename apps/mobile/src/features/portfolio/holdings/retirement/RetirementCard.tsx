@@ -637,23 +637,38 @@ export function RetirementCard({
                   </Text>
                 </View>
                 {ppfMissingInterestFys.length > 0 && (
+                  // Only the earliest missing FY's pill is actually tappable (2026-08-24 fix) —
+                  // `findMissingPpfInterestFys` already returns these in ascending order, so
+                  // `ppfMissingInterestFys[0]` is always the one that must be added first. The rest
+                  // are still shown (so the user can see how many years are missing at a glance) but
+                  // disabled/greyed — the real ordering guard already lives in the transaction sheet's
+                  // own gap-guard (`earliestBlockingPpfFy`, which would block Save on any of these
+                  // anyway), this is purely a cheaper, earlier nudge toward the right one so nobody
+                  // has to tap the wrong pill and get redirected.
                   <View className="flex-row flex-wrap gap-1.5 ml-6">
-                    {ppfMissingInterestFys.map((fy) => (
-                      <Pressable
-                        key={fy}
-                        onPress={() => {
-                          setPpfNudgeFy(fy);
-                          setShowPpfTxSheet(true);
-                        }}
-                        className="flex-row items-center gap-1 px-2 py-1 rounded-full"
-                        style={{ backgroundColor: tint(theme.warning, 25) }}
-                      >
-                        <Icon name="ti-plus" size={9} color={theme.warning} />
-                        <Text className="text-[9.5px] font-bold" style={{ color: theme.warning }}>
-                          {fyLabel(fy)}
-                        </Text>
-                      </Pressable>
-                    ))}
+                    {ppfMissingInterestFys.map((fy, i) => {
+                      const enabled = i === 0;
+                      return (
+                        <Pressable
+                          key={fy}
+                          disabled={!enabled}
+                          onPress={() => {
+                            setPpfNudgeFy(fy);
+                            setShowPpfTxSheet(true);
+                          }}
+                          className="flex-row items-center gap-1 px-2 py-1 rounded-full"
+                          style={{
+                            backgroundColor: tint(theme.warning, enabled ? 25 : 12),
+                            opacity: enabled ? 1 : 0.5
+                          }}
+                        >
+                          <Icon name="ti-plus" size={9} color={theme.warning} />
+                          <Text className="text-[9.5px] font-bold" style={{ color: theme.warning }}>
+                            {fyLabel(fy)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
                 )}
                 {ppfMissingInterestFys.length > 0 && ppfReviewFlags.length > 0 && (

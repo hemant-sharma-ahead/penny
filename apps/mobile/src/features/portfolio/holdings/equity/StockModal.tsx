@@ -22,15 +22,10 @@ export function StockModal({ editing, onSave, onDelete, onClose }: StockModalPro
   const [symbol, setSymbol] = useState(editing?.symbol ?? '');
   const [units, setUnits] = useState(editing?.units != null ? String(editing.units) : '');
   const [avgCostPrice, setAvgCostPrice] = useState(editing?.avgCostPrice != null ? String(editing.avgCostPrice) : '');
-  const {
-    fetchedPrice,
-    setFetchedPrice,
-    priceFetching,
-    fetchedName,
-    setFetchedName,
-    stockFetchAttempted,
-    setStockFetchAttempted
-  } = useLivePrice('stock', '', symbol);
+  // setFetchedPrice/setFetchedName/setStockFetchAttempted aren't destructured here — those
+  // resets now live entirely inside useLivePrice.ts's own debounced effect (see its
+  // comment); StockFields only ever reads these three values, never sets them.
+  const { fetchedPrice, priceFetching, fetchedName, stockFetchAttempted } = useLivePrice('stock', '', symbol);
   const [saving, setSaving] = useState(false);
 
   function handleSave() {
@@ -87,12 +82,9 @@ export function StockModal({ editing, onSave, onDelete, onClose }: StockModalPro
         avgCostPrice={avgCostPrice}
         setAvgCostPrice={setAvgCostPrice}
         fetchedPrice={fetchedPrice}
-        setFetchedPrice={setFetchedPrice}
         fetchedName={fetchedName}
-        setFetchedName={setFetchedName}
         priceFetching={priceFetching}
         stockFetchAttempted={stockFetchAttempted}
-        setStockFetchAttempted={setStockFetchAttempted}
       />
       <SharedValueFields assetClass="stock" shared={shared} />
     </Modal>

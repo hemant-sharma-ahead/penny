@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Backup History — This device &amp; Google Drive (v1)</title>
+    <style>
+      :root {
+        --primary: #00a86b;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --info: #3b82f6;
+        --drive-blue: #4285f4;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px 24px 110px;
+        background: #05070a;
+        color: #e6edf3;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      h1 {
+        font-size: 21px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 16px;
+        margin: 0 0 4px;
+        color: #e6edf3;
+      }
+      .intro {
+        color: #8b949e;
+        font-size: 13px;
+        max-width: 900px;
+        line-height: 1.65;
+        margin-bottom: 14px;
+      }
+      .intro b {
+        color: #e6edf3;
+      }
+      .intro code {
+        background: #1c2128;
+        border: 1px solid #2d333b;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 11.5px;
+      }
+
+      .finding {
+        max-width: 900px;
+        margin: 10px 0;
+        border: 1px dashed #444c56;
+        border-radius: 12px;
+        padding: 12px 16px;
+        font-size: 12px;
+        line-height: 1.7;
+        color: #8b949e;
+      }
+      .finding b {
+        color: #e6edf3;
+      }
+      .finding code {
+        background: #1c2128;
+        border: 1px solid #2d333b;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 11px;
+      }
+      .finding .tag {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        background: rgba(245, 158, 11, 0.1);
+        border-radius: 999px;
+        padding: 2px 8px;
+        margin-right: 8px;
+        vertical-align: 1px;
+      }
+      .finding .tag.ok {
+        color: #10b981;
+        border-color: rgba(16, 185, 129, 0.4);
+        background: rgba(16, 185, 129, 0.1);
+      }
+      .finding .tag.scope {
+        color: #3b82f6;
+        border-color: rgba(59, 130, 246, 0.4);
+        background: rgba(59, 130, 246, 0.1);
+      }
+
+      .rec {
+        max-width: 900px;
+        margin: 18px 0 26px;
+        border: 1px solid rgba(0, 168, 107, 0.4);
+        background: rgba(0, 168, 107, 0.08);
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 12.5px;
+        line-height: 1.7;
+        color: #cdeee0;
+      }
+      .rec b {
+        color: #baf3d8;
+      }
+      .rec .h {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--primary);
+        margin-bottom: 6px;
+      }
+
+      nav.anchors {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+        background: #05070a;
+        padding: 10px 0 14px;
+        margin-bottom: 6px;
+        border-bottom: 1px solid #1c2128;
+      }
+      nav.anchors a {
+        font-size: 12px;
+        font-weight: 700;
+        color: #c9d1d9;
+        text-decoration: none;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid #2d333b;
+        background: #161b22;
+      }
+      nav.anchors .sep {
+        width: 1px;
+        height: 18px;
+        background: #2d333b;
+        margin: 0 4px;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 16px 0 22px;
+        flex-wrap: wrap;
+      }
+      .toolbar button {
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 7px 14px;
+        border-radius: 999px;
+        border: 1px solid #2d333b;
+        background: #161b22;
+        color: #e6edf3;
+        cursor: pointer;
+      }
+      .toolbar button.active {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #04140d;
+      }
+      .toolbar .hint {
+        font-size: 11.5px;
+        color: #6e7681;
+      }
+
+      section {
+        margin-top: 52px;
+        padding-top: 6px;
+      }
+      .section-label {
+        display: inline-block;
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #6e7681;
+        border: 1px solid #2d333b;
+        border-radius: 999px;
+        padding: 3px 10px;
+        margin-bottom: 8px;
+      }
+      .desc {
+        max-width: 800px;
+        font-size: 12.5px;
+        color: #8b949e;
+        line-height: 1.65;
+        margin: 6px 0 20px;
+      }
+      .desc b {
+        color: #e6edf3;
+      }
+      .desc code {
+        background: #1c2128;
+        border: 1px solid #2d333b;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 11px;
+      }
+
+      .row {
+        display: flex;
+        gap: 30px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .col-cap {
+        max-width: 300px;
+        font-size: 11px;
+        color: #6e7681;
+        line-height: 1.6;
+        text-align: center;
+      }
+      .col-cap b {
+        color: #9aa4b0;
+      }
+      .col-label {
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: #6e7681;
+      }
+      .col-label.new {
+        color: var(--primary);
+      }
+
+      /* Real device frame — 300x650 ≈ a 390x844 phone scaled down, fixed regardless of content, per
+     ui-design-check skill's real-device-size rule */
+      .phone {
+        width: 300px;
+        height: 650px;
+        border-radius: 34px;
+        border: 9px solid #111827;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+        flex-shrink: 0;
+      }
+      .screen {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+      }
+      .screen[data-theme='light'] {
+        background: #f8fafc;
+        --surface: #ffffff;
+        --surface2: #eff6ff;
+        --border: #c7d8f0;
+        --text: #0f172a;
+        --text2: #475569;
+        --text3: #94a3b8;
+      }
+      .screen[data-theme='dark'] {
+        background: #0b0f14;
+        --surface: #161b22;
+        --surface2: #1c2128;
+        --border: #2d333b;
+        --text: #e6edf3;
+        --text2: #8b949e;
+        --text3: #6e7681;
+      }
+
+      .header-row {
+        height: 46px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        background: inherit;
+      }
+      .backchev {
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text);
+        font-size: 16px;
+      }
+      .header-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .header-icons {
+        display: flex;
+        gap: 12px;
+      }
+      .hdr-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1.6px solid var(--text2);
+      }
+      .hdr-bell {
+        width: 14px;
+        height: 14px;
+        border: 1.6px solid var(--text2);
+        border-radius: 4px 4px 7px 7px;
+      }
+
+      .body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px 14px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .card-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .card-badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        background: rgba(0, 168, 107, 0.1);
+        color: var(--primary);
+      }
+      .card-title {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .card-sub {
+        font-size: 10.5px;
+        color: var(--text3);
+        line-height: 1.5;
+        margin-top: 2px;
+      }
+
+      .rowgroup {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .destrow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        border-top: 1px solid var(--border);
+      }
+      .destrow:first-child {
+        border-top: none;
+      }
+      .destrow .di {
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        background: var(--surface2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        color: var(--text2);
+        flex-shrink: 0;
+      }
+      .destrow .dl {
+        flex: 1;
+        min-width: 0;
+      }
+      .destrow .dl .dname {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .destrow .dl .dstat {
+        font-size: 10px;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+      .destrow .active-pill {
+        font-size: 9px;
+        font-weight: 800;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: rgba(0, 168, 107, 0.12);
+        color: var(--primary);
+      }
+      .destrow .chev {
+        font-size: 12px;
+        color: var(--text3);
+        transition: transform 0.15s;
+        flex-shrink: 0;
+      }
+      .destrow.expanded .chev {
+        transform: rotate(180deg);
+      }
+      .destpanel {
+        display: none;
+        padding: 0 12px 12px 12px;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .destpanel.open {
+        display: flex;
+      }
+
+      /* Tappable "Last backup" caption row — the actual change to AutoBackupCard.tsx */
+      .footer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .footer-row .fine {
+        font-size: 10.5px;
+        color: var(--text3);
+        flex: 1;
+      }
+      .caption-link {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        flex: 1;
+        min-width: 0;
+        cursor: pointer;
+      }
+      .caption-link .fine {
+        flex: 1;
+        min-width: 0;
+      }
+      .caption-link .link-chev {
+        font-size: 11px;
+        color: var(--text3);
+        flex-shrink: 0;
+      }
+      .caption-link:hover .fine,
+      .caption-link:active .fine {
+        text-decoration: underline;
+      }
+
+      .btn {
+        text-align: center;
+        font-size: 11.5px;
+        font-weight: 700;
+        padding: 9px 13px;
+        border-radius: 11px;
+        cursor: pointer;
+        line-height: 1.3;
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: #04140d;
+      }
+      .btn.secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .btn.danger {
+        background: var(--danger);
+        color: #fff;
+      }
+      .btn.full {
+        width: 100%;
+      }
+
+      .hero {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 0;
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4285f4, #34a853);
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .hero-name {
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .hero-sub {
+        font-size: 9.5px;
+        color: var(--text3);
+        margin-top: 1px;
+      }
+
+      .fineprint {
+        font-size: 9.5px;
+        color: var(--text3);
+      }
+
+      /* ---- History popup — same shell as ConfirmDialog/Modal.tsx: centred card, title + × top-right,
+     scrollable body, no bottom-sheet ---- */
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 34px 16px 46px;
+        z-index: 20;
+      }
+      .backdrop.open {
+        display: flex;
+      }
+      .hist-modal {
+        width: 100%;
+        max-height: 100%;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+      }
+      .hist-head {
+        padding: 14px 16px 0;
+        flex-shrink: 0;
+      }
+      .hist-head-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .hist-title {
+        font-size: 13.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .hist-close {
+        font-size: 14px;
+        color: var(--text3);
+        cursor: pointer;
+        width: 22px;
+        text-align: right;
+      }
+      .hist-account {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 6px 8px;
+        border-radius: 9px;
+        background: var(--surface2);
+      }
+      .hist-account .aic {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4285f4, #34a853);
+        color: #fff;
+        font-size: 8.5px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .hist-account .at {
+        font-size: 10px;
+        color: var(--text2);
+        flex: 1;
+        min-width: 0;
+      }
+      .hist-account .at b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      .hist-cap {
+        font-size: 10px;
+        color: var(--text3);
+        padding: 8px 16px 2px;
+      }
+      .hist-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 0 6px;
+      }
+
+      .hist-row-wrap {
+        position: relative;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+      }
+      .hist-row-wrap:first-child {
+        border-top: none;
+      }
+      .hist-row-actions {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        display: flex;
+        width: 144px;
+      }
+      .hist-row-actions .ract {
+        width: 72px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .hist-row-actions .ract.download {
+        background: var(--info);
+      }
+      .hist-row-actions .ract.delete {
+        background: var(--danger);
+      }
+      .hist-row-actions .ract .ic {
+        font-size: 15px;
+      }
+      .hist-row-front {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        background: var(--surface);
+        transform: translateX(0);
+        transition: transform 0.18s ease;
+        cursor: pointer;
+      }
+      .hist-row-front.swiped {
+        transform: translateX(-144px);
+      }
+      .hist-row-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: rgba(0, 168, 107, 0.1);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .hist-row-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .hist-row-date {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .hist-row-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .hist-row-size {
+        font-size: 10px;
+        color: var(--text3);
+      }
+      .pill {
+        font-size: 8.5px;
+        font-weight: 800;
+        padding: 1.5px 6px;
+        border-radius: 999px;
+        letter-spacing: 0.01em;
+      }
+      .pill.auto {
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--info);
+      }
+      .pill.manual {
+        background: rgba(0, 168, 107, 0.12);
+        color: var(--primary);
+      }
+      .swipe-hint {
+        font-size: 12px;
+        color: var(--text3);
+        flex-shrink: 0;
+        opacity: 0.55;
+      }
+
+      .hist-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 34px 20px 30px;
+        text-align: center;
+      }
+      .hist-empty .ei {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        background: rgba(0, 168, 107, 0.1);
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+      }
+      .hist-empty .et {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .hist-empty .ed {
+        font-size: 10.5px;
+        color: var(--text3);
+        line-height: 1.55;
+        max-width: 220px;
+      }
+
+      /* Nested ConfirmDialog — stacks above the history popup, RN Modal mount-order stacking (no level prop needed) */
+      .confirm-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 20px;
+        z-index: 40;
+      }
+      .confirm-backdrop.open {
+        display: flex;
+      }
+      .confirm-dialog {
+        width: 100%;
+        max-width: 240px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        overflow: hidden;
+      }
+      .confirm-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 13px 15px 0;
+      }
+      .confirm-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .confirm-close {
+        font-size: 13px;
+        color: var(--text3);
+        cursor: pointer;
+      }
+      .confirm-body {
+        padding: 10px 15px 15px;
+        font-size: 11px;
+        line-height: 1.55;
+        color: var(--text2);
+      }
+      .confirm-footer {
+        display: flex;
+        gap: 8px;
+        padding: 13px 15px;
+        border-top: 1px solid var(--border);
+      }
+      .confirm-footer .btn {
+        flex: 1;
+        font-size: 11px;
+        padding: 9px 8px;
+      }
+
+      .note {
+        max-width: 900px;
+        margin-top: 12px;
+        border: 1px dashed #2d333b;
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 11.5px;
+        color: #8b949e;
+        line-height: 1.65;
+      }
+      .note b {
+        color: #e6edf3;
+      }
+      .note code {
+        background: #1c2128;
+        border: 1px solid #2d333b;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 10.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Backup History — This device &amp; Google Drive (v1)</h1>
+    <p class="intro">
+      Scope: <code>apps/mobile/src/features/backup/AutoBackupCard.tsx</code>. Adds a per-destination
+      <b>Backup History</b> popup (last 20 backups, Download/Delete per entry) reachable by tapping the existing "Last
+      backup: &lt;date&gt;" caption in the <b>This device</b> and <b>Google Drive</b> panels —
+      <b>iCloud is untouched</b> (not implemented natively, out of scope per the decided plan). Restore stays "always
+      restore the latest" — no per-entry restore action anywhere below, by explicit decision. Nothing here has touched
+      app code yet.
+    </p>
+
+    <div class="finding">
+      <span class="tag scope">scope check — backend/data-model dependency, not just UI</span>
+      Read <code>packages/core/src/core/sync/providers/googleDriveProvider.native.ts</code> and
+      <code>localBackup.native.ts</code> before drafting this: today
+      <b>neither destination keeps more than one backup</b>. Drive's <code>pushImpl()</code> always finds-or-creates
+      <i>one fixed</i> <code>appDataFolder</code> file (<code>DRIVE_BACKUP_FILE_NAME</code>) and <code>PATCH</code>es it
+      in place; the on-device silent snapshot is similarly a single rotating file, and "Back up now" on This device is
+      really an on-demand share (<code>exportToDevice()</code>), not a saved entry at all. A prior mockup
+      (<code>backup-restore-redesign-v1.html</code>'s "Future ideas" section, 2026-08-21) explicitly locked a "Backup
+      history" concept as <b>not buildable today</b> for exactly this reason. This proposal is the UI/UX layer for the
+      now-decided feature — real implementation still needs a storage-model change first: each backup write (auto or
+      manual) must create a new, separately-addressable, timestamped entry per destination (a new local file per
+      snapshot; either a new Drive file per backup or a metadata-tracked history alongside the one Drive blob) plus
+      retention pruning to the last 20. Flagging so this isn't mistaken for a pure-copy/UI change — it's a real
+      precondition, not a nice-to-have.
+    </div>
+
+    <div class="finding">
+      <span class="tag">cross-platform check</span>
+      <code>apps/web-react/src/features/backup/AutoBackupCard.tsx</code> has no history concept of any kind — just the
+      same single status caption mobile had before this change. Since <code>apps/web-react</code> is frozen (CLAUDE.md —
+      no further changes, historical reference only), <b>nothing here needs mirroring there</b>. This is a mobile-only
+      capability going forward, same as the <code>foreign_blob</code> banner and navigation-lock work already
+      mobile-only per that file's own doc comment.
+    </div>
+
+    <div class="finding">
+      <span class="tag ok">duplication check — two popups is the deliberate design, not an oversight</span>
+      Per the decided scope: <b>two separate History popups</b>, one per destination, opened independently from each
+      panel's own caption — not one combined tabbed modal. This is intentional, not "one capability implemented twice"
+      in the sense §1 warns about (that rule is about the same <i>action</i> reachable from two different controls) —
+      local and Drive are genuinely different storage models with different constraints (Drive needs network/auth, local
+      doesn't), so their history lists, empty states, and delete semantics are already different underneath. Reusing one
+      modal <i>component</i> for both (as this mockup does, just with a <code>destination</code> prop) is the correct
+      "keep shared controls in sync" move without forcing a false single-IA on two genuinely different things.
+    </div>
+
+    <div class="finding">
+      <span class="tag">new pattern, flagged as such</span>
+      <code>SwipeableRow.tsx</code>'s only current caller (<code>TransactionsTab.tsx</code>) has
+      <b>zero static affordance</b> that a row is swipeable — no hint icon anywhere in the real app today, confirmed by
+      reading that file in full. Per the brief's own request for "a static/at-rest state so the swipe affordance isn't
+      the only way to discover it," this mockup adds a small trailing <code>ti-chevron-left</code> hint (tertiary,
+      low-opacity) to each history row — a genuinely new visual convention, not something already established elsewhere,
+      so calling it out explicitly rather than presenting it as if it already existed. Worth deciding once, here,
+      whether it's worth adding to <code>TransactionsTab.tsx</code>'s rows too for consistency — out of scope for this
+      task, noted for a future pass.
+    </div>
+
+    <nav class="anchors">
+      <a href="#entry-points">1. Entry points (AutoBackupCard)</a>
+      <a href="#history-popup">2–4. History popup (Local / Drive / empty)</a>
+      <a href="#delete-confirm">5. Delete confirmation</a>
+      <span class="sep"></span>
+      <a href="#notes">Notes &amp; open questions</a>
+    </nav>
+
+    <div class="toolbar">
+      <button id="btn-light" class="active" onclick="setTheme('light')">Light</button>
+      <button id="btn-dark" onclick="setTheme('dark')">Dark</button>
+      <span class="hint">← tap to preview both themes · every screen below is interactive</span>
+    </div>
+
+    <!-- ============================================================ 1. ENTRY POINTS ============================================================ -->
+    <section id="entry-points">
+      <div class="section-label">1. Entry points</div>
+      <h2>AutoBackupCard — "Last backup" caption becomes tappable</h2>
+      <p class="desc">
+        Grounded in the real <code>renderLocalPanel()</code> / <code>renderDrivePanel()</code> in
+        <code>AutoBackupCard.tsx</code> — the caption text itself (<code>"Last daily snapshot · &lt;date&gt;"</code> for
+        This device, <code>"Backed up · &lt;date&gt;"</code> / <code>"&lt;email&gt; · &lt;date&gt;"</code> for Drive) is
+        unchanged copy; only its tappability changes. Affordance follows this app's own established convention for a
+        tappable label+chevron row (<code>ti-chevron-right</code>, <code>theme.textTertiary</code>, used throughout
+        <code>SettingsPage.tsx</code>'s <code>Row</code> component) — appended inline right after the caption text, the
+        minimal diff for a caption that isn't a full icon+label row today.
+      </p>
+      <div class="row">
+        <div class="col">
+          <div class="col-label">Current — plain caption, not tappable</div>
+          <div class="phone">
+            <div class="screen" data-theme="light">
+              <div class="header-row">
+                <div class="backchev">‹</div>
+                <div class="header-title">Backup</div>
+                <div class="header-icons">
+                  <div class="hdr-dot"></div>
+                  <div class="hdr-bell"></div>
+                </div>
+              </div>
+              <div class="body">
+                <div class="card">
+                  <div class="card-head">
+                    <div class="card-badge">↻</div>
+                    <div>
+                      <div class="card-title">Automatic backup</div>
+                      <div class="card-sub">
+                        Back up to Google Drive or iCloud to restore on a new phone and sync across devices.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rowgroup">
+                    <div class="destrow expanded">
+                      <div class="di">📱</div>
+                      <div class="dl">
+                        <div class="dname">This device <span class="active-pill">Active</span></div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                    <div class="destpanel open">
+                      <div class="footer-row">
+                        <span class="fine">Last daily snapshot · 23 Aug 2026, 2:10 AM</span>
+                        <div class="btn secondary" style="flex: none; padding: 8px 12px">Back up now</div>
+                      </div>
+                    </div>
+                    <div class="destrow">
+                      <div class="di">☁</div>
+                      <div class="dl">
+                        <div class="dname">Drive</div>
+                        <div class="dstat">riya.sharma@example.com</div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                    <div class="destrow">
+                      <div class="di"></div>
+                      <div class="dl">
+                        <div class="dname">iCloud</div>
+                        <div class="dstat">Unavailable on this build</div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                  </div>
+                  <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-cap">
+            The caption is inert text — the only way to see backup history today is... there isn't one.
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="col-label new">Proposed — tappable, opens This device's History</div>
+          <div class="phone">
+            <div class="screen" id="ep-local-screen" data-theme="light">
+              <div class="header-row">
+                <div class="backchev">‹</div>
+                <div class="header-title">Backup</div>
+                <div class="header-icons">
+                  <div class="hdr-dot"></div>
+                  <div class="hdr-bell"></div>
+                </div>
+              </div>
+              <div class="body">
+                <div class="card">
+                  <div class="card-head">
+                    <div class="card-badge">↻</div>
+                    <div>
+                      <div class="card-title">Automatic backup</div>
+                      <div class="card-sub">
+                        Back up to Google Drive or iCloud to restore on a new phone and sync across devices.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rowgroup">
+                    <div class="destrow expanded">
+                      <div class="di">📱</div>
+                      <div class="dl">
+                        <div class="dname">This device <span class="active-pill">Active</span></div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                    <div class="destpanel open">
+                      <div class="footer-row">
+                        <span class="caption-link" onclick="openHistoryFromEntry('ep-local-screen', 'local')">
+                          <span class="fine">Last daily snapshot · 23 Aug 2026, 2:10 AM</span>
+                          <span class="link-chev">›</span>
+                        </span>
+                        <div class="btn secondary" style="flex: none; padding: 8px 12px">Back up now</div>
+                      </div>
+                    </div>
+                    <div class="destrow">
+                      <div class="di">☁</div>
+                      <div class="dl">
+                        <div class="dname">Drive</div>
+                        <div class="dstat">riya.sharma@example.com</div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                    <div class="destrow">
+                      <div class="di"></div>
+                      <div class="dl">
+                        <div class="dname">iCloud</div>
+                        <div class="dstat">Unavailable on this build</div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                  </div>
+                  <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+                </div>
+              </div>
+
+              <!-- History popup mounts here, same as the dedicated section below -->
+              <div id="ep-local-backdrop"></div>
+            </div>
+          </div>
+          <div class="col-cap">
+            <b>Tap the caption</b> (not the "Back up now" button) to open This device's history.
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="col-label new">Proposed — Drive panel, tappable + account chip</div>
+          <div class="phone">
+            <div class="screen" id="ep-drive-screen" data-theme="light">
+              <div class="header-row">
+                <div class="backchev">‹</div>
+                <div class="header-title">Backup</div>
+                <div class="header-icons">
+                  <div class="hdr-dot"></div>
+                  <div class="hdr-bell"></div>
+                </div>
+              </div>
+              <div class="body">
+                <div class="card">
+                  <div class="card-head">
+                    <div class="card-badge">↻</div>
+                    <div>
+                      <div class="card-title">Automatic backup</div>
+                      <div class="card-sub">
+                        Back up to Google Drive or iCloud to restore on a new phone and sync across devices.
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rowgroup">
+                    <div class="destrow">
+                      <div class="di">📱</div>
+                      <div class="dl">
+                        <div class="dname">This device</div>
+                        <div class="dstat">Last daily snapshot · 2:10 AM</div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                    <div class="destrow expanded">
+                      <div class="di">☁</div>
+                      <div class="dl">
+                        <div class="dname">
+                          Drive
+                          <span
+                            class="active-pill"
+                            style="background: rgba(66, 133, 244, 0.12); color: var(--drive-blue)"
+                            >Active</span
+                          >
+                        </div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                    <div class="destpanel open">
+                      <div class="hero">
+                        <div class="avatar">R</div>
+                        <div style="flex: 1; min-width: 0">
+                          <div class="hero-name">riya.sharma@example.com</div>
+                          <div class="hero-sub">Connected to Google Drive</div>
+                        </div>
+                      </div>
+                      <div class="footer-row">
+                        <span class="caption-link" onclick="openHistoryFromEntry('ep-drive-screen', 'drive')">
+                          <span class="fine">Backed up · 22 Aug 2026, 9:41 PM</span>
+                          <span class="link-chev">›</span>
+                        </span>
+                        <div
+                          class="btn secondary"
+                          style="
+                            flex: none;
+                            padding: 8px 12px;
+                            background: var(--drive-blue);
+                            border-color: var(--drive-blue);
+                            color: #fff;
+                          "
+                        >
+                          Back up now
+                        </div>
+                      </div>
+                    </div>
+                    <div class="destrow">
+                      <div class="di"></div>
+                      <div class="dl">
+                        <div class="dname">iCloud</div>
+                        <div class="dstat">Unavailable on this build</div>
+                      </div>
+                      <div class="chev">⌄</div>
+                    </div>
+                  </div>
+                  <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+                </div>
+              </div>
+              <div id="ep-drive-backdrop"></div>
+            </div>
+          </div>
+          <div class="col-cap">
+            Same tappable-caption treatment on Drive's own panel — opens Drive's own History, a distinct list from This
+            device's.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ 2-4. HISTORY POPUP ============================================================ -->
+    <section id="history-popup">
+      <div class="section-label">2–4. The History popup itself</div>
+      <h2>Reverse-chronological list · swipe-to-reveal Download/Delete · empty state</h2>
+      <p class="desc">
+        One <code>Modal</code>-shaped component reused for both destinations via a <code>destination</code> prop —
+        centred card, title + × top-right, scrollable body — matching <code>Modal.tsx</code>/<code>ConfirmDialog</code>
+        exactly (never a bottom sheet). Each row: date/time prominent, file size + Auto/Manual badge as the secondary
+        line, swipe-left reveals <b>Download</b> (<code>theme.info</code>) and <b>Delete</b> (<code>theme.danger</code>)
+        — the same two colours <code>TransactionsTab.tsx</code>'s own swipe actions already use for Copy/Delete. A small
+        trailing chevron hints the row is swipeable (see the "new pattern" finding above). Use the buttons below to
+        preview <b>Local</b>, <b>Drive</b>, and the <b>Empty</b> state — these are two separate popups in the real app,
+        shown here as one interactive mock for convenience, not as an in-app tab control.
+      </p>
+      <div class="toolbar">
+        <button id="hp-btn-local" class="active" onclick="setHpDestination('local')">Preview: This device</button>
+        <button id="hp-btn-drive" onclick="setHpDestination('drive')">Preview: Google Drive</button>
+        <button id="hp-btn-empty" onclick="setHpDestination('empty')">Preview: Empty state</button>
+        <span class="hint">← swap which popup is shown in the phone below (not a real in-app tab)</span>
+      </div>
+      <div class="row">
+        <div class="col">
+          <div class="col-cap">
+            <b>Tap a row</b> to reveal Download/Delete · <b>tap Delete</b> to see the confirm step
+          </div>
+          <div class="phone">
+            <div class="screen" data-theme="light">
+              <div class="header-row">
+                <div class="backchev">‹</div>
+                <div class="header-title">Backup</div>
+                <div class="header-icons">
+                  <div class="hdr-dot"></div>
+                  <div class="hdr-bell"></div>
+                </div>
+              </div>
+              <div class="body" style="filter: blur(1px); opacity: 0.5">
+                <div class="card">
+                  <div class="card-head">
+                    <div class="card-badge">↻</div>
+                    <div><div class="card-title">Automatic backup</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="backdrop open">
+                <div class="hist-modal" style="height: 480px">
+                  <div class="hist-head">
+                    <div class="hist-head-row">
+                      <div class="hist-title" id="hp-title">Backup history</div>
+                      <div class="hist-close" onclick="void 0">✕</div>
+                    </div>
+                    <div class="hist-account" id="hp-account" style="display: none">
+                      <div class="aic">R</div>
+                      <div class="at"><b>riya.sharma@example.com</b> · synced from Google Drive</div>
+                    </div>
+                    <div class="hist-cap" id="hp-cap">Showing your most recent backups (up to 20 kept)</div>
+                  </div>
+                  <div class="hist-list" id="hp-list"><!-- populated by JS --></div>
+                </div>
+
+                <!-- Delete confirmation — same shape as ConfirmDialog + Modal.tsx -->
+                <div class="confirm-backdrop" id="hp-confirm-backdrop" onclick="closeDeleteConfirm(event)">
+                  <div class="confirm-dialog" onclick="event.stopPropagation()">
+                    <div class="confirm-head">
+                      <div class="confirm-title">Delete this backup?</div>
+                      <div class="confirm-close" onclick="closeDeleteConfirm(event)">✕</div>
+                    </div>
+                    <div class="confirm-body" id="hp-confirm-body">
+                      This backup will be permanently deleted. This can't be undone — your other backups are unaffected.
+                    </div>
+                    <div class="confirm-footer">
+                      <div class="btn secondary" onclick="closeDeleteConfirm(event)">Cancel</div>
+                      <div class="btn danger" onclick="confirmDelete()">Delete</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        <b>Component reuse, not a new shape:</b> the popup itself is <code>Modal</code> (title + built-in × close,
+        <code>scrollable</code> body) — no new modal primitive. Each row is a <code>SwipeableRow</code> with exactly two
+        <code>SwipeAction</code>s (<code>{ icon: 'ti-download', label: 'Download', color: theme.info }</code>,
+        <code>{ icon: 'ti-trash', label: 'Delete', color: theme.danger }</code>) — identical shape to
+        <code>TransactionsTab.tsx</code>'s own <code>actions</code> array, just a different two actions. Delete opens
+        the existing <code>ConfirmDialog</code> (<code>confirmVariant="danger"</code>), same component
+        <code>AutoBackupCard.tsx</code> already uses for "Overwrite Drive backup?" — no new dialog shape anywhere in
+        this proposal.<br /><br />
+        <b>Drive-specific framing:</b> the account chip under the title ("synced from Google Drive") is the only
+        structural difference between the two popups — it answers "whose Drive am I looking at" without repeating the
+        account row already shown in the panel behind it. Nothing else about the list/row/empty/delete states differs by
+        destination.<br /><br />
+        <b>Retention note placement:</b> "Showing your most recent backups (up to 20 kept)" sits once, at the top of the
+        list, in tertiary text — no progress bar or counter widget, per the brief. It's shown regardless of whether the
+        list is actually at the 20-cap yet (reads fine at any count, and avoids a separate "you're approaching the
+        limit" state that isn't needed for something with no real cost to the user, unlike a storage quota).
+      </div>
+    </section>
+
+    <!-- ============================================================ 5. DELETE CONFIRM (standalone reference) ============================================================ -->
+    <section id="delete-confirm">
+      <div class="section-label">5. Delete confirmation — standalone reference</div>
+      <h2>Same <code>ConfirmDialog</code>, annotated</h2>
+      <p class="desc">
+        Shown once more here, static, for reviewers who want to see it without triggering it from a row above. Exactly
+        <code>ConfirmDialog</code>'s existing shape (title + × top-right, body copy, Cancel/Delete footer,
+        <code>confirmVariant="danger"</code>) — the same component already used for "Overwrite Drive backup?" and "Erase
+        all data" elsewhere on this screen.
+      </p>
+      <div class="row">
+        <div class="col">
+          <div class="col-cap">Local entry — deletes immediately, no network needed</div>
+          <div class="phone" style="height: 280px">
+            <div class="screen" data-theme="dark" style="justify-content: center">
+              <div class="confirm-dialog" style="max-width: 230px; margin: 0 auto">
+                <div class="confirm-head">
+                  <div class="confirm-title">Delete this backup?</div>
+                  <div class="confirm-close">✕</div>
+                </div>
+                <div class="confirm-body">
+                  This backup will be permanently deleted from this device. This can't be undone — your other backups
+                  are unaffected.
+                </div>
+                <div class="confirm-footer">
+                  <div class="btn secondary">Cancel</div>
+                  <div class="btn danger">Delete</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="col-cap">Drive entry — same copy; deletion happens on Drive itself</div>
+          <div class="phone" style="height: 280px">
+            <div class="screen" data-theme="dark" style="justify-content: center">
+              <div class="confirm-dialog" style="max-width: 230px; margin: 0 auto">
+                <div class="confirm-head">
+                  <div class="confirm-title">Delete this backup?</div>
+                  <div class="confirm-close">✕</div>
+                </div>
+                <div class="confirm-body">
+                  This backup will be permanently deleted from Google Drive. This can't be undone — your other backups
+                  are unaffected.
+                </div>
+                <div class="confirm-footer">
+                  <div class="btn secondary">Cancel</div>
+                  <div class="btn danger">Delete</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        <b>Copy differs by exactly one word</b> ("this device" vs. "Google Drive") — otherwise identical, per "keep
+        shared controls in sync." No loading/spinner state drawn separately here since
+        <code>ConfirmDialog</code> already has a built-in <code>loading</code> prop (used elsewhere on this screen for
+        the overwrite-Drive confirm) — the real implementation reuses that, not a new busy state.
+      </div>
+    </section>
+
+    <section id="notes">
+      <div class="section-label">Notes &amp; open questions for review</div>
+      <div class="note">
+        <b>Needs a small new helper:</b> no <code>formatBytes</code>/file-size formatter exists anywhere in this
+        codebase today (checked <code>apps/mobile/src/lib/</code> and <code>packages/core/src/lib/</code>) — real
+        implementation needs a tiny new util (e.g. "3.6 MB" / "820 KB") alongside the existing
+        <code>formatDateTime()</code> (<code>packages/core/src/lib/date.ts</code>) already used for the row's date/time
+        line.<br /><br />
+        <b>Deliberately not shown:</b> per the decided scope — no item/transaction count per entry (not tracked today),
+        no per-entry restore action (restore stays "always restore the latest"), no combined tabbed popup (two separate,
+        destination-scoped popups), no changes to the iCloud row/panel.<br /><br />
+        <b>Worth deciding before implementation, not blocking this mockup:</b> whether "Download" on a
+        <i>local</i> entry means share-sheet (matching <code>exportToDevice()</code>'s existing behaviour) or a silent
+        copy somewhere the user can find later — this mockup's label just says "Download" either way, but the underlying
+        action differs from Drive's "fetch this specific historical file," which is a real, currently-nonexistent Drive
+        API call (today's provider only ever reads/writes the one fixed file).
+      </div>
+    </section>
+
+    <script>
+      function setTheme(t) {
+        document.querySelectorAll('.screen').forEach((el) => el.setAttribute('data-theme', t));
+        document.getElementById('btn-light').classList.toggle('active', t === 'light');
+        document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+      }
+
+      // ---- sample data ----
+      var LOCAL_ENTRIES = [
+        { id: 'l1', date: '23 Aug 2026, 2:10 AM', size: '3.6 MB', kind: 'auto' },
+        { id: 'l2', date: '22 Aug 2026, 2:08 AM', size: '3.6 MB', kind: 'auto' },
+        { id: 'l3', date: '21 Aug 2026, 6:52 PM', size: '3.5 MB', kind: 'manual' },
+        { id: 'l4', date: '21 Aug 2026, 2:05 AM', size: '3.5 MB', kind: 'auto' },
+        { id: 'l5', date: '20 Aug 2026, 2:03 AM', size: '3.4 MB', kind: 'auto' },
+        { id: 'l6', date: '19 Aug 2026, 2:01 AM', size: '3.4 MB', kind: 'auto' },
+        { id: 'l7', date: '18 Aug 2026, 11:20 AM', size: '3.3 MB', kind: 'manual' }
+      ];
+      var DRIVE_ENTRIES = [
+        { id: 'd1', date: '22 Aug 2026, 9:41 PM', size: '3.6 MB', kind: 'manual' },
+        { id: 'd2', date: '20 Aug 2026, 9:12 AM', size: '3.5 MB', kind: 'auto' },
+        { id: 'd3', date: '17 Aug 2026, 9:10 AM', size: '3.5 MB', kind: 'auto' },
+        { id: 'd4', date: '14 Aug 2026, 9:07 AM', size: '3.4 MB', kind: 'auto' },
+        { id: 'd5', date: '11 Aug 2026, 9:05 AM', size: '3.3 MB', kind: 'auto' }
+      ];
+
+      function rowHtml(entry, dest) {
+        return (
+          '' +
+          '<div class="hist-row-wrap" id="row-' +
+          entry.id +
+          '">' +
+          '<div class="hist-row-actions">' +
+          '<div class="ract download" onclick="doDownload(\'' +
+          entry.id +
+          '\')"><span class="ic">⭳</span><span>Download</span></div>' +
+          '<div class="ract delete" onclick="openDeleteConfirm(\'' +
+          entry.id +
+          "','" +
+          dest +
+          '\')"><span class="ic">🗑</span><span>Delete</span></div>' +
+          '</div>' +
+          '<div class="hist-row-front" id="front-' +
+          entry.id +
+          '" onclick="toggleSwipe(\'' +
+          entry.id +
+          '\')">' +
+          '<div class="hist-row-icon">📅</div>' +
+          '<div class="hist-row-body">' +
+          '<div class="hist-row-date">' +
+          entry.date +
+          '</div>' +
+          '<div class="hist-row-meta">' +
+          '<span class="hist-row-size">' +
+          entry.size +
+          '</span>' +
+          '<span class="pill ' +
+          entry.kind +
+          '">' +
+          (entry.kind === 'auto' ? 'Auto' : 'Manual') +
+          '</span>' +
+          '</div>' +
+          '</div>' +
+          '<span class="swipe-hint">‹</span>' +
+          '</div>' +
+          '</div>'
+        );
+      }
+
+      function renderList(dest) {
+        var list = document.getElementById('hp-list');
+        var title = document.getElementById('hp-title');
+        var account = document.getElementById('hp-account');
+        var cap = document.getElementById('hp-cap');
+
+        if (dest === 'empty') {
+          title.textContent = 'Backup history';
+          account.style.display = 'none';
+          cap.style.display = 'none';
+          list.innerHTML =
+            '<div class="hist-empty">' +
+            '<div class="ei">🗂</div>' +
+            '<div class="et">No backups yet</div>' +
+            '<div class="ed">Once you back up This device for the first time, every backup will show up here — up to your last 20.</div>' +
+            '</div>';
+          return;
+        }
+
+        cap.style.display = 'block';
+        if (dest === 'local') {
+          title.textContent = 'Backup history · This device';
+          account.style.display = 'none';
+          list.innerHTML = LOCAL_ENTRIES.map(function (e) {
+            return rowHtml(e, 'local');
+          }).join('');
+        } else {
+          title.textContent = 'Backup history · Google Drive';
+          account.style.display = 'flex';
+          list.innerHTML = DRIVE_ENTRIES.map(function (e) {
+            return rowHtml(e, 'drive');
+          }).join('');
+        }
+      }
+
+      function setHpDestination(dest) {
+        ['local', 'drive', 'empty'].forEach(function (d) {
+          document.getElementById('hp-btn-' + d).classList.toggle('active', d === dest);
+        });
+        renderList(dest);
+      }
+
+      function toggleSwipe(id) {
+        var el = document.getElementById('front-' + id);
+        var wasOpen = el.classList.contains('swiped');
+        document.querySelectorAll('.hist-row-front.swiped').forEach(function (r) {
+          r.classList.remove('swiped');
+        });
+        if (!wasOpen) el.classList.add('swiped');
+      }
+
+      function doDownload(id) {
+        var el = document.getElementById('front-' + id);
+        if (el) el.classList.remove('swiped');
+      }
+
+      var pendingDeleteId = null;
+      function openDeleteConfirm(id, dest) {
+        pendingDeleteId = id;
+        document.getElementById('hp-confirm-body').textContent =
+          dest === 'drive'
+            ? "This backup will be permanently deleted from Google Drive. This can't be undone — your other backups are unaffected."
+            : "This backup will be permanently deleted from this device. This can't be undone — your other backups are unaffected.";
+        document.getElementById('hp-confirm-backdrop').classList.add('open');
+      }
+      function closeDeleteConfirm(e) {
+        if (e) e.stopPropagation();
+        document.getElementById('hp-confirm-backdrop').classList.remove('open');
+      }
+      function confirmDelete() {
+        if (pendingDeleteId) {
+          var row = document.getElementById('row-' + pendingDeleteId);
+          if (row) row.remove();
+        }
+        pendingDeleteId = null;
+        document.getElementById('hp-confirm-backdrop').classList.remove('open');
+      }
+
+      function openHistoryFromEntry(screenId, dest) {
+        setHpDestination(dest);
+        document.getElementById('history-popup').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      renderList('local');
+    </script>
+  </body>
+</html>

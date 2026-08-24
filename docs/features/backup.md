@@ -16,6 +16,7 @@ Three cards, each doing one thing (consolidated from five on 2026-07-27 — see 
 - **Restore from backup** — pick a `.penny` file (or, once Drive is configured, restore straight from the latest Drive backup), enter your passphrase, and replace the current data. The session re-locks afterwards — **unlock with the PIN that was active when the backup was created**, not necessarily this device's current one (that's expected: the wrapped key material comes from the backup as-is). Any stale lockout/attempt-counter state from the source device is reset on restore so it can't block that correct PIN — only the counters are reset, never the key-wrapping material itself. If the restore button seems permanently disabled, it's waiting on the passphrase field above it — a helper text under the button now says so.
 - **Restore / reclaim without a file** — a lost or reinstalled device can come back through onboarding: **Restore** re-imports a backup (full recovery incl. data), while **Reclaim** recovers just your **identity + group membership** from your username + passphrase (no personal data without a backup). See the Onboarding doc.
 - **Reset Penny** — erases everything on the device and returns to onboarding. For a **claimed** account it first **deregisters from the server** (releasing your username) while the keys are still present; if that call fails (offline / server error) it **warns instead of silently wiping** ("Couldn't release your username" — the `orphanWarnUser` dialog) so you can retry online before orphaning the handle. Irreversible unless you have a backup (no key escrow).
+- **Backup history (2026-08-24, `apps/mobile` only)** — This device and Google Drive each now keep the **last 20 backups**, not just the latest one. Tapping either panel's "Last backup: <date>" caption (now a real tappable row) opens that destination's own history popup: a reverse-chronological list showing each entry's date/time, size, and whether it was an automatic or manual backup, with Download and Delete actions shown directly on the row (not a hidden swipe gesture — see "How it works" for why). iCloud is untouched (still dormant).
 
 ## Consolidation (2026-07-27)
 
@@ -88,12 +89,49 @@ pull entirely and force-pushes this device's current export, exposed through the
 and surfaced as a destructive, confirm-gated **"Overwrite Drive with this device's data instead"**
 button in `AutoBackupCard.tsx`'s banner (mockup: `docs/mockups/proposals/drive-foreign-blob-override-v1.html`).
 
+**Backup history — from one fixed file to a rolling 20-entry log (2026-08-24, `apps/mobile` only).**
+Before this, both This device and Google Drive kept exactly **one** backup — Drive always `PATCH`ed the
+same fixed `penny-backup.penny` file, local wrote one file per calendar day and pruned to the newest 7 —
+so there was never a real "history" to show, and no way to recover from an accidental delete/overwrite
+beyond whatever happened to still be there.
+
+- **Naming/retention.** A new shared `backupNaming.ts` (`packages/core/src/core/sync/providers/`) defines
+  one timestamped filename shape both destinations now use — `penny-backup-<epochMs>-<auto|manual>.penny`
+  — and a shared `BACKUP_HISTORY_KEEP = 20` cap. Every push now creates a **new** file (Drive: always
+  `POST`s, never `PATCH`es an existing one) instead of overwriting; each provider prunes to the newest 20
+  right after a successful push. Drive additionally tags each file's own `properties.trigger` field
+  (authoritative there); local has no metadata field, so its filename's trailing segment is authoritative
+  instead.
+- **Backward compatibility.** A pre-existing single legacy file (Drive's old fixed `penny-backup.penny`,
+  local's old `penny-YYYY-MM-DD.penny`) is recognized on read as one ordinary history entry — timestamp
+  inferred from its modified time/file mtime, trigger defaulted to `'manual'` — and ages out naturally
+  through the normal 20-cap prune. No separate migration step; this is a self-healing read path.
+  `CloudProvider`'s new `list()`/`delete()`/`downloadEntry()` members are optional on the interface
+  specifically so the frozen `apps/web-react`-only `googleDriveProvider.ts` and the still-dormant
+  `icloudProvider.ts` compile unchanged — neither was touched.
+  `remoteTag()`/`pull()`/`latestLocalSnapshot()` now resolve the newest of many entries instead of
+  assuming the one file that used to exist; restore still always means "the latest," unchanged.
+- **UI (`BackupHistoryModal.tsx`, `apps/mobile/src/features/backup/`).** One shared modal, opened via a
+  `destination: 'local' | 'drive'` prop from either `AutoBackupCard.tsx` panel. Each row originally
+  revealed Download/Delete via a hidden swipe gesture (matching `TransactionsTab.tsx`'s `SwipeableRow`
+  convention) — changed the same day, after real-device testing, to always-visible small icon buttons
+  (the same `variant="ghost"` square-`Button` convention `AccountList.tsx`'s revealed action row already
+  uses) instead, a deliberate one-off departure from the swipe convention: this is a rarely-opened
+  history list, not the main transaction feed, so favoring discoverability over the swipe convention's
+  density win is the right trade here. Delete is confirm-gated (`ConfirmDialog`); Download shares the raw
+  `.penny` file via a new shared `shareBackupFile.ts` helper (also now used by `AutoBackupCard.tsx`'s own
+  "This device" export, which previously only shared the file without also recording it into its own
+  history — fixed alongside this, otherwise a manual local backup would never have shown up in its own
+  history popup).
+- Mockup: `docs/mockups/proposals/backup-history-v1.html` (the swipe-vs-static-icon row change above was
+  implemented directly, without a v2 mockup update, per an explicit small-change call).
+
 **Passphrase-based recovery (no file).** Beyond restoring a backup file, the passphrase is now also a **reclaim credential**. `securityManager.initialize()` derives an Ed25519 keypair from the passphrase + a random salt and stores the salt + public half as a **recovery verifier** in the security record; `claimAccount` uploads it. `reclaimAccount()` (`src/core/identity/`) later re-derives that keypair from the passphrase to prove ownership of the handle and bind a fresh device — recovering **identity + group membership only** (no personal data — the server can't decrypt anything). So: **restore** = full recovery including data; **reclaim** = identity + groups, then a backup restore (or a co-member re-share) fills in the data.
 
 Key files:
 
 - `src/core/backup/backupManager.ts` — `exportBackup()` / `importBackup()` (incl. `resetLockoutState()`) + `mergeBundle()` / `openBundleWithDmk()` (background merge)
-- `src/core/sync/` — `backupEngine.ts` (auto-backup engine; `overwriteRemoteWithLocal()` force-pushes past a `foreign_blob` state without a pull), `decide.ts` (pure logic), `SyncProvider.tsx` / `useBackupStatus`, `providers/` (`googleDriveProvider` + `.native.ts`/`.web.ts` + shared `googleDriveProvider.constants.ts`, dormant `icloudProvider`, `localBackup` + `.native.ts`)
+- `src/core/sync/` — `backupEngine.ts` (auto-backup engine; `overwriteRemoteWithLocal()` force-pushes past a `foreign_blob` state without a pull), `decide.ts` (pure logic), `SyncProvider.tsx` / `useBackupStatus`, `providers/` (`googleDriveProvider` + `.native.ts`/`.web.ts` + shared `googleDriveProvider.constants.ts`, dormant `icloudProvider`, `localBackup` + `.native.ts`, shared `backupNaming.ts` for the timestamped-filename/20-entry-retention scheme both history-tracked destinations use)
 - `src/core/backup/cloudBackup.ts` — thin manual-backup adapter over the Drive provider, `isCloudBackupConfigured()`
 - `src/core/identity/` — `claim.ts` (`deregisterAccount` on erase, `reclaimAccount`, `claimAccount`) + `recovery.ts` (passphrase-derived recovery keypair)
 - `src/features/backup/BackupPage.tsx` + `AutoBackupCard.tsx` — the UI (3 cards: auto-backup chooser + status/export/backup-now per tab, restore incl. Drive, reset with deregister-first + orphan warning); mobile-only `~/components/shared/BackupProviderLogo.tsx` (`DriveLogo`, `AppleLogo`, `DRIVE_BLUE`) renders the real colored provider marks used in the destination tabs
@@ -144,7 +182,10 @@ Two things worth remembering if a rename like this happens again:
 - `apps/web-react`'s Google Drive OAuth is unconfigured (`VITE_GOOGLE_CLIENT_ID` unset) — untouched since that app is frozen.
 - No **release**-keystore SHA-1 is registered yet — only the debug keystore's, so Drive sign-in would break on a signed release build until that's added as its own Google Cloud Console step.
 - Manual **restore** replaces all data; automatic pulls merge (LWW) but can't observe remote deletes (whole-blob).
-- Cloud sync uses a single overwrite file (no server-side compare-and-swap): a rare simultaneous multi-device write converges on the next sync rather than instantly.
+- Cloud sync still has no server-side compare-and-swap: a rare simultaneous multi-device push now lands
+  as two separate history entries (rather than one silently clobbering the other, as the old single-file
+  model did) but "restore" still only ever means the newest one — there's no merge-the-two-writes path.
+- Backup history is capped at 20 per destination — pruning is automatic and irreversible; there's no way to keep a specific older backup past that cap short of downloading it first.
 - The passphrase is still essential — it's the only thing that decrypts a backup **and** the credential that reclaims your handle; there's no escrow or backdoor, so a truly lost passphrase means the data can't be recovered.
 
 ## Planned improvements

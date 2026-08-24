@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import type { EmploymentType, Holding } from '@/core/db/types';
 import { useProfile } from '@/hooks/useProfile';
 import { epfBuildCardData } from '@/core/portfolio/epfCalculations';
+import { ppfCurrentBalance } from '@/core/portfolio/ppfCalculations';
 import { RetirementCard, RetirementUntrackedCard } from './RetirementCard';
 import { NpsScheduleSheet } from './RetirementSheets';
 import { NpsModal } from './NpsModal';
@@ -47,6 +48,18 @@ export function RetirementSection({ holdings, masked, onSave, onRemove }: Retire
   const saveHolding = async (h: Holding) => {
     if (h.assetClass === 'epf') {
       await onSave({ ...h, currentValue: epfBuildCardData(h.assetMeta ?? {}).corpus });
+      return;
+    }
+    // Same real bug, same fix, one asset class over (2026-08-24): PPF's `investedAmount` is a
+    // separately-stored snapshot (set once at import, or whatever it last happened to be), never
+    // recomputed when a deposit/interest/withdrawal is later added, edited, or deleted — so the
+    // card's own header figure, and net worth's `h.currentValue ?? h.investedAmount` reading of it,
+    // both silently went stale after any transaction change. Every PPF save (add/edit via
+    // `PpfTransactionSheet`, delete via `PpfAllTransactionsSheet`, a fresh statement import via
+    // `PpfImportFlow`) already flows through this one `onSave` prop, so fixing it here covers all of
+    // them at once, exactly like EPF's `currentValue` fix above.
+    if (h.assetClass === 'ppf') {
+      await onSave({ ...h, investedAmount: ppfCurrentBalance(h.assetMeta?.ppfTransactions ?? []) });
       return;
     }
     await onSave(h);

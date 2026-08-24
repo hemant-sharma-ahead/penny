@@ -132,7 +132,10 @@ export async function runNow(manual = false): Promise<void> {
         }
       }
       if (push) {
-        const { tag: newTag } = await provider.push(await exportBackup());
+        // Backup History (decided scope): every push becomes its own new, separately-addressable entry
+        // (never an overwrite) — `manual` here is exactly runNow's own trigger for this cycle, so it
+        // doubles as the entry's Auto/Manual badge with no separate bookkeeping.
+        const { tag: newTag } = await provider.push(await exportBackup(), manual ? 'manual' : 'auto');
         cursor.remoteTag = newTag;
         cursor.pushedAt = maxActivityTs;
         cursor.lastBackupAt = Date.now();
@@ -148,7 +151,9 @@ export async function runNow(manual = false): Promise<void> {
     const decision = decideSync({ target, canRun: true, remoteChanged: false, localDirty, dueDaily });
     if (decision.localSnapshot) {
       setState({ status: 'syncing', error: null });
-      const ok = await saveLocalSnapshot(await exportBackup());
+      // Same trigger convention as the cloud branch above — a fresh, separately-addressable history
+      // entry every time, tagged by whether this run was user-initiated or the automatic floor.
+      const ok = await saveLocalSnapshot(await exportBackup(), manual ? 'manual' : 'auto');
       if (ok) {
         cursor.pushedAt = maxActivityTs;
         cursor.lastBackupAt = Date.now();
@@ -210,7 +215,8 @@ export async function overwriteRemoteWithLocal(): Promise<void> {
 
     setState({ status: 'syncing', error: null });
     const cursor = await loadCursor();
-    const { tag: newTag } = await provider.push(await exportBackup());
+    // Always a deliberate, user-initiated action (see this function's own doc comment) — always 'manual'.
+    const { tag: newTag } = await provider.push(await exportBackup(), 'manual');
     cursor.remoteTag = newTag;
     cursor.pushedAt = maxActivityTs;
     cursor.lastBackupAt = Date.now();

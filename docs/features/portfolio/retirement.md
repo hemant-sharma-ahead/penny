@@ -484,6 +484,57 @@ a mockup — see below).** Additive on top of the card redesign above; nothing t
   no separate "correction flow" needed.
 - **Cross-platform note:** mobile-only, no `apps/web-react` equivalent (frozen, no changes planned).
 
+**PPF — multi-year import interest bug, manual-entry FY-gap guard, rate display, live `investedAmount`
+(2026-08-24, `apps/mobile` only).** A real bank-statement comparison surfaced a genuine calculation bug
+plus three follow-on gaps, all found/fixed in one pass.
+
+- **Import bug: only the first FY's interest ever calculated correctly.** `ppfReconciliation.ts`'s
+  interest-row `context` array stripped **every** interest-type row out of the freshly-parsed
+  statement (not just that row's own FY), so any FY after the first in a multi-year import computed
+  its "Calculated: ₹Y" comparison against a balance basis missing every prior year's already-credited
+  interest — silently understating every year after the first. Fixed by scoping the exclusion to only
+  the current FY's own interest row, matching the pattern already correctly used for
+  `existingTransactions`. Regression test added (`ppfReconciliation.test.ts`), verified via
+  `git stash`/`git stash pop` to fail without the fix and pass with it.
+- **Manual-entry FY-gap guard (`ppf-manual-entry-fy-guard-v1.html`).** The same bug class can happen by
+  hand: adding a deposit/interest for a FY while an earlier FY's own interest was never recorded means
+  that later FY's balance basis is wrong from the start. `earliestBlockingPpfFy()` (`ppfCalculations.ts`)
+  blocks saving a transaction dated after the earliest FY still missing its own interest (never a FY
+  within or before the gap — depositing right up to a still-open FY's own year-end is normal).
+  `PpfTransactionSheet` shows a warning banner with an "Add interest" CTA (`handleAddMissingInterest`)
+  that switches the same sheet to Interest, pre-fills that FY's 31 March, and shows a 4-state calc
+  banner (`renderCalcBanner()`) — matching, mismatched, not-yet-confirmed-rate, or incomplete-history —
+  reusing `checkPpfInterestMismatch`'s exact tolerance (`INTEREST_AMOUNT_TOLERANCE`, exported from
+  `ppfInterestCalculator.ts` so the two comparisons can never disagree).
+- **Card pill UX fix.** When multiple FYs are missing interest, `RetirementCard.tsx`'s nudge banner
+  shows all of them but only the earliest (the one `earliestBlockingPpfFy` would actually accept) is
+  tappable — the rest are visibly present but greyed, so nobody taps the wrong one and gets redirected.
+- **Amount-prefill bug, real root cause: `autoFocus`.** Tapping a missing-FY pill correctly computed the
+  calculated interest into state, but the visible Amount field kept showing "0" until the user tapped
+  away and back. Root cause: interest rows are meant to arrive pre-calculated, not typed, but the field
+  had unconditional `autoFocus` — grabbing focus at mount, before the async rate-table-driven prefill
+  landed, and `AmountInput`'s own guard against clobbering active typing (`isFocusedRef`) treats "merely
+  focused" the same as "actively typing," so it skipped resyncing the visible text. Fixed with
+  `autoFocus={txType !== 'interest'}`, mirroring `EpfTransactionSheet`'s identical existing precedent.
+- **Rate shown in the transaction row.** `PpfAllTransactionsSheet`'s per-row subtitle now also shows the
+  FY's own rate (`getPpfInterestRateForFy`) alongside the existing FY label, for context without opening
+  the calc popup.
+- **`investedAmount` never reflected a ledger change.** Unlike the FY tiles/withdrawal-eligibility
+  figure (already correctly memoized live off `ppfTransactions`), the PPF card's own headline value —
+  and, via net worth's `h.currentValue ?? h.investedAmount` convention, the Retirement page's aggregate
+  — was a stored snapshot set once at import/first-save and never recomputed after a later add/edit/
+  delete. Fixed the same way EPF's identical `currentValue` staleness bug was already fixed one asset
+  class over: a new `ppfCurrentBalance(txns)` (`ppfCalculations.ts`) is now written back onto
+  `investedAmount` inside `RetirementSection.tsx`'s single `saveHolding()` choke point, which every PPF
+  save (add/edit/delete/import) already flows through — so this one fix covers all of them. Confirmed
+  the withdrawal-eligibility figure's own apparent non-responsiveness to a later-year interest
+  edit/delete is mathematically correct, not a related bug: the formula caps at 50% of the LOWER of the
+  balance 4 FYs back vs. 1 FY back, and the 4-years-back figure is very often the binding (smaller)
+  constraint, making it insensitive to the most recent 1-3 years' changes by design of the real PPF
+  rule. Also confirmed EPF (already fixed, same choke point) and NPS (a live `units × NAV` mark-to-
+  market value, not a stored/derived ledger sum — no equivalent staleness risk exists structurally) did
+  not have this bug.
+
 **Key file:** `src/features/portfolio/PortfolioPage.tsx` — Retirement sub-tab rendering for all three account types.
 
 **Mobile (`apps/mobile`):** ported in Track 4 (Portfolio module) — `apps/mobile/src/features/portfolio/holdings/retirement/` mirrors the web files above; this is the single biggest sub-scope in the entire Portfolio port (~1,760 web lines in `RetirementCard.tsx`/`RetirementSheets.tsx` alone — bigger than the whole Loans module). `STATUS.x` colors appear at the highest concentration in the module here (10 sites in `RetirementCard.tsx` alone) → `useThemeColors()`. Three hand-rolled `fixed inset-0` modal overlays found and rebuilt on the real ported `Modal` component: `NpsLifecycleDetail`, a contribution-breakdown popup inside `RetirementSheets` (never converted to `Modal` even on web, despite that file already using `Modal` elsewhere), and a third one found during the port, `EpfAllTransactionsSheet`. `core/nps/npsClient.ts`'s scheme-list cache used synchronous `localStorage` (incompatible with RN) — fixed via `npsClient.native.ts`, which keeps the existing in-memory `schemesMemCache` but drops the persistent cross-session layer (re-fetches once per cold app start instead of once per week), per the same decision applied to IPO's cache. **EPF passbook PDF import + Excel export (2026-08-08)** is a mobile-only capability with no web-react equivalent (see the EPF section above) — new files `EpfImportFlow.tsx`, `EpfImportReviewSheet.tsx`, `epfImportLogic.ts`, `epfInterestOnDemand.ts`, `epfTxLabels.ts`, `epfReviewFlags.ts` in this same directory. **PPF statement import (2026-08-08)** is likewise mobile-only (see the PPF section above) — new files `PpfImportFlow.tsx`, `PpfImportReviewSheet.tsx`, `ppfImportLogic.ts`. **PPF card redesign (2026-08-08)** is likewise mobile-only (see the PPF section above) — new `PpfAllTransactionsSheet` in `RetirementSheets.tsx` and new file `ppfTxLabels.ts` in this same directory. **EPF employer-switch fixes + per-employer ledger (2026-08-11)** is likewise mobile-only (see the EPF section above) — new files `EpfNewEmployerSetupSheet.tsx`, `EpfEmployerPickerSheet.tsx`, `epfEmployerScoping.ts` in this same directory.

@@ -47,6 +47,25 @@ export function parseNumber(s: string): number {
   return parseFloat(s) || 0;
 }
 
+/**
+ * Human-readable file size, e.g. `formatBytes(3_650_000)` → `"3.5 MB"`. Added for Backup History's
+ * per-entry size line — no such formatter existed anywhere in the codebase before it (checked
+ * `apps/mobile/src/lib/` and here). Binary (1024-based) units, one decimal place, no decimal for whole
+ * bytes — matches how most OS file browsers show size, which is what users comparing entries expect.
+ */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+}
+
 // Date/time helpers live in ./date — re-exported here for backwards-compatible imports.
 // Prefer importing date utilities directly from '@/lib/date' in new code.
 export {

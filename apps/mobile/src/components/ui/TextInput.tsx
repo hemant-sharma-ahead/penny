@@ -5,7 +5,14 @@ import { useThemeColors } from '~/theme/useThemeColors';
 
 interface TextInputProps extends Pick<
   RNTextInputProps,
-  'placeholder' | 'autoFocus' | 'autoComplete' | 'maxLength' | 'keyboardType' | 'secureTextEntry'
+  | 'placeholder'
+  | 'autoFocus'
+  | 'autoComplete'
+  | 'autoCapitalize'
+  | 'autoCorrect'
+  | 'maxLength'
+  | 'keyboardType'
+  | 'secureTextEntry'
 > {
   label?: string;
   value: string;

@@ -2,19 +2,24 @@
 // target). Metro's platform resolution only picks `.native.ts` for iOS/Android, not the `web` target,
 // so without this file Metro falls through to the bare `googleDriveProvider.ts` — whose `clientId()`
 // reads Vite's `import.meta.env.VITE_GOOGLE_CLIENT_ID`, a global Metro never defines (crashes as soon
-// as `AutoBackupCard` renders and calls `isAvailable()`). Otherwise this is the same Google Identity
-// Services + Drive v3 REST flow as the base file — RN Web is a real browser DOM (script tags,
-// `window.google`, `fetch`, `FormData`, `Blob` all work exactly the same), only the config source
-// differs: `app.json`'s `extra.googleWebClientId` (same key `googleDriveProvider.native.ts` reads),
-// not a `VITE_*` env var.
+// as `AutoBackupCard` renders and calls `isAvailable()`). Otherwise this uses the same Google Identity
+// Services token flow as the base file — RN Web is a real browser DOM (script tags, `window.google`,
+// `fetch`, `FormData`, `Blob` all work exactly the same), only the config source differs: `app.json`'s
+// `extra.googleWebClientId` (same key `googleDriveProvider.native.ts` reads), not a `VITE_*` env var.
+// Backup History (added after the above): this file's Drive REST calls now mirror
+// `googleDriveProvider.native.ts`'s timestamped-multi-entry scheme, not the base (frozen,
+// web-react-only) file's single-fixed-file PATCH — see `backupNaming.ts` and this file's `push()`/
+// `list()`/`delete()`/`downloadEntry()` below.
 import Constants from 'expo-constants';
-import type { CloudProvider } from './types';
+import type { BackupEntry, CloudProvider } from './types';
 import { NeedsConsentError, QuotaExceededError } from './types';
 import {
   DRIVE_SCOPE as SCOPE,
-  DRIVE_BACKUP_FILE_NAME as FILE_NAME,
+  DRIVE_BACKUP_FILE_NAME as LEGACY_FILE_NAME,
   describeDriveError
 } from './googleDriveProvider.constants';
+import { BACKUP_FILE_PREFIX, BACKUP_HISTORY_KEEP, buildBackupFileName, parseBackupFileName } from './backupNaming';
+import type { BackupTrigger } from './backupNaming';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
@@ -87,23 +92,75 @@ async function getAccessToken(interactive: boolean): Promise<string> {
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-interface DriveMeta {
+/** Raw Drive file metadata for anything this feature might have written — new-scheme timestamped
+ *  entries and (for backward compat) the pre-history legacy fixed-name file. */
+interface RawBackupFile {
   id: string;
-  tag: string;
+  name: string;
+  size?: string;
+  modifiedTime?: string;
+  headRevisionId?: string;
+  properties?: Record<string, string>;
 }
 
-async function findFileMeta(token: string): Promise<DriveMeta | null> {
-  const q = encodeURIComponent(`name='${FILE_NAME}'`);
-  const fields = encodeURIComponent('files(id,headRevisionId,modifiedTime)');
+/** Every backup-history file (or the one legacy file) in this account's appDataFolder, unsorted. */
+async function listRaw(token: string): Promise<RawBackupFile[]> {
+  const q = encodeURIComponent(
+    `(name contains '${BACKUP_FILE_PREFIX}' or name = '${LEGACY_FILE_NAME}') and trashed = false`
+  );
+  const fields = encodeURIComponent('files(id,name,size,modifiedTime,headRevisionId,properties)');
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&orderBy=modifiedTime desc&fields=${fields}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   if (!res.ok) throw new Error(`Could not read your Google Drive (${await describeDriveError(res)})`);
-  const data = (await res.json()) as { files?: { id: string; headRevisionId?: string; modifiedTime?: string }[] };
-  const f = data.files?.[0];
-  if (!f) return null;
-  return { id: f.id, tag: f.headRevisionId ?? f.modifiedTime ?? f.id };
+  const data = (await res.json()) as { files?: RawBackupFile[] };
+  return data.files ?? [];
+}
+
+/** The real creation instant for a file this feature wrote (from its own filename) — falls back to
+ *  Drive's `modifiedTime` only for the legacy fixed-name file, which predates that convention. */
+function entryTimestamp(f: RawBackupFile): number {
+  return parseBackupFileName(f.name)?.timestamp ?? (f.modifiedTime ? Date.parse(f.modifiedTime) : 0);
+}
+
+/** `properties.trigger` (this feature's own structured Drive metadata) is authoritative when present;
+ *  the filename's trailing segment is the fallback for anything written before `properties` existed —
+ *  the legacy file has neither, and defaults to `'manual'` (see googleDriveProvider.constants.ts). */
+function entryTrigger(f: RawBackupFile): BackupTrigger {
+  return (f.properties?.trigger as BackupTrigger | undefined) ?? parseBackupFileName(f.name)?.trigger ?? 'manual';
+}
+
+function toBackupEntry(f: RawBackupFile): BackupEntry {
+  return { id: f.id, timestamp: entryTimestamp(f), sizeBytes: f.size ? Number(f.size) : 0, trigger: entryTrigger(f) };
+}
+
+/** The single most recent entry (by our own derived timestamp, not just Drive's `modifiedTime desc`
+ *  ordering) — what `remoteTag()`/`pull()` mean by "the latest backup" now that there can be many. */
+async function findNewestBackupFile(token: string): Promise<{ id: string; tag: string } | null> {
+  const files = await listRaw(token);
+  if (files.length === 0) return null;
+  const newest = files.reduce((a, b) => (entryTimestamp(b) > entryTimestamp(a) ? b : a));
+  return { id: newest.id, tag: newest.headRevisionId ?? newest.modifiedTime ?? newest.id };
+}
+
+/** Deletes every entry beyond the newest BACKUP_HISTORY_KEEP — called after every successful push.
+ *  Best-effort: a prune failure shouldn't surface as a failed backup when the push itself just
+ *  succeeded, so failures here are swallowed rather than thrown. */
+async function pruneOldBackups(token: string): Promise<void> {
+  const files = await listRaw(token);
+  if (files.length <= BACKUP_HISTORY_KEEP) return;
+  const stale = [...files].sort((a, b) => entryTimestamp(b) - entryTimestamp(a)).slice(BACKUP_HISTORY_KEEP);
+  for (const f of stale) {
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch {
+      // best-effort, see doc comment above
+    }
+  }
 }
 
 async function isQuotaError(res: Response): Promise<boolean> {
@@ -134,12 +191,12 @@ export const googleDriveProvider: CloudProvider = {
 
   async remoteTag(): Promise<string | null> {
     const token = await getAccessToken(false);
-    return (await findFileMeta(token))?.tag ?? null;
+    return (await findNewestBackupFile(token))?.tag ?? null;
   },
 
   async pull(): Promise<{ text: string; tag: string } | null> {
     const token = await getAccessToken(false);
-    const meta = await findFileMeta(token);
+    const meta = await findNewestBackupFile(token);
     if (!meta) return null;
     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${meta.id}?alt=media`, {
       headers: { Authorization: `Bearer ${token}` }
@@ -148,26 +205,49 @@ export const googleDriveProvider: CloudProvider = {
     return { text: await res.text(), tag: meta.tag };
   },
 
-  async push(blob: Blob): Promise<{ tag: string }> {
+  async push(blob: Blob, trigger: BackupTrigger = 'manual'): Promise<{ tag: string }> {
     const token = await getAccessToken(false);
-    const existing = await findFileMeta(token);
-    const metadata = { name: FILE_NAME, parents: existing ? undefined : ['appDataFolder'] };
+    const name = buildBackupFileName(Date.now(), trigger);
+    const metadata = { name, parents: ['appDataFolder'], properties: { trigger } };
     const form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     form.append('file', blob);
-    const base = existing
-      ? `https://www.googleapis.com/upload/drive/v3/files/${existing.id}`
-      : 'https://www.googleapis.com/upload/drive/v3/files';
-    const res = await fetch(`${base}?uploadType=multipart&fields=id,headRevisionId,modifiedTime`, {
-      method: existing ? 'PATCH' : 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form
-    });
+    const res = await fetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,headRevisionId,modifiedTime',
+      { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
+    );
     if (!res.ok) {
       if (await isQuotaError(res)) throw new QuotaExceededError('google-drive');
       throw new Error(`Upload to Google Drive failed (${await describeDriveError(res)})`);
     }
     const saved = (await res.json()) as { id: string; headRevisionId?: string; modifiedTime?: string };
+    await pruneOldBackups(token);
     return { tag: saved.headRevisionId ?? saved.modifiedTime ?? saved.id };
+  },
+
+  async list(): Promise<BackupEntry[]> {
+    const token = await getAccessToken(false);
+    return (await listRaw(token)).map(toBackupEntry).sort((a, b) => b.timestamp - a.timestamp);
+  },
+
+  async delete(entryId: string): Promise<void> {
+    const token = await getAccessToken(false);
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${entryId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    // 404 → already gone (e.g. a double-tap raced itself) — not a real failure from the caller's PoV.
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Could not delete backup from Google Drive (${await describeDriveError(res)})`);
+    }
+  },
+
+  async downloadEntry(entryId: string): Promise<string> {
+    const token = await getAccessToken(false);
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${entryId}?alt=media`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`Download from Google Drive failed (${await describeDriveError(res)})`);
+    return res.text();
   }
 };

@@ -148,6 +148,14 @@ ARCHITECTURE.md`'s own storage-adapter writeup (search "Track 2" / "RowStore") w
   whole picture for any `packages/core/src/core/db/` file, the same way rule 5 above already
   requires checking for a platform-suffixed sibling before treating any bare file as
   authoritative.
+- **Never feed a JS-transformed string back into a controlled native `TextInput`'s own `value`**
+  (e.g. `setSymbol(v.toUpperCase())` on every keystroke) — this desyncs the native text buffer
+  from React state, and on Android specifically manifests as typed characters getting duplicated/
+  re-inserted, not just a cosmetic case mismatch. Hit twice (`VehicleFields.tsx`, then
+  `StockFields.tsx`) before being fixed properly: let the native keyboard do the transform via
+  `autoCapitalize="characters"` + `autoCorrect={false}`, store exactly what `onChangeText` hands
+  back, and uppercase only at the point of use (an API call, the final save) — never in the value
+  the field itself displays. Found 2026-08-24 — see `docs/ARCHITECTURE.md`'s matching entry.
 
 ## Working style
 

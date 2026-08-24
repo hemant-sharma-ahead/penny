@@ -2661,6 +2661,48 @@ section; one cross-cutting note worth keeping here:
   test files) were fixed while here rather than left to block the eventual commit — see the plan doc's
   8th-batch verification note for the exact commits they trace to.
 
+### Decision: PPF import/manual-entry fixes, onboarding Add-Account reuse, Backup History, controlled-input bug class (2026-08-24)
+
+**Rationale:** four independent items landed in one session, none part of the real-device-testing-pass
+punch list above — full detail in `docs/features/portfolio/retirement.md` (PPF), `docs/features/
+onboarding.md` (Add Accounts), and `docs/features/backup.md` (Backup History). Cross-cutting notes worth
+keeping here:
+
+- **PPF's multi-year import bug and its manual-entry counterpart are the same root cause, one FY apart**:
+  `ppfReconciliation.ts` computing a FY's "Calculated" interest against a balance basis missing a prior
+  FY's own already-credited interest. The import fix scoped an over-broad exclusion filter; the manual-
+  entry fix (`earliestBlockingPpfFy()`) is a forward-looking guard against the same gap being created by
+  hand. `investedAmount`'s staleness fix is the third instance of the exact bug class EPF's `currentValue`
+  fix already established (a derived value never written back on save) — now fixed at the same
+  `RetirementSection.tsx` `saveHolding()` choke point for a second asset class.
+- **Onboarding's "Add your accounts" now stages drafts through the real `AccountFormModal`** instead of a
+  bespoke inline form — the general principle (never invent a one-off account-creation UI; every entry
+  point injects its own `saveAccount` into the one shared `useAccountForm`) already existed
+  (`CashWithdrawalSuggestionCard.tsx`, `ResolveAccountModal.tsx`) but onboarding had drifted from it. The
+  fix needed a real data-model change (`OnboardingDraftContext`'s `DraftAccount` widened to the full
+  `AccountInput` shape), not just a UI swap, since a fake in-memory `saveAccount` needs somewhere to stage
+  the same fields the modal collects.
+- **Backup History turns a single-overwrite-file model into a real rolling log** — see `docs/features/
+backup.md`'s own writeup for the naming/retention/backward-compat design. Architecturally notable:
+  `CloudProvider`'s new `list()`/`delete()`/`downloadEntry()` members are **optional**, specifically so
+  the frozen `apps/web-react`-only `googleDriveProvider.ts` and the still-dormant `icloudProvider.ts`
+  don't need touching at all to keep compiling — an interface-widening technique worth reusing whenever a
+  capability is being added to some, not all, implementations of a shared interface that spans a
+  frozen/dormant surface.
+- **A recurring controlled-`TextInput` bug class, now fixed at its second occurrence**: forcing a JS-
+  transformed string (`.toUpperCase()`) back into a controlled `TextInput`'s own `value` on every
+  keystroke desyncs the native text buffer from React state — on Android this manifests as duplicated/
+  re-inserted characters, not just a case mismatch. First seen in `VehicleFields.tsx` (partially fixed —
+  only the redundant CSS-transform layer was removed, the underlying re-injection risk wasn't), then
+  `StockFields.tsx` (the actual reported bug). Both now let the native keyboard handle it via
+  `autoCapitalize="characters"` and uppercase only at the point of use. Promoted to a full
+  `CLAUDE.md` non-negotiable rule (Reliability section) given it's now recurred once already.
+- **`react-hooks/set-state-in-effect` fix pattern reused twice more** (`RetirementSheets.tsx`'s PPF
+  calc-prefill effect, `BackupHistoryModal.tsx`'s load-on-mount effect) — wrap the actual state-setting
+  call in a same-tick `setTimeout(fn, 0)` with a matching `clearTimeout` cleanup, the same mechanical fix
+  `useLivePrice.ts` already established. Now documented as a standing convention in `CONTRIBUTING.md`'s
+  TypeScript standards rather than left to be independently rediscovered per effect.
+
 ---
 
 ## Dependency graph (simplified)

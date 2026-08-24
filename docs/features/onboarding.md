@@ -31,7 +31,7 @@ You land straight in the app — fully populated with realistic demo data — wi
 
 9. **"Let us know you"** — full name, username, date of birth, employment type. Each field now carries a short "where this lives" caption (on-device/encrypted vs. public) alongside its existing "why we ask" caption.
 10. **"A bit more about you"** (`/onboarding/life-household`) — optional: relationship status, home ownership, risk appetite, dependents' birth years. Skippable; the same fields as Edit Profile's "Life & household" section, pulled forward here because they already power the Home advisor's life-stage goal suggestions (education corpus, home fund, marriage fund) — which otherwise silently degrade to just a generic Retirement goal if nobody ever finds them in Edit Profile.
-11. **"Add your accounts"** (`/onboarding/add-accounts`) — optional: quick-add Cash / Bank / Credit Card / Wallet accounts (same types as the real Accounts page) so expense tracking works immediately.
+11. **"Add your accounts"** (`/onboarding/add-accounts`) — optional: quick-add Cash / Bank / Credit Card / Wallet accounts (same types as the real Accounts page) so expense tracking works immediately. **Mobile (2026-08-24):** now opens the exact same `AccountFormModal`/`useAccountForm` popup the Accounts page uses, instead of a bespoke inline form — see "How it works" below for why that took a real fix, not just a swap.
 12. **"Back up your data"** (`/onboarding/backup-setup`) — optional: This Device / Google Drive / iCloud (iCloud shown disabled — native-only, still dormant on the web PWA). Only records the choice here; picking Drive routes to the real Backup page after setup completes, since the live connect flow needs the app's `SyncProvider`, which isn't mounted this early.
 13. **Set up your vault** (`/onboarding/setup`) — passphrase + 6-digit PIN. Same screen, same fields, regardless of which path got you here — a brand-new user is never asked for a "current" credential. Under the hood: Path A calls `initialize()` fresh; exiting Demo Mode instead re-keys the already-unlocked demo vault via `exitDemoMode()` (the demo PIN/passphrase stop working the instant this completes).
 
@@ -87,6 +87,25 @@ Reclaim tab already uses defensively on a failed attempt) before `initialize()` 
 branch, so "Start Fresh" is unconditionally fresh regardless of the device's prior state. The
 Exit-Demo-Mode branch (`exitDemoMode()`) is intentionally untouched — that path re-keys the existing
 demo vault on purpose, not a wipe-and-restart.
+
+**Mobile — 2026-08-24, "Add your accounts" now reuses the real Add Account modal.** Previously this
+screen had its own bespoke inline form (a plain 2-col type grid + just name/opening-balance fields) used
+identically for every account type — Cash happened to need nothing more than that, so only Bank/Credit
+Card/Wallet visibly diverged from the real Accounts page's modal (missing the bank-preset/last-4-digit
+fields SMS Tracking matching needs, and the "include in net worth" toggle). Fixed by wiring this screen
+to the exact same `AccountFormModal`/`useAccountForm` every other "+ Add account" entry point already
+uses. The one real wrinkle: `accountsRepo` (an `EncryptedRepository`) can't be written to yet at this
+point — no Data Master Key exists until `SetupCredentialsScreen`'s final step — so `AddAccountsScreen.tsx`
+passes `useAccountForm` a `fakeSaveAccount` that fabricates an in-memory `Account`-shaped record and
+stages it on `OnboardingDraftContext` instead of persisting it (the same trick
+`CashWithdrawalSuggestionCard.tsx` already uses for a caller that can't hit the real repo immediately).
+`DraftAccount` was extended from `{name, type, openingBalance}` to the full `AccountInput` shape
+(`color`/`icon`/`includeInNetWorth`/optional `bankId`/`last4`) so nothing the modal collects is silently
+dropped before the final flush in `SetupCredentialsScreen.tsx`, which now just spreads `...acc` into the
+persisted record instead of re-deriving those fields from `ACCOUNT_TYPE_META`. This also changed the
+screen's interaction shape from one persistent panel with "Add another" to "+ Add account → modal → save
+→ chip appears in the list → repeat" — the intended, direct consequence of "use the same popup," not a
+regression.
 
 **Mobile — 2026-08-05, `DemoModeBanner` repositioned + Settings' exit button relocated.** The banner
 used to render as a sibling *above* `MainTabs.tsx`'s safe-area-padded header block, with no top-inset
