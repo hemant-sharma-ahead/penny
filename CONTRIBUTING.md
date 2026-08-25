@@ -223,32 +223,30 @@ cd android
 ```
 
 **Step 4, non-negotiable — verify it actually launches, on a real connected device, before
-committing.** This has broken multiple times (2026-08-23's v1.5.2, 2026-08-24's v1.6.0) —
-a build that compiles cleanly is not evidence it runs; a release build goes through paths
-(Hermes bytecode compilation, `assembleRelease`'s own task graph) a debug build/Metro dev
-session never exercises, and a bug can be specific to exactly one of those paths. Both
-of the following are required — one alone has missed a real crash before:
+committing.** This has broken multiple times (2026-08-23's v1.5.2, 2026-08-24's v1.6.0, both
+root-caused in `docs/ARCHITECTURE.md`'s matching decision-log entries) — a build that compiles
+cleanly is not evidence it runs; a release build goes through paths (Hermes bytecode compilation,
+`assembleRelease`'s own task graph) a debug build/Metro dev session never exercises, and a bug can
+be specific to exactly one of those paths.
+
+Run the one script that does this correctly, rather than retyping the steps by hand (that's
+exactly how this got skipped before — not malice, just a manual step that's easy to shortcut under
+time pressure):
 
 ```bash
-adb uninstall com.hesh.penny   # force a genuinely fresh install, not an upgrade over existing data
-adb install apps/mobile/builds/app-arm64-v8a-release.apk
-adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1
-sleep 6
-adb shell ps -A | grep -i penny   # must show a running process, not empty
-adb logcat -d | grep -iE "FATAL EXCEPTION|Fatal signal|ReactNativeJS.*Error"   # must be empty
+apps/mobile/scripts/verify-release-apk.sh apps/mobile/builds/app-arm64-v8a-release.apk
 ```
 
-Then relaunch it 2-3 more times without reinstalling (`adb shell am force-stop com.hesh.penny`
-+ the same `monkey` command) to also cover a warm relaunch of an already-onboarded install —
-**a fresh install and a warm relaunch are genuinely different code paths and can crash
-independently of each other** (2026-08-24's crash reproduced 100% of the time on a fresh
-install going through Onboarding, and 0% of the time on a warm relaunch of an existing
-account — testing only one of the two is not sufficient). If either check fails, do not
-commit the APK — find and fix the actual cause (see "Debugging a native-only crash" below),
-or at minimum revert whatever change is suspected and re-verify before shipping anything.
-If no device is available to verify against, say so explicitly rather than shipping
-unverified — this is a judgment call for whoever's asking for the build, not something to
-silently skip.
+It runs a genuinely fresh install (`adb uninstall` first, not an upgrade over existing data) **and**
+3 warm relaunches of that same install without reinstalling — **both are required, one alone has
+missed a real crash before**: 2026-08-24's crash reproduced 100% of the time on a fresh install
+going through Onboarding, and 0% of the time on a warm relaunch of an existing account. It exits
+non-zero and prints the logcat crash signature if either check fails. If it fails, do not commit
+the APK — find and fix the actual cause (see "Debugging a native-only crash" below), or at minimum
+revert whatever change is suspected and re-run the script before shipping anything. If no device is
+available to run it against, say so explicitly rather than shipping unverified — this is a judgment
+call for whoever's asking for the build, not something to silently skip (the script itself refuses
+to report success with no device connected, but that only helps if it's actually run).
 
 Copy the resulting `arm64-v8a` APK (the variant to actually install/test with — see the ABI
 note below) into `apps/mobile/builds/` as `app-arm64-v8a-release.apk`, overwriting the

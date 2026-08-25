@@ -2703,7 +2703,7 @@ backup.md`'s own writeup for the naming/retention/backward-compat design. Archit
   `useLivePrice.ts` already established. Now documented as a standing convention in `CONTRIBUTING.md`'s
   TypeScript standards rather than left to be independently rediscovered per effect.
 
-### Decision: onboarding's Add-Account-modal reuse reverted after a release-only fresh-install crash (2026-08-25)
+### Decision: onboarding's Add-Account-modal reuse — release-only fresh-install crash, reverted then root-caused and re-shipped (2026-08-25)
 
 **Rationale:** the previous entry's onboarding Add-Account-modal-reuse fix was committed and pushed as
 part of v1.6.0's release APK without being verified on a real device first (a real process failure, not
@@ -2746,20 +2746,51 @@ android/build` before `assembleRelease`) **still crashed identically** — rulin
   this *screen*'s — and thus the Onboarding stack's — early-loaded import graph), but this remains
   unconfirmed via an actual symbolicated JS stack trace.
 
-**Fix shipped**: all three touched onboarding files (`AddAccountsScreen.tsx`, `OnboardingDraftContext.tsx`,
-`SetupCredentialsScreen.tsx`) reverted byte-for-byte to their pre-2026-08-24 state (verified via `git diff`
-against the last known-good commit showing zero diff) — the onboarding Add-Account consistency fix is
-fully rolled back, not partially. Re-attempting it is tracked as follow-up work, gated on reproducing the
-crash with a real symbolicated stack trace (e.g. via `metro-symbolicate` against the release build's own
-sourcemap, `android/app/build/generated/sourcemaps/react/release/index.android.bundle.map`) rather than
-bisection alone.
+**Interim fix shipped** (v1.6.1): all three touched onboarding files (`AddAccountsScreen.tsx`,
+`OnboardingDraftContext.tsx`, `SetupCredentialsScreen.tsx`) reverted byte-for-byte to their pre-2026-08-24
+state (verified via `git diff` against the last known-good commit showing zero diff) — the onboarding
+Add-Account consistency fix fully rolled back, not partially, to get a known-working build shipped first.
 
-**Process fix** (the actual point of this entry): this is the second time in three days a committed
-release APK crashed on launch after being shipped without on-device verification. `CONTRIBUTING.md`'s
-"Building a standalone Android APK" section and `CLAUDE.md`'s Reliability rules both now require
-verifying a rebuilt release APK launches on a real device — on **both** a fresh install and a warm
-relaunch, since this incident is direct proof the two are genuinely different code paths — before it is
-ever committed. Not optional, not "when convenient."
+**Root cause found and the feature re-shipped the same day (v1.6.2).** With a device available again,
+live instrumentation (each of `AddAccountsScreen.tsx`'s imports individually wrapped in its own
+try/catch, rebuilt and re-tested fresh-install each time) isolated the crash to one single line: the
+static `import { useAccountForm } from '~/hooks/useAccountForm'`. Confirmed by minimal bisection —
+converting every *other* import in the file back to a normal static `import` one at a time while
+leaving only `useAccountForm` as a plain `require()` call never crashed (6/6 on-device launches: 3 fresh
+installs, 3 warm relaunches); converting `useAccountForm` itself back to a static `import` reproduced the
+crash again immediately. `useAccountForm.ts` has no circular import in its own dependency graph
+(`@/core/accounts/meta`/`accountValidation.ts` only import types), and the identical named export is
+already statically imported without issue from `AccountsPage.tsx` elsewhere in the app — so this isn't
+"the hook is broken," it's specific to `AddAccountsScreen.tsx` being one of the *first* consumers of that
+export reached during cold boot (Onboarding's stack is eagerly `require()`'d by the root navigator,
+confirmed directly from the built bundle's own require-graph — confirming, incidentally, that the
+require-graph itself is NOT gated on onboarding status the way the leading hypothesis in the interim fix
+above assumed). The leading theory: a Babel/Metro ESM-interop live-binding timing race specific to
+Hermes-bytecode release compilation, where a plain `require()` snapshot sidesteps whatever the compiled
+`import` statement's interop wrapper does differently for an early cold-boot consumer. Never reproduced
+in a debug/Metro-served build, nor on a warm relaunch of an already-onboarded install — only a genuinely
+fresh install did, at 100% before the fix and 0% after (6/6 clean launches). Fix: `AddAccountsScreen.tsx`
+now imports `useAccountForm` via an explicit, heavily-commented `require()` instead of a static `import`,
+with the full investigation trail written into the code comment itself so nobody "cleans this up" back to
+a normal import without reading why first. This is a targeted workaround for one call site, not a fix to
+the underlying Babel/Metro/Hermes interaction — if the same symptom appears in a different early-loaded
+screen's import in the future, this same require()-based workaround is the known escape hatch, but the
+real upstream cause is still open.
+
+**Process fix** (the actual point of this entry, and the reason it's written up this thoroughly): this is
+the second time in three days a committed release APK crashed on launch after being shipped without
+on-device verification (v1.5.2's `./gradlew clean`-failure incident, then this one). `CONTRIBUTING.md`'s
+"Building a standalone Android APK" section and `CLAUDE.md`'s Reliability rules both now require running
+the new `apps/mobile/scripts/verify-release-apk.sh` — not hand-typed `adb` commands, a real script — before
+ever committing a rebuilt release APK. It verifies a real connected device launches the APK on **both** a
+genuinely fresh install (`adb uninstall` first) **and** 3 warm relaunches of that same install, exiting
+non-zero with the crash signature if either fails. Both are required — this incident is direct proof the
+two are genuinely different code paths that crash independently of each other; a fresh-install check alone
+would have looked "verified" while still missing a warm-relaunch-only crash, or vice versa. The manual
+`adb`-command version of this rule (written into the same commit as this incident's interim revert) was
+followed correctly for both fixes in this incident, but turning it into a real script removes any future
+reliance on remembering/retyping the exact command sequence correctly under time pressure — the actual
+failure mode that let the *first* two incidents (v1.5.2, then v1.6.0) ship with no check running at all.
 
 ---
 

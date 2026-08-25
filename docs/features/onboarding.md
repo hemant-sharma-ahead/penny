@@ -31,7 +31,7 @@ You land straight in the app — fully populated with realistic demo data — wi
 
 9. **"Let us know you"** — full name, username, date of birth, employment type. Each field now carries a short "where this lives" caption (on-device/encrypted vs. public) alongside its existing "why we ask" caption.
 10. **"A bit more about you"** (`/onboarding/life-household`) — optional: relationship status, home ownership, risk appetite, dependents' birth years. Skippable; the same fields as Edit Profile's "Life & household" section, pulled forward here because they already power the Home advisor's life-stage goal suggestions (education corpus, home fund, marriage fund) — which otherwise silently degrade to just a generic Retirement goal if nobody ever finds them in Edit Profile.
-11. **"Add your accounts"** (`/onboarding/add-accounts`) — optional: quick-add Cash / Bank / Credit Card / Wallet accounts (same types as the real Accounts page) so expense tracking works immediately, via this screen's own inline form (see "How it works" below for a 2026-08-24 attempt to reuse the real Accounts-page modal instead, shipped then reverted the next day after a real-device crash).
+11. **"Add your accounts"** (`/onboarding/add-accounts`) — optional: quick-add Cash / Bank / Credit Card / Wallet accounts (same types as the real Accounts page) so expense tracking works immediately, via the same `AccountFormModal` popup the real Accounts page uses (see "How it works" below for the 2026-08-24/25 fix + a real crash found and fixed along the way).
 12. **"Back up your data"** (`/onboarding/backup-setup`) — optional: This Device / Google Drive / iCloud (iCloud shown disabled — native-only, still dormant on the web PWA). Only records the choice here; picking Drive routes to the real Backup page after setup completes, since the live connect flow needs the app's `SyncProvider`, which isn't mounted this early.
 13. **Set up your vault** (`/onboarding/setup`) — passphrase + 6-digit PIN. Same screen, same fields, regardless of which path got you here — a brand-new user is never asked for a "current" credential. Under the hood: Path A calls `initialize()` fresh; exiting Demo Mode instead re-keys the already-unlocked demo vault via `exitDemoMode()` (the demo PIN/passphrase stop working the instant this completes).
 
@@ -88,27 +88,27 @@ branch, so "Start Fresh" is unconditionally fresh regardless of the device's pri
 Exit-Demo-Mode branch (`exitDemoMode()`) is intentionally untouched — that path re-keys the existing
 demo vault on purpose, not a wipe-and-restart.
 
-**Mobile — 2026-08-24, "Add your accounts" reuse of the real Add Account modal — shipped, then reverted
-2026-08-25 after a real-device crash.** Built to fix a genuine inconsistency (this screen's own bespoke
-inline form — a plain 2-col type grid + just name/opening-balance fields — meant Bank/Credit Card/Wallet
-silently lost the bank-preset/last-4-digit fields SMS Tracking matching needs, and the "include in net
-worth" toggle, versus the real Accounts page's modal). The fix wired this screen to the same
-`AccountFormModal`/`useAccountForm` every other "+ Add account" entry point uses, via a `fakeSaveAccount`
-that stages an in-memory `Account`-shaped record on `OnboardingDraftContext` (no Data Master Key exists
-yet at this point in onboarding), and widened `DraftAccount` to the full `AccountInput` shape.
-**Reverted the same day**: a release-mode build crashed 100% of the time on a genuinely fresh install
-(`TypeError: Cannot read property 'create' of undefined`, `[runtime not ready]`, native `SIGABRT`) —
-isolated via bisection to specifically this change (confirmed by reverting `AddAccountsScreen.tsx`,
-`OnboardingDraftContext.tsx`, and `SetupCredentialsScreen.tsx` back to their pre-change state, which
-fixed it) but the crash did **not** reproduce in a debug/Metro-served build, nor on a warm relaunch of an
-already-onboarded install — only a genuinely fresh install going through Onboarding triggered it. The
-exact mechanism (almost certainly a module-evaluation-order/timing issue specific to Hermes-bytecode
-release builds, given the identical JS logic works fine in dev mode) was not pinned down to a single line
-before the revert shipped — see `docs/ARCHITECTURE.md`'s matching decision-log entry and
-`CONTRIBUTING.md`'s new release-APK verification requirement (added directly because of this incident).
-This screen is back to its pre-2026-08-24 bespoke inline form for now; re-attempting the
-`AccountFormModal` integration is tracked as follow-up work, gated on first reproducing the crash with a
-real symbolicated stack trace rather than bisection alone.
+**Mobile — 2026-08-24/25, "Add your accounts" now reuses the real Add Account modal** (shipped, briefly
+reverted after a real-device crash, then root-caused and re-shipped the same week). Built to fix a
+genuine inconsistency (this screen's own bespoke inline form — a plain 2-col type grid + just
+name/opening-balance fields — meant Bank/Credit Card/Wallet silently lost the bank-preset/last-4-digit
+fields SMS Tracking matching needs, and the "include in net worth" toggle, versus the real Accounts
+page's modal). Wires this screen to the same `AccountFormModal`/`useAccountForm` every other "+ Add
+account" entry point uses, via a `fakeSaveAccount` that stages an in-memory `Account`-shaped record on
+`OnboardingDraftContext` (no Data Master Key exists yet at this point in onboarding), and widened
+`DraftAccount` to the full `AccountInput` shape. This also changed the screen's interaction shape from
+one persistent panel with "Add another" to "+ Add account → modal → save → chip appears in the list →
+repeat" — the intended, direct consequence of "use the same popup," not a regression.
+
+**A real, since-fixed crash along the way**: the first release build crashed 100% of the time on a
+genuinely fresh install (`TypeError: Cannot read property 'create' of undefined`), reverted the same day
+to ship a known-working build, then root-caused via live on-device instrumentation to one single line —
+the static `import { useAccountForm } from '~/hooks/useAccountForm'`. `AddAccountsScreen.tsx` now imports
+it via an explicit `require()` instead (a targeted, heavily-commented workaround, not a fix to the
+underlying Babel/Metro/Hermes interaction it sidesteps) — see `docs/ARCHITECTURE.md`'s matching
+decision-log entry for the full investigation trail, and `apps/mobile/scripts/verify-release-apk.sh`
+(added because of this incident) for the release-build verification this class of bug needs going
+forward.
 
 **Mobile — 2026-08-05, `DemoModeBanner` repositioned + Settings' exit button relocated.** The banner
 used to render as a sibling *above* `MainTabs.tsx`'s safe-area-padded header block, with no top-inset

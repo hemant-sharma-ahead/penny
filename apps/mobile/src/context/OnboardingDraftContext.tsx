@@ -1,11 +1,23 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { AccountType, EmploymentType, GoalRisk } from '@/core/db/types';
+import type { AccountType, BankPresetId, EmploymentType, GoalRisk } from '@/core/db/types';
 
-/** One account to create once the real vault exists — mirrors the fields AccountFormModal collects. */
+/** One account to create once the real vault exists — the exact same shape `useAccountForm`'s
+ *  `AccountInput` collects (`~/hooks/useAccountForm.ts`), so `AddAccountsScreen` can feed the real,
+ *  shared `AccountFormModal` and `SetupCredentialsScreen` can later write each one straight into the
+ *  real `Account` table with a plain spread — no re-deriving `color`/`icon`/`includeInNetWorth` from
+ *  `ACCOUNT_TYPE_META` a second time. Mirrored rather than imported to keep this context free of a
+ *  dependency on `~/hooks/`. */
 export interface DraftAccount {
   name: string;
   type: AccountType;
   openingBalance: number;
+  color: string;
+  icon: string;
+  includeInNetWorth: boolean;
+  /** Same optional, no-empty-string treatment as `AccountInput.bankId`/`.last4` — see that type's own
+   *  doc comments for the full rationale. */
+  bankId?: BankPresetId;
+  last4?: string;
 }
 
 export type BackupChoice = 'local' | 'google-drive' | 'icloud' | 'skip';
