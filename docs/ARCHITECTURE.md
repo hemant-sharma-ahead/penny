@@ -2703,6 +2703,64 @@ backup.md`'s own writeup for the naming/retention/backward-compat design. Archit
   `useLivePrice.ts` already established. Now documented as a standing convention in `CONTRIBUTING.md`'s
   TypeScript standards rather than left to be independently rediscovered per effect.
 
+### Decision: onboarding's Add-Account-modal reuse reverted after a release-only fresh-install crash (2026-08-25)
+
+**Rationale:** the previous entry's onboarding Add-Account-modal-reuse fix was committed and pushed as
+part of v1.6.0's release APK without being verified on a real device first (a real process failure, not
+a tooling gap — the build succeeded and the embedded version string was verified with `aapt`, which is
+not the same thing as the app actually running). It crashed 100% of the time on a genuinely fresh
+install, immediately at launch (`TypeError: Cannot read property 'create' of undefined`, RN's
+`[runtime not ready]` prefix, surfacing natively as `std::terminate()` → `SIGABRT`).
+
+Bisection findings (each confirmed by an actual rebuild + on-device test, not inferred):
+
+- **Debug (Metro-served JS) never reproduced it** — only a release build did, ruling out a plain logic
+  bug reproducible in dev.
+- **A `./gradlew clean` failure + building anyway** (the exact cause of the *prior* 2026-08-23 v1.5.2
+  incident — `clean` fails on a known CMake/ninja codegen ordering issue, and running `assembleRelease`
+  straight after reuses a mix of stale and fresh build outputs) was suspected first, since it matched
+  known prior art, but a **genuinely clean rebuild** (`rm -rf android/app/build android/app/.cxx
+android/build` before `assembleRelease`) **still crashed identically** — ruling that out as the cause
+  this time, though it remains a real, separate gotcha worth avoiding regardless (see `CONTRIBUTING.md`'s
+  "Building a standalone Android APK" gotchas).
+- **Disabling JS minification did not fix it either** — this result was initially reported as a fix but
+  was invalid: Gradle's `createBundleReleaseJsAndAssets` task reported `UP-TO-DATE` (it never actually
+  re-ran with the new flag), so the "successful" test was unknowingly re-testing the exact same bundle.
+  Confirmed by re-testing that same cached build 5 times in a row afterward with no crash at all — which
+  led to the next, correct finding below rather than a false minifier conclusion.
+- **The real variable was fresh-install vs. warm-relaunch, not minification or determinism.** A
+  genuinely fresh install (`adb uninstall` then install) crashed 5/5 times; a warm relaunch
+  (`am force-stop` + relaunch) of an *already-installed* app with existing data survived 5/5 times, using
+  literally the same APK. This is what actually explains the earlier "flaky" result — the two test
+  conditions were never actually the same scenario.
+- **The pre-session release APK (extracted from git history, commit `21a7f75`) did not crash on a fresh
+  install** — confirming this was introduced by the current session's diff, not a latent pre-existing bug
+  finally surfacing.
+- **File-level bisection** (temporarily reverting individual files to their pre-session versions,
+  rebuilding, re-testing fresh-install each time) isolated it to `AddAccountsScreen.tsx` specifically —
+  reverting just that file (keeping `OnboardingDraftContext.tsx`/`SetupCredentialsScreen.tsx` at their
+  new versions) already fixed the crash. The exact mechanism inside that file was **not** pinned down to
+  a single line/import before the fix shipped — the leading hypothesis is a module-evaluation-order/
+  timing issue specific to Hermes-bytecode release compilation exposed by this file's new import graph
+  (`AccountFormModal`/`useAccountForm`/`ACCOUNT_TYPE_META`, none of which are new to the app, just new to
+  this *screen*'s — and thus the Onboarding stack's — early-loaded import graph), but this remains
+  unconfirmed via an actual symbolicated JS stack trace.
+
+**Fix shipped**: all three touched onboarding files (`AddAccountsScreen.tsx`, `OnboardingDraftContext.tsx`,
+`SetupCredentialsScreen.tsx`) reverted byte-for-byte to their pre-2026-08-24 state (verified via `git diff`
+against the last known-good commit showing zero diff) — the onboarding Add-Account consistency fix is
+fully rolled back, not partially. Re-attempting it is tracked as follow-up work, gated on reproducing the
+crash with a real symbolicated stack trace (e.g. via `metro-symbolicate` against the release build's own
+sourcemap, `android/app/build/generated/sourcemaps/react/release/index.android.bundle.map`) rather than
+bisection alone.
+
+**Process fix** (the actual point of this entry): this is the second time in three days a committed
+release APK crashed on launch after being shipped without on-device verification. `CONTRIBUTING.md`'s
+"Building a standalone Android APK" section and `CLAUDE.md`'s Reliability rules both now require
+verifying a rebuilt release APK launches on a real device — on **both** a fresh install and a warm
+relaunch, since this incident is direct proof the two are genuinely different code paths — before it is
+ever committed. Not optional, not "when convenient."
+
 ---
 
 ## Dependency graph (simplified)

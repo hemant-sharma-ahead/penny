@@ -1,53 +1,44 @@
+import { useState } from 'react';
 import { View, ScrollView, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Button } from '~/components/ui';
-import { AccountFormModal } from '~/components/shared';
+import { Button, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
-import type { Account } from '@/core/db/types';
-import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
-import { useOnboardingDraft } from '~/context/OnboardingDraftContext';
+import { tint } from '~/lib/color';
+import { ACCOUNT_TYPES, ACCOUNT_TYPE_META } from '@/core/accounts/meta';
+import type { AccountType } from '@/core/db/types';
+import { useOnboardingDraft, type DraftAccount } from '~/context/OnboardingDraftContext';
 import type { OnboardingStackParamList } from '~/navigation/OnboardingNavigator';
 import { OnboardingBack } from './OnboardingBack';
 
 /** Quick-add for the account types that already exist, so expense tracking works immediately after
- *  setup instead of requiring a trip to the Accounts page first. Fully optional — skippable.
- *
- *  Reuses the exact same `AccountFormModal`/`useAccountForm` every other "+ Add account" entry point in
- *  the app already uses (`AccountsPage.tsx`, `ExpenseForm.tsx`, …) instead of a bespoke inline form. The
- *  one wrinkle: `accountsRepo` can't be written to yet at this point in onboarding — no Data Master Key
- *  exists until `SetupCredentialsScreen`'s final step — so `fakeSaveAccount` below fabricates an
- *  `Account`-shaped record in memory and stages it on `OnboardingDraftContext` instead of persisting it,
- *  the same trick `CashWithdrawalSuggestionCard.tsx` uses for a caller that can't hit the real repo. */
+ *  setup instead of requiring a trip to the Accounts page first. Fully optional — skippable. */
 export function AddAccountsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<OnboardingStackParamList>>();
   const theme = useThemeColors();
   const { accountsToCreate = [], setDraft } = useOnboardingDraft();
+  const [type, setType] = useState<AccountType>('bank');
+  const [name, setName] = useState('');
+  const [openingBalance, setOpeningBalance] = useState('');
 
-  // `useAccountForm`'s duplicate-name check just needs an `Account[]` to search by name — fabricate one
-  // from the drafted accounts (the `id` is only ever compared against `editing?.id`, which is always
-  // `null` here since onboarding never edits a drafted entry, so a plain index stand-in is fine).
-  const draftedAsAccounts: Account[] = accountsToCreate.map((acc, i) => ({
-    ...acc,
-    id: String(i),
-    isArchived: false,
-    createdAt: 0,
-    updatedAt: 0
-  }));
-
-  async function fakeSaveAccount(data: AccountInput): Promise<Account> {
-    const now = Date.now();
-    const record: Account = { id: crypto.randomUUID(), ...data, isArchived: false, createdAt: now, updatedAt: now };
-    setDraft({ accountsToCreate: [...accountsToCreate, data] });
-    return record;
+  function addCurrent(list: DraftAccount[]): DraftAccount[] {
+    const trimmed = name.trim();
+    if (!trimmed) return list;
+    return [...list, { name: trimmed, type, openingBalance: Number(openingBalance) || 0 }];
   }
 
-  const accountForm = useAccountForm(fakeSaveAccount, draftedAsAccounts);
+  function handleAddAnother() {
+    const next = addCurrent(accountsToCreate);
+    if (next === accountsToCreate) return; // nothing to add
+    setDraft({ accountsToCreate: next });
+    setName('');
+    setOpeningBalance('');
+  }
 
   function handleContinue() {
+    setDraft({ accountsToCreate: addCurrent(accountsToCreate) });
     navigation.navigate('BackupSetup');
   }
 
@@ -90,9 +81,50 @@ export function AddAccountsScreen() {
             </View>
           )}
 
-          <Button variant="secondary" fullWidth icon="ti-plus" onPress={accountForm.openAdd} className="mb-6">
-            Add account
-          </Button>
+          <View className="flex-row flex-wrap gap-2 mb-4">
+            {ACCOUNT_TYPES.map((t) => {
+              const meta = ACCOUNT_TYPE_META[t];
+              const selected = type === t;
+              return (
+                <Pressable
+                  key={t}
+                  onPress={() => setType(t)}
+                  className="items-center gap-1.5 rounded-2xl border p-3"
+                  style={{
+                    // Web is a strict 2-column `grid-cols-2 gap-2` — `31%` (found in the 2026-07-26
+                    // parity sweep) produced 3-then-1 for these 4 account types instead of 2-then-2.
+                    width: '48%',
+                    borderColor: selected ? theme.primary : theme.border,
+                    backgroundColor: selected ? tint(theme.primary, 6) : undefined
+                  }}
+                >
+                  <View
+                    className="w-9 h-9 rounded-xl items-center justify-center"
+                    style={{ backgroundColor: meta.color }}
+                  >
+                    <Icon name={meta.icon} size={16} color="#fff" />
+                  </View>
+                  <Text className="text-xs font-semibold text-primary">{meta.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View className="gap-3 mb-4">
+            <TextInput
+              label={`${ACCOUNT_TYPE_META[type].label} account name`}
+              value={name}
+              onChange={setName}
+              placeholder={`e.g. HDFC ${ACCOUNT_TYPE_META[type].label}`}
+            />
+            <TextInput
+              label="Opening balance (optional)"
+              keyboardType="numeric"
+              value={openingBalance}
+              onChange={setOpeningBalance}
+              placeholder="0"
+            />
+          </View>
 
           <View className="flex-row items-start gap-1 mb-6">
             <Icon name="ti-device-mobile" size={11} color={theme.textTertiary} />
@@ -103,14 +135,15 @@ export function AddAccountsScreen() {
           </View>
 
           <View className="mt-auto gap-2.5">
+            <Button variant="secondary" fullWidth onPress={handleAddAnother} disabled={!name.trim()}>
+              Add another account
+            </Button>
             <Button variant="primary" size="lg" fullWidth onPress={handleContinue}>
               Continue
             </Button>
           </View>
         </View>
       </ScrollView>
-
-      {accountForm.showForm && <AccountFormModal form={accountForm} saving={false} />}
     </SafeAreaView>
   );
 }

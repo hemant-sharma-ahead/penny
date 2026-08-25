@@ -156,6 +156,15 @@ ARCHITECTURE.md`'s own storage-adapter writeup (search "Track 2" / "RowStore") w
   `autoCapitalize="characters"` + `autoCorrect={false}`, store exactly what `onChangeText` hands
   back, and uppercase only at the point of use (an API call, the final save) — never in the value
   the field itself displays. Found 2026-08-24 — see `docs/ARCHITECTURE.md`'s matching entry.
+- **A release APK that builds cleanly is never itself evidence it runs** — a release build goes
+  through paths (Hermes bytecode compilation, R8) a debug build/Metro dev session never touches,
+  and a crash can be specific to exactly one of those paths. Before ever committing a rebuilt
+  `apps/mobile/builds/app-arm64-v8a-release.apk`, verify it launches on a real connected device
+  **both** on a genuinely fresh install (`adb uninstall` first) **and** on a warm relaunch of an
+  already-onboarded install — the two are different code paths and have crashed independently of
+  each other. See `CONTRIBUTING.md`'s "Building a standalone Android APK" step 4 for the exact
+  commands. This has broken multiple times (2026-08-23, 2026-08-24) by skipping this exact check —
+  if no device is available, say so explicitly rather than shipping unverified.
 
 ## Working style
 

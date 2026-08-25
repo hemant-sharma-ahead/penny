@@ -222,6 +222,34 @@ cd android
 ./gradlew assembleRelease
 ```
 
+**Step 4, non-negotiable — verify it actually launches, on a real connected device, before
+committing.** This has broken multiple times (2026-08-23's v1.5.2, 2026-08-24's v1.6.0) —
+a build that compiles cleanly is not evidence it runs; a release build goes through paths
+(Hermes bytecode compilation, `assembleRelease`'s own task graph) a debug build/Metro dev
+session never exercises, and a bug can be specific to exactly one of those paths. Both
+of the following are required — one alone has missed a real crash before:
+
+```bash
+adb uninstall com.hesh.penny   # force a genuinely fresh install, not an upgrade over existing data
+adb install apps/mobile/builds/app-arm64-v8a-release.apk
+adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1
+sleep 6
+adb shell ps -A | grep -i penny   # must show a running process, not empty
+adb logcat -d | grep -iE "FATAL EXCEPTION|Fatal signal|ReactNativeJS.*Error"   # must be empty
+```
+
+Then relaunch it 2-3 more times without reinstalling (`adb shell am force-stop com.hesh.penny`
++ the same `monkey` command) to also cover a warm relaunch of an already-onboarded install —
+**a fresh install and a warm relaunch are genuinely different code paths and can crash
+independently of each other** (2026-08-24's crash reproduced 100% of the time on a fresh
+install going through Onboarding, and 0% of the time on a warm relaunch of an existing
+account — testing only one of the two is not sufficient). If either check fails, do not
+commit the APK — find and fix the actual cause (see "Debugging a native-only crash" below),
+or at minimum revert whatever change is suspected and re-verify before shipping anything.
+If no device is available to verify against, say so explicitly rather than shipping
+unverified — this is a judgment call for whoever's asking for the build, not something to
+silently skip.
+
 Copy the resulting `arm64-v8a` APK (the variant to actually install/test with — see the ABI
 note below) into `apps/mobile/builds/` as `app-arm64-v8a-release.apk`, overwriting the
 previous one, and commit it alongside the version bump above in the same commit.
