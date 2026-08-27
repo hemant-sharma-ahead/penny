@@ -79,7 +79,8 @@ export function useTransactionFilters(
     const q = debouncedSearch.trim().toLowerCase();
     return expenses.filter((e) => {
       if (typeFilter !== 'all' && (e.type ?? 'expense') !== typeFilter) return false;
-      if (accountFilters.size > 0 && !accountFilters.has(e.accountId ?? '')) return false;
+      if (accountFilters.size > 0 && !accountFilters.has(e.accountId ?? '') && !accountFilters.has(e.toAccountId ?? ''))
+        return false;
       if (categoryFilters.size > 0) {
         if (!categoryFilters.has(e.categoryId)) return false;
       } else if (parentCategoryFilters.size > 0) {

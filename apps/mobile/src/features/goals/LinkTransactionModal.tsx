@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { View, Pressable, ScrollView, Text } from 'react-native';
 import type { Account, Expense } from '@/core/db/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { Modal, SearchInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
@@ -72,7 +72,7 @@ export function LinkTransactionModal({
                       {e.description}
                     </Text>
                     <Text className="text-xs text-tertiary" numberOfLines={1}>
-                      {formatDateShort(e.date)}
+                      {formatDate(e.date)}
                       {acc?.name ? ` · ${acc.name}` : ''}
                     </Text>
                   </View>

@@ -633,6 +633,22 @@ linked cash account). Core: `suggestRetroactiveCashTransfer()`/`applyCashTransfe
 - **Two year-less date spots fixed.** `FullLedgerPage.tsx`'s and `CheckpointTimelinePage.tsx`'s own
   row dates used `formatDateShort()` (day + month, no year) — misleading for either table, since both
   can span a date range from any year. Swapped to `formatDate()` (already includes the year).
+- **Follow-up pass, same day.** Full Ledger's own date-range header had the identical bug one level up:
+  the "from" date used `formatDateShort()` while the "to" date used `formatDate()`, so the range itself
+  read as asymmetric/misleading (e.g. "12 Aug – 20 Aug 2025"). Both sides now show the year. Its
+  "Load earlier transactions" button, previously a plain bordered `Pressable`, now uses the shared
+  `Button` component with `variant="primary"` — more discoverable as the primary way to keep scrolling
+  back through history.
+- **The same year-less-date bug pattern, swept app-wide.** Prompted by the Full Ledger range fix above,
+  audited every date-formatting call site in `apps/mobile`. Found and fixed the identical
+  asymmetric-range bug in the Events "Tracked" list (`EventsModal.tsx`), the identical
+  both-sides-missing-year bug in bank-import's own statement-batch history (`BankImportHistoryPage.tsx`,
+  covered-range + skipped-row dates) and setup coverage-gap message (`SetupStep.tsx`), plus standalone
+  missing-year dates in account-verification banner copy (`verificationCopy.ts`), Goals (contribution
+  list, link-to-goal picker), IOU ledger entries, SMS tracking review, per-item edit-history timestamps,
+  the IPO tracker, and subscriptions' "last charged" date. Deliberately left alone: dates paired with
+  self-disambiguating relative wording ("Due", "Renews in N days", "Trial may end", "Overdue") where a
+  bare day+month isn't actually ambiguous.
 
 ## Limitations
 

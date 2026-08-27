@@ -23,7 +23,7 @@ export function formatLastUpdated(ts: number): string {
 
 export function formatIpoDate(dateStr: string | null): string {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function currentFyLabel(): string {

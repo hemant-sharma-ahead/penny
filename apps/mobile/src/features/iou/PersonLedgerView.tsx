@@ -1,6 +1,6 @@
 import { View, Pressable, Text } from 'react-native';
 import type { LedgerEntry, Person } from '@/core/db/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { Modal, Button, Badge } from '~/components/ui';
 import { ListRow, DueDateBadge } from '~/components/shared';
 import { Icon } from '~/components/Icon';
@@ -135,7 +135,7 @@ export function PersonLedgerView({
                 subtitle={
                   <View className="flex-row items-center gap-1.5">
                     <Text className="text-xs text-tertiary">
-                      {entryLabel(e)} · {formatDateShort(e.date)}
+                      {entryLabel(e)} · {formatDate(e.date)}
                     </Text>
                     {linked && <Badge label="in account" color={theme.info} size="sm" />}
                   </View>

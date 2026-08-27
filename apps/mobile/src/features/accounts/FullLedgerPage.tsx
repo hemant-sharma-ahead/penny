@@ -27,11 +27,11 @@ import { useRepository } from '@/hooks/useRepository';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDate, formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { Banner, Card, ConfirmDialog, EmptyState, Modal } from '~/components/ui';
+import { Banner, Button, Card, ConfirmDialog, EmptyState, Modal } from '~/components/ui';
 import { ExpenseForm, PossibleMatchPickerModal, type StatementPresetInput } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
@@ -358,7 +358,7 @@ export function FullLedgerPage() {
         <View className="px-4 py-4 gap-3">
           <View className="flex-row items-center justify-between px-3 py-2 rounded-xl border border-theme">
             <Text className="text-xs font-bold text-primary">
-              {formatDateShort(loadedStart)} – {formatDate(windowEnd)}
+              {formatDate(loadedStart)} – {formatDate(windowEnd)}
             </Text>
             <Text className="text-[10px] text-tertiary">
               {rows.length} row{rows.length === 1 ? '' : 's'}
@@ -369,13 +369,14 @@ export function FullLedgerPage() {
            *  so "earlier" content belongs ABOVE what's currently shown, extending the same
            *  continuously-growing list rather than swapping to a disconnected window
            *  (docs/plans/bank-reconciliation-ledger.md, refined 2026-08-10 on-device feedback). */}
-          <Pressable
+          <Button
+            variant="primary"
+            icon="ti-chevron-up"
+            fullWidth
             onPress={() => setLoadedStart((prev) => prev - WINDOW_DAYS * DAY_MS)}
-            className="flex-row items-center justify-center gap-1.5 py-2.5 rounded-full border border-theme"
           >
-            <Icon name="ti-chevron-up" size={13} color={theme.textSecondary} />
-            <Text className="text-xs font-semibold text-secondary">Load earlier transactions</Text>
-          </Pressable>
+            Load earlier transactions
+          </Button>
 
           {rows.length === 0 ? (
             <Card>

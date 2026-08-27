@@ -2873,6 +2873,25 @@ payment mode, and a real "Closed" account status distinct from the still-unused 
   `matcher.ts`'s `convertCandidateToTransfer`. `BankCashWithdrawalCode` gained an optional `direction`
   field; existing rows default to `'withdrawal'`, no migration.
 
+**Same-day follow-up round** — two more real-device findings plus a resulting app-wide sweep:
+
+- **Transactions' Account filter missed transfers into an account.** `useTransactionFilters.ts` only
+  ever matched `e.accountId` — for a transfer that's the source account only, so a transfer landing in
+  the filtered account via `toAccountId` was silently excluded. Fixed to match either field, the same
+  `accountId === X || toAccountId === X` convention already used everywhere else account-scoped
+  (`useHome.ts`, `FullLedgerPage.tsx`, `AccountDetailModal.tsx`, etc.) — this hook was the one outlier.
+- **The year-less-date bug, found in Full Ledger's own range header, turned out to be a recurring
+  pattern, not a one-off.** Full Ledger's "from" date used `formatDateShort()` while the "to" date used
+  `formatDate()` — the identical asymmetric-range shape as the row-date bug fixed just above. Auditing
+  every date-formatting call site in `apps/mobile` for the same shape found and fixed it in
+  `EventsModal.tsx` (Events "Tracked" list), plus plain missing-year dates in `BankImportHistoryPage.tsx`,
+  `SetupStep.tsx`, `verificationCopy.ts`, Goals, IOU ledger entries, SMS tracking review, per-item
+  edit-history timestamps, the IPO tracker, and subscriptions' "last charged" — full list in
+  `docs/features/bank-import.md`'s matching entry. Dates paired with self-disambiguating relative
+  wording ("Due", "Renews in N days", "Overdue") were deliberately left alone — not the same bug shape.
+  Full Ledger's "Load earlier transactions" button also switched from a plain bordered `Pressable` to
+  the shared `Button` component (`variant="primary"`).
+
 ---
 
 ## Dependency graph (simplified)

@@ -9,7 +9,7 @@ import { findStandingCoverageGaps } from '@/core/bank-import/coverage';
 import { useRepository } from '@/hooks/useRepository';
 import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDate, formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -237,7 +237,7 @@ function BatchListView({
                       {b.fileName}
                     </Text>
                     <Text className="text-[11px] text-tertiary mt-0.5" numberOfLines={1}>
-                      {formatDateShort(b.start)}–{formatDateShort(b.end)} · imported {formatDate(b.importedAt)}
+                      {formatDate(b.start)}–{formatDate(b.end)} · imported {formatDate(b.importedAt)}
                     </Text>
                   </View>
                   <View className="items-end shrink-0">
@@ -275,7 +275,7 @@ function BatchDetailView({ modeBg, account, batch }: { modeBg: string; account: 
             <View className="flex-row items-center justify-between">
               <Text className="text-xs text-secondary">Covered range</Text>
               <Text className="text-xs font-semibold text-primary">
-                {formatDateShort(batch.start)}–{formatDateShort(batch.end)}
+                {formatDate(batch.start)}–{formatDate(batch.end)}
               </Text>
             </View>
             <View className="flex-row items-center justify-between">
@@ -318,7 +318,7 @@ function BatchDetailView({ modeBg, account, batch }: { modeBg: string; account: 
                         {r.rawNarration}
                       </Text>
                       <Text className="text-[11px] text-tertiary mt-0.5">
-                        {formatDateShort(r.date)} · you chose not to add
+                        {formatDate(r.date)} · you chose not to add
                       </Text>
                     </View>
                     <Text className="text-xs font-semibold text-primary">{formatCurrency(r.amount)}</Text>

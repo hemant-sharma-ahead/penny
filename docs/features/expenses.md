@@ -143,7 +143,12 @@ transactions-date-header-inline-tight-v3.html` and its predecessors).
   left unused space on a wider screen. **2026-08-18:** a dedicated **Tag** chip section was added to
   `FilterModal.tsx` (right after Account, before Category) — multi-select, OR match (a transaction
   matches if it carries any of the selected tags), same chip pattern as Event/Goal above, backed by a
-  new `tagFilters: string[]` on `FilterState`.
+  new `tagFilters: string[]` on `FilterState`. **2026-08-27:** the Account filter (`useTransactionFilters.ts`)
+  only ever matched a transaction's `accountId` — for a transfer, that's the *source* account only, so a
+  transfer received *into* the filtered account (only on `toAccountId`) was silently excluded. Now
+  matches either field, same convention every other account-scoped view in the app already used
+  (`e.accountId === X || e.toAccountId === X` — `useHome.ts`, `FullLedgerPage.tsx`,
+  `AccountDetailModal.tsx`, etc.).
 - View spending analytics: pie chart and bar chart by category, month-over-month comparison, and a spending trend line
 - Set monthly budgets per category — opened from the **🎯 budget icon in the Transactions toolbar** (centred modal), not a separate tab — and see real-time progress bars; receive alerts when close to or over budget
 - Mark an expense **Lent to** / an income **Borrowed from** a person to seed an IOU ledger entry; conversely, recording from the IOU screen creates the matching expense/income on a chosen account (see the IOU feature doc)

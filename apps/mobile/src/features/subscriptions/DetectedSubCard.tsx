@@ -1,7 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { Card, Button, Badge } from '~/components/ui';
 import { Icon } from '~/components/Icon';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate, formatDateShort } from '@/lib/formatters';
 import { displayName, intervalLabel } from '@/core/subscriptions/format';
 import type { DetectedSubscription } from '@/core/subscriptions/detector';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -46,7 +46,7 @@ export function DetectedSubCard({
       <Pressable onPress={() => onViewTransactions(c)} hitSlop={6} accessibilityRole="button">
         <Text className="text-xs text-tertiary">
           Seen {c.occurrenceCount} time{c.occurrenceCount !== 1 ? 's' : ''}
-          {c.lastChargedAt !== undefined && ` · last ${formatDateShort(c.lastChargedAt)}`}
+          {c.lastChargedAt !== undefined && ` · last ${formatDate(c.lastChargedAt)}`}
           {c.status === 'trial' && c.trialEndsAt !== undefined && (
             <Text style={{ color: theme.info }}> · trial may end {formatDateShort(c.trialEndsAt)}</Text>
           )}

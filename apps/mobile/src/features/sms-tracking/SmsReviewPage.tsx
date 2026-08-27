@@ -5,7 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SmsTransactionRecord } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
@@ -39,7 +39,7 @@ function SimpleRow({ record, muted, first }: { record: SmsTransactionRecord; mut
       <Text className="text-xs" style={{ color: muted ? theme.textTertiary : theme.textSecondary }}>
         {record.amount != null ? formatCurrency(record.amount) : '—'}
       </Text>
-      <Text className="text-[10px] text-tertiary">{formatDateShort(record.receivedAt)}</Text>
+      <Text className="text-[10px] text-tertiary">{formatDate(record.receivedAt)}</Text>
     </View>
   );
 }
