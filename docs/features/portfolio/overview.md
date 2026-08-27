@@ -81,6 +81,11 @@ under Equity's own main tabs + Stocks/MF/IPO/News sub-tabs — see
 [`docs/features/news.md`](../news.md)/[`docs/features/news-sentiment.md`](../news-sentiment.md) for the
 `NewsMoodNote`/combined-Filters-modal/`SegmentedControl` fix.
 
+**2026-08-27 (`apps/mobile` only):** `usePortfolioHoldings.ts`'s `saveHolding`/`removeHolding` now
+broadcast `notifyTxnChanged()` on every write — holdings mutations never told the rest of the app
+anything changed before this, which is what let the Health Score go stale after adding/deleting a
+holding (root cause + full fix in `docs/features/health-score.md`).
+
 ## Current limitations
 
 - Manual entry only — no broker, demat, or bank auto-sync in Phase 1.

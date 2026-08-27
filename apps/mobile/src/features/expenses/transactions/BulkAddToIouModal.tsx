@@ -1,50 +1,18 @@
 import { useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput as RNTextInput } from 'react-native';
 import { Modal, Button, OptionButton } from '~/components/ui';
-import { PersonTypeahead, WizardProgress } from '~/components/shared';
+import { PersonTypeahead, WizardProgress, IOU_EXPENSE_CHOICES, IOU_INCOME_CHOICES } from '~/components/shared';
+import type { IouCategoryChoice } from '~/components/shared';
 import type { ExpenseCategory, Person } from '@/core/db/types';
 import { useThemeColors } from '~/theme/useThemeColors';
 
-interface DirectionChoice {
-  categoryId: string;
-  fallbackLabel: string;
-  fallbackIcon: string;
-  subtitle: (personName: string) => string;
-}
-
-// The four `IOU_MANDATORY_CATEGORY_IDS` (packages/core/src/core/db/defaultCategories.ts), split by the
-// transaction direction each pair applies to. Label/icon/color are read live off the real `categories`
-// array passed in (never hardcoded) — only the person-specific subtitle copy, which isn't category
-// data, lives here.
-const EXPENSE_CHOICES: DirectionChoice[] = [
-  {
-    categoryId: 'cat-lending',
-    fallbackLabel: 'Lending',
-    fallbackIcon: 'ti-arrow-up-right',
-    subtitle: (n) => `You're giving ${n} money`
-  },
-  {
-    categoryId: 'cat-return-borrowed',
-    fallbackLabel: 'Return Borrowed',
-    fallbackIcon: 'ti-corner-down-left',
-    subtitle: (n) => `Paying ${n} back`
-  }
-];
-
-const INCOME_CHOICES: DirectionChoice[] = [
-  {
-    categoryId: 'cat-inc-borrowed',
-    fallbackLabel: 'Borrowed Money',
-    fallbackIcon: 'ti-arrow-down-left',
-    subtitle: (n) => `${n} gave you money`
-  },
-  {
-    categoryId: 'cat-collected-money',
-    fallbackLabel: 'Collected Money',
-    fallbackIcon: 'ti-corner-up-right',
-    subtitle: (n) => `${n} paid you back`
-  }
-];
+// Choice data (label/icon/subtitle per category) now lives in `~/components/shared/iouCategoryChoices.ts`
+// — shared with `EntryForm.tsx`'s "Add IOU" popup (2026-08-26) so both surfaces show the same four
+// categories the same way instead of drifting independently. Kept as local aliases here purely to avoid
+// touching every reference below.
+const EXPENSE_CHOICES = IOU_EXPENSE_CHOICES;
+const INCOME_CHOICES = IOU_INCOME_CHOICES;
+type DirectionChoice = IouCategoryChoice;
 
 interface Props {
   categories: ExpenseCategory[];

@@ -230,6 +230,26 @@ latest data), but is not recomputed again once the goal is actually added — fr
   already skips itself as an `'add-data'` action when there's no expense data) — audited as part of this
   work, no change needed there.
 
+**Sync/consistency fixes, 2026-08-26 (`apps/mobile` only) — found alongside the identical IOU-side
+bug, see `docs/features/iou.md`:**
+
+- **Origin no longer gates matching.** `reconcileGoalLink` had the same bug as IOU's
+  `reconcileExpenseLink`: it only matched an existing linked `GoalContribution` when `origin ===
+'expense'`, so a contribution created the other way (`useGoals.ts`'s manual contribution flow,
+  `origin: 'manual'`) was invisible to a later edit from the Transactions tab. Fixed identically —
+  matches on `linkedTxnId` alone, `origin` preserved rather than forced (`GoalDetailView.tsx`'s
+  `editable = c.origin === 'manual'` check still depends on it staying accurate).
+- **`useGoals.ts` bypassing its own repository wrappers.** `syncLinkedGoalTxn`, `saveGoalContributionTxn`,
+  and `removeContribution` all called `expensesRepo.put()`/`.delete()` directly instead of the hook's
+  own `save`/`remove` wrappers from `useRepository<Expense>` — same staleness risk as the IOU-side bug,
+  fixed the same way.
+- **`linkTransaction` ("Link existing transaction") had its own, independent bug.** It called
+  `goalContributionsRepo.put()`/`.delete()` directly — bypassing `useLoggedRepository`'s own
+  `save`/`remove` (so linking/unlinking a transaction to a goal never got an activity-log entry) — *and*
+  never called `notifyTxnChanged()` at all, so nothing else on screen learned a link had changed without
+  a manual pull-to-refresh. Both fixed: routes through the logged wrappers, and broadcasts on the shared
+  refresh bus when anything actually changed.
+
 ## Current limitations
 
 - **`apps/web-react` (frozen):** contributions must still be logged manually — no way to link an expense

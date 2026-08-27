@@ -4,6 +4,7 @@ import type { Expense, Goal, Holding, InsurancePolicy, Liability } from '@/core/
 import { computeHealthScore, deriveInputs, deriveRecentMonthlyIncome } from '@/core/health/scorer';
 import type { HealthScore } from '@/core/health/scorer';
 import { useProfile } from '@/hooks/useProfile';
+import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { parseNumber } from '@/lib/formatters';
 import { getItem, setItem } from '~/lib/storage';
 
@@ -76,6 +77,30 @@ export function useHealthScore() {
       cancelled = true;
     };
   }, [nowMs]);
+
+  // Found 2026-08-27, real-user report: adding then deleting a holding left the score unchanged —
+  // this hook loaded its snapshot once at mount with no subscription of its own, so any later
+  // holdings/expenses/liabilities/policies/goals change (from any other screen, including this app's
+  // own holdings hook once it started broadcasting — see `usePortfolioHoldings.ts`'s matching fix)
+  // never reached an already-mounted health score screen. Deliberately re-fetches all 5 (not just
+  // holdings) since any of them can change independently of this hook's own mount. Doesn't touch
+  // `monthlyIncome` — that's the user's own persisted input, not derived from this refresh.
+  // `useTxnRefresh` requires a stable callback (its own doc comment) — `useCallback` with no deps,
+  // same as every other `useTxnRefresh` consumer in this app.
+  const reloadDomainData = useCallback(() => {
+    void Promise.all([
+      holdingsRepo.getAll(),
+      expensesRepo.getAll(),
+      liabilitiesRepo.getAll(),
+      insurancePoliciesRepo.getAll(),
+      goalsRepo.getAll()
+    ])
+      .then(([holdings, expenses, liabilities, policies, goals]) => {
+        setData({ holdings, expenses, liabilities, policies, goals });
+      })
+      .catch(() => {});
+  }, []);
+  useTxnRefresh(reloadDomainData);
 
   const derived = useMemo(
     () =>

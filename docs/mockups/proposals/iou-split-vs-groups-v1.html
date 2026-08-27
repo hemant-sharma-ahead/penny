@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Personal IOU split amount vs. Groups (design discussion)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 34px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:820px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:820px; margin:0 auto 20px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 22px; justify-content:center; align-items:flex-start; padding:6px 20px 10px; }
+      .frame-wrap { width:270px; }
+      .vtitle { font-size:12.5px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.blk { background:#3a1414; color:#f09090; }
+      .vsub { font-size:10.5px; color:#9aa5b1; margin:0 2px 12px; line-height:1.5; }
+
+      .phone { width:270px; background:var(--bg); border-radius:28px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); gap:8px; }
+      .header .back, .header .x { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:14px; }
+      .htitle { flex:1; text-align:center; font-size:13px; font-weight:700; color:var(--text); }
+      .content { padding:10px 12px 12px; flex:1; }
+      .footer { padding:10px 12px; border-top:1px solid var(--border); display:flex; gap:8px; }
+      .btn { flex:1; text-align:center; padding:9px 0; border-radius:10px; font-size:11.5px; font-weight:700; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+
+      .flabel { font-size:9.5px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .field { position:relative; margin-bottom:8px; }
+      .field input, .field .fakein { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11.5px; color:var(--text); }
+      .helptext { font-size:9.5px; color:var(--text3); margin-top:7px; line-height:1.5; }
+      .caption { font-size:9.5px; color:var(--text3); margin-top:5px; font-style:italic; }
+
+      /* Amount + split-shortcut row (new, this file) */
+      .amtrow2 { display:flex; align-items:center; gap:6px; }
+      .amtrow2 .field { flex:1; margin-bottom:0; }
+      .amtrow2 .fakein { text-align:right; font-weight:700; }
+      .splitchip { flex-shrink:0; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); font-size:10.5px; font-weight:700; color:var(--text2); display:flex; align-items:center; gap:4px; white-space:nowrap; }
+      .splitchip.on { background:rgba(0,168,107,.14); border-color:var(--primary); color:#3ecf8e; }
+      .fulllabel { font-size:9.5px; color:var(--text3); margin-top:4px; }
+      .fulllabel .strike { text-decoration:line-through; opacity:.6; margin-right:4px; }
+
+      /* Person ledger header (grounded in PersonLedgerView.tsx) */
+      .ledgerhead { text-align:left; padding:2px 2px 10px; }
+      .ledgerhead .lbl { font-size:10px; color:var(--text3); }
+      .ledgerhead .amt { font-size:22px; font-weight:800; margin-top:1px; }
+      .ledgerhead .amt.pos { color:var(--success); }
+      .ledgerhead .amt.neg { color:var(--danger); }
+      .entryrow { display:flex; align-items:center; gap:8px; padding:8px 8px; border-radius:11px; background:var(--surface2); margin-bottom:6px; }
+      .entryrow .ic { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .entryrow .ic.up { background:rgba(16,185,129,.14); color:var(--success); }
+      .entryrow .body { flex:1; }
+      .entryrow .t { font-size:11px; font-weight:600; color:var(--text); }
+      .entryrow .s { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .entryrow .a { font-size:11.5px; font-weight:700; color:var(--success); }
+      .badge { font-size:8px; font-weight:700; padding:1px 6px; border-radius:999px; background:rgba(59,130,246,.15); color:var(--info); }
+
+      /* Linked-group note (Direction C) */
+      .linkbanner { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:11px; border:1px dashed rgba(0,168,107,.4); background:rgba(0,168,107,.08); margin-top:2px; }
+      .linkbanner i { color:#3ecf8e; font-size:14px; }
+      .linkbanner .t { font-size:10px; color:#cfe9db; line-height:1.4; flex:1; }
+      .linkbanner .t b { color:#7ee6b8; }
+      .combinedpill { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:999px; border:1px solid var(--border); background:var(--surface2); font-size:9.5px; font-weight:700; color:var(--text2); margin-top:8px; }
+      .combinedpill i { font-size:11px; color:var(--text3); }
+
+      /* Groups card (grounded in GroupDashboard.tsx) */
+      .groupcard { border:1px solid var(--border); border-radius:13px; padding:10px 11px; background:var(--surface2); }
+      .groupcard .gtop { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+      .groupcard .gname { font-size:11.5px; font-weight:700; color:var(--text); flex:1; }
+      .groupcard .gicon { width:22px; height:22px; border-radius:7px; background:var(--surface3); display:flex; align-items:center; justify-content:center; }
+      .groupcard .gicon i { font-size:11px; color:var(--text2); }
+      .memberrow { display:flex; align-items:center; gap:6px; padding:5px 0; font-size:10.5px; }
+      .memberrow .n { flex:1; color:var(--text); }
+      .memberrow .b.pos { color:var(--success); font-weight:700; }
+      .memberrow .b.neg { color:var(--danger); font-weight:700; }
+
+      .disconnect { display:flex; align-items:center; justify-content:center; gap:10px; margin:14px auto; max-width:600px; }
+      .disconnect .x { font-size:22px; color:var(--danger); }
+      .disconnect .line { flex:1; height:1px; background:repeating-linear-gradient(to right, var(--border) 0 6px, transparent 6px 12px); }
+
+      /* Direction B flow strip */
+      .flowstrip { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:center; }
+      .flowstep { border:1px solid var(--border); border-radius:11px; background:var(--surface2); padding:9px 11px; font-size:10.5px; color:var(--text2); text-align:center; max-width:150px; }
+      .flowstep b { display:block; color:var(--text); font-size:11px; margin-bottom:2px; }
+      .flowarrow { color:var(--text3); font-size:14px; }
+
+      .verdict { border-radius:12px; border:1px solid; padding:10px 13px; font-size:11px; line-height:1.6; max-width:700px; margin:14px auto 0; }
+      .verdict.no { border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.1); color:#fac6c6; }
+      .verdict.yes { border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.1); color:#bdf5db; }
+
+      .cmptable { max-width:900px; margin:0 auto 10px; border-collapse:collapse; width:100%; font-size:11.5px; }
+      .cmptable th, .cmptable td { border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top; line-height:1.5; }
+      .cmptable th { background:var(--surface2); color:#fff; font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
+      .cmptable td.lbl { color:var(--text2); font-weight:700; white-space:nowrap; background:#0e141b; }
+      .cmptable td.rec { background:rgba(0,168,107,.08); color:#d7f5e6; }
+      .cmptable .yes { color:#7ee6b8; } .cmptable .no { color:#f09090; } .cmptable .mid { color:#f0b060; }
+
+      .recommend { max-width:860px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:16px 20px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:860px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol, .legend ul { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:5px; }
+    </style>
+  </head>
+  <body>
+    <h1>Personal IOU split amount vs. Groups — should IOU handle both?</h1>
+    <p class="sub">Triggered by a real question: if the Lent/Borrowed panel gets an editable amount (so a
+      ₹500 cab can be logged as a ₹250 debt, not the full ₹500), does that start blurring into what Groups
+      already does — and should the two roommates in this example have <b>one</b> combined "who owes whom"
+      number, or stay two genuinely separate ledgers the way they are today? Three directions below, grounded
+      in <code>PersonLedgerView.tsx</code>, <code>GroupDashboard.tsx</code>, and <code>ExpenseForm.tsx</code>'s
+      real current screens — nothing here is built yet.</p>
+    <div class="topnav">
+      <a href="#s1">① The real gap today</a>
+      <a href="#s2">② Direction A — split amount, stay separate</a>
+      <a href="#s3">③ Direction B — merge into Groups</a>
+      <a href="#s4">④ Direction C — recommended</a>
+      <a href="#s5">⑤ Comparison &amp; recommendation</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>The real gap today</div>
+      <div class="sectionsub">Same roommate, two completely independent balances — a shared-cost total
+        from a Group, and a separate ad-hoc debt total from personal IOU. Neither knows the other exists.</div>
+      <div class="groundnote">Confirmed in code: a <code>Person</code> (personal IOU) and a
+        <code>GroupMember</code> (Groups) are two unrelated records today. <code>GroupMember.linkedPersonId</code>
+        exists in the schema but is reserved/unused — there's no live bridge yet, only a planned one-way
+        "promote this Person's ledger to a Group" action (Phase 3 of the real-device-testing-pass plan).</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Groups tab · "Flat 4B" <span class="tag cur">Current</span></div>
+          <div class="vsub">Shared groceries/rent, split evenly among 2 flatmates — its own running balance.</div>
+          <div class="phone" style="height:170px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="groupcard">
+                <div class="gtop"><div class="gicon"><i class="ti ti-users"></i></div><div class="gname">Flat 4B</div></div>
+                <div class="memberrow"><div class="n">Ramesh S</div><div class="b pos">owes you ₹1,200</div></div>
+              </div>
+              <div class="helptext">From shared groceries + rent splits this month.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">IOU tab · "Ramesh S" <span class="tag cur">Current</span></div>
+          <div class="vsub">The very same person — but a separate ledger, separate number, no cross-reference.</div>
+          <div class="phone" style="height:170px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="ledgerhead">
+                <div class="lbl">Ramesh S owes you</div>
+                <div class="amt pos">₹500</div>
+              </div>
+              <div class="helptext">From a cab ride you covered — logged separately, no idea Flat 4B exists.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="disconnect"><i class="ti ti-plug-connected-x x"></i><div class="line"></div></div>
+      <p class="sub" style="margin-top:0;font-size:12px">Ramesh's real total exposure to you is ₹1,700 — but
+        nothing in the app ever shows that single number, and (separately) there's no way to log a
+        <i>partial</i> debt in IOU at all, only the full transaction amount. Directions below tackle both.</p>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>Direction A — editable split amount, IOU and Groups stay fully separate</div>
+      <div class="sectionsub">Fixes the "can't log a partial debt" gap only. IOU keeps its current identity —
+        a simple, informal, one-off 1:1 ledger — and never learns Groups exists.</div>
+      <div class="groundnote"><code>ExpenseForm.tsx</code>'s Lent panel (~line 1540) today has only a person
+        field — the ledger amount is silently forced to equal the whole transaction amount (<code>amt</code>,
+        same variable, no override). This adds one editable amount field, prefilled with the full amount, plus
+        a "Split evenly" shortcut chip for the common 50/50 case — still a single free-typed number underneath,
+        so any ratio works, not just half.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Lent panel <span class="tag cur">Current</span></div>
+          <div class="vsub">Person only. Saving always creates a ₹500 debt — the full cab fare.</div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person's name</div>
+              <div class="field"><div class="fakein">Ramesh S</div></div>
+              <div class="helptext">Adds a they-owe-you entry to this person's ledger.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Lent panel <span class="tag rec">After — default (full amount)</span></div>
+          <div class="vsub">New amount field, prefilled to the transaction's ₹500 — behaves exactly like today
+            if left untouched.</div>
+          <div class="phone" style="height:190px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person's name</div>
+              <div class="field"><div class="fakein">Ramesh S</div></div>
+              <div class="flabel">Amount owed</div>
+              <div class="amtrow2">
+                <div class="field"><div class="fakein">₹500</div></div>
+                <div class="splitchip"><i class="ti ti-arrow-bar-to-down"></i> ½ Split</div>
+              </div>
+              <div class="helptext">Adds a ₹500 they-owe-you entry — the whole fare, unchanged from today.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "½ Split" <span class="tag rec">After — halved, still editable</span></div>
+          <div class="vsub">One tap fills the common case; the field stays a normal input, so ₹300/₹150 or any
+            other split works too, just type over it.</div>
+          <div class="phone" style="height:200px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person's name</div>
+              <div class="field"><div class="fakein">Ramesh S</div></div>
+              <div class="flabel">Amount owed</div>
+              <div class="amtrow2">
+                <div class="field"><div class="fakein" style="color:#3ecf8e">₹250</div></div>
+                <div class="splitchip on"><i class="ti ti-check"></i> ½ Split</div>
+              </div>
+              <div class="fulllabel"><span class="strike">₹500 full fare</span> · you cover the rest</div>
+              <div class="helptext">Adds a ₹250 they-owe-you entry — the transaction itself still shows ₹500
+                spent, unaffected.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">IOU tab result <span class="tag rec">After — correct partial debt</span></div>
+          <div class="vsub">Groups untouched — no new concepts, no membership, nothing to configure.</div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="ledgerhead">
+                <div class="lbl">Ramesh S owes you</div>
+                <div class="amt pos">₹250</div>
+              </div>
+              <div class="helptext">Now reflects the real half-share, not the whole fare.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Field left untouched <span class="tag rec">After — non-restrictive, not just halves</span></div>
+          <div class="vsub">"½ Split" is a shortcut, not a rule — the field is a plain number underneath. Full
+            amount, a ⅓ share, or anything else all work the same way, just by typing over it.</div>
+          <div class="phone" style="height:190px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person's name</div>
+              <div class="field"><div class="fakein">Ramesh S</div></div>
+              <div class="flabel">Amount owed</div>
+              <div class="amtrow2">
+                <div class="field"><div class="fakein">₹500</div></div>
+                <div class="splitchip"><i class="ti ti-arrow-bar-to-down"></i> ½ Split</div>
+              </div>
+              <div class="helptext">Left at ₹500 (you paid, he owes it all) — exactly today's only behavior,
+                still fully supported, not a fallback that's harder to reach than a split.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="groundnote" style="max-width:700px;margin-top:18px">
+        <b style="color:#fff">Where do the ₹500 and ₹250 actually live? Two separate records, always.</b>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;justify-content:center">
+          <div class="groupcard" style="width:190px">
+            <div class="gtop"><div class="gicon"><i class="ti ti-receipt"></i></div><div class="gname">Expense</div></div>
+            <div style="font-size:16px;font-weight:800;color:var(--text)">₹500</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Transport · what you actually paid</div>
+          </div>
+          <div class="flowarrow"><i class="ti ti-arrow-right"></i></div>
+          <div class="groupcard" style="width:190px;border-color:rgba(0,168,107,.4)">
+            <div class="gtop"><div class="gicon"><i class="ti ti-arrow-up-right"></i></div><div class="gname">LedgerEntry</div></div>
+            <div style="font-size:16px;font-weight:800;color:#3ecf8e">₹250</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">linkedTxnId → the Expense above</div>
+          </div>
+        </div>
+        <p style="margin:10px 0 0">One <code>Expense</code> row (₹500) and one <code>LedgerEntry</code> row (₹250),
+          joined only by <code>linkedTxnId</code> — never the same field. <b style="color:#fff">Bank import/
+          reconciliation, the account's balance, budgets, and Analytics only ever read
+          <code>Expense.amount</code></b> — they have no idea a split even happened, so nothing about
+          reconciliation changes. The Lent panel's amount field writes to the <code>LedgerEntry</code> alone
+          (via <code>seedIouFromExpense</code>/<code>reconcileExpenseLink</code>); it never touches
+          <code>Expense.amount</code>. This is the opposite direction from <code>EntryForm.tsx</code>'s
+          standalone "Add IOU" flow, where the entry amount <i>is</i> the money movement and, if recorded, becomes
+          the transaction's own amount too (there's no separate "full cost" in that flow to begin with).</p>
+      </div>
+
+      <div class="verdict yes">Cheap, low-risk, fixes the actual reported gap, and doesn't restrict the amount to
+        any particular fraction — full amount remains the default, any other number is one edit away. Doesn't
+        address the "two disconnected totals for Ramesh" problem from §1 — Direction C adds that on top.</div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Direction B — merge personal IOU into Groups entirely</div>
+      <div class="sectionsub">The other extreme: retire the Lent/Borrowed panel, route every person-money
+        interaction — even a single ₹500 cab — through a Group, since Groups already computes real splits.</div>
+      <div class="groundnote">What this would actually require: <code>Person</code> (offline, local-only,
+        created by typing a name) would need to become — or be backed by — a <code>Group</code>
+        (membership records, roles/admin, the sync/fold-engine machinery in <code>workers/groups</code>).
+        Every current personal-IOU screen (<code>PersonLedgerView</code>, <code>EntryForm</code>,
+        <code>SettleUpModal</code>) would be replaced by Group screens for what's today a zero-setup, fully
+        offline feature.</div>
+
+      <div class="gallery" style="max-width:900px;margin:0 auto">
+        <div class="flowstrip" style="width:100%">
+          <div class="flowstep"><b>Log the cab</b>Open expense form, ₹500, Transport</div>
+          <div class="flowarrow"><i class="ti ti-arrow-right"></i></div>
+          <div class="flowstep"><b>No "Lent to" option</b>Only "Share with a group" remains</div>
+          <div class="flowarrow"><i class="ti ti-arrow-right"></i></div>
+          <div class="flowstep"><b>No group with Ramesh yet</b>Must create one — name it, add him as a member</div>
+          <div class="flowarrow"><i class="ti ti-arrow-right"></i></div>
+          <div class="flowstep"><b>Now split it</b>Pick participants, confirm the ₹250 share</div>
+        </div>
+      </div>
+      <div class="verdict no">Real friction for the common case: a one-off ₹500 cab now needs a named,
+        membered Group before you can log it — for something you might never split with Ramesh again. Groups'
+        data model (membership, admin roles, multi-device sync) is genuinely heavier machinery than "I paid,
+        note that Ramesh owes me ₹250" needs. Not recommended — this solves the "one combined number" problem
+        by force-migrating every quick 1:1 debt into the wrong-weight tool.</div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Direction C — recommended: stay separate, bridge the visibility</div>
+      <div class="sectionsub">Ship Direction A's split amount as-is. Keep the two ledgers structurally separate
+        — different data models for a real reason (one-off informal debt vs. a persistent multi-party pool) —
+        but when the same human exists in both, surface that fact instead of staying silent about it.</div>
+      <div class="groundnote">Uses the schema link that already exists but sits unused —
+        <code>GroupMember.linkedPersonId</code>. Once a Person is linked to a Group member (via the existing
+        "Promote to Group" flow, or a lighter new "This is the same person as…" match), <code>PersonLedgerView</code>
+        shows a small read-only note with that Group's current balance alongside — no merged total is stored
+        anywhere, purely a display-time join of two numbers that both already exist.</div>
+
+      <div class="groundnote" style="max-width:800px">
+        <b style="color:#fff">Can one Person link to more than one Group? Yes, structurally — but not through
+        any existing flow yet.</b> Checked <code>packages/core/src/core/db/types/index.ts</code>: `linkedPersonId`
+        lives on <code>GroupMember</code> (line 997), not on <code>Person</code> — so it's naturally
+        many-to-one. Ramesh's <code>Person</code> row can be pointed at by his "Flat 4B" <code>GroupMember</code>
+        row <i>and</i> separately by his "Trip to Goa" <code>GroupMember</code> row, with no conflict — nothing
+        about the schema caps it at one Group. The real gap: grepping the codebase, the <b>only</b> place that
+        ever writes <code>linkedPersonId</code> today is <code>PromoteToGroupWizard.tsx</code>'s one-way
+        "Promote" action — which also sets <code>Person.promotedToGroupId</code> and archives the Person. That
+        flow is a migration (this Person's ledger becomes this one Group), not a general-purpose match, so it
+        doesn't actually give you a live, still-active Person linked to two independent Groups today. Direction
+        C needs a second, lighter action — "Link to an existing Group member" (no archiving, no ledger
+        migration, just sets `linkedPersonId` on that one <code>GroupMember</code> row) — repeatable per Group,
+        which is what makes the multi-Group case below possible.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">IOU tab · "Ramesh S" <span class="tag rec">After — linked to 2 Groups at once</span></div>
+          <div class="vsub">The ₹500/₹250 fix from §2, plus one dashed note per linked Group — Ramesh is a live
+            member of both, matched via two separate "Link to Group member" actions, no promotion/archiving.</div>
+          <div class="phone" style="height:290px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="ledgerhead">
+                <div class="lbl">Ramesh S owes you</div>
+                <div class="amt pos">₹250</div>
+              </div>
+              <div class="linkbanner">
+                <i class="ti ti-users"></i>
+                <div class="t">Also in <b>Flat 4B</b> — owes you <b>₹1,200</b> there from shared costs. Tap to open.</div>
+              </div>
+              <div class="linkbanner" style="margin-top:6px">
+                <i class="ti ti-users"></i>
+                <div class="t">Also in <b>Trip to Goa</b> — owes you <b>₹340</b> there. Tap to open.</div>
+              </div>
+              <div class="entryrow" style="margin-top:8px"><div class="ic up"><i class="ti ti-arrow-up-right"></i></div><div class="body"><div class="t">You lent</div><div class="s">26 Aug</div></div><div class="a">₹250</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Optional add-on <span class="tag">Idea, not core to this decision</span></div>
+          <div class="vsub">A "Show combined total" pill — adds all three numbers for display only, no data
+            change. Worth having, but separable from the core split-amount fix in §2, and gets less obviously
+            "just addition" once 2+ Groups are involved (see legend note below).</div>
+          <div class="phone" style="height:250px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="ledgerhead">
+                <div class="lbl">Ramesh S owes you</div>
+                <div class="amt pos">₹250</div>
+              </div>
+              <div class="linkbanner">
+                <i class="ti ti-users"></i>
+                <div class="t">Also in <b>Flat 4B</b> (₹1,200) and <b>Trip to Goa</b> (₹340).</div>
+              </div>
+              <div class="combinedpill"><i class="ti ti-calculator"></i> Combined across all three: ₹1,790</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">No link yet <span class="tag">Unaffected case</span></div>
+          <div class="vsub">Most IOU persons will never be in a Group — nothing changes for them, no banner,
+            no extra UI weight.</div>
+          <div class="phone" style="height:190px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="ledgerhead">
+                <div class="lbl">Priya K owes you</div>
+                <div class="amt pos">₹800</div>
+              </div>
+              <div class="entryrow"><div class="ic up"><i class="ti ti-arrow-up-right"></i></div><div class="body"><div class="t">You lent</div><div class="s">20 Aug</div></div><div class="a">₹800</div></div>
+              <div class="helptext" style="margin-top:2px">No Group match — identical to today's screen.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="verdict yes">Also answers "will the Group itself show 250 or 500": neither number ever
+        crosses over. A Group's own shared-expense split (e.g. Flat 4B's ₹1,200) is computed entirely inside
+        that Group's own event log, entered separately, with its own participants and its own split math — it
+        has no awareness of this personal <code>LedgerEntry</code>'s ₹250 and never will under Direction C. The
+        linked note above only <i>displays</i> that Group's already-computed number next to the IOU one; it
+        doesn't feed either number into the other.</div>
+    </div>
+
+    <!-- ================= SECTION 5 ================= -->
+    <div class="sectionband" id="s5">
+      <div class="sectiontitle"><span class="num">5</span>Comparison &amp; recommendation</div>
+      <table class="cmptable">
+        <tr><th>Direction</th><th>Partial/split debt in IOU</th><th>One-off, zero-setup 1:1 debt</th><th>Persistent multi-party pool (rent, groceries)</th><th>One combined "total owed" number</th><th>Build cost</th></tr>
+        <tr>
+          <td class="lbl">A — split amount only</td>
+          <td class="yes">Yes</td>
+          <td class="yes">Yes, unchanged</td>
+          <td class="no">Not its job — use Groups</td>
+          <td class="no">No — stays two numbers</td>
+          <td class="yes">Small — one field + one shortcut chip</td>
+        </tr>
+        <tr>
+          <td class="lbl">B — merge into Groups</td>
+          <td class="yes">Yes, via a split</td>
+          <td class="no">Lost — needs a Group first</td>
+          <td class="yes">Yes, already Groups' job</td>
+          <td class="yes">Yes, by construction</td>
+          <td class="no">Large — replaces a whole feature, forces membership/sync onto casual debts</td>
+        </tr>
+        <tr class="rec">
+          <td class="lbl">C — A + linked visibility (recommended)</td>
+          <td class="yes">Yes</td>
+          <td class="yes">Yes, unchanged</td>
+          <td class="mid">Still Groups' job — just visible from IOU too</td>
+          <td class="mid">Shown side-by-side (and optionally summed for display) without merging the ledgers</td>
+          <td class="mid">Moderate — A's field, plus a read-only join off the existing (unused)
+            <code>linkedPersonId</code></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation: Direction C.</b> Keep personal IOU and Groups as two deliberately different tools —
+      they answer different questions ("what does this one person personally owe me, informally, right now"
+      vs "what's the running settle-up on this shared pool of costs among a fixed set of people"), and
+      Direction B's cost of forcing every debt through Group membership isn't worth paying just to get one
+      combined number. Ship §2's split-amount field on its own first — it's the actually-reported gap, is
+      fully non-restrictive (full amount stays the default; any other split is one edit away), and never
+      touches the real <code>Expense.amount</code> that bank import/reconciliation/budgets/Analytics rely on —
+      that number stays exactly what was paid, always. The linked-note in §4 is real value but needs a new,
+      lighter "Link to an existing Group member" action (distinct from the existing archiving "Promote"
+      flow) before it can support a Person who's an active member of more than one Group at once — treat that
+      as a fast follow-up, not a blocker for shipping the split amount.
+      <ul>
+        <li>Cross-platform: <code>apps/web-react</code>'s <code>ExpenseForm.tsx</code> has the identical
+          person-only Lent panel and the identical two-unlinked-ledgers gap — frozen, so nothing here proposes
+          touching it, flagging only that mobile and web already agree on the current gap.</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§2 "Split evenly" scope</b> — modeled as always a straight ½, regardless of how many people are
+          actually involved (the transaction itself has no participant count, unlike a Group expense). If a
+          3-way informal split is common enough to matter, the chip would need to ask "split between how
+          many?" instead of assuming 2 — flag if that's a real case, otherwise ½ covers the roommate scenario
+          that prompted this.</li>
+        <li><b>§2 label</b> — used "Amount owed" rather than "Their share," to stay correct for both
+          Lent (they owe you this) and Borrowed (you owe them this) without two different field labels.</li>
+        <li><b>§4 matching mechanism</b> — confirmed <code>linkedPersonId</code> lives on <code>GroupMember</code>,
+          so one Person can be matched to any number of Groups with no schema change. But the only code that
+          writes it today is the archiving "Promote to Group" flow — a genuinely new, non-archiving "Link to an
+          existing Group member" action (matching by name, with confirmation, reusable per Group) needs its own
+          small design pass before §4's multi-Group banners are real, not just mocked here.</li>
+        <li><b>§4 combined-total pill</b> — shown as an idea, deliberately kept optional/secondary, and gets
+          weaker the more Groups pile up: summing a one-off debt with two different Groups' running pools
+          implies they're one number when they're really three separately-settling ones (a personal debt clears
+          in a single payment; each Group's pool keeps accruing on its own schedule). Worth a second look
+          before committing to it, separate from the core recommendation.</li>
+        <li><b>§2/§4 amount vs. transaction, confirmed</b> — the split field only ever writes to the
+          <code>LedgerEntry</code> (via <code>reconcileExpenseLink</code>); the linked <code>Expense.amount</code>
+          (₹500) is never touched by it, so bank-statement reconciliation, account balances, budgets, and
+          Analytics all keep reading the real amount paid regardless of what split value is entered. The
+          reverse flow — <code>EntryForm.tsx</code>'s standalone "Add IOU," where the entry amount doubles as
+          the recorded transaction if "record as transaction" is on — has no separate "full cost" to preserve
+          in the first place, so this split-field concern doesn't apply there.</li>
+      </ol>
+    </div>
+  </body>
+</html>

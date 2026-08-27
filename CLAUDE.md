@@ -168,6 +168,21 @@ ARCHITECTURE.md`'s own storage-adapter writeup (search "Track 2" / "RowStore") w
   now, not instructions to retype under time pressure. See `CONTRIBUTING.md`'s "Building a
   standalone Android APK" step 4. If no device is available, say so explicitly rather than shipping
   unverified.
+- **A hook that loads data once at mount, with no subscription to the app's refresh bus
+  (`useTxnRefresh`/`notifyTxnChanged`, `packages/core/src/hooks/useTxnRefresh.ts`), will go stale
+  the moment anything else — including another instance of itself — writes the same data**, since
+  bottom-tab screens stay mounted rather than unmounting on tab switch. This has recurred enough to
+  treat as a standing risk, not a one-off: `useExpenses.ts` (2026-08-10), `IouView.tsx`/`useGoals.ts`
+  calling a repo directly instead of through their own `useRepository`/`useLoggedRepository`
+  wrapper (2026-08-26), and `usePortfolioHoldings.ts` never broadcasting on save/remove at all
+  (2026-08-27, the confirmed cause of a stale Health Score after adding/deleting a holding) — see
+  `docs/ARCHITECTURE.md`'s matching 2026-08-26/27 entry. When adding or reviewing a hook that reads
+  data another screen can also write: (1) always mutate through that hook's own repository wrapper,
+  never the raw `EncryptedRepository` directly, and (2) if the hook's data can go stale from an
+  *other* screen's write, subscribe via `useTxnRefresh` and reload. A full app-wide audit of every
+  mutation path against this is its own separate, not-yet-started task
+  (`docs/plans/real-device-testing-pass.md`'s Phase 7) — don't treat fixing one instance as having
+  covered the rest.
 
 ## Working style
 

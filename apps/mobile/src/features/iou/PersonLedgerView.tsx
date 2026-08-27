@@ -111,9 +111,13 @@ export function PersonLedgerView({
           {entries.map((e) => {
             const color = entryColor(e, theme);
             const linked = !!e.linkedTxnId;
-            // Manual lent/borrowed entries are editable (editing re-syncs any linked transaction).
-            // Expense-origin entries are owned by their expense — edit there; settlements aren't edited.
-            const editable = e.kind !== 'settlement' && e.origin !== 'expense';
+            // 2026-08-26: `origin` no longer gates editability — both reconcile directions
+            // (`reconcileExpenseLink`/`syncLinkedTxn`) are origin-agnostic now, so editing an
+            // expense-origin entry here re-syncs its linked transaction correctly, same as a manual
+            // one. Only settlements stay non-editable-by-tap (a settlement's "edit" is really "undo and
+            // redo it" — no edit form exists for one here). Delete is always available on every row
+            // regardless (see `right` below), decoupled from `editable`.
+            const editable = e.kind !== 'settlement';
             const row = (
               <ListRow
                 icon={
@@ -144,15 +148,13 @@ export function PersonLedgerView({
                     {e.dueDate !== undefined && e.kind !== 'settlement' && (
                       <DueDateBadge dueDateMs={e.dueDate} nowMs={nowMs} />
                     )}
-                    {!editable && (
-                      <Pressable
-                        onPress={() => onDeleteEntry(e.id)}
-                        className="w-7 h-7 items-center justify-center rounded-lg"
-                        accessibilityLabel="Delete entry"
-                      >
-                        <Icon name="ti-trash" size={13} color={theme.textTertiary} />
-                      </Pressable>
-                    )}
+                    <Pressable
+                      onPress={() => onDeleteEntry(e.id)}
+                      className="w-7 h-7 items-center justify-center rounded-lg"
+                      accessibilityLabel="Delete entry"
+                    >
+                      <Icon name="ti-trash" size={13} color={theme.textTertiary} />
+                    </Pressable>
                   </View>
                 }
               />

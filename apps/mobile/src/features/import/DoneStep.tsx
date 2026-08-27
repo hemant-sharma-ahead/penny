@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text } from 'react-native';
-import { Button, Banner } from '~/components/ui';
+import { Button, Banner, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -67,6 +67,11 @@ export function DoneStep({
 }: DoneStepProps) {
   const theme = useThemeColors();
   const [undoing, setUndoing] = useState(false);
+  // Found 2026-08-27, real-user report: this fired immediately on tap, with no confirmation — a
+  // single mis-tap right after a large successful import could silently remove all of it. Same
+  // `ConfirmDialog` pattern already used for other destructive-but-easy-to-fat-finger actions
+  // elsewhere (e.g. person delete/archive).
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
 
   if (undone) {
     return (
@@ -174,20 +179,25 @@ export function DoneStep({
           Go to Expenses
         </Button>
         {activityLogId && succeededCount > 0 && (
-          <Button
-            variant="ghost"
-            fullWidth
-            loading={undoing}
-            onPress={async () => {
-              setUndoing(true);
-              await onUndo();
-              setUndoing(false);
-            }}
-          >
+          <Button variant="ghost" fullWidth loading={undoing} onPress={() => setShowUndoConfirm(true)}>
             Undo this import
           </Button>
         )}
       </View>
+
+      <ConfirmDialog
+        isOpen={showUndoConfirm}
+        onClose={() => setShowUndoConfirm(false)}
+        onConfirm={() => {
+          setShowUndoConfirm(false);
+          setUndoing(true);
+          void onUndo().finally(() => setUndoing(false));
+        }}
+        title="Undo this import?"
+        message={`This removes all ${succeededCount} transaction${succeededCount !== 1 ? 's' : ''} this import just added. This can't be undone again.`}
+        confirmLabel="Undo import"
+        confirmVariant="danger"
+      />
     </View>
   );
 }

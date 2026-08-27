@@ -32,14 +32,29 @@ A composite financial health score (0–100) that measures how well-structured y
 
 - `src/core/health/scorer.ts` — `computeHealthScore()` and `deriveInputs()` functions
 - `src/features/health/HealthScorePage.tsx` — thin composition: income input + gauge + breakdown
-- `src/features/health/useHealthScore.ts` — loads the 5-repo snapshot, derives inputs, owns income state
+- `src/features/health/useHealthScore.ts` — loads the 5-repo snapshot, derives inputs, owns income state, and (`apps/mobile` only, 2026-08-27) reloads that snapshot on the shared refresh bus — see below
 - `src/features/health/ScoreGauge.tsx` / `ComponentCard.tsx` / `ScoringGuide.tsx` — presentational pieces
 
 **Inputs pulled from:** `holdings`, `expenses`, `goals`, `liabilities`, `insurance_policies`, and `profile` (employment type for benchmark adjustments)
 
-**Score is recalculated on every page open** — there is no caching or stored history today.
+**Score is recalculated on every page open, and (`apps/mobile` only, 2026-08-27) live while the page
+stays open too** — there is still no caching or stored history, but the snapshot no longer goes stale
+until the next full open.
 
 **Mobile (`apps/mobile`):** ported in Track 4 as a prerequisite of the Home module — `apps/mobile/src/features/health/` mirrors `useHealthScore.ts`/`ComponentCard.tsx`/`ScoringGuide.tsx`/`HealthDetailModal.tsx` above unchanged beyond import paths (only `FinancialHealthCard`'s "See all" + Home's glance card are wired up; a standalone full-screen `HealthScorePage` equivalent hasn't been ported, matching Home's own usage). The one real gap: `FinancialHealthCard`'s segmented score ring is a CSS `conic-gradient` on web, which RN has no equivalent for (a harder gap than the already-known `color-mix()` one) — redrawn as a stack of `react-native-svg` `Circle`s, one full circle per component shown only as its own arc via `strokeDasharray` + `rotation`, the same technique `ScoreGauge`/`ProgressRing` already use for a single segment.
+
+**Staleness bug, 2026-08-27 (`apps/mobile` only) — a real user report:** adding a stock (a `Holding`)
+then deleting it again left the score completely unchanged. Two-part root cause: (1) `useHealthScore.ts`
+loaded its 5-repo snapshot once at mount with no refresh subscription of its own — since Home/bottom-tab
+screens stay mounted rather than unmounting on tab switch, any later change from another screen never
+reached it; (2) even if it had subscribed, `usePortfolioHoldings.ts`'s save/remove (via
+`useLoggedRepository`) never called `notifyTxnChanged()` at all — holdings mutations never broadcast on
+the shared refresh bus `useHealthScore` (or anything else) could listen to, unlike expenses/IOU/goals.
+Fixed both: `usePortfolioHoldings.ts`'s `saveHolding`/`removeHolding` now broadcast, and
+`useHealthScore.ts` now subscribes via `useTxnRefresh` and reloads all 5 repos (not just holdings, since
+any of the 5 can change independently) on every broadcast. Scoped to holdings only, not the full
+app-wide "does every mutation path call `notifyTxnChanged()`" audit — that's its own separate,
+not-yet-started task (see `docs/plans/real-device-testing-pass.md`'s Phase 7).
 
 ## Current limitations
 

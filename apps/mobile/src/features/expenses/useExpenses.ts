@@ -911,6 +911,9 @@ export function useExpenses() {
           kind: intent.kind,
           amount: intent.amount,
           date: intent.date,
+          ...(intent.kind === 'settlement' && intent.settleDirection
+            ? { settleDirection: intent.settleDirection }
+            : {}),
           ...(intent.description ? { description: intent.description } : {})
         };
       }
@@ -925,6 +928,11 @@ export function useExpenses() {
         });
       }
       for (const delId of toDelete) await ledgerEntriesRepo.delete(delId);
+      // Found + fixed 2026-08-26, real-user report: this write never broadcast `notifyTxnChanged()`
+      // — its sibling `seedGoalFromExpense` and `bulkAddToIou` both already do (mirrored here). The
+      // IOU view (`useIou.ts`'s own `useTxnRefresh` subscription) never learned a category change
+      // had just seeded/updated its ledger entry, so it stayed stale until a manual pull-to-refresh.
+      if (toPut.length > 0 || toDelete.length > 0) notifyTxnChanged();
     },
     [getOrCreatePerson]
   );
@@ -989,12 +997,16 @@ export function useExpenses() {
     [getOrCreatePerson, saveExpense, reloadLedger]
   );
 
-  // For the edit form: which transactions have an expense-seeded IOU entry, and with whom.
+  // For the edit form: which transactions have a linked IOU entry, and with whom — any origin, not
+  // just expense-seeded (2026-08-26 fix). Restricting to `origin === 'expense'` made `ExpenseForm`
+  // blind to a transaction whose link was created the other way (the Add IOU popup), so editing
+  // that transaction's description/amount never had anything to re-sync against — see
+  // `reconcileExpenseLink`'s doc comment in `core/iou/expenseLink.ts` for the full bug writeup.
   const iouLinkByTxn = useMemo(() => {
     const nameById = new Map(persons.map((p) => [p.id, p.name]));
     const map = new Map<string, { personName: string }>();
     for (const e of ledgerEntries) {
-      if (e.origin === 'expense' && e.linkedTxnId) {
+      if (e.linkedTxnId) {
         map.set(e.linkedTxnId, { personName: nameById.get(e.personId) ?? 'Someone' });
       }
     }
@@ -1070,12 +1082,15 @@ export function useExpenses() {
     return ids;
   }, [expenses, bankImportLinkByTxn]);
 
-  // For the edit form: which transactions have an expense-seeded goal contribution, and toward which goal.
+  // For the edit form: which transactions have a linked goal contribution, and toward which goal —
+  // any origin, not just expense-seeded (same 2026-08-26 fix as `iouLinkByTxn` above, identical bug:
+  // restricting to `origin === 'expense'` made this blind to a manually-created contribution, so
+  // editing that transaction never had anything to re-sync against).
   const goalLinkByTxn = useMemo(() => {
     const nameById = new Map(goals.map((g) => [g.id, g.name]));
     const map = new Map<string, { goalId: string; goalName: string }>();
     for (const c of goalContributions) {
-      if (c.origin === 'expense' && c.linkedTxnId) {
+      if (c.linkedTxnId) {
         map.set(c.linkedTxnId, { goalId: c.goalId, goalName: nameById.get(c.goalId) ?? 'a goal' });
       }
     }

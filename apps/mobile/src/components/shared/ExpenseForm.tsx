@@ -10,6 +10,7 @@ import type {
   GroupMember,
   GroupType,
   Hashtag,
+  LedgerKind,
   MerchantMemory,
   PaymentMode,
   Person,
@@ -18,7 +19,9 @@ import type {
 } from '@/core/db/types';
 import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ExpenseGoalIntent } from '@/core/goals/goalLink';
+import { kindForIouCategory } from '@/core/iou/ledger';
 import type { ActiveEvent } from '~/context/EventModeContext';
+import { useToast } from '~/context/ToastContext';
 import { accountsRepo, groupMembersRepo, profileRepo } from '@/core/db/repositories';
 import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 import { getRiskColor } from '@/core/goals/meta';
@@ -265,6 +268,7 @@ export function ExpenseForm({
   onClose
 }: Props) {
   const theme = useThemeColors();
+  const { showToast } = useToast();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Editing seeds from the record; a new entry may seed from a duplicate/template prefill.
   const seed = editing ?? prefill ?? null;
@@ -372,23 +376,36 @@ export function ExpenseForm({
   const [showTags, setShowTags] = useState(initialTags.length > 0);
   const [showReceipt, setShowReceipt] = useState(!!editing?.receiptDataUrl);
 
-  // Optional IOU link (new expense/income only): an expense can be "lent to" someone (they owe you),
-  // an income can be "borrowed from" someone (you owe them). The transaction itself is the money
-  // movement; this seeds the matching IOU ledger entry. Direction follows the transaction type.
-  // `showIouPanel` is a pure UI disclosure toggle (mirrors `showTags`/`showReceipt`) — collapsing it
-  // does not clear `iouPerson`, so the ExtraCircle below stays highlighted whenever a person is filled
-  // in, even while the panel itself is collapsed.
-  const [showIouPanel, setShowIouPanel] = useState(!!linkedIou);
+  // IOU link (new expense/income only): an expense can be "lent to" someone (they owe you), an income
+  // can be "borrowed from" someone (you owe them) — or, for the 2 settlement categories, a repayment
+  // of existing debt rather than a new one. The transaction itself is the money movement; this seeds
+  // the matching IOU ledger entry.
+  // 2026-08-26 (explicit user decision, following the split-vs-Groups discussion): the panel is no
+  // longer a free-standing toggle a person could open for ANY category — IOU exists to track a real,
+  // full-amount debt, and shared/partial costs under an unrelated category belong to "Share with a
+  // group" instead (already category-independent, untouched by this change). So visibility is now
+  // driven purely by `iouMandatory` below; there's nothing left to manually open/close.
   const [iouPerson, setIouPerson] = useState(linkedIou?.personName ?? '');
-  const iouKind: 'lent' | 'borrowed' = type === 'income' ? 'borrowed' : 'lent';
-  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-06, explicit user decision) —
-  // picking one of these categories makes the person mandatory, not just a manual toggle someone might
-  // never open before an otherwise-silent validation failure on Save. `iouPanelOpen` (used for
-  // rendering + the toggle's disabled state) is `showIouPanel` OR'd with this; the underlying manual
-  // toggle state itself is untouched, so switching away from a mandatory category reverts to whatever
-  // it was before, same as any other optional panel.
+  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-06) — picking one of these
+  // categories makes the person mandatory.
   const iouMandatory = IOU_MANDATORY_CATEGORY_IDS.has(categoryId);
-  const iouPanelOpen = showIouPanel || iouMandatory;
+  // `kind`/`settleDirection` come from the real category, via the one shared mapping
+  // (`kindForIouCategory`, `core/iou/ledger.ts`) — NOT from the transaction's type alone. Deriving
+  // from type only (`type === 'income' ? 'borrowed' : 'lent'`) was the bug found 2026-08-26: it
+  // mislabeled a "Return Borrowed"-categorized expense as a brand-new "lent" entry instead of a
+  // settlement, since it never looked at which of the 4 categories was actually picked. The legacy
+  // (non-mandatory but still-linked) case below has no real IOU category to read, so it keeps the old
+  // type-only guess — the best available signal for data that predates these 4 categories mattering.
+  const { kind: iouKind, settleDirection: iouSettleDirection } = iouMandatory
+    ? kindForIouCategory(categoryId)
+    : { kind: (type === 'income' ? 'borrowed' : 'lent') as LedgerKind, settleDirection: undefined };
+  // Legacy escape hatch: a transaction saved *before* this gating change can have a real
+  // `linkedIou` (a person tagged under a non-IOU category, from when that was still allowed) — if the
+  // panel only rendered for `iouMandatory`, editing that transaction and saving would silently drop the
+  // existing link the moment its category isn't one of the 4, since the person field would never be on
+  // screen to preserve it. Keeping the panel visible (but not mandatory) whenever a link already exists
+  // avoids that silent data loss; the person is only ever *required* when `iouMandatory`.
+  const iouPanelOpen = iouMandatory || !!linkedIou;
   // See `StatementPresetInput`'s doc comment ("Direction swap for a credit row marked Transfer") —
   // true only when a credit statement row (money arriving into the locked account) has been switched
   // to Transfer, in which case the locked account plays the *destination* role, not the source.
@@ -458,7 +475,7 @@ export function ExpenseForm({
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   /** Plain-value fingerprint of everything this form actually lets the user edit — deliberately omits
-   *  pure UI disclosure toggles (`showTags`/`showReceipt`/`showIouPanel`/`showGoalPanel`) and the
+   *  pure UI disclosure toggles (`showTags`/`showReceipt`/`showGoalPanel`) and the
    *  group-member participant selection (`shareParticipants`), which populates from its own async
    *  members fetch on a similar timer to the account default above and isn't itself a field the user
    *  directly edits before this snapshot settles. */
@@ -699,7 +716,9 @@ export function ExpenseForm({
       cat: type !== 'transfer' && !categoryId,
       // Each of these is required only while its own toggle is on — off entirely, they're skipped.
       tags: type !== 'transfer' && showTags && activeTags.length === 0,
-      iouPerson: showIouSection && iouPanelOpen && !iouPerson.trim(),
+      // Only truly required for a mandatory category — the legacy-link case above shows the panel
+      // without forcing the field, so clearing it (to remove a stale link) doesn't hit a validation wall.
+      iouPerson: showIouSection && iouMandatory && !iouPerson.trim(),
       goal: showGoalSection && showGoalPanel && !selectedGoalId,
       shareGroup: showShareSection && shareEnabled && !shareGroupId,
       repeatInterval: isRecurring && !intervalDays.trim()
@@ -775,11 +794,22 @@ export function ExpenseForm({
         ? shareGroupId
         : null;
     const shareParticipantIds = shareParticipants.size > 0 ? [...shareParticipants] : undefined;
-    // Saved whenever the field is filled, regardless of whether its panel is currently collapsed —
-    // same as tags (parsed from `tagInput` above without checking `showTags`).
+    // Gated on `iouPanelOpen` (mandatory category OR a pre-existing legacy link), not just whether
+    // `iouPerson` happens to hold a value — a category that never made the panel mandatory in the first
+    // place, and has no existing link either, must never seed an IOU entry, no matter what's sitting in
+    // that state variable (e.g. left over from a category the user briefly picked, then changed away
+    // from — `iouPerson` itself is intentionally not cleared on category change, same as `iouPanelOpen`
+    // recomputing live off the current category is what actually decides whether it still applies).
     const iouIntent: ExpenseSeedIntent | null =
-      showIouSection && iouPerson.trim()
-        ? { personName: iouPerson.trim(), kind: iouKind, amount: amt, date: base.date, description: base.description }
+      showIouSection && iouPanelOpen && iouPerson.trim()
+        ? {
+            personName: iouPerson.trim(),
+            kind: iouKind,
+            ...(iouSettleDirection ? { settleDirection: iouSettleDirection } : {}),
+            amount: amt,
+            date: base.date,
+            description: base.description
+          }
         : null;
     const goalIntent: ExpenseGoalIntent | null =
       showGoalSection && selectedGoalId ? { goalId: selectedGoalId, amount: amt, date: base.date } : null;
@@ -1260,6 +1290,30 @@ export function ExpenseForm({
 
         {/* Secondary actions — circular icon bar */}
         <View className="flex-row justify-center gap-2 pt-1">
+          {showIouSection && (
+            // No longer a toggle (2026-08-26 — see this file's own `iouPanelOpen`/`iouMandatory` doc
+            // comment above): always rendered so the row's set of circles stays visually stable, and
+            // still tappable, but tapping it while inactive can't open anything anymore — instead it
+            // explains why via the shared toast (`TrackingHeatmap.tsx`'s "touch has no hover" precedent
+            // for exactly this — a brief explanatory tap-response standing in for a tooltip). A no-op
+            // while already active (nothing to explain).
+            <ExtraCircle
+              icon="ti-users"
+              label={iouKind === 'lent' ? 'Lent' : iouKind === 'borrowed' ? 'Borrowed' : 'Settled'}
+              active={iouPanelOpen}
+              locked={!iouPanelOpen}
+              accent={accent}
+              onPress={() => {
+                if (iouPanelOpen) return;
+                showToast({
+                  message:
+                    type === 'income'
+                      ? 'Only enabled for Borrowed Money / Collected Money categories.'
+                      : 'Only enabled for Lending / Return Borrowed categories.'
+                });
+              }}
+            />
+          )}
           {type !== 'transfer' && (
             <ExtraCircle
               icon="ti-hash"
@@ -1285,16 +1339,6 @@ export function ExpenseForm({
               active={showGoalPanel || !!selectedGoalId}
               accent={accent}
               onPress={() => setShowGoalPanel((v) => !v)}
-            />
-          )}
-          {showIouSection && (
-            <ExtraCircle
-              icon="ti-users"
-              label={iouKind === 'lent' ? 'Lent' : 'Borrowed'}
-              active={iouPanelOpen || iouPerson.trim().length > 0}
-              disabled={iouMandatory}
-              accent={accent}
-              onPress={() => setShowIouPanel((v) => !v)}
             />
           )}
           <ExtraCircle
@@ -1516,9 +1560,11 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* Lent / Borrowed panel — auto-opens (and can't be collapsed, see the `ExtraCircle` above)
-            whenever `iouMandatory`, since Lending/Borrowed Money/Collected Money/Return Borrowed exist
-            specifically to record a money movement with a person (2026-08-06).
+        {/* Lent / Borrowed panel — auto-opens whenever `iouMandatory` (no manual toggle anymore, see
+            this file's own `iouPanelOpen`/`iouMandatory` doc comment above), since Lending/Borrowed
+            Money/Collected Money/Return Borrowed exist specifically to record a money movement with a
+            person (2026-08-06). Also opens (non-mandatory) for a pre-existing legacy link so it doesn't
+            silently vanish on the next save.
             Person field (2026-08-18, item 12): now `PersonTypeahead` — the same type-ahead-dropdown
             pattern `PersonPicker.tsx` (the standalone IOU add-flow) uses, instead of a plain `TextInput`
             plus an always-visible row of plain-pill matches. The dropdown now only appears while the
@@ -1552,16 +1598,22 @@ export function ExpenseForm({
               error={errors.iouPerson}
             />
             {errors.iouPerson ? (
+              // Only ever fires when `iouMandatory` — the legacy (non-mandatory) case never requires
+              // the field, see `nextErrors.iouPerson`'s own comment.
               <Text className="text-xs" style={{ color: theme.danger }}>
-                {iouMandatory
-                  ? 'Enter who this is with — required for this category'
-                  : 'Enter who this is with — you turned this on'}
+                Enter who this is with — required for this category
               </Text>
             ) : (
               <Text className="text-xs text-tertiary">
-                {iouKind === 'lent'
-                  ? "Adds a they-owe-you entry to this person's ledger."
-                  : "Adds a you-owe-them entry to this person's ledger."}
+                {iouMandatory
+                  ? iouKind === 'lent'
+                    ? "Adds a they-owe-you entry to this person's ledger."
+                    : iouKind === 'borrowed'
+                      ? "Adds a you-owe-them entry to this person's ledger."
+                      : iouSettleDirection === 'they_paid_you'
+                        ? 'Records that they paid you back — reduces what they owe you.'
+                        : 'Records that you paid them back — reduces what you owe them.'
+                  : 'This category no longer keeps a person linked by default — clear the name to remove the existing IOU link, or leave it to keep it.'}
               </Text>
             )}
           </View>

@@ -117,7 +117,12 @@ export function BulkHashtagModal({ hashtags, selectedTags, count, onApplyAdd, on
               <Text className="text-[10px] font-semibold uppercase tracking-wide text-tertiary mb-1">Frequent</Text>
               <View className="flex-row flex-wrap gap-1">
                 {frequentTags.map((h) => (
-                  <Button key={h.id} variant="secondary" size="sm" onPress={() => setTagInput(h.name)}>
+                  <Button
+                    key={h.id}
+                    variant={h.name === normalizedAdd ? 'primary' : 'secondary'}
+                    size="sm"
+                    onPress={() => setTagInput(h.name)}
+                  >
                     #{h.name}
                   </Button>
                 ))}
@@ -128,7 +133,12 @@ export function BulkHashtagModal({ hashtags, selectedTags, count, onApplyAdd, on
           {suggestions.length > 0 && (
             <View className="flex-row flex-wrap gap-1">
               {suggestions.map((s) => (
-                <Button key={s.id} variant="secondary" size="sm" onPress={() => setTagInput(s.name)}>
+                <Button
+                  key={s.id}
+                  variant={s.name === normalizedAdd ? 'primary' : 'secondary'}
+                  size="sm"
+                  onPress={() => setTagInput(s.name)}
+                >
                   #{s.name}
                 </Button>
               ))}

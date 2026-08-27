@@ -24,7 +24,7 @@ export interface GoalContributionReconcile {
  *
  * @param txnId    the Expense/Income/Transfer whose goal link is being reconciled
  * @param existing all goal contributions in scope (the helper filters to this txn's own linked
- *                 expense-origin contribution, so callers can pass every contribution)
+ *                 contribution — any origin, see below — so callers can pass every contribution)
  * @param intent   the new goal intent, or null if the transaction no longer links to a goal
  * @param nowMs    current time for timestamps
  *
@@ -33,14 +33,22 @@ export interface GoalContributionReconcile {
  * different goal deletes the old contribution and creates a fresh one on the new goal instead of moving
  * it in place, since a contribution's identity is meant to represent "this txn counts toward goal X" —
  * changing X is a delete+recreate, not an edit of the same fact.
- */
+ *
+ * **Origin-agnostic matching (same bug fix as `core/iou/expenseLink.ts`'s `reconcileExpenseLink`,
+ * 2026-08-26).** `seeded` used to only match `origin === 'expense'` — a transaction whose goal link
+ * was created manually (`useGoals.ts`'s `linkTransaction`/contribution flow, `origin: 'manual'`) was
+ * invisible here, so editing that transaction never resynced the contribution, and re-linking it to
+ * a goal from the expense side created a duplicate contribution instead of finding the existing one.
+ * Matching on `linkedTxnId` alone (any origin) fixes both; `origin` is preserved from the existing
+ * contribution rather than forced to `'expense'`, so origin-dependent UI (`GoalDetailView.tsx`'s
+ * `editable = c.origin === 'manual'`) keeps behaving correctly. */
 export function reconcileGoalLink(
   txnId: string,
   existing: GoalContribution[],
   intent: ExpenseGoalIntent | null,
   nowMs: number
 ): GoalContributionReconcile {
-  const seeded = existing.filter((c) => c.origin === 'expense' && c.linkedTxnId === txnId);
+  const seeded = existing.filter((c) => c.linkedTxnId === txnId);
 
   if (!intent) {
     return { toPut: [], toDelete: seeded.map((c) => c.id) };
@@ -54,7 +62,7 @@ export function reconcileGoalLink(
     goalId: intent.goalId,
     amount: intent.amount,
     date: intent.date,
-    origin: 'expense',
+    origin: keep?.origin ?? 'expense',
     linkedTxnId: txnId,
     createdAt: keep?.createdAt ?? nowMs,
     updatedAt: nowMs

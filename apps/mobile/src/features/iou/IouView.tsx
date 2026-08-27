@@ -8,17 +8,25 @@ import { useSettings } from '~/context/SettingsContext';
 import { useToast } from '~/context/ToastContext';
 import { useGroupContext } from '~/context/GroupContext';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
-import { accountsRepo, expensesRepo, ledgerEntriesRepo, personsRepo } from '@/core/db/repositories';
+import {
+  accountsRepo,
+  expenseCategoriesRepo,
+  expensesRepo,
+  ledgerEntriesRepo,
+  personsRepo
+} from '@/core/db/repositories';
 import { logActivity, restoreActivity } from '@/core/db/activityLog';
-import type { Account, Expense, LedgerEntry, Person } from '@/core/db/types';
-import { reconcileLinkedTxn } from '@/core/iou/expenseLink';
+import type { Account, Expense, ExpenseCategory, LedgerEntry, Person } from '@/core/db/types';
+import { directionForLedgerEntry, reconcileLinkedTxn } from '@/core/iou/expenseLink';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '~/components/ui';
+import { AccountFormModal } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
-import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
+import { useAccountForm } from '~/hooks/useAccountForm';
+import { notifyTxnChanged, useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { useIou } from './useIou';
 import { PersonListView } from './PersonListView';
@@ -72,8 +80,31 @@ export function IouView() {
     reloadPersons,
     nowMs
   } = useIou();
-  const { items: accounts } = useRepository<Account>(accountsRepo);
-  const { items: expenses } = useRepository<Expense>(expensesRepo);
+  const { items: accounts, save: saveAccountRecord, reload: reloadAccounts } = useRepository<Account>(accountsRepo);
+  const {
+    items: expenses,
+    save: saveExpenseRecord,
+    remove: removeExpenseRecord,
+    reload: reloadExpenses
+  } = useRepository<Expense>(expensesRepo);
+  const { items: categories, reload: reloadCategories } = useRepository<ExpenseCategory>(expenseCategoriesRepo);
+  // Found 2026-08-26, real-user repro: `useRepository` only ever loads once at mount — it has no
+  // subscription of its own to the app's refresh bus, unlike `useIou()`'s `ledgerEntries`/`persons`
+  // (which DO reload on `notifyTxnChanged()`, via `useIou.ts`'s own `refreshIou`). Since this screen
+  // typically stays mounted in the background (bottom-tab navigation), `expenses` could silently go
+  // stale the moment *anything* wrote a transaction — including this screen's OWN `syncLinkedTxn`
+  // below, before this fix routed it through `saveExpenseRecord`/`removeExpenseRecord` instead of
+  // calling `expensesRepo.put()`/`.delete()` directly. A stale `expenses` array made `syncLinkedTxn`'s
+  // `existing = expenses.find(...)` lookup incorrectly return `undefined` for a transaction that
+  // genuinely already existed, so `reconcileLinkedTxn` minted a brand-new id instead of finding and
+  // updating the real one — a confirmed, reliably-reproducible duplicate-transaction bug (edit one
+  // linked entry's description, then another's, within the same IOU-tab visit). Subscribing here too
+  // closes both the "this screen's own writes" gap and the "some other screen wrote it" gap in one go.
+  useTxnRefresh(() => {
+    reloadExpenses();
+    reloadAccounts();
+    reloadCategories();
+  });
   // Current balance per account — powers the cash-negative guard in `EntryForm`/`SettleUpModal`
   // (item 17, Track E), same pattern as `useExpenses.ts`'s own `accountBalances`.
   const accountBalances = useMemo(() => {
@@ -84,6 +115,25 @@ export function IouView() {
   const { refreshing, onRefresh } = usePullToRefresh(async () => {
     await Promise.all([reloadEntries(), reloadPersons()]);
   });
+
+  // Inline "+ Add account" from `EntryForm.tsx`'s account picker (2026-08-26, same
+  // `useAccountForm`/`AccountFormModal` pattern `ExpenseForm.tsx`/`AccountsPage.tsx` already use) —
+  // `EntryForm` used to be stuck with a plain dropdown partly because it had no add-account escape
+  // hatch of its own; `AccountChips`, unlike `SelectInput`, needs one.
+  const [accountFormSaving, setAccountFormSaving] = useState(false);
+  const accountForm = useAccountForm(async (data, editingAccount) => {
+    setAccountFormSaving(true);
+    try {
+      const now = Date.now();
+      const record: Account = editingAccount
+        ? { ...editingAccount, ...data, updatedAt: now }
+        : { id: crypto.randomUUID(), ...data, isArchived: false, createdAt: now, updatedAt: now };
+      await saveAccountRecord(record);
+      return record;
+    } finally {
+      setAccountFormSaving(false);
+    }
+  }, accounts);
 
   const [openPersonId, setOpenPersonId] = useState<string | null>(null);
   const [entryForm, setEntryForm] = useState<EntryFormState | null>(null);
@@ -115,11 +165,15 @@ export function IouView() {
       moneyIn: boolean;
       description: string;
       defaultCategoryId?: string;
+      paymentMode?: string;
     }
   ): Promise<string | undefined> {
     const { put, deleteId } = reconcileLinkedTxn(existing, intent, Date.now());
     if (put) {
-      await expensesRepo.put(put);
+      // `saveExpenseRecord` (this screen's own `useRepository` wrapper), not `expensesRepo.put()`
+      // directly — see this hook's own staleness note above for why that distinction is the actual
+      // fix for a real duplicate-transaction bug, not just a style preference.
+      await saveExpenseRecord(put);
       logActivity({
         action: existing ? 'UPDATE' : 'CREATE',
         entityType: 'expense',
@@ -127,7 +181,7 @@ export function IouView() {
         summary: `${existing ? 'Updated' : 'Added'} ${put.type}: ${put.description}`
       });
     }
-    if (deleteId) await expensesRepo.delete(deleteId);
+    if (deleteId) await removeExpenseRecord(deleteId);
     // Balance/forecast/list views live in separate hook instances — tell them to reload.
     if (put || deleteId) notifyTxnChanged();
     return put?.id;
@@ -135,19 +189,33 @@ export function IouView() {
 
   async function handleSaveEntry(entry: LedgerEntry, txn?: EntryTxnOption) {
     // Sync the linked account transaction for both new entries and edits (re-syncs amount / date /
-    // account / direction; toggling the link off deletes the transaction).
+    // account / direction; toggling the link off deletes the transaction). `directionForLedgerEntry`
+    // (2026-08-26) now also covers a directly-created settlement (Return Borrowed / Collected Money,
+    // `EntryForm.tsx`'s 4-category picker) the same way `handleSettle` below already did inline —
+    // and, for a plain lent/borrowed entry, supplies a real `defaultCategoryId` for the first time
+    // (previously omitted entirely here, so every Add-IOU-created transaction silently landed on the
+    // generic Other/Other Income fallback instead of Lending/Borrowed Money).
     if (txn) {
+      const { moneyIn, defaultCategoryId } = directionForLedgerEntry(entry);
       const existing = entry.linkedTxnId ? (expenses.find((e) => e.id === entry.linkedTxnId) ?? null) : null;
       const desc =
         entry.description?.trim() ||
-        (entry.kind === 'lent' ? `Lent to ${txn.personName}` : `Borrowed from ${txn.personName}`);
+        (entry.kind === 'settlement'
+          ? moneyIn
+            ? `Settlement from ${txn.personName}`
+            : `Settled with ${txn.personName}`
+          : moneyIn
+            ? `Borrowed from ${txn.personName}`
+            : `Lent to ${txn.personName}`);
       const linkedTxnId = await syncLinkedTxn(existing, {
         record: txn.record,
         accountId: txn.accountId,
         amount: entry.amount,
         date: entry.date,
-        moneyIn: entry.kind === 'borrowed',
-        description: desc
+        moneyIn,
+        description: desc,
+        defaultCategoryId,
+        paymentMode: txn.paymentMode
       });
       if (linkedTxnId) entry.linkedTxnId = linkedTxnId;
       else delete entry.linkedTxnId;
@@ -165,7 +233,9 @@ export function IouView() {
     await ledgerEntriesRepo.delete(entryId);
     reloadEntries();
     if (linkedTxn) {
-      await expensesRepo.delete(linkedTxn.id);
+      // `removeExpenseRecord`, not `expensesRepo.delete()` directly — same staleness fix as
+      // `syncLinkedTxn` above.
+      await removeExpenseRecord(linkedTxn.id);
       notifyTxnChanged();
     }
     const label = entry.kind === 'settlement' ? `settlement ₹${entry.amount}` : `${entry.kind} ₹${entry.amount}`;
@@ -191,7 +261,13 @@ export function IouView() {
   async function handleSettle(person: Person, result: SettleResult) {
     let linkedTxnId: string | undefined;
     if (result.txnAccountId) {
-      const moneyIn = result.direction === 'they_paid_you';
+      // Same `directionForLedgerEntry` helper `handleSaveEntry` above now uses (2026-08-26) — this
+      // call site is where that helper's settlement branch was originally written, before being
+      // extracted so `EntryForm.tsx`'s own new settlement tiles could share it.
+      const { moneyIn, defaultCategoryId } = directionForLedgerEntry({
+        kind: 'settlement',
+        settleDirection: result.direction
+      });
       linkedTxnId = await syncLinkedTxn(null, {
         record: true,
         accountId: result.txnAccountId,
@@ -199,9 +275,8 @@ export function IouView() {
         date: Date.now(),
         moneyIn,
         description: moneyIn ? `Settlement from ${person.name}` : `Settled with ${person.name}`,
-        // A settlement is exactly what these two categories exist for (2026-08-06) — otherwise it'd
-        // land on the generic Other/Other Income fallback like any uncategorized transaction.
-        defaultCategoryId: moneyIn ? 'cat-collected-money' : 'cat-return-borrowed'
+        defaultCategoryId,
+        paymentMode: result.paymentMode
       });
     }
     await settle(person.id, result.amount, result.direction, {
@@ -427,6 +502,7 @@ export function IouView() {
         <EntryForm
           persons={persons}
           accounts={accounts}
+          categories={categories}
           getOrCreatePerson={getOrCreatePerson}
           presetPerson={entryForm.presetPerson}
           editing={entryForm.editing ?? null}
@@ -437,6 +513,7 @@ export function IouView() {
             await deleteEntryAndTxn(id);
             setEntryForm(null);
           }}
+          onAddAccount={accountForm.openAdd}
           onClose={() => setEntryForm(null)}
           nowMs={nowMs}
         />
@@ -447,7 +524,9 @@ export function IouView() {
           person={settlePerson}
           net={netFor(settlePerson.id)}
           accounts={accounts}
+          categories={categories}
           accountBalances={accountBalances}
+          onAddAccount={accountForm.openAdd}
           onSettle={(result) => handleSettle(settlePerson, result)}
           onClose={() => setSettlePerson(null)}
         />
@@ -500,6 +579,8 @@ export function IouView() {
           onClose={() => setRemovingPerson(null)}
         />
       )}
+
+      {accountForm.showForm && <AccountFormModal form={accountForm} saving={accountFormSaving} />}
     </>
   );
 }

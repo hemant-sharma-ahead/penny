@@ -2792,6 +2792,59 @@ followed correctly for both fixes in this incident, but turning it into a real s
 reliance on remembering/retyping the exact command sequence correctly under time pressure — the actual
 failure mode that let the *first* two incidents (v1.5.2, then v1.6.0) ship with no check running at all.
 
+### Decision: IOU/Goals sync-bug pass + Add IOU/Settle Up redesign + Health Score staleness fix (2026-08-26/27) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a real user's screenshot/repro chain surfaced a cluster of "two things that should stay
+in sync silently drift apart" bugs across IOU, Goals, and Portfolio — the same root pattern
+(`notifyTxnChanged()`/`useTxnRefresh` — this app's hand-rolled pub/sub — either never called from a
+mutation path, or a hook bypassing its own repository wrapper to write directly) already documented
+once for `useExpenses.ts` (2026-08-10) and now confirmed recurring. Full per-bug detail lives in
+`docs/features/iou.md`/`goals.md`/`health-score.md`/`portfolio/overview.md`; this entry is the
+cross-cutting architectural summary.
+
+- **Origin-agnostic linking.** `reconcileExpenseLink`/`reconcileGoalLink` (`packages/core/src/core/iou/
+expenseLink.ts` / `core/goals/goalLink.ts`) used to match an existing linked record only by
+  `origin === 'expense'`, making an entry/contribution created the *other* way invisible to a
+  same-transaction edit from the other side — fixed to match on `linkedTxnId` alone in both, `origin`
+  preserved (not forced) since UI elsewhere still reads it.
+- **Direct-repo-bypass staleness.** `IouView.tsx`/`useGoals.ts` had mutation functions calling
+  `expensesRepo.put()`/`.delete()` directly instead of their own `useRepository`/`useLoggedRepository`
+  wrappers — since `useRepository` only loads once at mount with no refresh subscription, a screen's
+  local array could go stale (including from its own prior write) and mint a duplicate record on a
+  second edit within the same visit. `useGoals.ts`'s `linkTransaction` had an independent instance of
+  the same bug, plus a fully missing `notifyTxnChanged()` call.
+- **Holdings joined the refresh bus for the first time.** `usePortfolioHoldings.ts` never broadcast on
+  save/remove at all — confirmed root cause of a stock add-then-delete leaving Health Score unchanged.
+  `useHealthScore.ts` also had zero refresh subscription of its own (loaded once at mount) — both fixed.
+- **`kindForIouCategory()`** (new, `core/iou/ledger.ts`) is the one place "which of the 4 IOU category
+  ids means which ledger `kind`/`settleDirection`" now lives — `ExpenseForm.tsx`'s Lent/Borrowed panel
+  used to derive `kind` from the transaction's `type` alone, ignoring the actual category, silently
+  mislabeling a "Return Borrowed" expense as a new "lent" entry instead of a settlement.
+  `EntryForm.tsx`'s 4-tile picker was refactored onto the same helper, replacing its own duplicate
+  inline derivation.
+- **Add IOU / Settle Up visual redesign** (mockup-gated, `docs/mockups/proposals/
+iou-popups-expenseform-alignment-v1.html`): new shared `apps/mobile/src/components/shared/
+IouCategoryChips.tsx` — the same icon-chip-row visual `AccountChips`/`PaymentModeChips`/the real
+  category picker's own quick-pick row already use — replaces the `OptionButton` 2×2 grid in both
+  `EntryForm.tsx` and `SettleUpModal.tsx`; `SettleUpModal.tsx`'s account field moved from a plain
+  `SelectInput` to `AccountChips` to match. `ExtraCircle.tsx` gained a second, distinct disabled-visual
+  prop — `locked` (dimmed + a small lock badge, `onPress` still fires so the caller can explain why via
+  a toast) — kept separate from the pre-existing `disabled` (a real native `Pressable.disabled`, still
+  used by `BulkCategorizeModal.tsx`/`ImportCategorizeModal.tsx`'s own older "locked ON" Lent/Borrowed
+  circle, deliberately untouched by this pass) since the two need genuinely different behavior: one
+  still needs to be tappable to explain itself, the other doesn't.
+- **Category-gating decision.** Following a design discussion on where a shared/split cost belongs,
+  `ExpenseForm.tsx`'s Lent/Borrowed panel dropped its free-standing toggle — the panel now only opens
+  for the 4 real IOU categories, full stop (with a legacy-link escape hatch so a pre-existing link under
+  a non-IOU category doesn't silently vanish on next save). Shared/partial costs under an unrelated
+  category are explicitly Groups' job now, not personal IOU's — see `docs/features/iou.md`'s matching
+  entry and the exploratory `docs/mockups/proposals/iou-split-vs-groups-v1.html` for the fuller reasoning
+  (kept as a discussion record even though its "editable split amount" direction wasn't the one chosen).
+- **Two small CSV-import bugs, same pass:** `ImportCategorizeModal.tsx`/`BulkHashtagModal.tsx`'s
+  "Frequent"/suggestion tag chips never highlighted a match against the current field value (fixed in
+  both — same gap, same original pattern); `DoneStep.tsx`'s "Undo this import" had no confirmation at
+  all before removing a whole batch (now gated behind `ConfirmDialog`).
+
 ---
 
 ## Dependency graph (simplified)

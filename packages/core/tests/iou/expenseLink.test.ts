@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  directionForLedgerEntry,
   reconcileExpenseLink,
   reconcileLinkedTxn,
   type ExpenseIouIntent,
@@ -64,6 +65,27 @@ describe('reconcileExpenseLink', () => {
     const { toPut, toDelete } = reconcileExpenseLink('exp-1', [mine1, mine2, other, manual], intent, NOW);
     expect(toPut[0]?.id).toBe('a');
     expect(toDelete).toEqual(['b']);
+  });
+
+  // Regression for the real 2026-08-26 duplicate-entry bug: a transaction whose IOU link was
+  // originally created the OTHER way (the Add IOU popup / `EntryForm.tsx`, `origin: 'manual'`) used
+  // to be invisible to this function (the old filter only matched `origin === 'expense'`) — editing
+  // that transaction's description/amount from the Transactions tab silently did nothing, and
+  // changing its category to an IOU category created a brand-new SECOND ledger entry instead of
+  // finding and updating the existing one.
+  it('finds and updates an existing manual-origin entry instead of creating a duplicate', () => {
+    const manual = seeded({ id: 'manual-1', origin: 'manual', linkedTxnId: 'exp-1', amount: 500, createdAt: 111 });
+    const { toPut, toDelete } = reconcileExpenseLink('exp-1', [manual], intent, NOW);
+    expect(toDelete).toHaveLength(0);
+    expect(toPut).toHaveLength(1);
+    // Same entry, updated in place — not a second one alongside the original.
+    expect(toPut[0]?.id).toBe('manual-1');
+    expect(toPut[0]?.createdAt).toBe(111);
+    expect(toPut[0]?.amount).toBe(1200);
+    // Origin is preserved, not forced to 'expense' — `EntryForm.tsx`'s `canRecord` and
+    // `PersonLedgerView.tsx`'s row-editable check both gate on `origin === 'manual'` meaning "the IOU
+    // side still owns this," which must keep working after an expense-side edit touches it too.
+    expect(toPut[0]?.origin).toBe('manual');
   });
 });
 
@@ -155,5 +177,36 @@ describe('reconcileLinkedTxn', () => {
   it('is a no-op when there is nothing to record and nothing linked', () => {
     expect(reconcileLinkedTxn(null, txnIntent({ record: false }), NOW)).toEqual({});
     expect(reconcileLinkedTxn(null, txnIntent({ accountId: '' }), NOW)).toEqual({});
+  });
+});
+
+// ── directionForLedgerEntry: one shared place for "which way does the money move, and which of the
+// 4 real IOU categories should a linked transaction default to" — used by both a plain lent/borrowed
+// entry (`EntryForm.tsx`'s "Add IOU" popup) and a settlement (`IouView.tsx`'s `handleSettle`).
+
+describe('directionForLedgerEntry', () => {
+  it('resolves lent (money out, Lending)', () => {
+    expect(directionForLedgerEntry({ kind: 'lent' })).toEqual({ moneyIn: false, defaultCategoryId: 'cat-lending' });
+  });
+
+  it('resolves borrowed (money in, Borrowed Money)', () => {
+    expect(directionForLedgerEntry({ kind: 'borrowed' })).toEqual({
+      moneyIn: true,
+      defaultCategoryId: 'cat-inc-borrowed'
+    });
+  });
+
+  it('resolves a settlement where they paid you (money in, Collected Money)', () => {
+    expect(directionForLedgerEntry({ kind: 'settlement', settleDirection: 'they_paid_you' })).toEqual({
+      moneyIn: true,
+      defaultCategoryId: 'cat-collected-money'
+    });
+  });
+
+  it('resolves a settlement where you paid them (money out, Return Borrowed)', () => {
+    expect(directionForLedgerEntry({ kind: 'settlement', settleDirection: 'you_paid_them' })).toEqual({
+      moneyIn: false,
+      defaultCategoryId: 'cat-return-borrowed'
+    });
   });
 });

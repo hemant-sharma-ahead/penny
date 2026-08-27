@@ -1,9 +1,37 @@
 // Pure ledger math for the person-centric IOU module (Phase 1.5 Track 1).
 // No React, no repo access — unit-testable in isolation.
-import type { LedgerEntry } from '@/core/db/types';
+import type { LedgerEntry, LedgerKind, SettleDirection } from '@/core/db/types';
 
 /** Sub-rupee residue counts as settled for labels only — exact amounts are always stored. */
 export const SETTLED_EPSILON = 1;
+
+/**
+ * Maps one of the 4 real IOU category ids (`IOU_MANDATORY_CATEGORY_IDS`,
+ * `packages/core/src/core/db/defaultCategories.ts`) to the ledger `kind`/`settleDirection` it
+ * represents — the one place this mapping lives, rather than being re-derived ad hoc per call site.
+ *
+ * Found 2026-08-26: `ExpenseForm.tsx`'s Lent/Borrowed panel used to derive `kind` purely from the
+ * transaction's `type` (expense → 'lent', income → 'borrowed'), completely ignoring which of the 4
+ * categories was actually picked — so categorizing an expense as "Return Borrowed" and tagging a
+ * person still created a brand-new "lent" ledger entry instead of a settlement paying down existing
+ * debt. This is the fix: always resolve `kind`/`settleDirection` from the real category id.
+ *
+ * Only meaningful for the 4 ids in `IOU_MANDATORY_CATEGORY_IDS` — callers must not invoke this for
+ * any other category id (there's no sensible IOU kind for e.g. "Groceries").
+ */
+export function kindForIouCategory(categoryId: string): { kind: LedgerKind; settleDirection?: SettleDirection } {
+  switch (categoryId) {
+    case 'cat-inc-borrowed':
+      return { kind: 'borrowed' };
+    case 'cat-return-borrowed':
+      return { kind: 'settlement', settleDirection: 'you_paid_them' };
+    case 'cat-collected-money':
+      return { kind: 'settlement', settleDirection: 'they_paid_you' };
+    case 'cat-lending':
+    default:
+      return { kind: 'lent' };
+  }
+}
 
 /**
  * Net contribution of one entry to the running balance.

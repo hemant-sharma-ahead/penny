@@ -53,7 +53,12 @@ export function useGoals() {
   });
 
   const { items: accounts, reload: reloadAccounts } = useRepository<Account>(accountsRepo);
-  const { items: expenses, reload: reloadExpenses } = useRepository<Expense>(expensesRepo);
+  const {
+    items: expenses,
+    save: saveExpenseRecord,
+    remove: removeExpenseRecord,
+    reload: reloadExpenses
+  } = useRepository<Expense>(expensesRepo);
   // Read-only — just enough to render the (locked, in `goalPreset` mode) category tile's icon/color/name
   // in `ExpenseForm`'s "Add contribution" flow. The default-category seed/migration effects live in
   // `useExpenses.ts` only; this is a second, independent read of the same repo, not a duplicate seed.
@@ -145,7 +150,16 @@ export function useGoals() {
     async (existing: Expense | null, intent: LinkedGoalTxnIntent): Promise<string | undefined> => {
       const { put, deleteId } = reconcileLinkedGoalTxn(existing, intent, Date.now());
       if (put) {
-        await expensesRepo.put(put);
+        // `saveExpenseRecord` (this hook's own `useRepository` wrapper), not `expensesRepo.put()`
+        // directly — the same real duplicate-transaction bug found and fixed in `IouView.tsx`'s
+        // identical-shape `syncLinkedTxn` (2026-08-26): writing straight to the repo bypasses this
+        // hook's own local `expenses` state, so a SECOND contribution's `existing` lookup (a few
+        // lines up in `saveContribution` below) can miss a transaction this same hook just wrote,
+        // minting a brand-new id instead of updating the real one. `refreshGoalData`'s
+        // `useTxnRefresh` subscription (above) already reloads `expenses` on `notifyTxnChanged()`,
+        // but that's an async round trip — this keeps the local state correct immediately too,
+        // defense in depth rather than relying on that reload's timing alone.
+        await saveExpenseRecord(put);
         logActivity({
           action: existing ? 'UPDATE' : 'CREATE',
           entityType: 'expense',
@@ -153,11 +167,11 @@ export function useGoals() {
           summary: `${existing ? 'Updated' : 'Added'} ${put.type}: ${put.description}`
         });
       }
-      if (deleteId) await expensesRepo.delete(deleteId);
+      if (deleteId) await removeExpenseRecord(deleteId);
       if (put || deleteId) notifyTxnChanged();
       return put?.id;
     },
-    []
+    [saveExpenseRecord, removeExpenseRecord]
   );
 
   // Add or edit a manual, bookkeeping-only contribution (amount + date, no linked transaction) — kept
@@ -216,7 +230,12 @@ export function useGoals() {
       newTagSetAside?: Record<string, boolean>
     ) => {
       const existingExpense = expenses.find((e) => e.id === expense.id);
-      await expensesRepo.put(expense);
+      // `saveExpenseRecord`, not `expensesRepo.put()` directly — keeps this hook's own local
+      // `expenses` state correct immediately, same fix as `syncLinkedGoalTxn` above (the caller
+      // always supplies a real, stable id here, so this specific call site was never at risk of the
+      // duplicate-id bug — but a stale local array is still wrong for any other read of `expenses`
+      // in this same hook before `refreshGoalData`'s async reload catches up).
+      await saveExpenseRecord(expense);
       for (const tag of expense.hashtags) {
         const existingTag = hashtags.find((h) => h.name === tag);
         if (existingTag) {
@@ -253,7 +272,7 @@ export function useGoals() {
       await saveContributionRepo(contribution);
       notifyTxnChanged();
     },
-    [expenses, hashtags, saveHashtagRepo, saveContributionRepo]
+    [expenses, hashtags, saveHashtagRepo, saveContributionRepo, saveExpenseRecord]
   );
 
   // Delete a manual contribution, cascading to its linked transaction if it owns one. Expense-origin
@@ -263,12 +282,13 @@ export function useGoals() {
   const removeContribution = useCallback(
     async (contribution: GoalContribution) => {
       if (contribution.origin === 'manual' && contribution.linkedTxnId) {
-        await expensesRepo.delete(contribution.linkedTxnId);
+        // `removeExpenseRecord`, not `expensesRepo.delete()` directly — same staleness fix as above.
+        await removeExpenseRecord(contribution.linkedTxnId);
         notifyTxnChanged();
       }
       await removeContributionRepo(contribution.id);
     },
-    [removeContributionRepo]
+    [removeContributionRepo, removeExpenseRecord]
   );
 
   // Every transaction already linked to any goal — used to offer only unlinked ones in "Link existing".
@@ -290,8 +310,19 @@ export function useGoals() {
         { goalId, amount: txn.amount, date: txn.date },
         Date.now()
       );
+      // `saveContributionRepo`/`removeContributionRepo` (this hook's own `useLoggedRepository`
+      // wrapper, already destructured above), not `goalContributionsRepo.put()`/`.delete()` directly
+      // — same duplicate/staleness bug class found and fixed elsewhere in this file (2026-08-26):
+      // writing straight to the repo means this hook's own `contributions` state never learns about
+      // it until some other reload happens, so re-linking a second transaction within the same
+      // mount could miss a contribution this exact function just created. This call site also never
+      // broadcast `notifyTxnChanged()` at all — a second, independent instance of the same missing-
+      // notify bug already fixed once in `useExpenses.ts`'s `seedIouFromExpense` (the IOU-side
+      // sibling of this exact function) — so re-linking a transaction here never told any other
+      // screen (this one included, once it stops treating its own writes as exempt) that anything
+      // had changed.
       for (const c of toPut) {
-        await goalContributionsRepo.put(c);
+        await saveContributionRepo(c);
         logActivity({
           action: 'CREATE',
           entityType: 'goalContribution',
@@ -299,9 +330,10 @@ export function useGoals() {
           summary: `₹${c.amount} toward goal (from transaction)`
         });
       }
-      for (const delId of toDelete) await goalContributionsRepo.delete(delId);
+      for (const delId of toDelete) await removeContributionRepo(delId);
+      if (toPut.length > 0 || toDelete.length > 0) notifyTxnChanged();
     },
-    [contributions]
+    [contributions, saveContributionRepo, removeContributionRepo]
   );
 
   return {

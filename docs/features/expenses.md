@@ -320,6 +320,20 @@ since removed, see the 2026-08-23 review below) import flow specifically (distin
    hook and `ReviewStep.tsx` shows an inline "Couldn't load categories — tap to retry" affordance
    (`onRetryLoadCategories`, wired back to the same `loadReferenceData` function).
 
+**Two more real bugs found and fixed 2026-08-27, in the same generic CSV import flow:**
+
+1. `ImportCategorizeModal.tsx`'s "Frequent"/live-suggestion tag chips filled the tag field correctly on
+   tap but never visually highlighted the one that matched what was actually typed — every chip rendered
+   `variant="secondary"` unconditionally. Not specific to this modal: `BulkHashtagModal.tsx`'s own
+   Add-mode "Frequent"/suggestion chips (`features/expenses/transactions/`) had the identical gap, since
+   both were built off the same original pattern. Fixed in both — a chip now renders `variant="primary"`
+   when its name matches the current (normalized) field value.
+2. `DoneStep.tsx`'s "Undo this import" button fired immediately on tap, with no confirmation at all — a
+   single mis-tap right after a large successful import could silently remove everything it just added.
+   Now gated behind a `ConfirmDialog` (the same component used elsewhere for destructive actions),
+   showing the real count of transactions that would be removed; confirming actually undoes, cancelling
+   just closes the dialog.
+
 **Rejected-row editor now shows the full original row, 2026-08-06.** `UnparsedRows.tsx`'s
 `RejectedRowEditor` previously only prefilled Date/Amount/Description from `RejectedRow.raw` (the full
 original CSV columns for that row, already carried on the type but never rendered beyond those 3

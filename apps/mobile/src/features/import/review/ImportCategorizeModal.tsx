@@ -609,7 +609,12 @@ export function ImportCategorizeModal({
               <Text className="text-[10px] font-semibold uppercase tracking-wide text-tertiary mb-1">Frequent</Text>
               <View className="flex-row flex-wrap gap-1">
                 {frequentTags.map((h) => (
-                  <Button key={h.id} variant="secondary" size="sm" onPress={() => setTag(h.name)}>
+                  <Button
+                    key={h.id}
+                    variant={h.name === normalizedTag ? 'primary' : 'secondary'}
+                    size="sm"
+                    onPress={() => setTag(h.name)}
+                  >
                     #{h.name}
                   </Button>
                 ))}
@@ -619,7 +624,12 @@ export function ImportCategorizeModal({
           {tagSuggestions.length > 0 && (
             <View className="flex-row flex-wrap gap-1">
               {tagSuggestions.map((s) => (
-                <Button key={s.id} variant="secondary" size="sm" onPress={() => setTag(s.name)}>
+                <Button
+                  key={s.id}
+                  variant={s.name === normalizedTag ? 'primary' : 'secondary'}
+                  size="sm"
+                  onPress={() => setTag(s.name)}
+                >
                   #{s.name}
                 </Button>
               ))}
