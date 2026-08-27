@@ -53,7 +53,7 @@ import { PersonTypeahead } from './PersonTypeahead';
 import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
-import { couplePaymentToAccount } from './paymentModes';
+import { couplePaymentToAccount, defaultPaymentModeForAccount } from './paymentModes';
 import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { usePaymentModes } from '~/hooks/usePaymentModes';
 import { tint } from '~/lib/color';
@@ -552,13 +552,20 @@ export function ExpenseForm({
 
   useEffect(() => {
     accountsRepo.getAll().then((accs) => {
-      const active = accs.filter((a) => !a.isArchived);
+      // Closed accounts (2026-08-27) are hidden from every picker that assigns a NEW/edited
+      // transaction — same treatment `!isArchived` already got, just a separate, distinct flag (see
+      // `Account.isClosed`'s own doc comment for why the two aren't merged).
+      const active = accs.filter((a) => !a.isArchived && !a.isClosed);
       setAccounts(active);
       if (!initEditing.current && active.length > 0) {
-        const first = active[0];
+        // The user's chosen default account (2026-08-27) wins when set; falls back to the previous
+        // "whichever account is first" behavior otherwise — same fallback, just no longer the only
+        // option. Payment mode follows the SAME account via `defaultPaymentModeForAccount`
+        // (cash→cash, credit card→card, bank/wallet→UPI) instead of the old cash-only special case.
+        const first = active.find((a) => a.isDefault) ?? active[0];
         if (first) {
           setAccountId(first.id);
-          if (first.type === 'cash') setPaymentMode('cash');
+          setPaymentMode(defaultPaymentModeForAccount(first));
         }
       }
       setFormReady(true);

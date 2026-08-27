@@ -65,7 +65,8 @@ export function SettleUpGroupModal({
         if (cancelled) return;
         const me = profile[0]?.userId;
         const others = all.filter((m) => m.groupId === group.id && m.status === 'active' && m.userId !== me);
-        const liveAccounts = accs.filter((a) => !a.isArchived);
+        // Closed accounts (2026-08-27), same as archived, are never a valid target for a new settlement.
+        const liveAccounts = accs.filter((a) => !a.isArchived && !a.isClosed);
         setMembers(others);
         setMyId(me);
         setBalances(bal);

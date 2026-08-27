@@ -121,7 +121,8 @@ export function EntryForm({
 
   // Record the matching account movement. New entries default ON; editing a manual entry re-syncs
   // (or removes) its linked transaction, so the toggle reflects whether one is currently linked.
-  const usableAccounts = accounts.filter((a) => !a.isArchived);
+  // Closed accounts (2026-08-27), same as archived, are never a valid target for a new link.
+  const usableAccounts = accounts.filter((a) => !a.isArchived && !a.isClosed);
   const [recordTxn, setRecordTxn] = useState(editing ? !!editing.linkedTxnId : true);
   const [accountId, setAccountId] = useState(
     () => linkedTxn?.accountId ?? usableAccounts.find((a) => a.includeInNetWorth)?.id ?? usableAccounts[0]?.id ?? ''

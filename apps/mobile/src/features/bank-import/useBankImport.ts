@@ -68,6 +68,7 @@ import {
 import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import {
   applyCashTransferConversion,
+  cashDirectionForRow,
   suggestCashTransfer,
   suggestRetroactiveCashTransfer,
   type CashTransferSuggestion
@@ -108,7 +109,13 @@ export function useBankImport(accountId: string) {
 
   const account = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
   const expensesById = useMemo(() => new Map(allExpenses.map((e) => [e.id, e])), [allExpenses]);
-  const cashAccounts = useMemo(() => accounts.filter((a) => a.type === 'cash'), [accounts]);
+  // Neither archived nor closed (2026-08-27) is a valid cash-transfer destination — the second half
+  // of this filter was a pre-existing, separate gap (never checked `isArchived` either) found while
+  // adding the `isClosed` check.
+  const cashAccounts = useMemo(
+    () => accounts.filter((a) => a.type === 'cash' && !a.isArchived && !a.isClosed),
+    [accounts]
+  );
   // Feeds `CategoryPickerModal`'s "Frequent" quick-pick row (its own `txnCountByCategory` prop,
   // independent of `manager` — bulk-categorize never passes a full `CategoryManager`) — same shape
   // `useExpenses.ts`'s `categoryManager.txnCountByCategory` builds for the normal Expenses flow.
@@ -131,8 +138,14 @@ export function useBankImport(accountId: string) {
    *  bank-agnostic codes apply yet). Both review buckets (`PossibleBucket`/`UnmatchedBucket`) call
    *  this instead of duplicating the lookup. */
   const suggestCashTransferFor = useCallback(
-    (rawNarration: string): CashTransferSuggestion | null =>
-      suggestCashTransfer(rawNarration, presetId ?? 'any', cashWithdrawalCodes, cashAccounts),
+    (rawNarration: string, rowDirection: 'debit' | 'credit'): CashTransferSuggestion | null =>
+      suggestCashTransfer(
+        rawNarration,
+        presetId ?? 'any',
+        cashDirectionForRow({ direction: rowDirection }),
+        cashWithdrawalCodes,
+        cashAccounts
+      ),
     [presetId, cashWithdrawalCodes, cashAccounts]
   );
 
@@ -1277,6 +1290,7 @@ export function useBankImport(accountId: string) {
     loneWolfDeletions,
     readyCount,
     reassignMatchedPair,
+    unclaimExpenseEverywhere,
     convertMatchedPairToTransfer,
     resolvePossibleMatch,
     dismissPossibleAsNew,

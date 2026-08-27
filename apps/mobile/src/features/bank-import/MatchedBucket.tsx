@@ -133,7 +133,12 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
                     style={{ borderColor: theme.warning, backgroundColor: tint(theme.warning, 6) }}
                   >
                     <Text className="text-[10px]" style={{ color: theme.warning }}>
-                      🔁 Looks like a transfer to your cash account — convert it?
+                      {/* Direction-aware copy (2026-08-27) — a deposit-direction code (e.g. a cash
+                          deposit machine narration on an income-type matched expense) means the money
+                          moved the OTHER way, so the wording has to flip too, not just the underlying
+                          transfer direction `applyCashTransferConversion` now gets right. */}
+                      🔁 Looks like a transfer {retroSuggestion?.direction === 'deposit' ? 'from' : 'to'} your cash
+                      account — convert it?
                     </Text>
                     <View className="flex-row gap-2">
                       <Button
@@ -176,6 +181,19 @@ export function MatchedBucket({ bi, accountMap, candidatePool, masked }: Matched
           masked={masked}
           onPick={(expense) => {
             bi.reassignMatchedPair(reassigningPair.statementRow, expense);
+            setReassigning(null);
+          }}
+          // Found 2026-08-27, real user report: a confident (exact-amount) match can still be
+          // WRONG — a coincidental same-amount/same-day match to something unrelated — and the only
+          // move used to be picking a *different* existing transaction, never "actually, no match at
+          // all." `unclaimExpenseEverywhere` already does exactly the right thing (splits the pair,
+          // the expense goes back to being an ordinary unlinked recorded transaction, the statement
+          // line moves to "Not yet logged") — it was only ever missing a button here. Deliberately
+          // not also wiring `onAddAsNew` — that would need duplicating `PossibleBucket.tsx`'s whole
+          // `addingNew` single-row form flow into this bucket for one extra tap saved; "move to
+          // unmatched" already reaches the same "add as new" action once the row lands in bucket 3.
+          onMoveToUnmatched={() => {
+            bi.unclaimExpenseEverywhere(reassigningPair.expense.id);
             setReassigning(null);
           }}
           onClose={() => setReassigning(null)}

@@ -21,7 +21,11 @@ export function useBankCashWithdrawalCodes() {
     if (loading || seededRef.current) return;
     seededRef.current = true;
     (async () => {
-      if (await getItem('penny_cash_withdrawal_codes_v1')) return;
+      // v2 (2026-08-27): added the 3 deposit-direction seeds (CDM/CASH DEP/CDEP) — bumped from v1 so
+      // those actually reach a device that already seeded v1's withdrawal-only defaults, matching the
+      // non-clobbering "missing ids only" re-seed below (never touches an id the user already has,
+      // whether default or since-edited/deleted).
+      if (await getItem('penny_cash_withdrawal_codes_v2')) return;
       const existingIds = new Set(items.map((c) => c.id));
       const missing = BANK_CASH_WITHDRAWAL_CODE_SEEDS.filter((c) => !existingIds.has(c.id));
       const now = Date.now();
@@ -32,13 +36,14 @@ export function useBankCashWithdrawalCodes() {
             bankId: c.bankId,
             code: c.code,
             label: c.label,
+            direction: c.direction,
             isDefault: true,
             createdAt: now,
             updatedAt: now
           })
         )
       );
-      await setItem('penny_cash_withdrawal_codes_v1', '1');
+      await setItem('penny_cash_withdrawal_codes_v2', '1');
       if (missing.length > 0) reload();
     })().catch(() => {
       seededRef.current = false;

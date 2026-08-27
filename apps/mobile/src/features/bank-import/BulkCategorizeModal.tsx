@@ -32,7 +32,7 @@ interface BulkCategorizeModalProps {
   suggestion?: MerchantSuggestion | undefined;
   /** Auto cash-withdrawal detection (2026-08-05) — checked per-row; a confident narration-code match
    *  (ATW, NWD, SELF, ...) pre-fills the "Mark as transfer" toggle below. */
-  suggestCashTransferForRow: (rawNarration: string) => CashTransferSuggestion | null;
+  suggestCashTransferForRow: (rawNarration: string, direction: 'debit' | 'credit') => CashTransferSuggestion | null;
   /** Softer, amount/date-only cross-account suggestion (2026-08-05) — checked per-row only when the
    *  cash one didn't already fire. See `suggestPossibleTransfer`'s own doc comment for why it only
    *  ever returns a single confident candidate or nothing. */
@@ -114,7 +114,9 @@ export function BulkCategorizeModal({
   // detection, per explicit user discussion: sometimes the user is the only one who knows a payment
   // is really a transfer, e.g. one leg's bank hasn't even been imported yet).
   const transferSuggestions = checkedRows.map(
-    (r) => suggestCashTransferForRow(r.rawNarration)?.toAccountId ?? suggestPossibleTransferForRow(r)?.account.id
+    (r) =>
+      suggestCashTransferForRow(r.rawNarration, r.direction)?.toAccountId ??
+      suggestPossibleTransferForRow(r)?.account.id
   );
   const anyTransferMatch = transferSuggestions.some((id) => id !== undefined);
   const uniformTransferAccountId = (() => {

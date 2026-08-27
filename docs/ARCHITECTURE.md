@@ -2845,6 +2845,34 @@ IouCategoryChips.tsx` — the same icon-chip-row visual `AccountChips`/`PaymentM
   both — same gap, same original pattern); `DoneStep.tsx`'s "Undo this import" had no confirmation at
   all before removing a whole batch (now gated behind `ConfirmDialog`).
 
+### Decision: Bank Import review-pass fixes + default/closed accounts (2026-08-27) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a real-device review of Bank Statement Import surfaced 6 gaps (unmatch not reachable at
+import time, Full Ledger's own escape hatch disappearing whenever an unrelated finding was open, cash
+transfers being withdrawal-only with a real direction bug baked in, an unsorted icon-less bank picker,
+and two year-less date spots) — full per-item detail in `docs/features/bank-import.md`'s matching
+2026-08-27 entry, not duplicated here. Alongside that, a genuinely new feature: a default account +
+payment mode, and a real "Closed" account status distinct from the still-unused `isArchived`.
+
+- **`Account.isDefault`/`Account.isClosed`** (both new, optional, no migration) — at most one account
+  may be default; closed is mutually exclusive with default on the same account. The cross-account
+  exclusivity (clearing `isDefault` from whichever OTHER account previously held it) couldn't live
+  inside any single feature's `saveAccount` implementation — this codebase has 3+ independent ones
+  (`useAccounts.ts`, `ExpenseForm.tsx`'s and `IouView.tsx`'s own inline "+ Add account" flows), since
+  the no-cross-feature-imports rule means none of them can call another's. It lives instead in
+  `useAccountForm.ts`'s `save()` — the one hook genuinely shared by all of them — which calls the
+  injected `saveAccount` callback a second time (for whichever account is losing default) after the
+  user confirms a popup. New pure core helper: `core/accounts/accountDefaults.ts`'s
+  `findPreviousDefaultAccount()`.
+- **`BankPickerModal.tsx`** (new, `apps/mobile/src/components/shared/`) — real logo/brand-color icon +
+  name, alphabetical, replacing a plain `SelectInput` in two places (`AccountFormModal.tsx`'s bank
+  field, Bank Import's `SetupStep.tsx`) that had the identical gap.
+- **`isCashWithdrawalNarration` renamed `isCashTransferNarration`**, gained a `direction` filter — and
+  `applyCashTransferConversion()`'s real bug (always treating the bank account as transfer source,
+  backwards for a deposit) is fixed to branch on the matched expense's own `type`, mirroring
+  `matcher.ts`'s `convertCandidateToTransfer`. `BankCashWithdrawalCode` gained an optional `direction`
+  field; existing rows default to `'withdrawal'`, no migration.
+
 ---
 
 ## Dependency graph (simplified)

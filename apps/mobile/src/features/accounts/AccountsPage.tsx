@@ -1,6 +1,7 @@
+import { useCallback } from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { Account } from '@/core/db/types';
 import { usePrivacy } from '~/context/PrivacyContext';
@@ -36,6 +37,16 @@ export function AccountsPage() {
   const { refreshing, onRefresh } = usePullToRefresh(reload);
   const form = useAccountForm(saveAccount, accounts);
   useDefaultHeaderBack('Accounts');
+  // Found 2026-08-27, real user report: after a bank-statement import (18 new transactions on an
+  // account that had 3), coming back to this screen via `navigation.goBack()` still showed the old
+  // count/balance until a manual pull-to-refresh. `useAccounts.ts`'s own `useTxnRefresh(reload)`
+  // subscription looked correct in isolation (and `useBankImport.ts`'s commit path does call
+  // `notifyTxnChanged()`) — this is a defensive second layer, not a replacement for that: the shared
+  // refresh bus depends on this screen's listener having survived correctly across the whole
+  // multi-step Bank Import flow it was sitting behind; a real on-focus reload can't miss that
+  // regardless, the same reasoning `useRegisterHeaderScreen`'s own `useFocusEffect` doc comment gives
+  // for why focus (not a fire-and-forget event) is what actually guarantees a screen is current.
+  useFocusEffect(useCallback(() => reload(), [reload]));
 
   function handleImport(acc: Account) {
     navigation.navigate('BankImport', { accountId: acc.id });

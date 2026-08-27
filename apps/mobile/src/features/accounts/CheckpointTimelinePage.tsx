@@ -14,7 +14,7 @@ import { useAccountsRefresh } from '@/hooks/useDataRefresh';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDate, formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -253,8 +253,8 @@ export function CheckpointTimelinePage() {
 
           {diagnostics.mismatch && signature === 'steps-partway' && diagnostics.mismatch.lastAgreeing && (
             <Banner variant="warning" icon="ti-bulb">
-              A missing or duplicate transaction between {formatDateShort(diagnostics.mismatch.lastAgreeing.date)} and{' '}
-              {formatDateShort(diagnostics.mismatch.firstDisagreeing.date)} — most likely a{' '}
+              A missing or duplicate transaction between {formatDate(diagnostics.mismatch.lastAgreeing.date)} and{' '}
+              {formatDate(diagnostics.mismatch.firstDisagreeing.date)} — most likely a{' '}
               {formatCurrency(Math.abs(diagnostics.mismatch.diff))} debit or credit that never got recorded. Not an
               opening-balance issue, since earlier checkpoints agree.
             </Banner>
@@ -274,9 +274,9 @@ export function CheckpointTimelinePage() {
         </View>
       </ScrollView>
 
-      <View className="flex-row gap-2 px-4 py-3 border-t border-theme" style={{ backgroundColor: theme.surface }}>
-        {diagnostics.mismatch || anchorFinding ? (
-          signature === 'flat-from-start' || (!diagnostics.mismatch && anchorFinding) ? (
+      <View className="gap-2 px-4 py-3 border-t border-theme" style={{ backgroundColor: theme.surface }}>
+        {(diagnostics.mismatch || anchorFinding) &&
+          (signature === 'flat-from-start' || (!diagnostics.mismatch && anchorFinding) ? (
             <Button
               variant="secondary"
               icon="ti-anchor"
@@ -289,19 +289,20 @@ export function CheckpointTimelinePage() {
             <Button variant="ghost" fullWidth onPress={() => navigation.goBack()}>
               I've reviewed this, dismiss
             </Button>
-          )
-        ) : (
-          // `docs/plans/bank-reconciliation-ledger.md` — a deeper zoom into every transaction, not
-          // just checkpoints, always reachable even when everything above already agrees.
-          <Button
-            variant="ghost"
-            icon="ti-list-search"
-            fullWidth
-            onPress={() => navigation.navigate('FullLedger', { accountId: account.id })}
-          >
-            View full ledger ›
-          </Button>
-        )}
+          ))}
+        {/* `docs/plans/bank-reconciliation-ledger.md` — a deeper zoom into every transaction, not just
+            checkpoints. Found 2026-08-27: this used to only render in the else-branch above (fully
+            reconciled state) — while any OTHER finding was open on the account, there was no way to
+            reach it at all, even to fix something completely unrelated to that finding. Now always
+            reachable, alongside whichever primary action (if any) applies. */}
+        <Button
+          variant="ghost"
+          icon="ti-list-search"
+          fullWidth
+          onPress={() => navigation.navigate('FullLedger', { accountId: account.id })}
+        >
+          View full ledger ›
+        </Button>
       </View>
     </SafeAreaView>
   );
@@ -438,7 +439,7 @@ function TimelineRow({
         className="flex-row items-center px-3 py-2 border-t border-theme"
         style={flagged ? { backgroundColor: tint(theme.danger, 7) } : undefined}
       >
-        <Text className="flex-1 text-[10px] text-secondary">{formatDateShort(comparison.date)}</Text>
+        <Text className="flex-1 text-[10px] text-secondary">{formatDate(comparison.date)}</Text>
         <View className="flex-[1.6]">
           <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
             {description}

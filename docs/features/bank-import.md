@@ -60,9 +60,11 @@ normalization.ts`) grew a second batch on 2026-08-05 — INFT, TPT, ONL, ECOM, E
   AMB, AQB, VPS, IPS — from the same user-sourced research pass as the cash-withdrawal code table
   below; `SI` and the bare `I`/`W` fragments from "I/W CLG" were deliberately left out as too short/
   generic (real risk of stripping an actual merchant's initials instead of noise).
-- A second global screen, "Cash-withdrawal codes" (2026-08-05, `BankCashWithdrawalCodesPage.tsx`,
-  also from the Accounts page header) — narration codes like ATW/NWD/SELF that identify a statement
-  line as a cash withdrawal, grouped by bank plus a bank-agnostic "Any bank" group (NFS, SELF, ...).
+- A second global screen, **"Cash-transfer codes"** (2026-08-05, renamed from "Cash-withdrawal codes"
+  2026-08-27 once the reverse direction was added — see below; `BankCashWithdrawalCodesPage.tsx`, also
+  from the Accounts page header) — narration codes like ATW/NWD/SELF (withdrawal) or CDM/CASH DEP
+  (deposit) that identify a statement line as a cash transfer, grouped by bank plus a bank-agnostic
+  "Any bank" group, each tagged with its direction.
   Seeded with researched defaults for the 7 supported banks (`core/bank-import/cashWithdrawalCodes.ts`
   documents per-entry confidence — banks don't publish a single canonical code list, so this is a
   well-researched starting point, not a guarantee), but every row including the defaults is fully
@@ -594,6 +596,43 @@ account, leaving its description/category/amount/date untouched — closing the 
 expense, so the cash-withdrawal detector never got a chance to fire, permanently under-crediting the
 linked cash account). Core: `suggestRetroactiveCashTransfer()`/`applyCashTransferConversion()`
 (`core/bank-import/cashWithdrawalCodes.ts`).
+
+**Real-device review pass, 2026-08-27 — several gaps found and fixed:**
+
+- **Unmatch, now reachable at import time too.** The Matched bucket's "tap to re-choose" picker only
+  ever let you swap to a DIFFERENT existing transaction — no way to say "actually, no match at all"
+  for a confident (exact-amount) match that turned out to be a coincidence. It now also offers "Move
+  to 'Not yet logged' for later" (reusing `unclaimExpenseEverywhere`, which already existed for the
+  reassign flow's own internal bookkeeping, just never had a button of its own). The post-import
+  equivalent already existed (`FullLedgerPage.tsx`'s own unmatch, below) — this closes the same gap
+  during the review screen itself.
+- **Full Ledger's "View full ledger ›" entry point used to disappear** whenever the account had ANY
+  active checkpoint finding — even one unrelated to whatever you actually wanted to fix there. Now
+  always shown in `CheckpointTimelinePage.tsx`'s footer, alongside whichever primary action (if any)
+  applies, instead of replacing it.
+- **Cash-withdrawal codes → Cash-transfer codes: the reverse direction (a deposit) is now handled.**
+  Previously withdrawal-only, both by naming and by a real direction bug: `applyCashTransferConversion()`
+  always treated the bank account as the transfer's source — correct for a withdrawal, backwards for a
+  deposit (money arriving at the bank, cash being the real source). Fixed to branch on the matched
+  expense's own `type` (mirrors `matcher.ts`'s `convertCandidateToTransfer`, which already got this
+  right for cross-account transfers). `BankCashWithdrawalCode`/`CashWithdrawalCodeSeed` gained a
+  `direction: 'withdrawal' | 'deposit'` field (optional on the persisted type, defaults to
+  `'withdrawal'` for backward compatibility); `isCashWithdrawalNarration` renamed
+  `isCashTransferNarration` and now filters by direction too, so a withdrawal code can never fire for
+  a deposit-direction row or vice versa. Three new bank-agnostic deposit seeds ship alongside the
+  existing withdrawal ones (CDM, CASH DEP, CDEP — same "well-researched starting point, not a
+  guarantee" caveat as the originals), re-seeded via a bumped `penny_cash_withdrawal_codes_v2` flag so
+  an existing install actually gets them. Settings screen retitled "Cash-transfer codes," each row now
+  shows a Withdrawal/Deposit badge, and "Add code" gained a direction picker. The suggestion chip's
+  copy flips too ("transfer to" vs. "transfer from your cash account") depending on which direction
+  actually matched.
+- **Bank picker, in the setup screen, replaced.** `SetupStep.tsx`'s bank field was a plain `SelectInput`
+  over `bi.banks` in declaration order (not alphabetical), text-only. Now the same shared
+  `BankPickerModal.tsx` popup `docs/features/accounts.md` documents for the Account form's own bank
+  field — real logo/brand-color icon, alphabetical, "Other / Custom" pinned last.
+- **Two year-less date spots fixed.** `FullLedgerPage.tsx`'s and `CheckpointTimelinePage.tsx`'s own
+  row dates used `formatDateShort()` (day + month, no year) — misleading for either table, since both
+  can span a date range from any year. Swapped to `formatDate()` (already includes the year).
 
 ## Limitations
 

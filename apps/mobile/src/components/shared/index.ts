@@ -4,6 +4,7 @@ export { AssetTaxNote } from './AssetTaxNote';
 export { BackButton } from './BackButton';
 export { BankLogo } from './BankLogo';
 export { bankAccentColor } from './bankAccentColor';
+export { BankPickerModal, type BankPickerOption } from './BankPickerModal';
 export { DriveLogo, AppleLogo, DRIVE_BLUE } from './BackupProviderLogo';
 export { BucketCard } from './BucketCard';
 export { DailyTipCard } from './DailyTipCard';

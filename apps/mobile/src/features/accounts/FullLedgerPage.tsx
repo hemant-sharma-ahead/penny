@@ -670,7 +670,7 @@ function LedgerRowView({
       <View className="flex-1 px-2 py-2 border-r border-theme min-w-0">
         {row.statement ? (
           <>
-            <Text className="text-[8.5px] text-tertiary">{formatDateShort(row.date)}</Text>
+            <Text className="text-[8.5px] text-tertiary">{formatDate(row.date)}</Text>
             <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
               {row.statement.rawNarration}
             </Text>
@@ -694,7 +694,7 @@ function LedgerRowView({
       <View className="flex-1 px-2 py-2 min-w-0" style={tintBg ? { backgroundColor: tintBg } : undefined}>
         {row.expense ? (
           <>
-            <Text className="text-[8.5px] text-tertiary">{formatDateShort(row.date)}</Text>
+            <Text className="text-[8.5px] text-tertiary">{formatDate(row.date)}</Text>
             <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
               {row.expense.isTransfer
                 ? `→ Transfer${accountName ? ` to ${accountName}` : ''}`

@@ -70,7 +70,8 @@ export function SettleUpModal({
   const [recordTxn, setRecordTxn] = useState(true);
   const [paymentMode, setPaymentMode] = useState('');
 
-  const usableAccounts = accounts.filter((a) => !a.isArchived);
+  // Closed accounts (2026-08-27), same as archived, are never a valid target for a new settlement.
+  const usableAccounts = accounts.filter((a) => !a.isArchived && !a.isClosed);
   const [accountId, setAccountId] = useState(
     () => usableAccounts.find((a) => a.includeInNetWorth)?.id ?? usableAccounts[0]?.id ?? ''
   );

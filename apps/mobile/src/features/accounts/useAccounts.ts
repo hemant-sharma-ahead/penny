@@ -49,6 +49,13 @@ export function useAccounts() {
     [accounts, txns]
   );
 
+  // Cross-account `isDefault` exclusivity (2026-08-27) is handled entirely in the shared
+  // `useAccountForm.ts` hook, not here — this same "save one account" callback is independently
+  // re-implemented in `ExpenseForm.tsx`'s and `IouView.tsx`'s own inline "+ Add account" flows (no
+  // cross-feature imports means each feature module needs its own), so the invariant has to live at
+  // the one point that's genuinely shared by all of them: `useAccountForm.save()` calls THIS callback
+  // a second time, for whichever other account previously held the default, instead of every
+  // `saveAccount` implementation needing to remember to do it itself.
   const saveAccount = useCallback(async (data: AccountInput, editing: Account | null) => {
     setSaving(true);
     const now = Date.now();

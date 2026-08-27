@@ -74,6 +74,26 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
   account-type default; both the icon glyph and its badge background (`AccountList.tsx`) use it. The
   remaining 5 presets (BoB, Yes Bank, PNB, Canara, IDFC First, custom) have no verified logo *or* color
   yet — inventing either would be equally dishonest, so they stay on the plain account-type default.
+- **`apps/mobile`, 2026-08-27: default account + payment mode, and a real Closed status.** Bank/Credit
+  Card/Wallet accounts (never Cash, already the implicit fallback) gain two new toggles in Add/Edit
+  Account, mutually exclusive on the same account:
+  - **Set as default account** — pre-fills this account, and a type-appropriate payment mode (Cash→Cash,
+    Credit Card→Card, Bank/Wallet→UPI), on every new expense/income. Only one account across the whole
+    set may hold this — turning it on for one account while a DIFFERENT account already has it shows a
+    confirm popup naming that account before anything is saved; Cancel leaves both untouched.
+  - **Closed** — the account is no longer operational (you closed it with the bank). Distinct from
+    *archived* (still operational, just not something you want to keep logging to — that's a separate,
+    still-unbuilt idea, see Current limitations): a closed account is hidden from every picker that
+    assigns a NEW/edited transaction (this form's own inline "+ Add account", `EntryForm.tsx`/
+    `SettleUpModal.tsx`, bulk account-reassign, Groups' composer, bank-import's cash-transfer target) but
+    still shown on this page itself, in its own collapsed "Closed (n)" section — same pattern IOU's
+    Archived section already uses — and still contributes to net worth/analytics like any other account
+    with real history.
+  - The account list shows a "Default" pill next to the name for whichever account holds it.
+  - New shared `apps/mobile/src/components/shared/BankPickerModal.tsx` — the same bank-selection popup
+    (real logo/brand-color icon + name, alphabetical) now used by both this form's "Bank (optional)"
+    field and Bank Statement Import's own bank-preset field (`docs/features/bank-import.md`), replacing
+    a plain text-only dropdown in both places.
 
 ## How it works
 
@@ -95,6 +115,11 @@ Key files:
 - `apps/mobile/src/components/shared/BankLogo.tsx` — real per-bank logo resolution (`account.bankId` →
   a sourced Simple Icons mark, or the generic `Icon`/`account.color` fallback); mobile-only, added
   2026-08-19
+- `apps/mobile/src/components/shared/BankPickerModal.tsx` — shared bank-selection popup (2026-08-27);
+  `packages/core/src/core/accounts/accountDefaults.ts` — `findPreviousDefaultAccount()`, the one place
+  "which other account currently holds `isDefault`" is decided, called from `useAccountForm.ts`'s
+  `save()` rather than any one feature's own `saveAccount` (there are 3+ independent implementations —
+  see the Mobile section below)
 - **`apps/mobile`, 2026-08-03 (v2, superseded 2026-08-19 — history only):** each mini card's gradient +
   glow was looked up, not computed from the account's own type/colour — `~/lib/color.ts`'s
   `accountCardPalette(id, isCashLike)` hashed the account's `id` into one of two curated palettes
@@ -129,7 +154,12 @@ modules" reasoning as the relocation above). No behavior change for the Accounts
 ## Current limitations
 
 - Balances must be seeded with an accurate opening balance; there is no way to import existing transaction history from a bank automatically
-- No account archiving — deleted accounts remove all associated transactions
+- Deleting an account is still a real hard delete (`accountsRepo.delete()`) — it doesn't remove linked
+  transactions (they just lose their account link), but there's no Undo-by-restoring-the-account the way
+  IOU persons/goals get. **Closed** (2026-08-27, see above) covers "keep it, stop using it, mark it
+  no-longer-operational" — a genuine **Archive** (still operational, just not something you're
+  logging to in Penny — distinct from Closed) remains unbuilt; `Account.isArchived` exists on the type
+  but nothing sets it yet.
 - No multi-currency accounts (all accounts are in INR)
 - Credit card statements and minimum payment dates are not tracked
 - No automatic bank sync or Open Banking integration
@@ -141,6 +171,7 @@ modules" reasoning as the relocation above). No behavior change for the Accounts
 
 ## Ideas welcome
 
-- Should archived/closed accounts be kept for historical reporting rather than deleted?
+- A real **Archive** action (distinct from the new Closed status — see Current limitations) — keep an
+  account's history without deleting it, for one still-operational but no-longer-tracked in Penny.
 - Would foreign currency account support (e.g. USD savings account) be useful?
 - Should credit card accounts show the statement due date and minimum payment?

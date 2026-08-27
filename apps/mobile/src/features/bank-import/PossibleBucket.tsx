@@ -77,7 +77,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
    *  are mutually exclusive by construction (exactly-one vs. 2+ candidates), so at most one of the two
    *  gates below ever fires for a given row. */
   function routeRowForAdding(row: ParsedStatementRow) {
-    const cashSuggestion = bi.suggestCashTransferFor(row.rawNarration);
+    const cashSuggestion = bi.suggestCashTransferFor(row.rawNarration, row.direction);
     if (cashSuggestion && !cashSuggestion.toAccountId && bi.cashAccounts.length > 1) {
       setChosenCashAccountId('');
       setPendingCashChoice(row);
@@ -306,7 +306,7 @@ export function PossibleBucket({ bi, accountMap, candidatePool, masked }: Possib
           // needed the picker at all). Falls back further (2026-08-05) to the softer cross-account
           // amount/date suggestion only when no cash-code match fired — narration-code detection is
           // the more confident signal of the two, so it always wins when both happen to apply.
-          const cashSuggestion = bi.suggestCashTransferFor(addingNew.rawNarration);
+          const cashSuggestion = bi.suggestCashTransferFor(addingNew.rawNarration, addingNew.direction);
           // Cross-account transfer note (2026-08-05; absorb-in-place path found + fixed 2026-08-09) —
           // an explicit "Neither" from `AmbiguousTransferPickerModal`, or an explicit "Not the same, add
           // separately" from the single-candidate link chip above, always wins over recomputing either

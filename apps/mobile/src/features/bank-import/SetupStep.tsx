@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Banner, Button, Card, SectionLabel, SelectInput } from '~/components/ui';
+import { Banner, Button, Card, SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { BankPickerModal, type BankPickerOption } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { formatDate, formatDateShort } from '@/lib/date';
 import { CUSTOM_PRESET_ID } from '@/core/bank-import/presets';
@@ -35,10 +36,11 @@ const MAPPING_FIELDS: { key: 'date' | 'narration' | 'debit' | 'credit' | 'balanc
 export function SetupStep({ bi }: SetupStepProps) {
   const theme = useThemeColors();
   const [showMappingEdit, setShowMappingEdit] = useState(false);
+  const [showBankPicker, setShowBankPicker] = useState(false);
 
-  const bankOptions = [
-    ...bi.banks.map((b) => ({ value: b.id, label: b.label })),
-    { value: CUSTOM_PRESET_ID, label: 'Other / Custom' }
+  const bankOptions: BankPickerOption[] = [
+    ...bi.banks.map((b) => ({ value: b.id, label: b.label, bankId: b.id as BankPresetId })),
+    { value: CUSTOM_PRESET_ID, label: 'Other / Custom', pinLast: true }
   ];
   const bankLabel = bi.isCustomPreset
     ? 'your custom format'
@@ -87,12 +89,24 @@ export function SetupStep({ bi }: SetupStepProps) {
     <View className="gap-4">
       <View className="gap-2">
         <SectionLabel className="mb-0">Bank</SectionLabel>
-        <SelectInput
-          value={bi.presetId ?? ''}
-          onChange={(v) => bi.selectPreset(v as BankPresetId)}
-          options={bankOptions}
-          placeholder="Select your bank"
-        />
+        <Pressable
+          onPress={() => setShowBankPicker(true)}
+          className="flex-row items-center justify-between rounded-xl border px-3 py-2.5"
+          style={{ borderColor: theme.border }}
+        >
+          <Text className={bi.presetId !== null ? 'text-sm text-primary' : 'text-sm text-tertiary'}>
+            {bi.presetId !== null ? bankLabel : 'Select your bank'}
+          </Text>
+          <Icon name="ti-chevron-down" size={14} color={theme.textTertiary} />
+        </Pressable>
+        {showBankPicker && (
+          <BankPickerModal
+            options={bankOptions}
+            value={bi.presetId ?? ''}
+            onSelect={(v) => bi.selectPreset(v as BankPresetId)}
+            onClose={() => setShowBankPicker(false)}
+          />
+        )}
       </View>
 
       {bi.presetId !== null && (

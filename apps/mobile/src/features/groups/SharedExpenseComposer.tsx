@@ -95,7 +95,8 @@ export function SharedExpenseComposer({
       if (cancelled) return;
       const active = allMembers.filter((m) => m.groupId === group.id && m.status === 'active');
       const me = profile[0]?.userId;
-      const liveAccounts = accs.filter((a) => !a.isArchived);
+      // Closed accounts (2026-08-27), same as archived, are never a valid target for a new shared expense.
+      const liveAccounts = accs.filter((a) => !a.isArchived && !a.isClosed);
       setMembers(active);
       setCategories(cats.filter((c) => (c.applicableTo ?? 'expense') === 'expense' && !c.isGroup));
       setAccounts(liveAccounts);

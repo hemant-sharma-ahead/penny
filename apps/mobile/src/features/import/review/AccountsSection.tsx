@@ -181,7 +181,9 @@ export function AccountsSection({
         openingBalance: 0,
         color: meta.color,
         icon: meta.icon,
-        includeInNetWorth: existingType !== 'credit_card'
+        includeInNetWorth: existingType !== 'credit_card',
+        isDefault: false,
+        isClosed: false
       },
       null
     );

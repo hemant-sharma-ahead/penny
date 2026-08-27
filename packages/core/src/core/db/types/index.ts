@@ -427,6 +427,21 @@ export interface Account {
    *  resolution when both the SMS and this account carry a last4. */
   last4?: string;
   isArchived: boolean;
+  /** No longer operational (2026-08-27) — distinct from `isArchived`: closed means the real-world
+   *  account is gone (you closed it with the bank); archived means it's still operational but you've
+   *  chosen to stop using it in Penny without deleting its history. Hidden from every account picker
+   *  that assigns a NEW/edited transaction (`ExpenseForm.tsx`, `EntryForm.tsx`/`SettleUpModal.tsx`,
+   *  bulk account-reassign, Groups' composer, bank-import's cash-transfer target) — but still shown,
+   *  and still contributes to net worth/analytics, everywhere that reads EXISTING history. Optional,
+   *  no migration needed — absent = not closed, same as every account before this field existed.
+   *  Mutually exclusive with `isDefault` below (enforced at the UI layer, not the type). */
+  isClosed?: boolean;
+  /** The one account pre-selected (along with its type-appropriate payment mode, via
+   *  `defaultPaymentModeForAccount()`) on every new expense/income (2026-08-27) — at most one account
+   *  across the whole set may have this `true`; `useAccounts.ts`'s `saveAccount` enforces that by
+   *  clearing it from whichever other account previously held it. Optional, no migration needed.
+   *  Mutually exclusive with `isClosed` above. */
+  isDefault?: boolean;
   createdAt: number;
   updatedAt: number;
   /** Safe Mode masks this account's balance; undefined/false = visible. */
@@ -1110,6 +1125,11 @@ export interface BankCashWithdrawalCode {
   bankId: string;
   code: string;
   label: string;
+  /** Which way the cash moved — a withdrawal (bank → cash) or a deposit (cash → bank), added
+   *  2026-08-27. Optional for backward compatibility: every code created before this field existed
+   *  has none, and is treated as `'withdrawal'` wherever this is read (see
+   *  `core/bank-import/cashWithdrawalCodes.ts`'s `isCashTransferNarration`) — no migration needed. */
+  direction?: 'withdrawal' | 'deposit';
   isDefault: boolean;
   createdAt: number;
   updatedAt: number;
