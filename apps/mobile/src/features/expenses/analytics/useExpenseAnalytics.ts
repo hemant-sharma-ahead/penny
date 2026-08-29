@@ -18,6 +18,13 @@ interface Args {
   accounts: Account[];
   selectedMonth: string;
   analyticsYear: number;
+  /** Which of the 3 views (Monthly/Annual/All-Time) is actually on screen right now (2026-08-29
+   *  performance fix — see `docs/ARCHITECTURE.md`'s matching decision entry). Only the active view's
+   *  data is actually computed; the other two return cheap empty defaults instead of running their
+   *  full `expenses`-array scans — there was previously no way for this hook to know which view was
+   *  visible, so it computed all three unconditionally on every `expenses` change, including while
+   *  Analytics was backgrounded. */
+  analyticsView: 'monthly' | 'annual' | 'allTime';
   events: ActiveEvent[];
   pastEvents: ActiveEvent[];
   allEventHashtags: Set<string>;
@@ -378,8 +385,13 @@ export function useExpenseAnalytics({
   iouLinkedTxnIds,
   goalLinkedTxnIds,
   familyGroupIds,
-  setAsideTagNames
+  setAsideTagNames,
+  analyticsView
 }: Args) {
+  const isMonthly = analyticsView === 'monthly';
+  const isAnnual = analyticsView === 'annual';
+  const isAllTime = analyticsView === 'allTime';
+
   const analyticsMonthBudgets = useMemo(
     () => budgets.filter((b) => b.monthYear === selectedMonth),
     [budgets, selectedMonth]
@@ -416,15 +428,18 @@ export function useExpenseAnalytics({
   );
 
   const analyticsData = useMemo(
-    () => buildGroupData(expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap, analyticsMonthBudgets),
-    [expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap, analyticsMonthBudgets]
+    () =>
+      isMonthly
+        ? buildGroupData(expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap, analyticsMonthBudgets)
+        : [],
+    [isMonthly, expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap, analyticsMonthBudgets]
   );
 
   // "Set aside" — non-routine spend (travel, family support, legal, financial moves) + money lent,
   // summarised separately so it never distorts the daily-living picture. One row per bucket.
   const setAsideData = useMemo(
-    () => buildSetAsideData(expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap),
-    [expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap]
+    () => (isMonthly ? buildSetAsideData(expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap) : []),
+    [isMonthly, expenses, inSelectedMonth, classify, categoryMap, parentCategoryMap]
   );
 
   const setAsideTotal = useMemo(() => setAsideData.reduce((s, seg) => s + seg.amount, 0), [setAsideData]);
@@ -432,21 +447,24 @@ export function useExpenseAnalytics({
   // Item 46 — income breakdown for the month, same "arbitrary scope, scope-generic builder" pattern
   // as `setAsideData` above.
   const incomeData = useMemo(
-    () => buildIncomeData(expenses, inSelectedMonth, categoryMap, parentCategoryMap),
-    [expenses, inSelectedMonth, categoryMap, parentCategoryMap]
+    () => (isMonthly ? buildIncomeData(expenses, inSelectedMonth, categoryMap, parentCategoryMap) : []),
+    [isMonthly, expenses, inSelectedMonth, categoryMap, parentCategoryMap]
   );
   const incomeTotal = useMemo(() => incomeData.reduce((s, seg) => s + seg.amount, 0), [incomeData]);
 
   const eventsThisMonth = useMemo(
-    () => buildEventsData(expenses, inSelectedMonth, events, pastEvents, categoryMap),
-    [expenses, inSelectedMonth, events, pastEvents, categoryMap]
+    () => (isMonthly ? buildEventsData(expenses, inSelectedMonth, events, pastEvents, categoryMap) : []),
+    [isMonthly, expenses, inSelectedMonth, events, pastEvents, categoryMap]
   );
 
   const analyticsTotal = useMemo(() => analyticsData.reduce((s, seg) => s + seg.amount, 0), [analyticsData]);
 
   // All-inclusive total for the month: daily-routine + set-aside + event spend (every expense-type
   // transaction), so the header shows the true "everything" figure alongside the routine breakdown.
+  // Gated like every other Monthly-only field below — see `analyticsView`'s own doc comment (2026-08-29
+  // performance fix): only scans `expenses` when the Monthly view is actually the one on screen.
   const monthTotal = useMemo(() => {
+    if (!isMonthly) return 0;
     let total = 0;
     for (const e of expenses) {
       if (toMonthYearKey(new Date(e.date)) !== selectedMonth) continue;
@@ -454,16 +472,17 @@ export function useExpenseAnalytics({
       total += e.amount;
     }
     return total;
-  }, [expenses, selectedMonth]);
+  }, [isMonthly, expenses, selectedMonth]);
 
   const prevMonthData = useMemo(() => {
+    if (!isMonthly) return new Map<string, number>();
     const pm = offsetMonth(selectedMonth, -1);
     return buildGroupTotals(expenses, (e) => toMonthYearKey(new Date(e.date)) === pm, classify, categoryMap);
-  }, [expenses, categoryMap, selectedMonth, classify]);
+  }, [isMonthly, expenses, categoryMap, selectedMonth, classify]);
 
   const hashtagSummary = useMemo(
-    () => buildHashtagSummary(expenses, inSelectedMonth, allEventHashtags),
-    [expenses, inSelectedMonth, allEventHashtags]
+    () => (isMonthly ? buildHashtagSummary(expenses, inSelectedMonth, allEventHashtags) : []),
+    [isMonthly, expenses, inSelectedMonth, allEventHashtags]
   );
 
   const spendVelocity = useMemo(() => {
@@ -489,13 +508,19 @@ export function useExpenseAnalytics({
     return monthTotal / days;
   }, [selectedMonth, monthTotal, nowMs]);
 
-  const annualData = useMemo(() => buildAnnualSeries(expenses, analyticsYear, nowMs), [expenses, analyticsYear, nowMs]);
+  const annualData = useMemo(
+    () => (isAnnual ? buildAnnualSeries(expenses, analyticsYear, nowMs) : []),
+    [isAnnual, expenses, analyticsYear, nowMs]
+  );
   const prevYearData = useMemo(
-    () => buildAnnualSeries(expenses, analyticsYear - 1, nowMs),
-    [expenses, analyticsYear, nowMs]
+    () => (isAnnual ? buildAnnualSeries(expenses, analyticsYear - 1, nowMs) : []),
+    [isAnnual, expenses, analyticsYear, nowMs]
   );
   const annualSavings = useMemo(() => computeSavingsRate(annualData), [annualData]);
-  const annualMovers = useMemo(() => biggestMovers(expenses, categoryMap, nowMs, 3), [expenses, categoryMap, nowMs]);
+  const annualMovers = useMemo(
+    () => (isAnnual ? biggestMovers(expenses, categoryMap, nowMs, 3) : []),
+    [isAnnual, expenses, categoryMap, nowMs]
+  );
 
   // Actual-expense total this year (header), and a chart max spanning expense,
   // income and last year's expense so all series share one scale.
@@ -511,12 +536,18 @@ export function useExpenseAnalytics({
   // Monthly recap + anomaly nudges — same event-excluded basis as the rest of the
   // monthly view (event-tagged expenses don't count toward category run-rates).
   const recap = useMemo(
-    () => monthlyRecap(expenses, categoryMap, selectedMonth, (e) => classify(e).kind !== 'routine'),
-    [expenses, categoryMap, selectedMonth, classify]
+    () =>
+      isMonthly
+        ? monthlyRecap(expenses, categoryMap, selectedMonth, (e) => classify(e).kind !== 'routine')
+        : { month: selectedMonth, expense: 0, income: 0, net: 0, txnCount: 0, prevExpense: 0, deltaPct: null },
+    [isMonthly, expenses, categoryMap, selectedMonth, classify]
   );
   const anomalies = useMemo(
-    () => computeAnomalies(expenses, categoryMap, selectedMonth, (e) => classify(e).kind !== 'routine', nowMs),
-    [expenses, categoryMap, selectedMonth, classify, nowMs]
+    () =>
+      isMonthly
+        ? computeAnomalies(expenses, categoryMap, selectedMonth, (e) => classify(e).kind !== 'routine', nowMs)
+        : [],
+    [isMonthly, expenses, categoryMap, selectedMonth, classify, nowMs]
   );
 
   // Monthly Cash Flow — one row per account (all types, 2026-08-02: widened from cash/wallet-only per
@@ -524,13 +555,15 @@ export function useExpenseAnalytics({
   // before the account existed.
   const cashFlowSummaries = useMemo(
     () =>
-      accounts
-        .filter((a) => !a.isArchived)
-        .map((account) => ({
-          account,
-          summary: computeCashFlowSummary(account, expenses, monthBounds(selectedMonth))
-        })),
-    [accounts, expenses, selectedMonth]
+      isMonthly
+        ? accounts
+            .filter((a) => !a.isArchived)
+            .map((account) => ({
+              account,
+              summary: computeCashFlowSummary(account, expenses, monthBounds(selectedMonth))
+            }))
+        : [],
+    [isMonthly, accounts, expenses, selectedMonth]
   );
 
   // ── Annual counterparts (2026-08-02) — same shapes as the monthly ones above, scoped to
@@ -538,24 +571,26 @@ export function useExpenseAnalytics({
 
   const annualCashFlowSummaries = useMemo(
     () =>
-      accounts
-        .filter((a) => !a.isArchived)
-        .map((account) => ({
-          account,
-          summary: computeCashFlowSummary(account, expenses, yearBounds(analyticsYear))
-        })),
-    [accounts, expenses, analyticsYear]
+      isAnnual
+        ? accounts
+            .filter((a) => !a.isArchived)
+            .map((account) => ({
+              account,
+              summary: computeCashFlowSummary(account, expenses, yearBounds(analyticsYear))
+            }))
+        : [],
+    [isAnnual, accounts, expenses, analyticsYear]
   );
 
   const annualGroupData = useMemo(
-    () => buildGroupData(expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap, []),
-    [expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap]
+    () => (isAnnual ? buildGroupData(expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap, []) : []),
+    [isAnnual, expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap]
   );
   const annualGroupTotal = useMemo(() => annualGroupData.reduce((s, seg) => s + seg.amount, 0), [annualGroupData]);
 
   const annualSetAsideData = useMemo(
-    () => buildSetAsideData(expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap),
-    [expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap]
+    () => (isAnnual ? buildSetAsideData(expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap) : []),
+    [isAnnual, expenses, inAnalyticsYear, classify, categoryMap, parentCategoryMap]
   );
   const annualSetAsideTotal = useMemo(
     () => annualSetAsideData.reduce((s, seg) => s + seg.amount, 0),
@@ -563,30 +598,33 @@ export function useExpenseAnalytics({
   );
 
   const annualIncomeData = useMemo(
-    () => buildIncomeData(expenses, inAnalyticsYear, categoryMap, parentCategoryMap),
-    [expenses, inAnalyticsYear, categoryMap, parentCategoryMap]
+    () => (isAnnual ? buildIncomeData(expenses, inAnalyticsYear, categoryMap, parentCategoryMap) : []),
+    [isAnnual, expenses, inAnalyticsYear, categoryMap, parentCategoryMap]
   );
   const annualIncomeTotal = useMemo(() => annualIncomeData.reduce((s, seg) => s + seg.amount, 0), [annualIncomeData]);
 
   const annualEvents = useMemo(
-    () => buildEventsData(expenses, inAnalyticsYear, events, pastEvents, categoryMap),
-    [expenses, inAnalyticsYear, events, pastEvents, categoryMap]
+    () => (isAnnual ? buildEventsData(expenses, inAnalyticsYear, events, pastEvents, categoryMap) : []),
+    [isAnnual, expenses, inAnalyticsYear, events, pastEvents, categoryMap]
   );
 
   const annualHashtagSummary = useMemo(
-    () => buildHashtagSummary(expenses, inAnalyticsYear, allEventHashtags),
-    [expenses, inAnalyticsYear, allEventHashtags]
+    () => (isAnnual ? buildHashtagSummary(expenses, inAnalyticsYear, allEventHashtags) : []),
+    [isAnnual, expenses, inAnalyticsYear, allEventHashtags]
   );
 
   const prevYearGroupData = useMemo(
     () =>
-      buildGroupTotals(expenses, (e) => new Date(e.date).getFullYear() === analyticsYear - 1, classify, categoryMap),
-    [expenses, analyticsYear, classify, categoryMap]
+      isAnnual
+        ? buildGroupTotals(expenses, (e) => new Date(e.date).getFullYear() === analyticsYear - 1, classify, categoryMap)
+        : new Map<string, number>(),
+    [isAnnual, expenses, analyticsYear, classify, categoryMap]
   );
 
   // Annual equivalent of the monthly recap's `txnCount`/`topCategory` — same routine-only scope as
   // `monthlyRecap()` uses for its own top category (see `monthlyInsights.ts`).
   const annualRecap = useMemo(() => {
+    if (!isAnnual) return { txnCount: 0, topCategory: undefined as { name: string; amount: number } | undefined };
     let txnCount = 0;
     const catTotals = new Map<string, number>();
     for (const e of expenses) {
@@ -606,7 +644,7 @@ export function useExpenseAnalytics({
       }
     }
     return { txnCount, topCategory };
-  }, [expenses, analyticsYear, classify, categoryMap]);
+  }, [isAnnual, expenses, analyticsYear, classify, categoryMap]);
 
   // vs-last-year trend for the annual Pulse Card, mirroring `recap.deltaPct`'s "vs last month".
   const prevYearActualTotal = useMemo(
@@ -637,14 +675,14 @@ export function useExpenseAnalytics({
   const inAllTime: Scope = useMemo(() => () => true, []);
 
   const allTimeGroupData = useMemo(
-    () => buildGroupData(expenses, inAllTime, classify, categoryMap, parentCategoryMap, []),
-    [expenses, inAllTime, classify, categoryMap, parentCategoryMap]
+    () => (isAllTime ? buildGroupData(expenses, inAllTime, classify, categoryMap, parentCategoryMap, []) : []),
+    [isAllTime, expenses, inAllTime, classify, categoryMap, parentCategoryMap]
   );
   const allTimeGroupTotal = useMemo(() => allTimeGroupData.reduce((s, seg) => s + seg.amount, 0), [allTimeGroupData]);
 
   const allTimeSetAsideData = useMemo(
-    () => buildSetAsideData(expenses, inAllTime, classify, categoryMap, parentCategoryMap),
-    [expenses, inAllTime, classify, categoryMap, parentCategoryMap]
+    () => (isAllTime ? buildSetAsideData(expenses, inAllTime, classify, categoryMap, parentCategoryMap) : []),
+    [isAllTime, expenses, inAllTime, classify, categoryMap, parentCategoryMap]
   );
   const allTimeSetAsideTotal = useMemo(
     () => allTimeSetAsideData.reduce((s, seg) => s + seg.amount, 0),
@@ -652,8 +690,8 @@ export function useExpenseAnalytics({
   );
 
   const allTimeIncomeData = useMemo(
-    () => buildIncomeData(expenses, inAllTime, categoryMap, parentCategoryMap),
-    [expenses, inAllTime, categoryMap, parentCategoryMap]
+    () => (isAllTime ? buildIncomeData(expenses, inAllTime, categoryMap, parentCategoryMap) : []),
+    [isAllTime, expenses, inAllTime, categoryMap, parentCategoryMap]
   );
   const allTimeIncomeTotal = useMemo(
     () => allTimeIncomeData.reduce((s, seg) => s + seg.amount, 0),
@@ -661,40 +699,44 @@ export function useExpenseAnalytics({
   );
 
   const allTimeEvents = useMemo(
-    () => buildEventsData(expenses, inAllTime, events, pastEvents, categoryMap),
-    [expenses, inAllTime, events, pastEvents, categoryMap]
+    () => (isAllTime ? buildEventsData(expenses, inAllTime, events, pastEvents, categoryMap) : []),
+    [isAllTime, expenses, inAllTime, events, pastEvents, categoryMap]
   );
 
   const allTimeHashtagSummary = useMemo(
-    () => buildHashtagSummary(expenses, inAllTime, allEventHashtags),
-    [expenses, inAllTime, allEventHashtags]
+    () => (isAllTime ? buildHashtagSummary(expenses, inAllTime, allEventHashtags) : []),
+    [isAllTime, expenses, inAllTime, allEventHashtags]
   );
 
   const allTimeCashFlowSummaries = useMemo(
     () =>
-      accounts
-        .filter((a) => !a.isArchived)
-        .map((account) => ({
-          account,
-          summary: computeCashFlowSummary(account, expenses, allTimeBounds(nowMs))
-        })),
-    [accounts, expenses, nowMs]
+      isAllTime
+        ? accounts
+            .filter((a) => !a.isArchived)
+            .map((account) => ({
+              account,
+              summary: computeCashFlowSummary(account, expenses, allTimeBounds(nowMs))
+            }))
+        : [],
+    [isAllTime, accounts, expenses, nowMs]
   );
 
   // Lifetime "true total" (all expense-type transactions, no scope filter) — the All Time counterpart of
   // `monthTotal`/`annualTotal`.
   const allTimeTotal = useMemo(() => {
+    if (!isAllTime) return 0;
     let total = 0;
     for (const e of expenses) {
       if (e.type && e.type !== 'expense') continue;
       total += e.amount;
     }
     return total;
-  }, [expenses]);
+  }, [isAllTime, expenses]);
 
   // Lifetime net (income − expense, transfers excluded) — the All Time counterpart of `recap.net`/
   // `annualSavings.saved`.
   const allTimeNet = useMemo(() => {
+    if (!isAllTime) return 0;
     let income = 0;
     let expense = 0;
     for (const e of expenses) {
@@ -704,10 +746,11 @@ export function useExpenseAnalytics({
       else expense += e.amount;
     }
     return income - expense;
-  }, [expenses]);
+  }, [isAllTime, expenses]);
 
   // Lifetime equivalent of `recap.txnCount`/`topCategory` — unscoped, same routine-only category basis.
   const allTimeRecap = useMemo(() => {
+    if (!isAllTime) return { txnCount: 0, topCategory: undefined as { name: string; amount: number } | undefined };
     let txnCount = 0;
     const catTotals = new Map<string, number>();
     for (const e of expenses) {
@@ -726,20 +769,20 @@ export function useExpenseAnalytics({
       }
     }
     return { txnCount, topCategory };
-  }, [expenses, classify, categoryMap]);
+  }, [isAllTime, expenses, classify, categoryMap]);
 
   // Average daily spend over the account's real lifetime — divides `allTimeTotal` by days elapsed since
   // the earliest transaction of any kind (not just expense-type), so a fresh account with one day of data
   // doesn't get diluted by dividing over a longer span than it actually has history for.
   const allTimeAvgPerDay = useMemo(() => {
-    if (expenses.length === 0) return 0;
+    if (!isAllTime || expenses.length === 0) return 0;
     let earliest = nowMs;
     for (const e of expenses) {
       if (e.date < earliest) earliest = e.date;
     }
     const days = Math.max(1, Math.floor((nowMs - earliest) / DAY_MS) + 1);
     return allTimeTotal / days;
-  }, [expenses, nowMs, allTimeTotal]);
+  }, [isAllTime, expenses, nowMs, allTimeTotal]);
 
   return {
     analyticsData,

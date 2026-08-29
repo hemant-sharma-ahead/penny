@@ -122,7 +122,8 @@ export function AnalyticsSlice({
     iouLinkedTxnIds,
     goalLinkedTxnIds,
     familyGroupIds,
-    setAsideTagNames
+    setAsideTagNames,
+    analyticsView
   });
 
   // Same in-scope filtering `analyticsData`/`setAsideData`/`incomeData` (or their annual/all-time

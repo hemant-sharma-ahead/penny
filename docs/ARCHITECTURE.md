@@ -3106,6 +3106,59 @@ No code or docs changed to reverse Model B — this is a confirmation, filed her
 `docs/BACKEND_STRATEGY.md`) because the concrete numbers above are new and worth keeping alongside
 the rest of this session's DB-structure findings.
 
+### Decision: referential-integrity consistency checker + Analytics lazy view computation (2026-08-29)
+
+**Rationale:** the two lowest-risk, highest-value follow-ups from the DB-structure review above,
+picked up the same day. A third (a cached running balance to eliminate `computeBalance()`'s repeated
+full-array scans on Home/Analytics/IOU) was deliberately deferred — see below.
+
+**1. `packages/core/src/core/db/consistencyCheck.ts` — `findOrphanedReferences()`.** The cheap
+alternative to a full per-field-encryption/real-`FOREIGN KEY` restructure: scans every FK-shaped
+relationship this codebase actually relies on (the ER diagram in the entry above) after decryption,
+and reports any reference pointing at an id that doesn't exist in the table it's supposed to
+reference. Read-only, reports only, never repairs. Checked: `expenses.accountId`/`toAccountId`/
+`categoryId`, `expense_categories.parentId` (self), `goal_contributions.goalId`/`linkedTxnId`,
+`ledger_entries.personId`/`linkedTxnId`, `persons.promotedToGroupId`, `group_members.linkedPersonId`,
+`bank_statement_imports.accountId`/`linkedTxnId`, `sms_transactions.accountId`/`linkedTxnId`.
+Deliberately NOT checked (see `consistencyCheck.ts`'s own doc comment): `hashtags` (matched by name,
+not id), `activity_log.entityId` (genuinely polymorphic), `bankId` fields (a shared enum, not a table
+reference), and the lower-risk `categoryId`/`accountId`/`paymentMode` fields on `subscriptions`/
+`transaction_templates`/`merchant_memory`/`sms_transactions`. Covered by
+`packages/core/tests/db/consistencyCheck.test.ts` (a fully-consistent dataset reports zero issues; a
+dataset with one dangling reference per checked relationship is caught exactly once each; an absent
+optional reference is correctly never flagged). Not yet wired into anything that runs automatically
+(no CI job, no on-device diagnostic) — that's its own future step if it proves useful.
+
+**2. Analytics eager 3-view computation → lazy, active-view-only.** `useExpenseAnalytics.ts` gained a
+new required `analyticsView: 'monthly' | 'annual' | 'allTime'` input (threaded from
+`AnalyticsSlice.tsx`'s existing `analyticsView` state, previously not passed to the hook at all).
+Every one of the ~25 real `expenses`-array-scanning computations (`buildGroupData`/
+`buildSetAsideData`/`buildIncomeData`/`buildEventsData`/`buildHashtagSummary`/`buildAnnualSeries`/
+`biggestMovers`/`computeCashFlowSummary`/the hand-rolled `monthTotal`/`annualRecap`/`allTimeTotal`/
+`allTimeNet`/`allTimeRecap`/`allTimeAvgPerDay` loops) is now gated behind `isMonthly`/`isAnnual`/
+`isAllTime` and returns a cheap, correctly-typed empty default (`[]`, `0`, or an empty
+recap/Map shape) when its view isn't the one on screen — cutting steady-state cost by roughly 2/3 and
+removing the tax of recomputing all three every time `expenses` changes anywhere in the app
+(including in the background, while a different tab is focused). Purely derived values (totals/maxes
+computed by reducing an already-small, already-gated array) were left ungated — they're already cheap
+once their base input is empty. Switching to a previously-viewed tab still recomputes that tab's real
+data from scratch (deliberate, matches "lazily compute... on switch," not a full per-view cache) —
+cheap because it only happens on a user-initiated tab switch, not on every background write.
+
+**3. Cached running balance — deferred, not built.** The higher-risk alternative fix for
+`computeBalance()`/`computeCashFlowSummary()`'s repeated full-`expenses`-array scans (Home's
+still-open Phase 3 item, Analytics' Cash Flow tile, `IouView.tsx`) was explicitly not built this
+round. Two real options exist: (a) a persisted, incrementally-updated `accounts.cachedBalance` field
+— genuinely O(1) reads, but requires an exhaustive, perpetually-maintained audit of every
+`expenses`-writing code path (manual add/edit/delete, bulk delete/move, CSV/bank/SMS import, backup
+restore/merge, reconciliation, goal contributions, IOU settle-up) to keep it in sync, with silent
+balance drift — no error, just a wrong number — as the failure mode if any path is ever missed; or
+(b) a safer single memoized grouped pass computing every account's balance in one `O(n)` scan over
+`expenses`, shared across Home/Analytics/IOU and automatically self-healing on every `expenses`
+change (no persisted field, nothing to keep in sync, but doesn't reach true O(1)). Flagged to the
+user as a real risk trade-off before starting; the user chose to pick this up later rather than
+decide between the two now.
+
 ---
 
 ## Dependency graph (simplified)
