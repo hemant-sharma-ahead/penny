@@ -8,6 +8,11 @@ interface MonthScrubBarProps {
   /** Ascending chronological order (oldest first) — the earliest recorded transaction's month
    *  through the current calendar month. See `TransactionsSlice.tsx` for how this is built. */
   months: string[];
+  /** Item 15 (docs/mockups/proposals/punch-list-batch-v1.html §1) — every `YYYY-MM` month that has
+   *  at least one transaction (`useTransactionFilters.ts`'s `monthsWithTxns`). A month in `months`
+   *  but absent here is rendered dimmed (lower opacity) — still a normal, fully tappable chip, just
+   *  visually deprioritized as "empty but valid," never disabled. */
+  monthsWithTxns: Set<string>;
   /** `null` means "All time" (no month filter) — drives the pinned "All" chip's selected state. */
   selected: string | null;
   onSelectMonth: (m: string) => void;
@@ -30,8 +35,19 @@ interface MonthScrubBarProps {
  *   further back than is comfortable to reach by scrolling.
  * - The strip auto-scrolls to bring the selected month chip into view on mount and whenever
  *   `selected` changes elsewhere (`FilterModal`, `MonthPickerModal`).
+ * - Item 15 (docs/mockups/proposals/punch-list-batch-v1.html §1): a chip for a month with zero
+ *   transactions renders at lower opacity — still fully tappable, just visually deprioritized.
+ * - Item 13b (same mockup, §1): chip labels always include the year (`monthChipLabel()`), even
+ *   for the current calendar year.
  */
-export function MonthScrubBar({ months, selected, onSelectMonth, onSelectAll, onOpenPicker }: MonthScrubBarProps) {
+export function MonthScrubBar({
+  months,
+  monthsWithTxns,
+  selected,
+  onSelectMonth,
+  onSelectAll,
+  onOpenPicker
+}: MonthScrubBarProps) {
   const theme = useThemeColors();
   const scrollRef = useRef<ScrollView>(null);
   // Populated as each chip lays out (its `x` offset within the scroll content) via the chip's own
@@ -79,9 +95,14 @@ export function MonthScrubBar({ months, selected, onSelectMonth, onSelectAll, on
   );
 
   useEffect(() => {
-    pendingScrollTo.current = selected;
-    if (selected) scrollToMonth(selected);
-  }, [selected, scrollToMonth]);
+    // `selected === null` means "All" — item 13a: this used to be a no-op, leaving the strip
+    // wherever it last was (reading as "slid to the left" on a fresh mount, since nothing had ever
+    // scrolled it toward "now" yet). Land on the most recent month (the last entry — `months` is
+    // ascending) instead, same as if that month chip had been tapped.
+    const target = selected ?? months[months.length - 1];
+    pendingScrollTo.current = target ?? null;
+    if (target) scrollToMonth(target);
+  }, [selected, months, scrollToMonth]);
 
   const handleChipLayout = useCallback(
     (m: string) => (e: LayoutChangeEvent) => {
@@ -129,6 +150,9 @@ export function MonthScrubBar({ months, selected, onSelectMonth, onSelectAll, on
       >
         {months.map((m) => {
           const isSelected = selected === m;
+          // Item 15 — an empty month is still a fully valid, tappable view of "no transactions
+          // that month," just visually deprioritized; never disabled (`onPress` is unchanged).
+          const isEmpty = !monthsWithTxns.has(m);
           return (
             <Pressable
               key={m}
@@ -137,7 +161,8 @@ export function MonthScrubBar({ months, selected, onSelectMonth, onSelectAll, on
               className="shrink-0 px-[11px] py-[7px] rounded-[10px] border border-theme"
               style={{
                 backgroundColor: isSelected ? theme.primary : theme.surfaceSecondary,
-                borderColor: isSelected ? 'transparent' : theme.border
+                borderColor: isSelected ? 'transparent' : theme.border,
+                opacity: isEmpty ? 0.45 : 1
               }}
             >
               <Text className="text-[10.5px] font-bold" style={{ color: isSelected ? '#fff' : theme.textSecondary }}>

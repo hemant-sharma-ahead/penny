@@ -3159,6 +3159,50 @@ change (no persisted field, nothing to keep in sync, but doesn't reach true O(1)
 user as a real risk trade-off before starting; the user chose to pick this up later rather than
 decide between the two now.
 
+### Decision: Real-device-testing-pass 10th batch — 16-item punch list (2026-08-29) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a 16-item punch list the user provided directly in one message, unrelated to any
+prior testing batch — split per the user's own explicit two-step gate into "fix now, no mockup
+needed" and "one combined mockup, then implement together" before any code changed. Full per-item
+writeup lives in `docs/plans/real-device-testing-pass.md`'s 10th batch (items 81-95); this entry
+covers only the pieces that are genuinely architectural.
+
+**New `coverage.ts` pattern — a non-badge signal living alongside a closed finding system.**
+`accountVerification.ts`'s `VerificationFindingKind` is a deliberately closed 3-kind priority system
+(its own doc comment says so explicitly). The new "unverified tail" sweep (transactions recorded
+after an account's last verified statement date, with no import link) is a genuinely different kind
+of signal — not negative/actionable in the same sense — so it was built as two new, independent pure
+functions in `coverage.ts` (`computeVerifiedThroughDate()`, `findUnverifiedTailExpenses()`) rather
+than as a 4th finding kind. Precedent for future signals of this shape: extend the closed enum only
+for things that genuinely compete for the *same* one-badge slot; build a parallel, independent
+pure-function signal (surfaced by the UI layer alongside, not instead of, the badge) for anything
+that doesn't.
+
+**New hook: `apps/mobile/src/components/privacy/useOpenModeGate.tsx`.** Extracted the PIN +
+pre-Open shoulder-surfing-warning modal flow out of `PrivacyModeSwitcher.tsx` (`requestOpen(onConfirmed?)`
++ `modal`) so the new Settings "default to Open" row could drive the exact same gate rather than a
+second, parallel PIN check. Any future entry point into Open mode should go through this hook, not
+re-implement the PIN/warning flow inline.
+
+**New lib: `packages/core/src/lib/defaultOpenMode.ts`.** Platform-agnostic helpers for the 3-day
+default-to-Open feature (arm duration, urgency threshold, countdown-label formatting) — kept in
+`packages/core` rather than `apps/mobile` despite having exactly one caller today, since it's pure
+date-math with no RN dependency, consistent with this repo's general preference for
+platform-agnostic logic to live in `packages/core` even before a second consumer exists.
+
+**`App.tsx` provider order changed:** `ToastProvider` now wraps `SettingsProvider`/`PrivacyProvider`
+(previously nested between them) — `PrivacyContext`'s new default-to-Open reconciliation effect
+needs `useToast()` to show the one-time "switched back to Safe" expiry toast. Every existing
+`useToast()` call site is unaffected, since `RootNavigator` (and everything under it) sits inside
+all three providers regardless of their relative order — only `PrivacyContext`/`SettingsContext`
+themselves could have been affected by the reorder, and neither calls `useToast()` except for this
+new effect.
+
+**`PrivacyContext.tsx`'s existing `AppState`-background auto-revert-to-Safe now has a real
+exception**, not just a future one hypothesized: it skips itself while a default-to-Open window is
+armed (`defaultOpenArmedUntil` in the future). See `docs/PRIVACY.md`'s "3-day default-to-Open"
+entry for the full privacy-relevant writeup of this behavior and its accepted trade-off.
+
 ---
 
 ## Dependency graph (simplified)

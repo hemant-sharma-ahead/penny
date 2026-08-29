@@ -65,6 +65,16 @@ export function useTransactionFilters(
     return toMonthYearKey(new Date(min));
   }, [expenses]);
 
+  // Item 15 (docs/mockups/proposals/punch-list-batch-v1.html §1) — which `YYYY-MM` months have at
+  // least one transaction, so the month-scrub-bar (`MonthScrubBar.tsx`) can visually dim the
+  // (still fully tappable) chips for months that are empty. A cheap one-time pass over the same
+  // already-loaded `expenses` array `earliestMonth` above scans, memoized the same way.
+  const monthsWithTxns = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of expenses) set.add(toMonthYearKey(new Date(e.date)));
+    return set;
+  }, [expenses]);
+
   const activeFilterCount =
     (monthFilter ? 1 : 0) +
     (typeFilter !== 'all' ? 1 : 0) +
@@ -190,6 +200,7 @@ export function useTransactionFilters(
     monthFilter,
     setMonthFilter,
     earliestMonth,
+    monthsWithTxns,
     paymentModeMismatchOnly,
     setPaymentModeMismatchOnly,
     activeFilterCount,

@@ -53,6 +53,13 @@ export function AccountsPage() {
     navigation.navigate('BankImport', { accountId: acc.id });
   }
 
+  // Per-tile "Import History" shortcut (punch-list item 8) — same screen as the global header icon
+  // below, just pre-scoped to one account so `BankImportHistoryPage`'s own account-picker step (only
+  // shown when `route.params.accountId` is absent) is skipped entirely.
+  function handleImportHistory(acc: Account) {
+    navigation.navigate('BankImportHistory', { accountId: acc.id });
+  }
+
   // Zero-account empty state's "or import a bank statement" — creates the account as `'bank'` (no
   // type-picker step) and, once saved, hands off straight into Bank Import's setup screen for it,
   // instead of leaving the user back on an empty Accounts list to find the row-level import action
@@ -68,11 +75,17 @@ export function AccountsPage() {
       <PageHeader
         actions={
           <View className="flex-row gap-2">
+            {/* Boxed-neutral treatment (punch-list item 9) — same `ghost` + tinted-surface-background
+                pattern `AccountList.tsx`'s own revealed-row action icons already use, reused here rather
+                than inventing a new style. Deliberately NOT `variant="primary"` — that stays reserved for
+                "Add" alone, the one true primary action on this screen. */}
             <Button
               variant="ghost"
               icon="ti-adjustments-horizontal"
               accessibilityLabel="Merchant recognition settings"
               className="w-8 h-8 rounded-lg"
+              color={theme.surfaceSecondary}
+              textColor={theme.textSecondary}
               onPress={() => navigation.navigate('BankImportOverrides')}
             />
             <Button
@@ -80,6 +93,8 @@ export function AccountsPage() {
               icon="ti-cash"
               accessibilityLabel="Cash-withdrawal code settings"
               className="w-8 h-8 rounded-lg"
+              color={theme.surfaceSecondary}
+              textColor={theme.textSecondary}
               onPress={() => navigation.navigate('BankCashWithdrawalCodes')}
             />
             <Button
@@ -87,6 +102,8 @@ export function AccountsPage() {
               icon="ti-history"
               accessibilityLabel="Import history"
               className="w-8 h-8 rounded-lg"
+              color={theme.surfaceSecondary}
+              textColor={theme.textSecondary}
               onPress={() => navigation.navigate('BankImportHistory', {})}
             />
             <Button
@@ -115,6 +132,7 @@ export function AccountsPage() {
           onAdd={form.openAdd}
           onEdit={form.openEdit}
           onImport={handleImport}
+          onImportHistory={handleImportHistory}
           onImportOnboarding={handleImportOnboarding}
           deleteAccount={deleteAccount}
           reconcileAccount={reconcileAccount}

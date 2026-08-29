@@ -976,6 +976,10 @@ since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes
 - **SMS tracking optimization** — flagged (not scoped) during the 2026-08-18 real-device-testing
   pass; logged so it isn't lost. See `docs/plans/real-device-testing-pass.md`'s Backlog section and
   [`docs/features/sms-tracking.md`](../features/sms-tracking.md).
+- **3 punch-list items explicitly deferred pending the user's own go-ahead** (allowing a transaction
+  to switch to/from Transfer; fixing duplicate statement-record linking, already written and
+  unit-tested but reverted after an unresolved crash correlation; scroll-linked month highlighting)
+  — see `docs/plans/real-device-testing-pass.md`'s Backlog section, 10th-batch source items 2/11/14.
 - **App-wide auto-refresh / stale-data audit, mobile gesture survey, new-user/progressive home
   experience** — real-device-testing-pass Phases 4–6, not started; see
   `docs/plans/real-device-testing-pass.md`.

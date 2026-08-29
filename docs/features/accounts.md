@@ -94,6 +94,23 @@ accounts-list-v1.html`'s "Direction D — Mini Cards v2" section for the approve
     (real logo/brand-color icon + name, alphabetical) now used by both this form's "Bank (optional)"
     field and Bank Statement Import's own bank-preset field (`docs/features/bank-import.md`), replacing
     a plain text-only dropdown in both places.
+- **`apps/mobile`, 2026-08-29: a positive verification signal, and a new "unverified tail" state.**
+  Until now the account row's verification glyph only ever showed a *negative* signal (a warning
+  triangle when something's wrong) — a fully-verified account looked identical to a never-imported
+  one. Tap-revealing a row's actions now also shows, alongside the existing warning triangle
+  (mutually exclusive with it):
+  - A green **"Statement verified till {date}"** caption, once the account has at least one bank
+    import and no active verification finding.
+  - An amber **"N new transactions since last verified statement"** state when transactions have been
+    recorded *after* that date with no matching bank-import link — a case the existing warning-triangle
+    system couldn't see at all (it only checks *inside* already-covered statement ranges, never after
+    them). This wins over the plain verified caption when both are technically true.
+  - A per-row **Import History** action (alongside Import/Reconcile/Edit/Delete) opens that account's
+    own import history directly — the existing header-level Import History icon still browses across
+    all accounts, unchanged.
+  - The three previously bare header icons (Merchant recognition, Cash-withdrawal codes, Import
+    History) now share the same boxed-neutral treatment the row's own action icons already use; "Add"
+    stays the one boxed-primary icon.
 
 ## How it works
 

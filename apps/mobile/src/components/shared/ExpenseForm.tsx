@@ -473,6 +473,12 @@ export function ExpenseForm({
   const [formReady, setFormReady] = useState(false);
   const initialSnapshotRef = useRef<string | null>(null);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Delete confirmation (real-device-testing-pass, item 1) — the Delete button used to call
+  // `onDelete` immediately on press, Undo-toast only; every other destructive action in this app
+  // (bulk delete, discard-changes above) confirms first, so this one-off was the odd one out. Fixed
+  // here, not per-caller, since `ExpenseForm` has 6 independent callers that all get this for free.
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   /** Plain-value fingerprint of everything this form actually lets the user edit — deliberately omits
    *  pure UI disclosure toggles (`showTags`/`showReceipt`/`showGoalPanel`) and the
@@ -889,7 +895,7 @@ export function ExpenseForm({
           <View className="gap-2.5">
             <View className="flex-row gap-3">
               {editing && (
-                <Button variant="danger" onPress={() => editing && onDelete(editing.id).catch(() => {})}>
+                <Button variant="danger" onPress={() => setShowDeleteConfirm(true)}>
                   Delete
                 </Button>
               )}
@@ -1024,44 +1030,6 @@ export function ExpenseForm({
             <Text className="text-xs font-semibold" style={{ color: theme.info }}>
               Contributing to {goalPreset.goalName}
             </Text>
-          </View>
-        )}
-
-        {/* Audit trail (docs/plans/bank-statement-import.md §10a's purpose #1) — read-only, editing
-            only (a brand-new entry has no import link yet). Was a cropped single-line icon+text row
-            (found via user report 2026-08-06: long narrations got cut off, and it didn't follow the
-            app's info/warning/success Banner convention at all) — now a proper `Banner`, full text
-            wrapping, no truncation. The payment-mode mismatch note directly below it (also 2026-08-06)
-            re-derives every render off the live `paymentMode` state, so fixing it via "Paid via" below
-            removes this warning immediately — no separate dismiss/acknowledge action needed. */}
-        {editing && linkedBankStatementLines && linkedBankStatementLines.length > 0 && (
-          <View className="gap-2">
-            <Banner variant="info" icon="ti-building-bank">
-              {linkedBankStatementLines.length === 1 ? (
-                <>
-                  Matched from bank statement: &ldquo;{linkedBankStatementLines[0]?.rawNarration}&rdquo;,{' '}
-                  {formatDate(linkedBankStatementLines[0]?.date ?? 0)}
-                </>
-              ) : (
-                // A cross-account transfer absorbed via `linkAsCrossAccountTransfer` (found + fixed
-                // 2026-08-09) — carries one linked statement line per side, not just one; showing only
-                // the first was the exact on-device bug report ("only showed the statement for HDFC").
-                <>
-                  Matched from both sides of this transfer:
-                  {linkedBankStatementLines.map((line, i) => (
-                    <Text key={i}>
-                      {'\n'}&ldquo;{line.rawNarration}&rdquo;, {formatDate(line.date)}
-                    </Text>
-                  ))}
-                </>
-              )}
-            </Banner>
-            {paymentModeMismatch && impliedPaymentMode && (
-              <Banner variant="warning">
-                Statement suggests {impliedPaymentMode.label} · recorded as{' '}
-                {paymentModeLabelById.get(paymentMode) ?? paymentMode}. Update &ldquo;Paid via&rdquo; below to fix.
-              </Banner>
-            )}
           </View>
         )}
 
@@ -1274,26 +1242,27 @@ export function ExpenseForm({
           )}
         </View>
 
-        {/* Paid via */}
-        {type !== 'transfer' && (
-          <View>
-            <Text className="text-xs font-medium text-secondary mb-1">
-              Paid via
-              {statementPreset && (
-                <Text className="text-xs font-medium" style={{ color: theme.primary }}>
-                  {' '}
-                  · guessed from statement
-                </Text>
-              )}
-            </Text>
-            <PaymentModeChips
-              value={paymentMode}
-              onChange={setPaymentMode}
-              selectedAccount={selectedAccount}
-              pendingCandidate={statementPreset?.paymentModeCandidate}
-            />
-          </View>
-        )}
+        {/* Paid via — also shown for transfers (item 7, 2026-08-29): a transfer still moves via a real
+            rail (NEFT/UPI/cheque/cash), so there's no reason to hide the same picker used for
+            expense/income. Reuses `PaymentModeChips` as-is (same component/props); positioned right
+            after the From/To account rows above, per the approved mockup. */}
+        <View>
+          <Text className="text-xs font-medium text-secondary mb-1">
+            Paid via
+            {statementPreset && (
+              <Text className="text-xs font-medium" style={{ color: theme.primary }}>
+                {' '}
+                · guessed from statement
+              </Text>
+            )}
+          </Text>
+          <PaymentModeChips
+            value={paymentMode}
+            onChange={setPaymentMode}
+            selectedAccount={selectedAccount}
+            pendingCandidate={statementPreset?.paymentModeCandidate}
+          />
+        </View>
 
         {/* Secondary actions — circular icon bar */}
         <View className="flex-row justify-center gap-2 pt-1">
@@ -1754,9 +1723,48 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* History (editing) */}
+        {/* History (editing), plus the audit trail directly above it (item 3 — moved down from just
+            below the header 2026-08-29, so opening the popup lands on editable fields immediately
+            instead of a read-only banner; docs/plans/bank-statement-import.md §10a's purpose #1).
+            Was a cropped single-line icon+text row (found via user report 2026-08-06: long narrations
+            got cut off, and it didn't follow the app's info/warning/success Banner convention at all)
+            — now a proper `Banner`, full text wrapping, no truncation. The payment-mode mismatch note
+            directly below it (also 2026-08-06) re-derives every render off the live `paymentMode`
+            state, so fixing it via "Paid via" above removes this warning immediately — no separate
+            dismiss/acknowledge action needed. Both banners are pure content/logic carried over as-is
+            — only their position moved. */}
         {editing && (
-          <View className="border-t border-theme pt-3">
+          <View className="border-t border-theme pt-3 gap-2">
+            {linkedBankStatementLines && linkedBankStatementLines.length > 0 && (
+              <View className="gap-2">
+                <Banner variant="info" icon="ti-building-bank">
+                  {linkedBankStatementLines.length === 1 ? (
+                    <>
+                      Matched from bank statement: &ldquo;{linkedBankStatementLines[0]?.rawNarration}&rdquo;,{' '}
+                      {formatDate(linkedBankStatementLines[0]?.date ?? 0)}
+                    </>
+                  ) : (
+                    // A cross-account transfer absorbed via `linkAsCrossAccountTransfer` (found + fixed
+                    // 2026-08-09) — carries one linked statement line per side, not just one; showing only
+                    // the first was the exact on-device bug report ("only showed the statement for HDFC").
+                    <>
+                      Matched from both sides of this transfer:
+                      {linkedBankStatementLines.map((line, i) => (
+                        <Text key={i}>
+                          {'\n'}&ldquo;{line.rawNarration}&rdquo;, {formatDate(line.date)}
+                        </Text>
+                      ))}
+                    </>
+                  )}
+                </Banner>
+                {paymentModeMismatch && impliedPaymentMode && (
+                  <Banner variant="warning">
+                    Statement suggests {impliedPaymentMode.label} · recorded as{' '}
+                    {paymentModeLabelById.get(paymentMode) ?? paymentMode}. Update &ldquo;Paid via&rdquo; above to fix.
+                  </Banner>
+                )}
+              </View>
+            )}
             <ItemHistory entityId={editing.id} />
           </View>
         )}
@@ -1818,6 +1826,28 @@ export function ExpenseForm({
         confirmLabel="Discard"
         cancelLabel="Cancel"
         confirmVariant="danger"
+      />
+
+      {/* Delete confirmation (item 1) — same stacked-Modal pattern as discard above. */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          if (!editing) return;
+          setDeleting(true);
+          onDelete(editing.id)
+            .catch(() => {})
+            .finally(() => {
+              setDeleting(false);
+              setShowDeleteConfirm(false);
+            });
+        }}
+        title="Delete transaction?"
+        message="You can undo right after."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        loading={deleting}
       />
     </>
   );

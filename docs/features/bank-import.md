@@ -670,6 +670,26 @@ linked cash account). Core: `suggestRetroactiveCashTransfer()`/`applyCashTransfe
   `findProvenanceMatch()` doc comment for the full writeup. Manually reassigning the affected row from
   the review screen's own picker is the workaround until this is revisited.
 
+**A positive verification signal, and a new "unverified tail" sweep (2026-08-29).** The badge system
+above (`computeAccountVerificationStatus`) only ever fires on a *problem*; a fully-verified account and
+a never-imported one always looked identical at list level — the mockup's own note that documents this
+was accurate until now, for the "at least it's positively confirmed" case:
+
+- `core/bank-import/coverage.ts` gained two new pure functions, siblings to `findStandingCoverageGaps`:
+  `computeVerifiedThroughDate()` (the account's covered-ranges union end — previously computed inline,
+  only inside `AccountDetailModal.tsx`, now shared) and `findUnverifiedTailExpenses()` — expenses dated
+  *after* that date with no bank-import link, a case the existing standing-gap sweep can't see (it only
+  checks *inside* already-covered ranges, never past them).
+- Deliberately **not** folded into `accountVerification.ts`'s closed 3-kind `VerificationFindingKind`
+  priority system (per that file's own doc comment) — this is a separate, non-negative signal, not a
+  4th competing badge kind.
+- `AccountList.tsx`'s row now shows a green "Statement verified till {date}" caption once an account has
+  a bank import and no active finding, or an amber "N new transactions since last verified statement"
+  state when the new sweep finds something (wins over the plain verified caption if both are technically
+  true) — both mutually exclusive with the existing warning-triangle badge. See `docs/features/
+accounts.md` for the full user-facing writeup (also covers the new per-row Import History action and
+  header-icon consistency fix from the same pass).
+
 ## Limitations
 
 - PDF import is deferred (issue #4, second half) — text-layer extraction only, no OCR/scanned-PDF

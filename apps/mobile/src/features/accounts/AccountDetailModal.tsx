@@ -9,6 +9,7 @@ import {
   type AccountVerificationFinding,
   type AccountVerificationStatus
 } from '@/core/bank-import/accountVerification';
+import { computeVerifiedThroughDate } from '@/core/bank-import/coverage';
 import type { CheckpointHighlight, CheckpointRowMark } from '~/features/expenses/transactions/TransactionsTab';
 import { EntityTransactionsModal } from '~/components/shared';
 import { Button } from '~/components/ui';
@@ -87,10 +88,10 @@ export function AccountDetailModal({
 
   const eligible = CHECKPOINT_ELIGIBLE.has(account.type);
   const neverImported = (account.coveredStatementRanges?.length ?? 0) === 0;
-  const verifiedThroughDate = useMemo(() => {
-    const ranges = account.coveredStatementRanges ?? [];
-    return ranges.length === 0 ? undefined : Math.max(...ranges.map((r) => r.end));
-  }, [account.coveredStatementRanges]);
+  const verifiedThroughDate = useMemo(
+    () => computeVerifiedThroughDate(account.coveredStatementRanges ?? []),
+    [account.coveredStatementRanges]
+  );
   const dismissedAt = account.dismissedVerificationFindings?.find(
     (d) => d.fingerprint === verification?.dismissedFinding?.fingerprint
   )?.dismissedAt;

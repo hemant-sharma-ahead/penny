@@ -121,18 +121,20 @@ export function monthLabel(m: string): string {
 }
 
 /**
- * Month-scrub-bar chip label (item 43, docs/plans/real-device-testing-pass.md Phase 5, design
- * approved in `docs/mockups/proposals/fourth-batch-redesigns-v5.html` §4): month name only (e.g.
- * "Aug") when the chip's own year matches the real current calendar year, "Mon YYYY" (e.g.
- * "May 2025") otherwise. Deliberately evaluated against today's real year, not relative to
- * whichever month is currently selected — simpler and more predictable per the mockup's own
- * ground note.
+ * Month-scrub-bar chip label (item 43, docs/plans/real-device-testing-pass.md Phase 5). Always
+ * "Mon YYYY" (e.g. "Aug 2026", "Jul 2025") — item 13b (2026-08-29,
+ * `docs/mockups/proposals/punch-list-batch-v1.html` §1) deliberately reverses the prior v5
+ * mockup's decision to omit the year for the current calendar year: the scrub strip spans a
+ * full year+ of history, so a chip's format silently changing the moment a year boundary is
+ * crossed while scrolling read as inconsistent rather than economical ("Jan" sitting right next
+ * to "Dec 2025"). No longer needs a "now" reference at all, since the year is never conditionally
+ * omitted anymore.
  */
-export function monthChipLabel(m: string, nowMs: number = Date.now()): string {
+export function monthChipLabel(m: string): string {
   const [y, mo] = m.split('-');
   const monthName = MONTHS[(parseInt(mo ?? '1', 10) - 1) % 12] ?? '';
   const year = parseInt(y ?? '0', 10);
-  return year === new Date(nowMs).getFullYear() ? monthName : `${monthName} ${year}`;
+  return `${monthName} ${year}`;
 }
 
 export function formatDate(epochMs: number): string {

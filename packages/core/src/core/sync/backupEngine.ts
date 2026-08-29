@@ -91,6 +91,19 @@ export async function runNow(manual = false): Promise<void> {
     const target = getBackupTarget();
     setState({ target });
     const cursor = await loadCursor();
+    // Item 10 (real-device report, 2026-08-29): `state.lastBackupAt` is purely in-memory and resets
+    // to `null` on every fresh app process — it was previously only ever written deep inside the
+    // "something is actually due" branches below (cloud push/pull, local-floor snapshot). If THIS
+    // session's very first `runNow()` call (fired once from `start()` on app boot) finds nothing due
+    // — the common case when reopening the app soon after a real backup already happened — it exits
+    // early without ever reading the PERSISTED `cursor.lastBackupAt`, so every card/caption reading
+    // `state.lastBackupAt` shows "Not backed up yet" for the rest of that session even though a real,
+    // recent backup exists (and shows correctly in Backup History, which lists actual files/Drive
+    // entries directly, never this in-memory cache). Hydrating here, unconditionally, on every call —
+    // not only the ones that end up syncing — fixes it regardless of which branch below actually runs.
+    if (cursor.lastBackupAt && cursor.lastBackupAt !== state.lastBackupAt) {
+      setState({ lastBackupAt: cursor.lastBackupAt });
+    }
     const localDirty = maxActivityTs > (cursor.pushedAt ?? 0);
 
     // ── Cloud target ──────────────────────────────────────────────────────────

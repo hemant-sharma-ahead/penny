@@ -184,6 +184,7 @@ export function TransactionsSlice({
     monthFilter,
     setMonthFilter,
     earliestMonth,
+    monthsWithTxns,
     paymentModeMismatchOnly,
     setPaymentModeMismatchOnly,
     activeFilterCount,
@@ -211,6 +212,11 @@ export function TransactionsSlice({
   const [showBulkAddToIou, setShowBulkAddToIou] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Single-row delete confirmation (item 1) — the swipe-to-delete action used to call onDeleteExpense
+  // immediately, Undo-toast only. The edit-form's own Delete button now confirms internally
+  // (ExpenseForm.tsx); this covers the other single-delete path, the swipe action, the same way.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   // Item 43 (docs/plans/real-device-testing-pass.md Phase 5) — the scrub bar's chip range, ascending
   // oldest → newest, spanning `earliestMonth` (useTransactionFilters.ts's one-time Math.min scan)
@@ -444,6 +450,17 @@ export function TransactionsSlice({
     closeForm();
   }
 
+  async function confirmSwipeDelete() {
+    if (!confirmDeleteId) return;
+    setDeleteBusy(true);
+    try {
+      await onDeleteExpense(confirmDeleteId);
+    } finally {
+      setDeleteBusy(false);
+      setConfirmDeleteId(null);
+    }
+  }
+
   const hasChipFilters =
     typeFilter !== 'all' ||
     accountFilters.size > 0 ||
@@ -534,6 +551,7 @@ export function TransactionsSlice({
               replacing the old single month-chip trigger that used to live in the icon row above. */}
           <MonthScrubBar
             months={scrubMonths}
+            monthsWithTxns={monthsWithTxns}
             selected={monthFilter}
             onSelectMonth={setMonthFilter}
             onSelectAll={() => setMonthFilter(null)}
@@ -673,7 +691,7 @@ export function TransactionsSlice({
         hashtags={hashtags}
         shouldMask={shouldMask}
         onEdit={openEdit}
-        onDelete={onDeleteExpense}
+        onDelete={setConfirmDeleteId}
         onDuplicate={handleDuplicate}
         onShare={shareGroups.length > 0 ? setSharingExpense : undefined}
         selectMode={selectMode}
@@ -938,6 +956,17 @@ export function TransactionsSlice({
         confirmLabel="Delete"
         confirmVariant="danger"
         loading={bulkBusy}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDeleteId !== null}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => void confirmSwipeDelete()}
+        title="Delete transaction?"
+        message="You can undo right after."
+        confirmLabel="Delete"
+        confirmVariant="danger"
+        loading={deleteBusy}
       />
     </View>
   );

@@ -59,7 +59,7 @@ The product direction is: _appealing, minimalistic, modern, inviting, user-frien
 
 Use these shared building blocks so a new screen feels familiar. Cohesion across screens is a feature.
 
-> **Keep shared controls in sync.** When you introduce or change a control that appears in more than one place (icon, colour, label, behaviour), update **every** instance — or flag it. Example: the privacy-mode iconography (eye-off = Safe · eye = Open, on `--color-safe`/`--color-open` — a third "shield = Private" mode was removed 2026-08-18, see §4) lives in the header `PrivacyModeSwitcher`; there's no separate Settings "default mode" control anymore either (removed alongside Private mode — Safe is always the fixed starting mode now).
+> **Keep shared controls in sync.** When you introduce or change a control that appears in more than one place (icon, colour, label, behaviour), update **every** instance — or flag it. Example: the privacy-mode iconography (eye-off = Safe · eye = Open, on `--color-safe`/`--color-open` — a third "shield = Private" mode was removed 2026-08-18, see §4) lives in the header `PrivacyModeSwitcher`. A Settings "default mode" control exists again (2026-08-29, opt-in 3-day default-to-Open — see `docs/PRIVACY.md`) but it's a different shape from the pre-2026-08-18 one it doesn't revive: a time-boxed countdown you arm, not a persistent 3-way default.
 
 - **Identity hero** — avatar (photo → initials fallback, with a camera affordance) + name + `@handle · Plan` + a status pill (e.g. "✓ Claimed" / "Not claimed yet"). Used on Settings and Edit Profile.
 - **Grouped cards + section labels** — an uppercase tertiary section label, then a `bg-surface` rounded card of **hairline-separated rows** (icon + label + trailing control/chevron); the first row in a card skips its own top divider so it doesn't double up with the card's outer border. `apps/mobile`'s Settings (redesigned 2026-08-01) is the reference implementation — one accent colour per **section**, not per row (`theme.warning`/`privacy`/`info`/`neutral`/`danger` for Frequent/Security/Appearance/Data/Danger), since these rows don't carry distinct app-wide meaning the way, say, income/expense colours do — see "Colour is wayfinding, not decoration" in §1.
@@ -132,6 +132,28 @@ Use these shared building blocks so a new screen feels familiar. Cohesion across
   tail of rarer fields that would otherwise make the common case feel cluttered — the auto-expand-if-
   populated rule is what keeps it from ever functioning as a way to quietly hide something the user
   should see.
+- **Dimmed-but-tappable state, for "valid but currently empty"** (2026-08-29) — when an item in a
+  scrollable strip has no data yet but is still a real, selectable destination (not disabled), render
+  it at reduced opacity rather than hiding it, greying its text, or disabling `onPress`. Reference:
+  `MonthScrubBar.tsx`'s chips for months with no transactions (`opacity: 0.45`, fully tappable).
+  Reach for this over a genuinely disabled/`opacity`-only-on-press state whenever "empty" is a normal,
+  reachable condition rather than an error or a not-yet-available one.
+- **Boxed-neutral icon, for "promoted but not primary"** (2026-08-29) — when a screen has exactly one
+  true primary action (kept boxed in `theme.primary`) alongside several bare `ghost` icons that
+  deserve more visual weight without competing with it, box those in a shared neutral/secondary
+  treatment instead of primary. Reference: `AccountsPage.tsx`'s header icons (Merchant recognition,
+  Cash-withdrawal codes, Import History boxed-neutral; Add stays the one primary box) reusing
+  `AccountList.tsx`'s own revealed-row action-icon styling rather than inventing a second boxed style.
+- **Positive + tail-state captions alongside an existing negative-only badge** (2026-08-29) — when a
+  status indicator only ever fires on a problem (so "fine" and "never checked" look identical), add a
+  positive caption for the confirmed-good case rather than retrofitting the existing badge to cover
+  it — keep them visually and structurally separate (own color, own condition, mutually exclusive
+  with the badge) instead of merging into one system that was designed to be a closed, negative-only
+  set. Reference: `AccountList.tsx`'s green "Statement verified till {date}" / amber "N new
+  transactions since last verified statement" captions alongside the pre-existing warning-triangle
+  badge (`docs/features/bank-import.md`'s balance-sync section) — see also the `coverage.ts`
+  entry in `docs/ARCHITECTURE.md`'s decision log for why the underlying data stayed out of that
+  badge's own closed finding-kind enum.
 - **Unified read-only `Banner` for a frozen/settled entity** (2026-08-23) — when an entity has more than
   one distinct "why can't I edit this" reason (e.g. a group that's `closed` vs. one the user `left`), give
   each its own copy but render both through the **same** `Banner` component/placement rather than one real

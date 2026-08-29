@@ -1,12 +1,15 @@
 # Real-device testing pass — fixes & feature gaps
 
-**Status:** 🚧 In progress — items 1-80 ✅ done, implemented and verified, pending their own commit
+**Status:** 🚧 In progress — items 1-95 ✅ done, implemented and verified, pending their own commit
 (items 1-68 already committed at `e801e14`, `a97afc8`, `e1ef947`, `c688870`, `d87fda7`; the 8th
 batch, 69-75, and the 9th batch, 76-80 — a Penny CSV export/import + Groups-leave review, mockup:
-`docs/mockups/proposals/penny-csv-mapping-and-group-leave-v1.html` — are both implemented in the
+`docs/mockups/proposals/penny-csv-mapping-and-group-leave-v1.html` — have since also been
+committed in a later session; the 10th batch, 81-95 — a user-provided 16-item punch list, mockup:
+`docs/mockups/proposals/punch-list-batch-v1.html` for the mockup-gated half — is implemented in the
 working tree as of this doc update, not yet committed). Also still remaining: item 42's Home perf
-half (Phase 3), and Phases 4-6 (auto-refresh audit, gesture survey, new-user home experience spec)
-— all still not started.
+half (Phase 3), Phases 4-6 (auto-refresh audit, gesture survey, new-user home experience spec), and
+3 explicitly deferred punch-list items (original numbering 2, 11, 14 — see Backlog) each needing
+their own separate go-ahead before work starts.
 
 This is a living punch-list doc, not a phase/track plan in the usual `docs/plans/` sense — it
 tracks a batch of real-device testing findings (bugs + feature gaps) rather than a single
@@ -42,7 +45,13 @@ exclusion, linked-transfer coverage, skipped-account accounting, and the duplica
 then a 9th batch (76-80) from a dedicated review of Penny's own CSV export/import round-trip and a
 related Groups question it surfaced — export column scope (Account, IOU person, group sharing),
 Penny-format import parity with Cashew/MoneyView, dropping YNAB, fuller Custom-format column
-mapping, and what happens locally when a user leaves a Group. **Item numbers never collide across
+mapping, and what happens locally when a user leaves a Group, then a 10th batch (81-95) from a
+16-item punch list the user provided directly in one message, unrelated to any prior testing
+batch — investigated via three parallel read-only passes before any code changed, then split per
+the user's own explicit two-step gate into items needing no mockup (Phase 1 below) and items
+needing one combined mockup covering all of them at once (Phase 2 below); 3 of the original 16
+(numbered 2, 11, 14 in the source list, not renumbered into this batch since they're not
+implemented) were explicitly deferred — see Backlog. **Item numbers never collide across
 batches** (each batch continues the count rather than restarting it), but note items 15 and 16
 (new-user home experience, Phase 6) are unrelated to the nearby-numbered items from later batches.
 
@@ -571,6 +580,90 @@ PII gate) still deferred to commit time.
 
 ---
 
+### 10th batch: 16-item punch list — quick fixes (mockup-gated items 88-95 are in Phase 2 below)
+
+Grounded in a 16-item punch list the user provided directly in one message, unrelated to any prior
+real-device testing batch. Per the user's own explicit instruction, split into "fix now, no mockup
+needed" (below) and "one combined mockup, then implement together" (Phase 2) before any code
+changed. 3 of the original 16 (numbered 2, 11, 14 in the source list) were explicitly deferred to
+their own separate go-ahead — see Backlog.
+
+**81. (source item 1) Confirm dialog before single-transaction delete**
+
+- Confirmed: two single-delete paths had none — swipe action (`TransactionsSlice.tsx`) and
+  `ExpenseForm.tsx`'s own Delete button — both deleted immediately, Undo-toast only. Bulk delete
+  already had a real `ConfirmDialog`.
+- Fix: reused that exact same `ConfirmDialog` pattern in front of both single-delete paths — new
+  `confirmDeleteId`/`deleteBusy` state in `TransactionsSlice.tsx`, new `showDeleteConfirm`/`deleting`
+  state in `ExpenseForm.tsx`. No new component.
+
+**82. (source item 16) Account popup balance renders uncolored**
+
+- Confirmed real bug, not a logic gap: `AccountDetailModal.tsx` passed `statValue` to
+  `EntityTransactionsModal` but never `statColor`; that component's own `Text` had no semantic color
+  class as a fallback, so it rendered in React Native's default (unstyled) color instead of tracking
+  the theme.
+- Fix: gave `EntityTransactionsModal`'s own `Text` a semantic default class — fixes it for every
+  current and future caller, not just this one call site.
+
+**83. (source item 6) Reconciliation "red +₹0" — explanatory banner, not a logic change**
+
+- Root cause confirmed and accepted as correct, per explicit user direction — no logic change.
+  `CheckpointTimelinePage.tsx` colors/signs a diff using exact `diff === 0`/`diff > 0` on the raw
+  unrounded float, while `checkpointDiagnostics.ts` already treats anything within ±₹1 as "agreeing"
+  for mismatch detection elsewhere — this row-level cell just shows the real, precise value.
+- Fix: added a small explanatory caption near the reconciliation table ("Differences under ₹1 are
+  normal rounding and still count as reconciled") instead of touching the color/sign logic.
+
+**84. (source item 5) Full Ledger description truncation → wrap**
+
+- `FullLedgerPage.tsx`'s paired statement/recorded rows both used `numberOfLines={1}` with no fixed
+  row height underneath — dropped it on both sides; the row just grows taller symmetrically.
+
+**85. (source item 13a) Month strip doesn't scroll to current month on "All"**
+
+- `MonthScrubBar.tsx`'s scroll-to `useEffect` only fired `if (selected)` — selecting "All" sets
+  `selected` to `null`, so no scroll happened at all. Fixed to also scroll to the right end (most
+  recent month) when `selected` is `null`.
+
+**86. (source item 10) Google Drive card sometimes doesn't show a real backup's timestamp**
+
+- First investigation pass wrongly assumed a "This device" vs "Drive" mix-up — corrected by the
+  user: the backup genuinely lands in Drive (confirmed via Backup History), but the Drive card
+  itself sometimes still showed no/stale last-backup time. Re-investigated and root-caused via a
+  failing→passing regression test: `backupEngine.ts`'s `runNow()` only ever wrote
+  `state.lastBackupAt` inside its "something is due" branches — a genuine no-op run (nothing due,
+  matching a real device's common steady state) never synced the in-memory value with what the
+  persisted `sync_cursor` cursor actually said, even when the cursor had moved on independently
+  in between two calls.
+- Fix: `runNow()` now hydrates `state.lastBackupAt` from the persisted cursor on every call,
+  including no-op ones. New regression test in `backupEngine.test.ts` (proven via `git stash`
+  bisection to fail without the fix, pass with it).
+
+**87. Bonus — "Next auto backup" caption on the backup card** (found later in this same session,
+answering a direct follow-up: "why hasn't automatic backup happened today")
+
+- Not a bug: automatic push is gated by a rolling window from the last real backup's own timestamp
+  (`lastBackupAt + frequencyDays × 24h`), not a calendar-day reset, and deliberately ignores
+  in-session activity (`localDirty`) for non-manual runs — a fix for an earlier, different bug where
+  any single edit triggered a push regardless of the configured frequency. This wasn't visible
+  anywhere on the card, so a backup that was correctly not-yet-due read as indistinguishable from
+  one that was stuck.
+- Fix (mockup: `docs/mockups/proposals/next-auto-backup-caption-v1.html`): `AutoBackupCard.tsx`
+  gained a new `nextBackupCaption()` helper, computed from the same `lastBackupAt + frequency`
+  formula the engine's own `dueDaily` check uses, and a second caption line under both "This device"
+  (fixed 1-day window, matching the engine's hardcoded local branch) and "Drive" (the user's
+  configured frequency) — hidden when there's no backup yet or Drive's auto-backup toggle is off,
+  and switching to a warning-colored "due now — runs the next time you open the app" once the
+  window has elapsed with nothing yet run.
+
+Verification: `tsc -b` clean for both packages; scoped `eslint --max-warnings 0` clean on every
+touched file; `prettier --write` applied; full `packages/core` vitest suite passes (1243 passed, 1
+pre-existing skip unrelated to this batch). Full sweep (mobile-wide eslint, PII gate) run together
+with the Phase 2 batch below at commit time.
+
+---
+
 ## Phase 2 — Moderate fixes (bounded, single-area, more design but not "big") — ✅ Complete
 
 **21. Tag case normalization** _(done first in this phase — other items depended on clean tag data)_
@@ -1031,6 +1124,110 @@ covering both) is built and signed off.
 - `GroupMembersModal.tsx`'s "Leave this group?" confirmation copy updated to reflect that history
   stays visible read-only, rather than implying the group disappears.
 
+### 10th batch: 16-item punch list — mockup-gated items (81-87, the quick-fix half of this same
+batch, are in Phase 1 above)
+
+Mockup: `docs/mockups/proposals/punch-list-batch-v1.html` — one file, 4 sections (Month scrub bar /
+ExpenseForm / Accounts tile / Settings) with in-page anchor nav, per this doc's mockup-first rule.
+
+**88. (source item 13b) Month chips always show the year**
+
+- Deliberately reverses a prior explicit decision (item 43's v5 mockup, which chose to omit the
+  year when it matched the current calendar year) — flagged to and accepted by the user as a fair
+  trade for a strip that reads consistently once a year boundary is crossed mid-strip.
+- Fix: `monthChipLabel()` (`packages/core/src/lib/date.ts`) now always includes the year. Its
+  now-unused `nowMs` parameter was dropped entirely after confirming neither caller
+  (`MonthScrubBar.tsx`, `TransactionBrowserModal.tsx`) relied on the old omit-current-year behavior.
+
+**89. (source item 15) Dim months with no transactions**
+
+- No "which months have a transaction" data existed. Added a `monthsWithTxns` `Set<string>`
+  (`YYYY-MM` keys) computed in `useTransactionFilters.ts` via the same in-memory `expenses` pass
+  `earliestMonth` already does, threaded through `TransactionsSlice.tsx` into `MonthScrubBar.tsx`.
+  Chips for empty months render at reduced opacity but stay fully tappable — a valid, just-empty
+  view, not a disabled one.
+
+**90. (source item 3) Move the statement-matched banner in ExpenseForm**
+
+- The "Matched from bank statement" banner (and its payment-mode-mismatch companion) rendered
+  above every editable field, while the transaction's own edit/update history (`ItemHistory`) sat
+  at the very bottom — the two weren't near each other at all, and opening the popup landed on a
+  banner instead of an editable field.
+- Fix: moved both banners down to sit right above `ItemHistory`, sharing its divider. Pure JSX
+  repositioning — no change to the banners' own content or logic.
+
+**91. (source item 7) Payment mode for transfers**
+
+- `ExpenseForm.tsx` wrapped the whole "Paid via" payment-mode block in
+  `{type !== 'transfer' && (...)}`, hiding it for transfers, even though `Expense.paymentMode` was
+  never type-restricted in the data model.
+- Fix, per explicit user instruction to reuse what already exists rather than build new UI: removed
+  the guard. Same `PaymentModeChips` component, same props, same styling already used for
+  expense/income — no new or restyled picker.
+
+**92. (source item 4) "Statement Verified till" caption + new "unverified tail" state**
+
+- The account tile only ever showed a *negative* signal (a warning triangle for an active
+  verification finding) — a fully-verified account looked identical to a never-imported one. The
+  "verified till" date was already computed (`AccountDetailModal.tsx`'s `verifiedThroughDate`) but
+  never surfaced on the tile itself. Separately, a transaction recorded *after* that date on an
+  otherwise-fully-verified account had no detection at all — the existing standing-gap sweep only
+  checks *inside* already-covered ranges, not after them.
+- Fix: two new pure functions in `coverage.ts` — `computeVerifiedThroughDate()` (a shared
+  extraction of the formula `AccountDetailModal.tsx` already had) and `findUnverifiedTailExpenses()`
+  (expenses dated after the covered ranges' union end, unlinked to any import record) — with new
+  unit tests. Deliberately **not** added as a 4th kind to `accountVerification.ts`'s closed 3-kind
+  `VerificationFindingKind` priority system (per that file's own doc comment describing it as a
+  deliberately closed set) — this is a separate, non-negative signal. `AccountList.tsx`'s tile now
+  shows a green "Statement verified till {date}" caption, or an amber "N new transactions since
+  last verified statement" state when the new sweep finds something (which wins if both are
+  technically true) — both mutually exclusive with the existing warning triangle.
+
+**93. (source item 8) Import History per account tile**
+
+- `BankImportHistoryPage.tsx` already accepted `route.params.accountId` and skipped its own
+  account-picker step when present. Added a per-tile kebab action (bank/credit_card accounts only)
+  that navigates there with `accountId` pre-set, alongside the existing Import/Reconcile/Edit/
+  Delete actions. The existing global header "Import History" icon is unchanged — it still serves
+  cross-account browsing, a distinct job.
+
+**94. (source item 9) Icon consistency**
+
+- "Add" was the only boxed header icon (`variant="primary"`); Merchant recognition, Cash-withdrawal
+  codes, and Import History were bare `ghost` icons. Gave those three the same boxed-neutral
+  treatment `AccountList.tsx`'s own revealed-row action icons already use — not primary blue, which
+  stays reserved for "Add" so it still stands out as the one true primary action on the screen.
+
+**95. (source item 12) 3-day default-to-Open with a Settings-only countdown banner**
+
+- Brand-new persisted preference + UI — no prior infrastructure existed (a different, similarly-
+  shaped feature was fully removed 2026-08-18).
+- New `defaultOpenArmedUntil` preference (`SettingsContext.tsx`, following its existing key/pattern
+  convention). `PrivacyContext.tsx` gained a reconciliation effect (fires on mount, preference
+  change, and every foreground transition) that re-asserts Open while armed — suppressing the
+  existing background-auto-revert-to-Safe for the 3-day window, the actual point of the feature —
+  or reverts to Safe with a one-time toast once the window has lapsed. New
+  `packages/core/src/lib/defaultOpenMode.ts` (arm duration, urgency, countdown-label helpers) with
+  dedicated unit tests. Settings' "Frequent" card shows the mockup's 3-state banner (never-used /
+  armed with days remaining / expiring with hours remaining).
+- Judgment calls made, not fully spelled out in the mockup: a dedicated confirm dialog explains the
+  "skip PIN for 3 days" trade-off before the existing PIN+warning gate (that gate's own copy is
+  about shoulder-surfing, a different trade-off); "Switch back to Safe" both clears the persisted
+  preference and immediately flips the live session, not just the future default; `App.tsx`'s
+  provider order changed (`ToastProvider` now wraps `SettingsProvider`/`PrivacyProvider`) so
+  `PrivacyContext` can reach `useToast()` for the expiry toast.
+- Also fixed, found while implementing: Settings' "Privacy" status pill was hardcoded to always
+  read "Safe" (dead code left over from the 2026-08-18 Private-mode removal) — now reflects the
+  live `usePrivacy().mode`, required for the mockup's own approved armed-state screens (which show
+  it reading "Open") to actually be true.
+
+Verification: `tsc -b` clean for both packages; scoped `eslint --max-warnings 0` clean on every
+touched file; `prettier --write` applied; new unit tests pass (`coverage.test.ts`,
+`defaultOpenMode.test.ts`); full `packages/core` vitest suite passes (1243 passed, 1 pre-existing
+skip unrelated to this batch); PII gate clean (one false positive fixed — a mockup's synthetic
+email swapped from a real-looking provider domain to the recognized placeholder domain
+`example.com`).
+
 ---
 
 ## Phase 3 — Performance: Home cold-start + redundant data loading
@@ -1112,6 +1309,31 @@ This round produces the design, not code.
 
 - **Item 13, SMS tracking optimization** — flagged explicitly as "don't lose this"; logged here
   and in `docs/ROADMAP.md`'s backlog during the end-of-task doc pass, not acted on yet.
+
+- **10th-batch source item 2, allow switching to/from Transfer** — real, recurring case (a reverted
+  cash withdrawal shows up as two statement lines that cross-account-transfer matching pairs and
+  tags as a transfer, when the correct recording is really an expense+income pair on the *same*
+  account). Today's switch UI statically excludes Transfer as a target, and the real complication is
+  that a transfer posts to *two* accounts — retyping away from it needs a balance recompute that
+  doesn't exist anywhere in this codebase today. Deliberately deferred — needs its own design pass
+  and mockup, only after the user's explicit go-ahead.
+
+- **10th-batch source item 11, duplicate statement-record linking** — root-caused: `matcher.ts`'s
+  `findProvenanceMatch()` does a plain `.find()` with no way to skip an already-claimed record, so
+  two statement rows sharing identical `accountId`/`date`/`amount`/`normalizedKey` (e.g. two
+  same-day cash withdrawals of the same amount) both resolve to the same import record — only the
+  first claims it, the second falls through to "unmatched." The fix is already written and
+  unit-tested (`matcher.test.ts`, currently `it.skip`'d, not deleted) but was reverted after an
+  ambiguous real-device startup crash that couldn't be cleanly bisected between the fix itself and a
+  separately-confirmed Gradle stale-bundle trap that was live at the same time. Only ships after the
+  user's explicit confirmation, re-verified via a forced re-bundle + `verify-release-apk.sh` this
+  time.
+
+- **10th-batch source item 14, scroll-linked month highlighting** — no existing infrastructure
+  (`onViewableItemsChanged`/`viewabilityConfig`) anywhere in the app; `TransactionsTab.tsx`'s
+  `FlashList` is only ever driven imperatively today. Agreed as good-to-have; pick up last, once
+  everything else in this batch is solid on-device — viewability callbacks firing on every scroll
+  frame are a real place to introduce jank if not throttled carefully.
 
 ---
 

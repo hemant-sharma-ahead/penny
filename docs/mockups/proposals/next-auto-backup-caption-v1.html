@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Backup — "Next auto backup" caption on the Drive row (v1)</title>
+<style>
+  :root {
+    --primary: #00a86b;
+    --drive: #1a73e8;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 24px 90px;
+    background: #05070a;
+    color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 860px; line-height: 1.65; margin-bottom: 10px; }
+  .intro b { color: #e6edf3; }
+  .finding {
+    max-width: 860px; margin: 14px 0 30px; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 26px; flex-wrap: wrap; }
+  .toolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid #2d333b; background: #161b22; color: #e6edf3; cursor: pointer;
+  }
+  .toolbar button.active { background: var(--primary); border-color: var(--primary); color: #04140d; }
+  .toolbar .sep { width: 1px; height: 20px; background: #2d333b; margin: 0 4px; }
+  .toolbar .hint { font-size: 11.5px; color: #6e7681; }
+
+  .gallery { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: #6e7681; }
+  .col-label.new { color: var(--primary); }
+
+  /* Real device frame — fixed size regardless of content, per ui-design-check skill */
+  .phone {
+    width: 300px; height: 560px;
+    border-radius: 34px; border: 9px solid #111827;
+    overflow: hidden; position: relative;
+    display: flex; flex-direction: column;
+    box-shadow: 0 16px 34px rgba(0,0,0,0.45);
+    flex-shrink: 0;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+  .screen[data-theme="light"] {
+    background: #f8fafc;
+    --surface: #ffffff; --surface2: #eff6ff; --border: #c7d8f0;
+    --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+  }
+  .screen[data-theme="dark"] {
+    background: #0b0f14;
+    --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; background: inherit;
+  }
+  .backchev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 16px; }
+  .header-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .header-icons { display: flex; gap: 12px; }
+  .hdr-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.6px solid var(--text2); }
+  .hdr-bell { width: 14px; height: 14px; border: 1.6px solid var(--text2); border-radius: 4px 4px 7px 7px; }
+
+  .body { flex: 1; overflow: hidden; padding: 14px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; }
+  .card-badge {
+    width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,168,107,0.1); color: var(--primary); font-size: 16px;
+  }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .card-sub { font-size: 11px; color: var(--text3); line-height: 1.5; margin-top: 2px; }
+
+  .rows { border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .row + .row { border-top: 1px solid var(--border); }
+  .row-badge {
+    width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface2); color: var(--text2); font-size: 14px;
+  }
+  .row-badge.drive { background: rgba(26,115,232,0.12); color: var(--drive); }
+  .row-main { flex: 1; min-width: 0; }
+  .row-title-line { display: flex; align-items: center; gap: 6px; }
+  .row-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .row-active-pill {
+    font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
+    background: rgba(26,115,232,0.12); color: var(--drive);
+  }
+  .row-caption { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .row-chev { color: var(--text3); font-size: 12px; }
+  .row-panel { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+
+  .toggle-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .toggle-label { font-size: 12px; font-weight: 600; color: var(--text2); }
+  .toggle { width: 34px; height: 20px; border-radius: 999px; background: var(--primary); position: relative; }
+  .toggle .knob { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .toggle.off { background: var(--border); }
+  .toggle.off .knob { right: auto; left: 2px; }
+
+  .segmented { display: flex; background: var(--surface2); border-radius: 12px; padding: 3px; gap: 2px; }
+  .segmented .seg {
+    flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; color: var(--text2);
+    padding: 7px 0; border-radius: 10px;
+  }
+  .segmented .seg.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+
+  .status-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .status-caption { flex: 1; min-width: 0; }
+  .status-caption .l1 { font-size: 11px; color: var(--text3); }
+  /* the new bit */
+  .status-caption .l2 { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
+  .status-caption .l2.due { color: var(--warning); font-weight: 600; }
+  .btn {
+    font-size: 12.5px; font-weight: 700; padding: 9px 14px; border-radius: 12px; white-space: nowrap;
+    background: var(--drive); color: #fff;
+  }
+
+  .fineprint { font-size: 10px; color: var(--text3); }
+
+  .note {
+    max-width: 900px; margin-top: 10px; border: 1px dashed #2d333b; border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: #8b949e; line-height: 1.65;
+  }
+  .note b { color: #e6edf3; }
+  .note code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<h1>Backup — "Next auto backup" caption on the Drive row (v1)</h1>
+<p class="intro">
+  Scope: <code>apps/mobile/src/features/backup/AutoBackupCard.tsx</code>'s expanded Drive panel — the tappable
+  caption row that currently reads only <b>"Backed up · {date}"</b> (opens Backup History on tap). This adds a
+  second line below it: <b>when the next automatic backup is expected</b>, computed from the same values the
+  engine itself already uses (<code>lastBackupAt + getBackupFrequencyDays() × 24h</code>) — no new state, no new
+  fields, purely a derived display value.
+</p>
+
+<div class="finding">
+  <span class="tag">grounded in today's conversation</span>
+  Triggered by a real report: last Drive backup was manual, <b>yesterday 9:35 PM</b>, frequency <b>1 day</b> —
+  at 6 PM today that's correctly not due yet (~20h25m elapsed of the 24h window), which wasn't obvious from the
+  card alone. Also handles the case actually described earlier in this thread: automatic backup only runs while
+  the app is open (no background task exists) — so if the window elapses while the app isn't open, "next backup"
+  needs to read as <b>overdue</b>, not silently show a stale past time.
+</div>
+
+<div class="toolbar">
+  <button id="btn-light" class="active" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" onclick="setTheme('dark')">Dark</button>
+  <span class="sep"></span>
+  <button id="st-upcoming" class="active" onclick="setState('upcoming')">Upcoming</button>
+  <button id="st-overdue" onclick="setState('overdue')">Overdue (app wasn't open)</button>
+  <button id="st-off" onclick="setState('off')">Auto-backup off</button>
+  <span class="hint">← tap to preview each state on the "Proposed" phone</span>
+</div>
+
+<div class="gallery">
+
+  <!-- CURRENT -->
+  <div class="col">
+    <div class="col-label">Current — no next-run indication</div>
+    <div class="phone">
+      <div class="screen" data-theme="light">
+        <div class="header-row">
+          <div class="backchev">‹</div>
+          <div class="header-title">Backup</div>
+          <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+        </div>
+        <div class="body">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-badge">↻</div>
+              <div>
+                <div class="card-title">Automatic backup</div>
+                <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div>
+              </div>
+            </div>
+            <div class="rows">
+              <div class="row"><div class="row-badge">📱</div><div class="row-main"><div class="row-title">This device</div><div class="row-caption">On-device safety copy</div></div><div class="row-chev">⌄</div></div>
+              <div class="row">
+                <div class="row-badge drive">☁</div>
+                <div class="row-main">
+                  <div class="row-title-line"><div class="row-title">Drive</div><div class="row-active-pill">Active</div></div>
+                  <div class="row-caption">you@example.com · 28 Aug 2026, 9:35 PM</div>
+                </div>
+                <div class="row-chev">⌃</div>
+              </div>
+            </div>
+            <div class="row-panel">
+              <div class="toggle-line"><div class="toggle-label">Automatically back up to Drive</div><div class="toggle"><div class="knob"></div></div></div>
+              <div class="segmented"><div class="seg active">1 day</div><div class="seg">3 days</div><div class="seg">7 days</div><div class="seg">14 days</div></div>
+              <div class="status-line">
+                <div class="status-caption">
+                  <div class="l1">Backed up · 28 Aug 2026, 9:35 PM</div>
+                </div>
+                <div class="btn">Back up now</div>
+              </div>
+            </div>
+            <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center;">
+      At 6 PM the day after a 9:35 PM backup, this card gives no way to tell "not due yet" apart from
+      "something's stuck."
+    </div>
+  </div>
+
+  <!-- PROPOSED -->
+  <div class="col">
+    <div class="col-label new">Proposed — second caption line</div>
+    <div class="phone">
+      <div class="screen" data-theme="light">
+        <div class="header-row">
+          <div class="backchev">‹</div>
+          <div class="header-title">Backup</div>
+          <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+        </div>
+        <div class="body">
+          <div class="card">
+            <div class="card-head">
+              <div class="card-badge">↻</div>
+              <div>
+                <div class="card-title">Automatic backup</div>
+                <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div>
+              </div>
+            </div>
+            <div class="rows">
+              <div class="row"><div class="row-badge">📱</div><div class="row-main"><div class="row-title">This device</div><div class="row-caption">On-device safety copy</div></div><div class="row-chev">⌄</div></div>
+              <div class="row">
+                <div class="row-badge drive">☁</div>
+                <div class="row-main">
+                  <div class="row-title-line"><div class="row-title">Drive</div><div class="row-active-pill">Active</div></div>
+                  <div class="row-caption">you@example.com · 28 Aug 2026, 9:35 PM</div>
+                </div>
+                <div class="row-chev">⌃</div>
+              </div>
+            </div>
+            <div class="row-panel">
+              <div class="toggle-line">
+                <div class="toggle-label">Automatically back up to Drive</div>
+                <div class="toggle" id="auto-toggle"><div class="knob"></div></div>
+              </div>
+              <div id="freq-row" class="segmented"><div class="seg active">1 day</div><div class="seg">3 days</div><div class="seg">7 days</div><div class="seg">14 days</div></div>
+              <div class="status-line">
+                <div class="status-caption">
+                  <div class="l1">Backed up · 28 Aug 2026, 9:35 PM</div>
+                  <div class="l2" id="next-line">Next backup · 29 Aug 2026, 9:35 PM</div>
+                </div>
+                <div class="btn">Back up now</div>
+              </div>
+            </div>
+            <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center;" id="proposed-caption">
+      Same "Backed up · …" line as today, plus one small line underneath — no layout shift elsewhere on the card.
+    </div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>Three states, one formula:</b> <code>next = lastBackupAt + getBackupFrequencyDays() × DAY_MS</code> —
+  computed the same way <code>backupEngine.ts</code>'s own <code>dueDaily</code> already does, so the caption
+  can never disagree with the actual gating logic.
+  <ul style="margin:6px 0 0; padding-left:18px;">
+    <li><b>Upcoming</b> (<code>next &gt; now</code>): <code>Next backup · {formatDateTime(next)}</code>, same
+      tertiary grey as the line above it.</li>
+    <li><b>Overdue</b> (<code>next &le; now</code> — the window elapsed but nothing has run yet, e.g. the app
+      wasn't open): <code>Next backup · due now — runs the next time you open the app</code>, in the warning
+      color, so a real "why hasn't this happened" moment reads as informative rather than broken.</li>
+    <li><b>Auto-backup off</b>: line is hidden entirely — nothing is scheduled, so there's nothing to show; the
+      toggle above already communicates the off state.</li>
+  </ul>
+  <b>Not shown if there's no backup yet</b> (<code>lastBackupAt</code> is null) — caption stays exactly
+  "Not backed up yet", same as today, since there's no baseline to compute a next run from.<br /><br />
+  <b>Also applies to "This device":</b> its own daily snapshot uses the identical due-in-24h check
+  (<code>backupEngine.ts</code>'s local branch, fixed 24h, not user-configurable) — same caption addition would
+  fit there too. Left out of this mockup by default since you asked specifically about the Drive card; flag if
+  you'd like it added there as well before implementation.
+</div>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+  function setState(s) {
+    ['upcoming','overdue','off'].forEach(id => document.getElementById('st-' + id).classList.toggle('active', id === s));
+    const next = document.getElementById('next-line');
+    const toggle = document.getElementById('auto-toggle');
+    const freqRow = document.getElementById('freq-row');
+    const caption = document.getElementById('proposed-caption');
+    if (s === 'upcoming') {
+      toggle.classList.remove('off'); freqRow.style.display = 'flex';
+      next.style.display = 'block'; next.classList.remove('due');
+      next.textContent = 'Next backup · 29 Aug 2026, 9:35 PM';
+      caption.textContent = 'Same "Backed up · …" line as today, plus one small line underneath — no layout shift elsewhere on the card.';
+    } else if (s === 'overdue') {
+      toggle.classList.remove('off'); freqRow.style.display = 'flex';
+      next.style.display = 'block'; next.classList.add('due');
+      next.textContent = 'Next backup · due now — runs the next time you open the app';
+      caption.textContent = 'The window elapsed with the app closed — reads as an expected, actionable state instead of looking stuck.';
+    } else {
+      toggle.classList.add('off'); freqRow.style.display = 'none';
+      next.style.display = 'none';
+      caption.textContent = 'Auto-backup toggled off — the second line is hidden entirely; nothing is scheduled to show.';
+    }
+  }
+</script>
+
+</body>
+</html>

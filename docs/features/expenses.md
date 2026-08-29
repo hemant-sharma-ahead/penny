@@ -575,6 +575,16 @@ mismatch flag (see `docs/features/bank-import.md`) after user feedback on the ed
      recorded mode — deferred until it's actually shown to be a real annoyance in practice, per
      explicit decision, rather than building it speculatively.
 
+**Match banner repositioned; Paid via now shown for transfers (2026-08-29).** Both banners above
+rendered directly under the modal header, above every editable field, while the transaction's own
+edit/update history (`ItemHistory`) sat at the very bottom — opening the popup landed on a banner
+instead of an editable field. Moved both banners down to sit right above `ItemHistory`, sharing its
+divider — pure repositioning, no change to their content/logic. Separately, `ExpenseForm` had
+wrapped the whole "Paid via" (`PaymentModeChips`) block in `type !== 'transfer' && (...)`, hiding it
+for transfer transactions even though `Expense.paymentMode` was never type-restricted — the guard
+was removed so transfers show the same "Paid via" row, unchanged, right after the From/To account
+rows.
+
 **Cashew CSV import: detected linked transfers were dropped instead of imported, real-device-testing
 pass follow-up.** `detectSelfAccountMovementPairs()` correctly identified linked transfer pairs during
 import, but they were silently excluded from the write instead of committed as a single `type:

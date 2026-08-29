@@ -703,9 +703,7 @@ function LedgerRowView({
         {row.statement ? (
           <>
             <Text className="text-[8.5px] text-tertiary">{formatDate(row.date)}</Text>
-            <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
-              {row.statement.rawNarration}
-            </Text>
+            <Text className="text-[10px] font-semibold text-primary">{row.statement.rawNarration}</Text>
             <Text
               className="text-[9px] mt-0.5"
               style={{ color: row.statement.amount >= 0 ? theme.success : theme.danger }}
@@ -727,7 +725,7 @@ function LedgerRowView({
         {row.expense ? (
           <>
             <Text className="text-[8.5px] text-tertiary">{formatDate(row.date)}</Text>
-            <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
+            <Text className="text-[10px] font-semibold text-primary">
               {row.expense.isTransfer
                 ? `→ Transfer${accountName ? ` to ${accountName}` : ''}`
                 : row.expense.description}

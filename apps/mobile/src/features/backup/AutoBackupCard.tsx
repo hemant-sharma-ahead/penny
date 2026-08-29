@@ -23,7 +23,7 @@ import {
   getBackupFrequencyDays,
   setBackupFrequencyDays
 } from '@/core/sync/backupPrefs';
-import { formatDateTime } from '@/lib/date';
+import { DAY_MS, formatDateTime } from '@/lib/date';
 import { tint } from '~/lib/color';
 import { BackupHistoryModal } from './BackupHistoryModal';
 import { shareBackupFile } from './shareBackupFile';
@@ -57,6 +57,21 @@ function nearestFreqOption(days: number): '1' | '3' | '7' | '14' {
   const opts = [1, 3, 7, 14];
   const nearest = opts.reduce((a, b) => (Math.abs(b - days) < Math.abs(a - days) ? b : a));
   return String(nearest) as '1' | '3' | '7' | '14';
+}
+
+/** Derived purely from `lastBackupAt` + the same frequency window `backupEngine.ts`'s own `dueDaily`
+ *  check uses, so this caption can never disagree with the real gating logic. `frequencyDays` is fixed
+ *  at 1 for "This device" (`backupEngine.ts`'s local branch hardcodes `DAY_MS`, not user-configurable)
+ *  and the user's own setting for Drive. Real-device report, 2026-08-29
+ *  (docs/mockups/proposals/next-auto-backup-caption-v1.html): with no visible "next run" indicator, a
+ *  backup that's correctly not yet due read as indistinguishable from one that was stuck. */
+function nextBackupCaption(lastBackupAt: number | null, frequencyDays: number): { text: string; due: boolean } | null {
+  if (!lastBackupAt) return null;
+  const next = lastBackupAt + frequencyDays * DAY_MS;
+  if (next <= Date.now()) {
+    return { text: 'Next backup · due now — runs the next time you open the app', due: true };
+  }
+  return { text: `Next backup · ${formatDateTime(next)}`, due: false };
 }
 
 /**
@@ -258,9 +273,23 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
             accessibilityLabel="View This device's backup history"
             className="flex-row items-center gap-1 flex-1"
           >
-            <Text className="text-[11px] text-tertiary flex-1">
-              {lastBackupAt ? `Last daily snapshot · ${formatDateTime(lastBackupAt)}` : 'No daily snapshot yet'}
-            </Text>
+            <View className="flex-1">
+              <Text className="text-[11px] text-tertiary">
+                {lastBackupAt ? `Last daily snapshot · ${formatDateTime(lastBackupAt)}` : 'No daily snapshot yet'}
+              </Text>
+              {localAvailable &&
+                (() => {
+                  const next = nextBackupCaption(lastBackupAt, 1);
+                  return next ? (
+                    <Text
+                      className="text-[10.5px] mt-0.5"
+                      style={{ color: next.due ? theme.warning : theme.textTertiary }}
+                    >
+                      {next.text}
+                    </Text>
+                  ) : null;
+                })()}
+            </View>
             <Icon name="ti-chevron-right" size={13} color={theme.textTertiary} />
           </Pressable>
           <Button variant="primary" loading={exporting} onPress={handleBackupNow}>
@@ -426,13 +455,28 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
               accessibilityLabel="View Google Drive's backup history"
               className="flex-row items-center gap-1 flex-1"
             >
-              <Text className="text-[11px] text-tertiary flex-1">
-                {status === 'syncing'
-                  ? STATUS_TEXT.syncing
-                  : lastBackupAt
-                    ? `Backed up · ${formatDateTime(lastBackupAt)}`
-                    : 'Not backed up yet'}
-              </Text>
+              <View className="flex-1">
+                <Text className="text-[11px] text-tertiary">
+                  {status === 'syncing'
+                    ? STATUS_TEXT.syncing
+                    : lastBackupAt
+                      ? `Backed up · ${formatDateTime(lastBackupAt)}`
+                      : 'Not backed up yet'}
+                </Text>
+                {autoBackupOn &&
+                  status !== 'syncing' &&
+                  (() => {
+                    const next = nextBackupCaption(lastBackupAt, freqDays);
+                    return next ? (
+                      <Text
+                        className="text-[10.5px] mt-0.5"
+                        style={{ color: next.due ? theme.warning : theme.textTertiary }}
+                      >
+                        {next.text}
+                      </Text>
+                    ) : null;
+                  })()}
+              </View>
               <Icon name="ti-chevron-right" size={13} color={theme.textTertiary} />
             </Pressable>
             <Button variant="primary" color={DRIVE_BLUE} loading={status === 'syncing'} onPress={handleBackupNow}>

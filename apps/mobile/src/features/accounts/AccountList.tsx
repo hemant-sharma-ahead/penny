@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
+import { formatDate } from '@/lib/date';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { CHECKPOINT_ELIGIBLE } from '@/core/bank-import/accountVerification';
+import { computeVerifiedThroughDate } from '@/core/bank-import/coverage';
 import { Card, Button, ConfirmDialog, EmptyState, IconBadge, PennyLoader, SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { BankLogo, bankAccentColor } from '~/components/shared';
@@ -30,6 +32,11 @@ interface AccountListProps {
    *  account — a bank issues one statement per account — so this row-level action is its only entry
    *  point, gated to bank/card accounts (a cash wallet has no statement). */
   onImport: (acc: Account) => void;
+  /** Per-tile "Import History" shortcut (mobile punch-list item 8) — same destination as
+   *  `AccountsPage.tsx`'s global header icon, just pre-scoped to this one account so the account-picker
+   *  step it would otherwise show is skipped. The global header icon stays too (cross-account browsing
+   *  is still a distinct job) — this is an additional entry point, not a replacement. */
+  onImportHistory: (acc: Account) => void;
   /** Zero-account empty state's secondary action — Bank Import used to be unreachable with no accounts
    *  at all (found 2026-08-05). Creates a bank account and hands off straight into its import setup. */
   onImportOnboarding: () => void;
@@ -62,6 +69,7 @@ export function AccountList({
   onAdd,
   onEdit,
   onImport,
+  onImportHistory,
   onImportOnboarding,
   deleteAccount,
   reconcileAccount
@@ -89,6 +97,7 @@ export function AccountList({
   }, [txns]);
   const {
     statuses: verificationStatuses,
+    unverifiedTails,
     loading: verificationLoading,
     dismissFinding,
     reopenFinding
@@ -117,8 +126,19 @@ export function AccountList({
     // distinct states). The redesign mockup (account-list-redesign-v3.html §final)
     // didn't carry this real, already-shipped feature over — folded in here as a small
     // warning glyph beside the name rather than dropping it silently.
-    const needsAttention =
-      CHECKPOINT_ELIGIBLE.has(acc.type) && (verificationStatuses.get(acc.id)?.needsAttention ?? false);
+    const eligible = CHECKPOINT_ELIGIBLE.has(acc.type);
+    const needsAttention = eligible && (verificationStatuses.get(acc.id)?.needsAttention ?? false);
+    // Punch-list item 4 — the reveal row's own caption, shown only when there's no active finding
+    // (`needsAttention`'s warning triangle above already covers that case, and per the approved mockup
+    // at most one status signal shows per tile). Two mutually-exclusive sub-states, most-specific first:
+    // an "unverified tail" (new activity recorded since the last statement, item 4b's brand-new sweep)
+    // always wins over the plain positive caption when both are technically true, since a tail can only
+    // exist for an account that also has a `verifiedThroughDate` — showing "verified" AND "3 new
+    // transactions" together would be redundant, not complementary.
+    const tailExpenses = eligible ? unverifiedTails.get(acc.id) : undefined;
+    const verifiedThroughDate = eligible ? computeVerifiedThroughDate(acc.coveredStatementRanges ?? []) : undefined;
+    const showTailCaption = !needsAttention && !!tailExpenses && tailExpenses.length > 0;
+    const showVerifiedCaption = !needsAttention && !showTailCaption && verifiedThroughDate !== undefined;
     const isRevealed = revealedIds.has(acc.id);
     const txnCount = txnCountByAccount.get(acc.id) ?? 0;
     return (
@@ -189,51 +209,84 @@ export function AccountList({
           </View>
         </Pressable>
 
-        {/* Revealed row — Import XOR Reconcile (the two sets partition all 4 account
-            types, so exactly one of these ever renders) + Edit + Delete. Never a
-            separate "view transactions" icon here — that's the row tap above, unchanged. */}
+        {/* Revealed row — a left-side caption (verified/unverified-tail, item 4) plus Import XOR
+            Reconcile (the two sets partition all 4 account types, so exactly one of these ever
+            renders) + Import History (item 8) + Edit + Delete. Never a separate "view transactions"
+            icon here — that's the row tap above, unchanged. */}
         {isRevealed && (
-          <View className="flex-row items-center justify-end gap-1.5 mt-2 pt-2 border-t border-theme">
-            {!hideImportReconcile && STATEMENT_IMPORTABLE.has(acc.type) && (
+          <View className="flex-row items-center gap-1.5 mt-2 pt-2 border-t border-theme">
+            <View className="flex-1 min-w-0 flex-row items-center gap-1.5">
+              {(showTailCaption || showVerifiedCaption) && (
+                <View
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: showTailCaption ? theme.warning : theme.success }}
+                />
+              )}
+              {showTailCaption && tailExpenses && (
+                <Text className="text-[9.5px] font-bold flex-shrink" style={{ color: theme.warning }} numberOfLines={2}>
+                  {tailExpenses.length} new transaction{tailExpenses.length !== 1 ? 's' : ''} since last verified
+                  statement
+                </Text>
+              )}
+              {showVerifiedCaption && verifiedThroughDate !== undefined && (
+                <Text className="text-[9.5px] font-bold flex-shrink" style={{ color: theme.success }} numberOfLines={2}>
+                  Statement verified till {formatDate(verifiedThroughDate)}
+                </Text>
+              )}
+            </View>
+            <View className="flex-row items-center gap-1.5 shrink-0">
+              {!hideImportReconcile && STATEMENT_IMPORTABLE.has(acc.type) && (
+                <Button
+                  variant="ghost"
+                  icon="ti-upload"
+                  accessibilityLabel="Import statement"
+                  className="w-6 h-6 rounded-md"
+                  color={theme.surfaceSecondary}
+                  textColor={theme.textSecondary}
+                  onPress={() => onImport(acc)}
+                />
+              )}
+              {!hideImportReconcile && RECONCILABLE.has(acc.type) && (
+                <Button
+                  variant="ghost"
+                  icon="ti-scale"
+                  accessibilityLabel="Reconcile balance"
+                  className="w-6 h-6 rounded-md"
+                  color={theme.surfaceSecondary}
+                  textColor={theme.textSecondary}
+                  onPress={() => setReconciling({ account: acc, balance })}
+                />
+              )}
+              {STATEMENT_IMPORTABLE.has(acc.type) && (
+                <Button
+                  variant="ghost"
+                  icon="ti-history"
+                  accessibilityLabel="Import history for this account"
+                  className="w-6 h-6 rounded-md"
+                  color={theme.surfaceSecondary}
+                  textColor={theme.textSecondary}
+                  onPress={() => onImportHistory(acc)}
+                />
+              )}
               <Button
                 variant="ghost"
-                icon="ti-upload"
-                accessibilityLabel="Import statement"
+                icon="ti-pencil"
+                accessibilityLabel="Edit account"
                 className="w-6 h-6 rounded-md"
                 color={theme.surfaceSecondary}
                 textColor={theme.textSecondary}
-                onPress={() => onImport(acc)}
+                onPress={() => onEdit(acc)}
               />
-            )}
-            {!hideImportReconcile && RECONCILABLE.has(acc.type) && (
               <Button
                 variant="ghost"
-                icon="ti-scale"
-                accessibilityLabel="Reconcile balance"
+                icon="ti-trash"
+                accessibilityLabel="Delete account"
                 className="w-6 h-6 rounded-md"
-                color={theme.surfaceSecondary}
-                textColor={theme.textSecondary}
-                onPress={() => setReconciling({ account: acc, balance })}
+                color={tint(theme.danger, 14)}
+                textColor={theme.danger}
+                onPress={() => setDeletingId(acc.id)}
               />
-            )}
-            <Button
-              variant="ghost"
-              icon="ti-pencil"
-              accessibilityLabel="Edit account"
-              className="w-6 h-6 rounded-md"
-              color={theme.surfaceSecondary}
-              textColor={theme.textSecondary}
-              onPress={() => onEdit(acc)}
-            />
-            <Button
-              variant="ghost"
-              icon="ti-trash"
-              accessibilityLabel="Delete account"
-              className="w-6 h-6 rounded-md"
-              color={tint(theme.danger, 14)}
-              textColor={theme.danger}
-              onPress={() => setDeletingId(acc.id)}
-            />
+            </View>
           </View>
         )}
       </View>

@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Punch-list batch — Month scrub bar / ExpenseForm / Accounts tile / Settings (v1)</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6; --open: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 24px 100px; background: #05070a; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0; color: #fff; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 920px; line-height: 1.65; margin-bottom: 14px; }
+  .intro b { color: #e6edf3; }
+  .intro code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
+
+  .finding {
+    max-width: 920px; margin: 10px 0; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+
+  nav.anchors {
+    position: sticky; top: 0; z-index: 30; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: #05070a; padding: 10px 0 14px; margin-bottom: 6px; border-bottom: 1px solid #1c2128;
+  }
+  nav.anchors a {
+    font-size: 12px; font-weight: 700; color: #c9d1d9; text-decoration: none; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid #2d333b; background: #161b22;
+  }
+  nav.anchors .sep { width: 1px; height: 18px; background: #2d333b; margin: 0 4px; }
+
+  .toolbar {
+    position: sticky; top: 46px; z-index: 29; display: flex; align-items: center; gap: 10px; margin: 0 0 22px;
+    background: #05070a; padding-bottom: 8px;
+  }
+  .toolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid #2d333b; background: #161b22; color: #e6edf3; cursor: pointer;
+  }
+  .toolbar button.active { background: var(--primary); border-color: var(--primary); color: #04140d; }
+  .toolbar .hint { font-size: 11.5px; color: #6e7681; }
+
+  section { margin-top: 56px; padding-top: 6px; scroll-margin-top: 100px; }
+  .section-label {
+    display: inline-flex; align-items:center; gap:8px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: #6e7681; border: 1px solid #2d333b; border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .desc { max-width: 820px; font-size: 12.5px; color: #8b949e; line-height: 1.65; margin: 6px 0 16px; }
+  .desc b { color: #e6edf3; }
+  .desc code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+
+  .row { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: #6e7681; }
+  .col-label.new { color: var(--primary); }
+  .col-cap { max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center; }
+  .col-cap b { color: #9aa4b0; }
+
+  /* Real device frame — 300x650 ≈ scaled 390x844, per ui-design-check's real-device-size rule */
+  .phone {
+    width: 300px; height: 650px; border-radius: 34px; border: 9px solid #111827; overflow: hidden;
+    position: relative; display: flex; flex-direction: column; box-shadow: 0 16px 34px rgba(0,0,0,0.45); flex-shrink: 0;
+  }
+  .phone.short { height: 420px; }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .screen[data-theme="light"] {
+    background: #f8fafc; --surface: #ffffff; --surface2: #eff6ff; --surface3: #e2ecfb; --border: #c7d8f0;
+    --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+  }
+  .screen[data-theme="dark"] {
+    background: #0b0f14; --surface: #161b22; --surface2: #1c2128; --surface3: #20262f; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; background: inherit;
+  }
+  .backchev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 17px; }
+  .header-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .header-icons { display: flex; gap: 8px; align-items:center; }
+
+  .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .body.nogap { gap: 0; padding: 0; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .card-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .card-sub { font-size: 10.5px; color: var(--text3); line-height: 1.5; margin-top: 2px; }
+
+  .banner { border-radius: 12px; padding: 10px 11px; display: flex; gap: 8px; }
+  .banner.info { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35); }
+  .banner.warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); }
+  .banner.success { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); }
+  .banner.open { background: rgba(220,38,38,0.10); border: 1px solid rgba(220,38,38,0.35); }
+  .banner .ic { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .banner.info .ic { color: var(--info); }
+  .banner.warning .ic { color: var(--warning); }
+  .banner.success .ic { color: var(--success); }
+  .banner.open .ic { color: var(--open); }
+  .banner .txt { flex: 1; min-width:0; }
+  .banner .txt .t1 { font-size: 11px; font-weight: 700; color: var(--text); line-height: 1.4; }
+  .banner .txt .t2 { font-size: 10px; color: var(--text2); line-height: 1.5; margin-top: 2px; }
+  .banner .pill { font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 999px; flex-shrink:0; height:fit-content; }
+  .banner .pill.ok { background: rgba(16,185,129,.16); color: var(--success); }
+  .banner .pill.warn { background: rgba(245,158,11,.2); color: var(--warning); }
+  .banner .link { font-size: 10px; font-weight: 700; color: var(--primary); margin-top: 6px; display: inline-block; }
+
+  .btn { text-align: center; font-size: 11.5px; font-weight: 700; padding: 10px 8px; border-radius: 11px; cursor: pointer; line-height: 1.3; }
+  .btn.primary { background: var(--primary); color: #04140d; }
+  .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn.full { width: 100%; }
+
+  .fake-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid var(--border); }
+  .fake-row:first-child { border-top:none; }
+  .fake-row .fl { font-size:11.5px; color: var(--text); font-weight:600; }
+  .fake-row .fs { font-size:9.5px; color: var(--text3); margin-top:1px; }
+  .fake-row .fv { font-size:11.5px; font-weight:700; }
+  .fake-row .fv.neg { color: var(--danger); }
+  .fake-row .fv.pos { color: var(--success); }
+
+  .note {
+    max-width: 920px; margin-top: 14px; border: 1px dashed #2d333b; border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: #8b949e; line-height: 1.65;
+  }
+  .note b { color: #e6edf3; }
+  .note code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+
+  /* ================= Section 1: Month scrub bar ================= */
+  .scrubbar { display:flex; align-items:center; gap:5px; padding:8px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .chip { flex-shrink:0; padding:7px 11px; border-radius:10px; border:1px solid var(--border); font-size:10.5px; font-weight:700; color: var(--text2); background: var(--surface2); white-space:nowrap; }
+  .chip.all { font-weight:800; }
+  .chip.selected { background: var(--primary); border-color: transparent; color:#fff; }
+  .chip.dim { opacity: 0.45; }
+  .chip-strip { display:flex; gap:6px; overflow-x:auto; flex:1; scrollbar-width:none; }
+  .chip-strip::-webkit-scrollbar { display:none; }
+  .calbtn { flex-shrink:0; width:30px; height:30px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--text2); }
+  .group-header { font-size:10.5px; font-weight:800; color: var(--text3); text-transform:uppercase; letter-spacing:.03em; padding: 8px 14px 4px; }
+
+  /* ================= Section 2: ExpenseForm ================= */
+  .modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; padding: 30px 10px 46px; }
+  .modal-card { width:100%; max-height:100%; background:var(--surface); border:1px solid var(--border); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; }
+  .modal-head { display:flex; align-items:center; gap:8px; padding:12px 12px 8px; flex-shrink:0; }
+  .modal-body { padding: 4px 12px 14px; overflow-y:auto; display:flex; flex-direction:column; gap:11px; }
+  .xbtn { width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:14px; flex-shrink:0; }
+  .seg2 { flex:1; display:flex; background:var(--surface2); border-radius:11px; padding:3px; gap:2px; }
+  .seg2 .s { flex:1; text-align:center; font-size:10px; font-weight:700; padding:7px 0; border-radius:9px; color:var(--text2); }
+  .seg2 .s.active.exp { background: rgba(239,68,68,0.15); color:#ef4444; }
+  .seg2 .s.active.inc { background: rgba(16,185,129,0.15); color:#10b981; }
+  .seg2 .s.active.trf { background: rgba(59,130,246,0.15); color:#3b82f6; }
+  .static-title { font-size:13px; font-weight:700; color:var(--text); flex:1; }
+
+  .field-label { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 5px; display:flex; gap:4px; align-items:baseline; }
+  .field-label .accent { color: var(--primary); font-weight:600; }
+  .input-box { width:100%; border-radius:10px; border:1px solid var(--border); background:var(--surface2); padding:9px 10px; font-size:11.5px; color:var(--text3); }
+  .row2 { display:flex; gap:8px; }
+  .row2 > div { flex:1; }
+
+  .amt-hero { display:flex; align-items:center; justify-content:center; padding: 8px 0 2px; }
+  .amt-hero .num { font-size:26px; font-weight:800; color:var(--text); }
+  .cat-amt-row { display:flex; align-items:center; gap:10px; }
+  .cat-tile { width:78px; flex-shrink:0; border:1.5px dashed var(--border); border-radius:14px; padding:10px 8px; display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+  .cat-tile .ci { width:26px; height:26px; border-radius:8px; background:var(--surface3); display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--text3); }
+  .cat-tile .cl { font-size:10px; color:var(--text3); font-weight:600; }
+  .amt-hero-inline { flex:1; font-size:22px; font-weight:800; color:var(--text); text-align:right; }
+
+  .chips-row { display:flex; gap:6px; overflow-x:auto; }
+  .acc-chip { flex-shrink:0; display:flex; align-items:center; gap:5px; padding:7px 10px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); font-size:10px; font-weight:700; color:var(--text2); white-space:nowrap; }
+  .acc-chip.sel { border-color: var(--primary); background: rgba(0,168,107,.12); color: var(--primary); }
+
+  .icon-circles { display:flex; justify-content:center; gap:8px; padding-top:2px; }
+  .icon-circles .c { width:34px; height:34px; border-radius:50%; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:14px; color:var(--text2); }
+
+  .hist-section { border-top:1px solid var(--border); padding-top:10px; display:flex; flex-direction:column; gap:8px; }
+  .hist-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); }
+  .hist-row { display:flex; gap:8px; align-items:flex-start; padding:6px 0; }
+  .hist-row .hi { width:6px; height:6px; border-radius:50%; background:var(--text3); margin-top:5px; flex-shrink:0; }
+  .hist-row .ht1 { font-size:10.5px; color:var(--text2); }
+  .hist-row .ht2 { font-size:9.5px; color:var(--text3); }
+  .foot-btn { margin-top:4px; }
+  .flag-highlight { outline: 2px dashed var(--warning); outline-offset:3px; border-radius: 14px; }
+
+  /* ================= Section 3: Accounts tile ================= */
+  .icon-btn { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .icon-btn.ghost { background:transparent; color: var(--text2); }
+  .icon-btn.boxed-neutral { background: var(--surface2); border:1px solid var(--border); color: var(--text2); }
+  .icon-btn.boxed-primary { background: var(--primary); color:#fff; }
+  .acct-header-icons { display:flex; gap:7px; align-items:center; }
+
+  .acct-group-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+  .acct-row { padding:10px 12px; }
+  .acct-row + .acct-row { border-top:1px solid var(--border); }
+  .acct-top { display:flex; align-items:center; gap:9px; }
+  .acct-badge { width:32px; height:32px; border-radius:10px; background: rgba(59,130,246,.14); color:#3b82f6; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .acct-info { flex:1; min-width:0; }
+  .acct-name-row { display:flex; align-items:center; gap:5px; }
+  .acct-name { font-size:12px; font-weight:700; color:var(--text); }
+  .acct-sub { font-size:9px; color:var(--text3); margin-top:1px; }
+  .acct-bal-wrap { text-align:right; }
+  .acct-bal-row { display:flex; align-items:center; gap:5px; }
+  .acct-bal { font-size:12px; font-weight:800; color:var(--text); }
+  .acct-networth { font-size:8px; color:var(--text3); margin-top:1px; }
+  .kebab { width:19px; height:19px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--text3); }
+  .kebab.active { background: rgba(0,168,107,.16); color: var(--primary); }
+  .warn-tri { font-size:10px; color: var(--warning); }
+
+  .reveal-row { display:flex; align-items:center; gap:6px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border); }
+  .reveal-caption { flex:1; min-width:0; display:flex; align-items:center; gap:5px; }
+  .reveal-caption .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .reveal-caption .dot.ok { background: var(--success); }
+  .reveal-caption .dot.tail { background: var(--warning); }
+  .reveal-caption span { font-size:9.5px; font-weight:700; line-height:1.3; }
+  .reveal-caption span.ok { color: var(--success); }
+  .reveal-caption span.tail { color: var(--warning); }
+  .reveal-icons { display:flex; gap:5px; flex-shrink:0; }
+  .reveal-icon { width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; background: var(--surface2); color: var(--text2); }
+  .reveal-icon.danger { background: rgba(239,68,68,.12); color: var(--danger); }
+  .reveal-icon.new { outline: 1.5px dashed var(--primary); outline-offset:1px; }
+
+  /* ================= Section 4: Settings Frequent card ================= */
+  .set-row { display:flex; align-items:center; gap:10px; padding:12px 0; }
+  .set-row + .set-row { border-top:1px solid var(--border); }
+  .set-icon { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .set-label { font-size:12.5px; font-weight:600; color:var(--text); }
+  .set-sub { font-size:10px; color:var(--text3); margin-top:1px; }
+  .set-chev { font-size:14px; color: var(--text3); }
+  .status-strip { display:flex; gap:6px; margin-bottom:2px; }
+  .status-pill { flex:1; display:flex; flex-direction:column; gap:2px; background:var(--surface2); border-radius:10px; padding:7px 8px; }
+  .status-pill .sp-top { display:flex; align-items:center; gap:4px; font-size:8px; color:var(--text3); font-weight:700; text-transform:uppercase; }
+  .status-pill .sp-val { font-size:10.5px; font-weight:700; color: var(--text); }
+
+  .countdown-row { padding: 11px 0; }
+  .countdown-row .ctop { display:flex; align-items:center; gap:9px; }
+  .countdown-row .ctxt { flex:1; min-width:0; }
+  .countdown-row .clabel { font-size:12.5px; font-weight:700; color:var(--text); }
+  .countdown-row .csub { font-size:10px; color:var(--text2); margin-top:1px; line-height:1.4; }
+  .countdown-pill { font-size:9px; font-weight:800; padding:4px 9px; border-radius:999px; flex-shrink:0; white-space:nowrap; }
+  .countdown-pill.days { background: rgba(16,185,129,.16); color: var(--success); }
+  .countdown-pill.hours { background: rgba(245,158,11,.2); color: var(--warning); }
+  .revert-link { font-size:10.5px; font-weight:700; color: var(--primary); margin-top:8px; display:inline-block; }
+</style>
+</head>
+<body>
+
+<h1>Punch-list batch — 4 screens (v1)</h1>
+<p class="intro">
+  Scope: Step 2 of the already-approved multi-item punch list (item numbers below refer to that list; a
+  <code>docs/plans/</code> doc for the batch will be created once implementation starts). Four independent
+  design discussions, one file per this repo's "one mockup per discussion" rule: <b>Month scrub bar</b>
+  (items 13b, 15), <b>ExpenseForm</b> (items 3, 7), <b>Accounts tile</b> (items 4, 8, 9), and <b>Settings'
+  Frequent card</b> (item 12). Every frame below is grounded in the real current component (read in full
+  before drafting) — nothing here is an invented layout. No app code has been touched; this is proposal-only.
+</p>
+
+<nav class="anchors">
+  <a href="#scrub-bar">① Month scrub bar</a>
+  <a href="#expense-form">② ExpenseForm</a>
+  <a href="#accounts-tile">③ Accounts tile</a>
+  <a href="#settings">④ Settings — Frequent card</a>
+</nav>
+
+<div class="toolbar">
+  <button id="btn-light" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" class="active" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← affects every phone frame on this page at once</span>
+</div>
+
+<!-- ======================================================================= -->
+<!-- SECTION 1 — MONTH SCRUB BAR                                             -->
+<!-- ======================================================================= -->
+<section id="scrub-bar">
+  <div class="section-label">① Transactions</div>
+  <h2>Month scrub bar — always show the year (13b) + dim empty months (15)</h2>
+  <p class="desc">
+    Scope: <code>apps/mobile/src/features/expenses/transactions/MonthScrubBar.tsx</code>. Chip label logic:
+    <code>packages/core/src/lib/date.ts</code>'s <code>monthChipLabel()</code> (13b). Empty-month detection
+    (15) is new — computed alongside <code>TransactionsSlice.tsx</code>'s existing <code>scrubMonths</code>
+    walk (ascending, <code>earliestMonth</code> → current month), a cheap same-pass boolean map, no new query.
+  </p>
+
+  <div class="finding">
+    <span class="tag">reverses a prior decision</span>
+    Item 13b intentionally reverses <code>docs/plans/real-device-testing-pass.md</code> item 43 v5, which
+    chose to <i>omit</i> the year for the current calendar year specifically to keep chips short
+    (<code>"Aug"</code> vs <code>"Jul 2025"</code>). Real use surfaced the cost: the strip spans a full year+
+    of history, so a chip's format silently changes the moment a year boundary is crossed while scrolling —
+    <code>"Jan"</code> sits right next to <code>"Dec 2025"</code> today, which reads as inconsistent rather
+    than economical. Always showing the year (below) is a one-line change to <code>monthChipLabel()</code>
+    and costs a few extra characters per chip; flagging the reversal explicitly rather than silently
+    re-deciding it.
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Current — year omitted for 2026, dim never existed</div>
+      <div class="phone short">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div class="header-title">Expenses</div>
+            <div class="header-icons"><span style="font-size:13px;color:var(--text2);">⚲</span><span style="font-size:14px;color:var(--text2);">⋯</span></div>
+          </div>
+          <div class="scrubbar">
+            <div class="chip all">All</div>
+            <div class="chip-strip">
+              <div class="chip">Jul 2025</div>
+              <div class="chip">Dec 2025</div>
+              <div class="chip">Jan</div>
+              <div class="chip">Feb</div>
+              <div class="chip">Mar</div>
+              <div class="chip">Apr</div>
+              <div class="chip">May</div>
+              <div class="chip">Jun</div>
+              <div class="chip">Jul</div>
+              <div class="chip selected">Aug</div>
+            </div>
+            <div class="calbtn">📅</div>
+          </div>
+          <div class="group-header">24 AUG 2026</div>
+          <div class="body nogap" style="padding:0 14px;">
+            <div class="fake-row"><div><div class="fl">Swiggy</div><div class="fs">Food · UPI</div></div><div class="fv neg">-₹420</div></div>
+            <div class="fake-row"><div><div class="fl">Salary</div><div class="fs">Income · Bank transfer</div></div><div class="fv pos">+₹1,10,000</div></div>
+            <div class="fake-row"><div><div class="fl">Amazon</div><div class="fs">Shopping · Card</div></div><div class="fv neg">-₹1,299</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        <b>Jan</b>–<b>Jul</b> (2026, current year) show bare month names; <b>Jul 2025</b>/<b>Dec 2025</b> show
+        the year — the exact inconsistency 13b removes. No month here is visually distinguished by whether it
+        actually has transactions.
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">Proposed — year always shown + empty months dimmed</div>
+      <div class="phone short">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div class="header-title">Expenses</div>
+            <div class="header-icons"><span style="font-size:13px;color:var(--text2);">⚲</span><span style="font-size:14px;color:var(--text2);">⋯</span></div>
+          </div>
+          <div class="scrubbar">
+            <div class="chip all">All</div>
+            <div class="chip-strip">
+              <div class="chip">Jul 2025</div>
+              <div class="chip">Dec 2025</div>
+              <div class="chip">Jan 2026</div>
+              <div class="chip">Feb 2026</div>
+              <div class="chip dim">Mar 2026</div>
+              <div class="chip">Apr 2026</div>
+              <div class="chip">May 2026</div>
+              <div class="chip">Jun 2026</div>
+              <div class="chip">Jul 2026</div>
+              <div class="chip selected">Aug 2026</div>
+            </div>
+            <div class="calbtn">📅</div>
+          </div>
+          <div class="group-header">24 AUG 2026</div>
+          <div class="body nogap" style="padding:0 14px;">
+            <div class="fake-row"><div><div class="fl">Swiggy</div><div class="fs">Food · UPI</div></div><div class="fv neg">-₹420</div></div>
+            <div class="fake-row"><div><div class="fl">Salary</div><div class="fs">Income · Bank transfer</div></div><div class="fv pos">+₹1,10,000</div></div>
+            <div class="fake-row"><div><div class="fl">Amazon</div><div class="fs">Shopping · Card</div></div><div class="fv neg">-₹1,299</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        Every chip now reads <b>"Mon YYYY"</b> consistently, including across the Dec 2025 → Jan 2026
+        boundary. <b>Mar 2026</b> (no transactions that month) renders at lower opacity/muted border — still
+        a normal tap target, just visually deprioritized as "empty but valid," never disabled.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 2 — EXPENSEFORM                                                 -->
+<!-- ======================================================================= -->
+<section id="expense-form">
+  <div class="section-label">② Add/Edit popup</div>
+  <h2>ExpenseForm — move the match banner near History (3) + Paid via for transfers (7)</h2>
+  <p class="desc">
+    Scope: <code>apps/mobile/src/components/shared/ExpenseForm.tsx</code>. Item 3 moves the "Matched from
+    bank statement" banner (+ its payment-mode-mismatch companion banner) from above every editable field to
+    sit right above the <code>ItemHistory</code> section at the bottom. Item 7 removes the
+    <code>{'{type !== \'transfer\' && (...)}'}</code> guard around the "Paid via" payment-mode picker so
+    transfers get one too, placed alongside the existing From/To account rows.
+  </p>
+
+  <h3 style="font-size:12.5px;color:#cbd5e1;margin:22px 0 2px;">2a — Transfer type: Paid via now shown</h3>
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Current — no payment mode for transfers</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative;flex:1;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head">
+                <div class="seg2">
+                  <div class="s">Expense</div><div class="s">Income</div><div class="s active trf">Transfer</div>
+                </div>
+                <div class="xbtn">✕</div>
+              </div>
+              <div class="modal-body">
+                <div class="amt-hero"><div class="num">₹5,000</div></div>
+                <div class="input-box">Moving to savings</div>
+                <div class="row2">
+                  <div><div class="field-label">DATE</div><div class="input-box">24 Aug 2026</div></div>
+                  <div><div class="field-label">TIME</div><div class="input-box">10:42 AM</div></div>
+                </div>
+                <div>
+                  <div class="field-label">FROM ACCOUNT</div>
+                  <div class="chips-row"><div class="acc-chip sel">🏦 HDFC Salary</div><div class="acc-chip">💳 ICICI Card</div><div class="acc-chip">💵 Cash</div></div>
+                </div>
+                <div>
+                  <div class="field-label">TO ACCOUNT</div>
+                  <div class="chips-row"><div class="acc-chip">🏦 HDFC Salary</div><div class="acc-chip sel">💰 SBI Savings</div><div class="acc-chip">💵 Cash</div></div>
+                </div>
+                <div class="icon-circles"><div class="c">↻</div><div class="c">🔁</div><div class="c">🏷</div></div>
+                <div class="btn primary full foot-btn">Save Transfer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        No way to record <i>how</i> a transfer moved (NEFT vs UPI vs cheque) — the whole "Paid via" concept
+        just disappears for this one transaction type.
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">Proposed — Paid via alongside From/To</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative;flex:1;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head">
+                <div class="seg2">
+                  <div class="s">Expense</div><div class="s">Income</div><div class="s active trf">Transfer</div>
+                </div>
+                <div class="xbtn">✕</div>
+              </div>
+              <div class="modal-body">
+                <div class="amt-hero"><div class="num">₹5,000</div></div>
+                <div class="input-box">Moving to savings</div>
+                <div class="row2">
+                  <div><div class="field-label">DATE</div><div class="input-box">24 Aug 2026</div></div>
+                  <div><div class="field-label">TIME</div><div class="input-box">10:42 AM</div></div>
+                </div>
+                <div>
+                  <div class="field-label">FROM ACCOUNT</div>
+                  <div class="chips-row"><div class="acc-chip sel">🏦 HDFC Salary</div><div class="acc-chip">💳 ICICI Card</div><div class="acc-chip">💵 Cash</div></div>
+                </div>
+                <div>
+                  <div class="field-label">TO ACCOUNT</div>
+                  <div class="chips-row"><div class="acc-chip">🏦 HDFC Salary</div><div class="acc-chip sel">💰 SBI Savings</div><div class="acc-chip">💵 Cash</div></div>
+                </div>
+                <div class="flag-highlight" style="padding:8px;">
+                  <div class="field-label">PAID VIA</div>
+                  <div class="chips-row"><div class="acc-chip sel">📲 UPI</div><div class="acc-chip">💳 Card</div><div class="acc-chip">🧾 NEFT/IMPS</div><div class="acc-chip">💵 Cash</div></div>
+                </div>
+                <div class="icon-circles"><div class="c">↻</div><div class="c">🔁</div><div class="c">🏷</div></div>
+                <div class="btn primary full foot-btn">Save Transfer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        Same <code>PaymentModeChips</code> row used for expense/income, added right after the To-account row
+        (dashed outline here marks what's new — not part of the real UI). No layout change to anything above
+        it.
+      </div>
+    </div>
+  </div>
+
+  <h3 style="font-size:12.5px;color:#cbd5e1;margin:30px 0 2px;">2b — Editing a matched transaction: banner relocated near History</h3>
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Current — banner sits above every field</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative;flex:1;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head">
+                <div class="static-title">Edit Expense</div>
+                <div class="xbtn">✕</div>
+              </div>
+              <div class="modal-body">
+                <div class="flag-highlight banner info" style="margin:0 0 2px;">
+                  <div class="ic">🏦</div>
+                  <div class="txt">
+                    <div class="t1">Matched from bank statement</div>
+                    <div class="t2">"UPI-SWIGGY-INSTAMART@YBL", 24 Aug 2026</div>
+                  </div>
+                </div>
+                <div class="cat-amt-row">
+                  <div class="cat-tile"><div class="ci">🍔</div><div class="cl">Food</div></div>
+                  <div class="amt-hero-inline">₹420</div>
+                </div>
+                <div class="input-box">Swiggy Instamart</div>
+                <div class="row2">
+                  <div><div class="field-label">DATE</div><div class="input-box">24 Aug 2026</div></div>
+                  <div><div class="field-label">TIME</div><div class="input-box">1:14 PM</div></div>
+                </div>
+                <div><div class="field-label">ACCOUNT</div><div class="chips-row"><div class="acc-chip sel">🏦 HDFC Salary</div><div class="acc-chip">💵 Cash</div></div></div>
+                <div><div class="field-label">PAID VIA</div><div class="chips-row"><div class="acc-chip sel">📲 UPI</div><div class="acc-chip">💳 Card</div></div></div>
+                <div class="icon-circles"><div class="c">↻</div><div class="c">🔁</div><div class="c">🏷</div></div>
+                <div class="btn primary full foot-btn">Save Changes</div>
+                <div class="hist-section">
+                  <div class="hist-title">History</div>
+                  <div class="hist-row"><div class="hi"></div><div><div class="ht1">Edited category</div><div class="ht2">2 days ago</div></div></div>
+                  <div class="hist-row"><div class="hi"></div><div><div class="ht1">Created from bank import</div><div class="ht2">3 days ago</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        Opening the popup to fix a category lands the eye on a read-only banner first — the fields you
+        actually came to edit start below the fold on a smaller screen.
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">Proposed — banner moved down, next to History</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative;flex:1;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head">
+                <div class="static-title">Edit Expense</div>
+                <div class="xbtn">✕</div>
+              </div>
+              <div class="modal-body">
+                <div class="cat-amt-row">
+                  <div class="cat-tile"><div class="ci">🍔</div><div class="cl">Food</div></div>
+                  <div class="amt-hero-inline">₹420</div>
+                </div>
+                <div class="input-box">Swiggy Instamart</div>
+                <div class="row2">
+                  <div><div class="field-label">DATE</div><div class="input-box">24 Aug 2026</div></div>
+                  <div><div class="field-label">TIME</div><div class="input-box">1:14 PM</div></div>
+                </div>
+                <div><div class="field-label">ACCOUNT</div><div class="chips-row"><div class="acc-chip sel">🏦 HDFC Salary</div><div class="acc-chip">💵 Cash</div></div></div>
+                <div><div class="field-label">PAID VIA</div><div class="chips-row"><div class="acc-chip sel">📲 UPI</div><div class="acc-chip">💳 Card</div></div></div>
+                <div class="icon-circles"><div class="c">↻</div><div class="c">🔁</div><div class="c">🏷</div></div>
+                <div class="btn primary full foot-btn">Save Changes</div>
+                <div class="hist-section flag-highlight" style="padding-top:8px;">
+                  <div class="banner info" style="margin:0;">
+                    <div class="ic">🏦</div>
+                    <div class="txt">
+                      <div class="t1">Matched from bank statement</div>
+                      <div class="t2">"UPI-SWIGGY-INSTAMART@YBL", 24 Aug 2026</div>
+                    </div>
+                  </div>
+                  <div class="hist-title">History</div>
+                  <div class="hist-row"><div class="hi"></div><div><div class="ht1">Edited category</div><div class="ht2">2 days ago</div></div></div>
+                  <div class="hist-row"><div class="hi"></div><div><div class="ht1">Created from bank import</div><div class="ht2">3 days ago</div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        Editable fields start immediately below the header. The match banner (and its payment-mode-mismatch
+        companion, when present) now reads as provenance context right beside the rest of this transaction's
+        audit trail — same information, better sequencing.
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Scope check:</b> item 3 is a pure reorder — the banner's own content/copy and the payment-mode-mismatch
+    companion banner beneath it (<code>paymentModeMismatch && impliedPaymentMode</code>) are untouched, just
+    relocated together as one unit to sit directly above <code>&lt;ItemHistory /&gt;</code>. Item 7 is additive
+    only — no change to the From/To account rows themselves, and <code>PaymentModeChips</code> is reused as-is
+    (same component, same props shape it already takes for expense/income).
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 3 — ACCOUNTS TILE                                               -->
+<!-- ======================================================================= -->
+<section id="accounts-tile">
+  <div class="section-label">③ Accounts</div>
+  <h2>Account tile — verified caption + unverified-tail state (4), per-tile Import History (8), icon consistency (9)</h2>
+  <p class="desc">
+    Scope: <code>apps/mobile/src/features/accounts/AccountList.tsx</code> (tiles),
+    <code>AccountsPage.tsx</code> (header icon row). <code>verifiedThroughDate</code> is already computed
+    (<code>AccountDetailModal.tsx</code>, from <code>Account.coveredStatementRanges</code>) but never
+    surfaced on the list tile itself today — only the negative <code>needsAttention</code> triangle is.
+  </p>
+
+  <div class="finding">
+    <span class="tag">design call — placement</span>
+    The verified caption/tail-flag are placed inside the <b>kebab-revealed action row</b> (left of the icon
+    buttons), not as a third always-visible line on the resting row. Rationale: the resting row is already at
+    its "uncluttered" ceiling (name + default pill + warning triangle + balance + net-worth caption); the
+    reveal row already exists as a secondary information/action surface and currently wastes its own left
+    half on empty space (icons are <code>justify-end</code>). This reuses that space instead of adding a new
+    permanently-visible line to every tile. Flagging since the item description could also be read as
+    "always visible" — happy to move it up if that reading was intended.
+  </div>
+  <div class="finding">
+    <span class="tag">both nav paths kept</span>
+    Per item 8's own scope: the global header "Import History" icon is <b>not removed</b> — cross-account
+    browsing (e.g. "which account did I import last?") is still a distinct job from "show me this one
+    account's history," so both entry points coexist, same as this repo's own note that duplicated
+    <i>capability</i> (not duplicated <i>entry points</i> to the same job) is what needs consolidating.
+  </div>
+  <div class="finding">
+    <span class="tag">neutral, not primary</span>
+    Item 9's three promoted icons (Merchant recognition / Cash-withdrawal codes / Import History) get a
+    <b>secondary/neutral boxed style</b> (tinted surface + border), deliberately not <code>primary</code> blue
+    — that colour stays reserved for "Add," the screen's one true primary action, so it doesn't get diluted
+    by three other buttons matching it.
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Current — ghost icons, only a negative signal</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div class="header-title">Accounts</div>
+            <div class="acct-header-icons">
+              <div class="icon-btn ghost">🎛</div>
+              <div class="icon-btn ghost">💵</div>
+              <div class="icon-btn ghost">🕐</div>
+              <div class="icon-btn boxed-primary">＋</div>
+            </div>
+          </div>
+          <div class="body">
+            <div class="group-header" style="padding-left:0;">BANK ACCOUNTS</div>
+            <div class="acct-group-card">
+              <div class="acct-row">
+                <div class="acct-top">
+                  <div class="acct-badge">🏦</div>
+                  <div class="acct-info">
+                    <div class="acct-name-row"><div class="acct-name">HDFC Salary</div></div>
+                    <div class="acct-sub">42 transactions</div>
+                  </div>
+                  <div class="acct-bal-wrap">
+                    <div class="acct-bal-row"><div class="acct-bal">₹2,14,900</div><div class="kebab">⋮</div></div>
+                    <div class="acct-networth">Included in net worth</div>
+                  </div>
+                </div>
+              </div>
+              <div class="acct-row">
+                <div class="acct-top">
+                  <div class="acct-badge">🏦</div>
+                  <div class="acct-info">
+                    <div class="acct-name-row"><div class="acct-name">SBI Savings</div></div>
+                    <div class="acct-sub">18 transactions</div>
+                  </div>
+                  <div class="acct-bal-wrap">
+                    <div class="acct-bal-row"><div class="acct-bal">₹86,200</div><div class="kebab">⋮</div></div>
+                    <div class="acct-networth">Included in net worth</div>
+                  </div>
+                </div>
+              </div>
+              <div class="acct-row">
+                <div class="acct-top">
+                  <div class="acct-badge">🏦</div>
+                  <div class="acct-info">
+                    <div class="acct-name-row"><div class="acct-name">Axis Current</div><div class="warn-tri">⚠</div></div>
+                    <div class="acct-sub">7 transactions</div>
+                  </div>
+                  <div class="acct-bal-wrap">
+                    <div class="acct-bal-row"><div class="acct-bal">₹12,050</div><div class="kebab active">⋮</div></div>
+                    <div class="acct-networth">Included in net worth</div>
+                  </div>
+                </div>
+                <div class="reveal-row">
+                  <div class="reveal-caption"></div>
+                  <div class="reveal-icons">
+                    <div class="reveal-icon">⇪</div>
+                    <div class="reveal-icon">✎</div>
+                    <div class="reveal-icon danger">🗑</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        A fully-verified account (<b>HDFC Salary</b>) and a never-imported one look identical. Only
+        <b>Axis Current</b> carries any signal at all (the ⚠ triangle) — and its revealed row has no way to
+        jump straight to its own import history.
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">Proposed — positive captions + unverified-tail state + boxed-neutral icons</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div class="header-title">Accounts</div>
+            <div class="acct-header-icons">
+              <div class="icon-btn boxed-neutral flag-highlight">🎛</div>
+              <div class="icon-btn boxed-neutral flag-highlight">💵</div>
+              <div class="icon-btn boxed-neutral flag-highlight">🕐</div>
+              <div class="icon-btn boxed-primary">＋</div>
+            </div>
+          </div>
+          <div class="body">
+            <div class="group-header" style="padding-left:0;">BANK ACCOUNTS</div>
+            <div class="acct-group-card">
+              <div class="acct-row">
+                <div class="acct-top">
+                  <div class="acct-badge">🏦</div>
+                  <div class="acct-info">
+                    <div class="acct-name-row"><div class="acct-name">HDFC Salary</div></div>
+                    <div class="acct-sub">42 transactions</div>
+                  </div>
+                  <div class="acct-bal-wrap">
+                    <div class="acct-bal-row"><div class="acct-bal">₹2,14,900</div><div class="kebab active">⋮</div></div>
+                    <div class="acct-networth">Included in net worth</div>
+                  </div>
+                </div>
+                <div class="reveal-row flag-highlight">
+                  <div class="reveal-caption"><div class="dot ok"></div><span class="ok">Statement verified<br/>till 24 Aug 2026</span></div>
+                  <div class="reveal-icons">
+                    <div class="reveal-icon">⇪</div>
+                    <div class="reveal-icon new">🕐</div>
+                    <div class="reveal-icon">✎</div>
+                    <div class="reveal-icon danger">🗑</div>
+                  </div>
+                </div>
+              </div>
+              <div class="acct-row">
+                <div class="acct-top">
+                  <div class="acct-badge">🏦</div>
+                  <div class="acct-info">
+                    <div class="acct-name-row"><div class="acct-name">SBI Savings</div></div>
+                    <div class="acct-sub">18 transactions</div>
+                  </div>
+                  <div class="acct-bal-wrap">
+                    <div class="acct-bal-row"><div class="acct-bal">₹86,200</div><div class="kebab active">⋮</div></div>
+                    <div class="acct-networth">Included in net worth</div>
+                  </div>
+                </div>
+                <div class="reveal-row flag-highlight">
+                  <div class="reveal-caption"><div class="dot tail"></div><span class="tail">3 new transactions since<br/>last verified statement</span></div>
+                  <div class="reveal-icons">
+                    <div class="reveal-icon">⇪</div>
+                    <div class="reveal-icon new">🕐</div>
+                    <div class="reveal-icon">✎</div>
+                    <div class="reveal-icon danger">🗑</div>
+                  </div>
+                </div>
+              </div>
+              <div class="acct-row">
+                <div class="acct-top">
+                  <div class="acct-badge">🏦</div>
+                  <div class="acct-info">
+                    <div class="acct-name-row"><div class="acct-name">Axis Current</div><div class="warn-tri">⚠</div></div>
+                    <div class="acct-sub">7 transactions</div>
+                  </div>
+                  <div class="acct-bal-wrap">
+                    <div class="acct-bal-row"><div class="acct-bal">₹12,050</div><div class="kebab active">⋮</div></div>
+                    <div class="acct-networth">Included in net worth</div>
+                  </div>
+                </div>
+                <div class="reveal-row">
+                  <div class="reveal-caption"></div>
+                  <div class="reveal-icons">
+                    <div class="reveal-icon">⇪</div>
+                    <div class="reveal-icon new flag-highlight">🕐</div>
+                    <div class="reveal-icon">✎</div>
+                    <div class="reveal-icon danger">🗑</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        <b>HDFC Salary</b> now confirms it's fully covered. <b>SBI Savings</b> gets the new third state — a
+        distinct amber dot, distinct copy, distinct from both the green "verified" caption and the red ⚠
+        triangle. Every tile's revealed row gains the dashed-outlined 🕐 "Import History" shortcut
+        (per-account, alongside the still-present global header icon). Header icons: three now boxed-neutral
+        (dashed = new treatment), "Add" alone stays primary green.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 4 — SETTINGS FREQUENT CARD                                      -->
+<!-- ======================================================================= -->
+<section id="settings">
+  <div class="section-label">④ Settings</div>
+  <h2>3-day default-to-Open with a Settings-only countdown banner (item 12)</h2>
+  <p class="desc">
+    Scope: <code>apps/mobile/src/features/settings/SettingsPage.tsx</code>'s empty "Frequent" card first-row
+    slot (the exact spot the pre-2026-08-18 default-mode picker used to occupy), a brand-new persisted
+    preference (pattern per <code>SettingsContext.tsx</code>'s existing AsyncStorage-key convention), and a
+    change to <code>PrivacyContext.tsx</code>'s <code>AppState</code> background-revert effect to suppress
+    itself while armed. Nothing like this exists elsewhere in the app — it lives <b>only</b> in this one card.
+  </p>
+
+  <div class="finding">
+    <span class="tag">design call — row → banner shape shift</span>
+    The <b>never-used</b> state renders as an ordinary <code>Row</code> (icon + label + sub + chevron) — it
+    should look like "a settings option you haven't turned on," per the item's own instruction, not an empty
+    gap. Once armed, that same first slot becomes a real <code>Banner</code>-shaped element (title + sub +
+    a countdown pill + an inline "Switch back to Safe" action) rather than staying a plain chevron row — the
+    countdown and the manual-revert action both need more surface than a one-line row's trailing slot can
+    hold. Flagging the shape change since it's a judgment call, not spelled out in the item.
+  </div>
+  <div class="finding">
+    <span class="tag">design call — urgency colour</span>
+    The icon/identity colour stays <b>Open-mode red</b> in both armed states (it's always "you're in Open
+    mode by default," regardless of how much time is left) — but the <b>countdown pill</b> itself shifts from
+    a neutral/green "days left" tint to an amber "hours left" tint, borrowing the ordinary
+    running-out-of-time convention without overloading the red Open-mode identity colour with a second,
+    conflicting meaning.
+  </div>
+  <div class="finding">
+    <span class="tag">accepted trade-off, restated</span>
+    While armed, foregrounding the app after backgrounding goes straight back to Open with no PIN — an
+    unattended unlocked phone stays in Open mode for the remainder of the window. This is the explicitly
+    accepted trade-off from the item spec (the whole point is fixing app-switching PIN friction), not an
+    oversight — restated here so it isn't lost between the mockup and implementation.
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Current — no default-mode control at all</div>
+      <div class="phone short">
+        <div class="screen" data-theme="dark">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Settings</div><div class="header-icons"></div></div>
+          <div class="body">
+            <div class="status-strip">
+              <div class="status-pill"><div class="sp-top">🕶 Privacy</div><div class="sp-val">Safe</div></div>
+              <div class="status-pill"><div class="sp-top">◐ Theme</div><div class="sp-val">Dark</div></div>
+              <div class="status-pill"><div class="sp-top">🔒 PIN</div><div class="sp-val">Set</div></div>
+            </div>
+            <div class="group-header" style="padding-left:0;">FREQUENT</div>
+            <div class="card" style="gap:0;">
+              <div class="set-row" style="border-top:none;">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕶</div>
+                <div style="flex:1;"><div class="set-label">Manage Safe Mode visibility</div><div class="set-sub">Choose what stays hidden in Safe Mode</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">#</div>
+                <div style="flex:1;"><div class="set-label">Manage tags</div><div class="set-sub">Set aside tags from your daily living total</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕐</div>
+                <div style="flex:1;"><div class="set-label">Timeline</div><div class="set-sub">Activity, undo &amp; restore</div></div>
+                <div class="set-chev">›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        Today's real Frequent card — three rows, nothing about a default privacy mode (removed 2026-08-18,
+        never replaced). Foregrounding the app after Open always re-prompts PIN, every time.
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">Proposed — never used (looks like a normal option)</div>
+      <div class="phone short">
+        <div class="screen" data-theme="dark">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Settings</div><div class="header-icons"></div></div>
+          <div class="body">
+            <div class="status-strip">
+              <div class="status-pill"><div class="sp-top">🕶 Privacy</div><div class="sp-val">Safe</div></div>
+              <div class="status-pill"><div class="sp-top">◐ Theme</div><div class="sp-val">Dark</div></div>
+              <div class="status-pill"><div class="sp-top">🔒 PIN</div><div class="sp-val">Set</div></div>
+            </div>
+            <div class="group-header" style="padding-left:0;">FREQUENT</div>
+            <div class="card" style="gap:0;">
+              <div class="set-row flag-highlight" style="border-top:none;">
+                <div class="set-icon" style="background:rgba(220,38,38,.14);color:var(--open);">🔓</div>
+                <div style="flex:1;"><div class="set-label">Default to Open mode</div><div class="set-sub">Skip the PIN for 3 days after switching to Open</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕶</div>
+                <div style="flex:1;"><div class="set-label">Manage Safe Mode visibility</div><div class="set-sub">Choose what stays hidden in Safe Mode</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">#</div>
+                <div style="flex:1;"><div class="set-label">Manage tags</div><div class="set-sub">Set aside tags from your daily living total</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕐</div>
+                <div style="flex:1;"><div class="set-label">Timeline</div><div class="set-sub">Activity, undo &amp; restore</div></div>
+                <div class="set-chev">›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        New first row (dashed = new), same visual weight/shape as the rows below it — tapping it arms the
+        3-day countdown (a confirm step, not shown here, explains the trade-off before arming).
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">Proposed — armed (~3 days left)</div>
+      <div class="phone short">
+        <div class="screen" data-theme="dark">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Settings</div><div class="header-icons"></div></div>
+          <div class="body">
+            <div class="status-strip">
+              <div class="status-pill"><div class="sp-top">🕶 Privacy</div><div class="sp-val">Open</div></div>
+              <div class="status-pill"><div class="sp-top">◐ Theme</div><div class="sp-val">Dark</div></div>
+              <div class="status-pill"><div class="sp-top">🔒 PIN</div><div class="sp-val">Set</div></div>
+            </div>
+            <div class="group-header" style="padding-left:0;">FREQUENT</div>
+            <div class="card" style="gap:0;">
+              <div class="countdown-row flag-highlight" style="border-bottom:1px solid var(--border);margin-bottom:2px;">
+                <div class="ctop">
+                  <div class="set-icon" style="background:rgba(220,38,38,.14);color:var(--open);">🔓</div>
+                  <div class="ctxt">
+                    <div class="clabel">Open mode is your default</div>
+                    <div class="csub">No PIN needed when you reopen the app during this window.</div>
+                  </div>
+                  <div class="countdown-pill days">2 days left</div>
+                </div>
+                <div class="revert-link">Switch back to Safe by default</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕶</div>
+                <div style="flex:1;"><div class="set-label">Manage Safe Mode visibility</div><div class="set-sub">Choose what stays hidden in Safe Mode</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">#</div>
+                <div style="flex:1;"><div class="set-label">Manage tags</div><div class="set-sub">Set aside tags from your daily living total</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕐</div>
+                <div style="flex:1;"><div class="set-label">Timeline</div><div class="set-sub">Activity, undo &amp; restore</div></div>
+                <div class="set-chev">›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        Status strip's Privacy pill now reads "Open" too (already-existing display, no change needed there).
+        Countdown pill is neutral-green while &gt;24h remain.
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">Proposed — expiring soon (hours left)</div>
+      <div class="phone short">
+        <div class="screen" data-theme="dark">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Settings</div><div class="header-icons"></div></div>
+          <div class="body">
+            <div class="status-strip">
+              <div class="status-pill"><div class="sp-top">🕶 Privacy</div><div class="sp-val">Open</div></div>
+              <div class="status-pill"><div class="sp-top">◐ Theme</div><div class="sp-val">Dark</div></div>
+              <div class="status-pill"><div class="sp-top">🔒 PIN</div><div class="sp-val">Set</div></div>
+            </div>
+            <div class="group-header" style="padding-left:0;">FREQUENT</div>
+            <div class="card" style="gap:0;">
+              <div class="countdown-row flag-highlight" style="border-bottom:1px solid var(--border);margin-bottom:2px;">
+                <div class="ctop">
+                  <div class="set-icon" style="background:rgba(220,38,38,.14);color:var(--open);">🔓</div>
+                  <div class="ctxt">
+                    <div class="clabel">Open mode is your default</div>
+                    <div class="csub">No PIN needed when you reopen the app during this window.</div>
+                  </div>
+                  <div class="countdown-pill hours">14 hours left</div>
+                </div>
+                <div class="revert-link">Switch back to Safe by default</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕶</div>
+                <div style="flex:1;"><div class="set-label">Manage Safe Mode visibility</div><div class="set-sub">Choose what stays hidden in Safe Mode</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">#</div>
+                <div style="flex:1;"><div class="set-label">Manage tags</div><div class="set-sub">Set aside tags from your daily living total</div></div>
+                <div class="set-chev">›</div>
+              </div>
+              <div class="set-row">
+                <div class="set-icon" style="background:rgba(245,158,11,.14);color:var(--warning);">🕐</div>
+                <div style="flex:1;"><div class="set-label">Timeline</div><div class="set-sub">Activity, undo &amp; restore</div></div>
+                <div class="set-chev">›</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">
+        Under 24h remaining: copy switches to hour granularity ("14 hours left") and the pill tints amber —
+        same row shape, same "Switch back to Safe" escape hatch throughout.
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Persistence:</b> a new AsyncStorage key (e.g. <code>penny_settings_default_open_armed_until</code>
+    storing the expiry epoch-ms), following the exact pattern already used for every other simple preference
+    in <code>SettingsContext.tsx</code> — not an <code>EncryptedRepository</code> field, since this is a
+    device-local UI preference, not durable domain data.<br/><br/>
+    <b>Suppression mechanics:</b> <code>PrivacyContext.tsx</code>'s existing <code>AppState</code>
+    background→Safe revert effect gains one guard — skip the revert if the armed-until timestamp is still in
+    the future. Expiry itself is checked lazily (on foreground / on Settings mount), not via a background
+    timer — consistent with "no fixed-duration countdown timer" being the exact thing 2026-08-18 removed;
+    this is a persisted deadline checked opportunistically, not a resurrected always-running timer.
+  </div>
+</section>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+</script>
+
+</body>
+</html>

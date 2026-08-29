@@ -1,16 +1,24 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { View, Pressable, Image, ScrollView, Text } from 'react-native';
-import { useNavigation, type ParamListBase } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { ThemeTokens } from '@penny/core/theme/tokens';
 import { Toggle, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
 import { useProfile } from '@/hooks/useProfile';
+import {
+  isDefaultOpenArmed,
+  getDefaultOpenCountdownLabel,
+  getDefaultOpenCountdownUrgency,
+  DEFAULT_OPEN_ARM_DURATION_MS
+} from '@/lib/defaultOpenMode';
 import { useSettings, type FontScale } from '~/context/SettingsContext';
-import { type PersistedPrivacyMode } from '~/context/PrivacyContext';
+import { usePrivacy, type PrivacyMode } from '~/context/PrivacyContext';
+import { useOpenModeGate } from '~/components/privacy/useOpenModeGate';
 import { useTheme, type ThemePreference } from '~/theme/ThemeProvider';
 import { useToast } from '~/context/ToastContext';
 import { wipeDemoData, isDemoSeeded } from '@/core/db/seedDemoData';
@@ -91,14 +99,16 @@ function useSectionColors() {
   return { frequent: theme.warning, security: theme.privacy, appearance: theme.info, data: theme.neutral };
 }
 
-// Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync. Open is deliberately
-// excluded — it can never be a persisted default, only a temporary elevation (see PrivacyContext).
-// 2026-08-18: Private mode was removed app-wide, so the persisted default is always 'safe' now — this
-// still returns a (single-item) list rather than a hardcoded object so the `StatusPill` lookup below
-// didn't need reshaping.
-function usePrivacyModes(): { mode: PersistedPrivacyMode; label: string; icon: string; color: string }[] {
-  const theme = useThemeColors();
-  return [{ mode: 'safe', label: 'Safe', icon: 'ti-eye-off', color: theme.warning }];
+// Icons + colours mirror the header's PrivacyModeSwitcher — keep the two in sync.
+// 2026-08-29 (punch-list item 12): this used to be a hardcoded single-item ('safe') list, back when Safe
+// was the only value `mode` could ever hold at a glance-worthy moment (Open never persisted and always
+// auto-reverted quickly). Now that "Default to Open mode" can legitimately keep a live session in Open
+// for up to 3 days, this status pill needs to reflect the *actual* current `usePrivacy().mode` — see
+// `activePrivacyMode` below — not a permanently-'Safe' placeholder.
+function privacyModeDisplay(mode: PrivacyMode, theme: ThemeTokens): { label: string; icon: string; color: string } {
+  return mode === 'open'
+    ? { label: 'Open', icon: 'ti-eye', color: theme.open }
+    : { label: 'Safe', icon: 'ti-eye-off', color: theme.warning };
 }
 
 /** Local section label — mirrors web's own inline `SectionLabel` (not the shared `components/ui` one,
@@ -203,6 +213,119 @@ function StatusPill({ icon, color, label, value }: { icon: string; color: string
   );
 }
 
+/**
+ * Punch-list item 12 — the Frequent card's first slot, in one of 3 states (mockup:
+ * `docs/mockups/proposals/punch-list-batch-v1.html#settings`):
+ *  1. Never armed (or previously reverted/expired) — an ordinary `Row`, same shape/weight as the rows
+ *     below it, so it reads as "a setting you haven't turned on" rather than an empty gap.
+ *  2/3. Armed — a wider `DefaultOpenBanner` (title + sub + countdown pill + inline revert action), since
+ *     a plain row's trailing slot has no room for both a pill and a tappable revert action.
+ *
+ * Tapping the never-armed row first shows a `ConfirmDialog` spelling out the actual trade-off (skipping
+ * the PIN on every reopen for 3 days) — a judgment call: the item spec's own "don't bypass the PIN gate"
+ * instruction covers the *existing* Safe→Open gate (PIN + shoulder-surfing warning, reused as-is via
+ * `useOpenModeGate` below), but that gate's warning copy is about screen visibility, not this feature's
+ * separate "no PIN for 3 days" trade-off — this dialog covers the latter before the former ever opens.
+ * Confirming both arms the persisted default (`SettingsContext`'s `defaultOpenArmedUntil`) *and* switches
+ * the live session to Open in the same action (the item spec's "takes effect immediately").
+ */
+function DefaultOpenModeRow() {
+  const theme = useThemeColors();
+  const { defaultOpenArmedUntil, setDefaultOpenArmedUntil } = useSettings();
+  const { setMode } = usePrivacy();
+  const { requestOpen, modal } = useOpenModeGate();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Recomputed on mount and whenever this screen regains focus — not live-ticking, per the item spec
+  // ("nobody is expected to sit and watch it count down").
+  const [now, setNow] = useState(() => Date.now());
+  useFocusEffect(
+    useCallback(() => {
+      setNow(Date.now());
+    }, [])
+  );
+
+  const armed = isDefaultOpenArmed(defaultOpenArmedUntil, now);
+
+  const handleArm = () => {
+    setConfirmOpen(false);
+    requestOpen(() => setDefaultOpenArmedUntil(Date.now() + DEFAULT_OPEN_ARM_DURATION_MS));
+  };
+
+  const handleRevert = () => {
+    setDefaultOpenArmedUntil(null);
+    setMode('safe');
+  };
+
+  return (
+    <>
+      {armed && defaultOpenArmedUntil ? (
+        <DefaultOpenBanner armedUntil={defaultOpenArmedUntil} now={now} onRevert={handleRevert} />
+      ) : (
+        <Row
+          first
+          icon="ti-lock-open"
+          color={theme.open}
+          label="Default to Open mode"
+          sub="Skip the PIN for 3 days after switching to Open"
+          onPress={() => setConfirmOpen(true)}
+          trailing={<Icon name="ti-chevron-right" size={17} color={theme.textTertiary} />}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleArm}
+        title="Default to Open mode?"
+        message="For the next 3 days, reopening Penny will skip your PIN and go straight to Open mode — even right after switching apps or backgrounding your phone. Anyone with your unlocked phone during that window could see your financial details. You can switch back to Safe by default at any time from here."
+        confirmLabel="Continue"
+        confirmVariant="primary"
+      />
+
+      {modal}
+    </>
+  );
+}
+
+/** The armed-state banner for `DefaultOpenModeRow` above — icon stays Open-mode red in both sub-states
+ *  (it's always "you're in Open mode by default" regardless of time left); only the countdown pill's tint
+ *  shifts neutral-green → amber once under 24h remain, borrowing the ordinary running-out-of-time
+ *  convention without overloading the red Open identity colour with a second meaning (mockup finding). */
+function DefaultOpenBanner({ armedUntil, now, onRevert }: { armedUntil: number; now: number; onRevert: () => void }) {
+  const theme = useThemeColors();
+  const label = getDefaultOpenCountdownLabel(armedUntil, now);
+  const pillColor = getDefaultOpenCountdownUrgency(armedUntil, now) === 'hours' ? theme.warning : theme.success;
+
+  return (
+    <View className="px-3 py-3">
+      <View className="flex-row items-start gap-3">
+        <View
+          className="w-8 h-8 rounded-lg items-center justify-center shrink-0"
+          style={{ backgroundColor: tint(theme.open, 14) }}
+        >
+          <Icon name="ti-lock-open" size={16} color={theme.open} />
+        </View>
+        <View className="flex-1 min-w-0">
+          <Text className="text-sm font-medium" style={{ color: theme.textPrimary }}>
+            Open mode is your default
+          </Text>
+          <Text className="text-[11px] text-tertiary">No PIN needed when you reopen the app during this window.</Text>
+        </View>
+        <View className="rounded-full px-2.5 py-1 shrink-0" style={{ backgroundColor: tint(pillColor, 16) }}>
+          <Text className="text-[11px] font-semibold" style={{ color: pillColor }}>
+            {label}
+          </Text>
+        </View>
+      </View>
+      <Pressable onPress={onRevert} hitSlop={6} className="mt-2 self-start">
+        <Text className="text-xs font-semibold" style={{ color: theme.primary }}>
+          Switch back to Safe by default
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 /** A compact inline segmented control for a `Row`'s `trailing` slot (Theme/Text size) — icon-only or
  *  short-label segments in a fixed-width pill, filled `theme.primary` on the active one. Mockup-approved
  *  ("Option 3 — single compact rows", `settings-appearance-refresh-v1.html`) over redrawing a live theme
@@ -250,7 +373,7 @@ export function SettingsPage() {
   const { fontScale, lockOnBackground, setFontScale, setLockOnBackground } = useSettings();
   const { preference: themePreference, setPreference: setThemePreference } = useTheme();
   const { showToast } = useToast();
-  const privacyModes = usePrivacyModes();
+  const { mode: privacyMode } = usePrivacy();
   const [wipeEnabled, setWipeEnabled] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
@@ -293,7 +416,7 @@ export function SettingsPage() {
     .filter(Boolean)
     .join(' · ');
 
-  const activePrivacyMode = privacyModes[0];
+  const activePrivacyMode = privacyModeDisplay(privacyMode, theme);
   const activeTheme = THEMES.find((t) => t.value === themePreference) ?? THEMES[0];
 
   return (
@@ -375,11 +498,13 @@ export function SettingsPage() {
           <SectionLabel>Frequent</SectionLabel>
           <Card>
             {/* 2026-08-18: the default-privacy-mode picker and Open-mode auto-revert-duration picker
-             *  were both removed here — Private mode is gone app-wide and the persisted default is
-             *  always 'safe' now, and Open mode no longer has a fixed-duration timer to configure (see
-             *  PrivacyContext.tsx's doc comment) — only the header's Safe/Open switcher remains. */}
+             *  were both removed here — Private mode is gone app-wide and Open mode has no fixed-duration
+             *  timer to configure (see PrivacyContext.tsx's doc comment) — only the header's Safe/Open
+             *  switcher remained, until 2026-08-29 (punch-list item 12) brought this first slot back as an
+             *  explicit, opt-in "Default to Open mode" control (a real 3-day persisted default, not the
+             *  removed picker's always-Safe one). */}
+            <DefaultOpenModeRow />
             <Row
-              first
               icon="ti-eye-off"
               color={sectionColor.frequent}
               label="Manage Safe Mode visibility"

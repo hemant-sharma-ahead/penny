@@ -6,6 +6,7 @@ import {
   computeAccountVerificationStatus,
   type AccountVerificationStatus
 } from '@/core/bank-import/accountVerification';
+import { findUnverifiedTailExpenses } from '@/core/bank-import/coverage';
 import { backDerivedOpeningBalance, recomputeAnchorAgreement } from '@/core/bank-import/openingBalanceAnchor';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyAccountsChanged, useBankImportsRefresh } from '@/hooks/useDataRefresh';
@@ -51,6 +52,25 @@ export function useAccountVerification(accounts: Account[], txns: Expense[]) {
           dismissed: acc.dismissedVerificationFindings ?? []
         })
       );
+    }
+    return map;
+  }, [accounts, txns, allImportRecords]);
+
+  // The "unverified tail" sweep (mobile punch-list item 4b, `coverage.ts`'s `findUnverifiedTailExpenses`)
+  // — deliberately a SEPARATE map from `statuses` above, not folded into `AccountVerificationStatus`'s
+  // one-badge system (see `accountVerification.ts`'s own doc comment for why: a closed, 3-kind
+  // negative-finding enum this is intentionally NOT a 4th member of). Same `CHECKPOINT_ELIGIBLE` gating
+  // as `statuses` — this is a refinement of the same verification picture, scoped to the same account
+  // types that picture already covers. Only populated with non-empty results (an empty entry would
+  // just mean "check the map's presence" everywhere instead of "check length too").
+  const unverifiedTails = useMemo(() => {
+    const map = new Map<string, Expense[]>();
+    for (const acc of accounts) {
+      if (!CHECKPOINT_ELIGIBLE.has(acc.type)) continue;
+      const accountTxns = txns.filter((t) => t.accountId === acc.id || t.toAccountId === acc.id);
+      const importRecords = allImportRecords.filter((r) => r.accountId === acc.id);
+      const tail = findUnverifiedTailExpenses(acc.coveredStatementRanges ?? [], accountTxns, importRecords);
+      if (tail.length > 0) map.set(acc.id, tail);
     }
     return map;
   }, [accounts, txns, allImportRecords]);
@@ -134,5 +154,5 @@ export function useAccountVerification(accounts: Account[], txns: Expense[]) {
     [accounts]
   );
 
-  return { statuses, loading: importRecordsLoading, dismissFinding, reopenFinding };
+  return { statuses, unverifiedTails, loading: importRecordsLoading, dismissFinding, reopenFinding };
 }

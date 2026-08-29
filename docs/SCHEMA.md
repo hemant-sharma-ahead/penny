@@ -202,6 +202,14 @@ Default and user-created categories for classifying expenses.
 
 > **Tax-footprint overrides (Track 7):** stored in `localStorage`, not Dexie — `penny_settings_tax_gross_income`, `penny_settings_tax_direct`, `penny_settings_tax_epf`, `penny_settings_tax_statutory` (optional manual gross-income, income-tax correction, EPF/PF, and professional-tax+LWF overrides for the income waterfall; absent = derive automatically). See `SettingsContext`.
 
+> **3-day default-to-Open (2026-08-29):** stored in `localStorage`/AsyncStorage, not Dexie —
+> `penny_settings_default_open_armed_until`, a raw numeric epoch-ms string (`defaultOpenArmedUntil` in
+> `SettingsContext`) — the moment the current 3-day default-to-Open window expires, or absent/`null`
+> if never armed. Read by `packages/core/src/lib/defaultOpenMode.ts`'s `isDefaultOpenArmed()`/
+> countdown helpers and `PrivacyContext.tsx`'s reconciliation effect, which suppresses the normal
+> `AppState`-background auto-revert-to-Safe while armed. See `docs/PRIVACY.md`'s "3-day
+> default-to-Open" entry for the full behavior.
+
 > **Safe Mode visibility:** per-category (`hideInSafeMode` above) and per-account (`accounts.hideInSafeMode`) flags cover Expenses/Income/Accounts. Loans, IOU, Portfolio, Goals, Insurance, and Subscriptions don't have a natural per-item category to hang a flag on, so they use simple module-level toggles stored in `localStorage` under `penny_settings_safe_mode_visibility` (`SafeModeVisibility` in `SettingsContext` — `loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`; these already store "visible" directly, default `true`). `usePrivacy().shouldMask(sensitive)` is the single source of truth: Open never masks, Safe masks only when `sensitive` is true (a third "Privacy" mode that used to always mask was removed 2026-08-18 — see `docs/PRIVACY.md`). Aggregates (totals, net worth, "Total spent this month", the cash-flow forecast, the Activity Timeline) always pass `sensitive: false` — Safe Mode's premise is that the big picture stays visible and only specific flagged items hide.
 >
 > **Category defaults are smart, not blank.** An explicit `hideInSafeMode` on a category always wins; when it's `undefined`, `isHiddenInSafeMode()` (`core/expenses/categoryGroups.ts`) falls back to a per-intent-group default — `income`, `transfers`, `family_giving`, `legal`, `sin_goods`, and `financial` default **hidden**; every other default category (daily living, home & utilities, lifestyle, etc.) and any custom category default **visible**. The Settings → Safe Mode toggle matches the field directly (ON = hidden, `hideInSafeMode: true`). Accounts have no group concept and simply default visible (`undefined` → shown).

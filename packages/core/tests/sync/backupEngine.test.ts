@@ -121,4 +121,46 @@ describe('backupEngine.runNow', () => {
     await runNow(true);
     expect(h.provider.push).toHaveBeenCalled();
   });
+
+  // Item 10 (real-device report, 2026-08-29): the Drive card sometimes showed "Not backed up yet"
+  // for a real, already-completed backup — `state.lastBackupAt` was only ever written deep inside
+  // the "something is due" branches, so a no-op run (nothing due, matching the previous test's exact
+  // setup) never synced it with what the persisted cursor actually says, even when the cursor moved
+  // on independently in between two calls.
+  it('hydrates in-memory lastBackupAt from the persisted cursor even on a no-op run', async () => {
+    const t1 = Date.now();
+    await syncCursorRepo.put({
+      id: 'personal-blob',
+      scope: 'personal-blob',
+      remoteTag: 'r1',
+      lastBackupAt: t1,
+      pushedAt: t1,
+      createdAt: t1,
+      updatedAt: t1
+    });
+    localStorage.setItem('penny_backup_target', 'google-drive');
+
+    await runNow();
+    expect(h.provider.push).not.toHaveBeenCalled();
+    expect(getBackupState().lastBackupAt).toBe(t1);
+
+    // Something else advances the persisted cursor's lastBackupAt directly (e.g. a different
+    // process/session) without this session's in-memory state knowing about it yet — remoteTag and
+    // pushedAt stay put, so this run is still a genuine no-op (no push/pull), the exact shape that
+    // used to leave `state.lastBackupAt` stuck on the old value.
+    const t2 = t1 + 1000;
+    await syncCursorRepo.put({
+      id: 'personal-blob',
+      scope: 'personal-blob',
+      remoteTag: 'r1',
+      lastBackupAt: t2,
+      pushedAt: t1,
+      createdAt: t1,
+      updatedAt: t2
+    });
+
+    await runNow();
+    expect(h.provider.push).not.toHaveBeenCalled();
+    expect(getBackupState().lastBackupAt).toBe(t2);
+  });
 });

@@ -48,6 +48,14 @@ const SAFE_MODE_VISIBILITY_KEY = 'penny_settings_safe_mode_visibility';
  *  preference (like every other simple feature toggle in Settings), not durable domain data. Default
  *  off — same privacy-first precedent as Safe Mode. */
 const SMS_TRACKING_ENABLED_KEY = 'penny_settings_sms_tracking_enabled';
+/** "Default to Open mode" (punch-list item 12) armed-until epoch-ms, or absent when never armed/expired.
+ *  Device-local UI preference like every other key here — NOT `EncryptedRepository` data. Read/written
+ *  as a raw numeric string (not JSON) to match `CASHFLOW_BUFFER_KEY`'s sibling numeric-preference
+ *  convention below, rather than `SAFE_MODE_VISIBILITY_KEY`'s JSON-object convention (there's only ever
+ *  one scalar value to persist, not a record). See `PrivacyContext.tsx` for how this suppresses its
+ *  AppState background-revert-to-Safe effect while armed, and `@penny/core/lib/defaultOpenMode` for the
+ *  shared "is it still armed"/countdown-label helpers both that file and `SettingsPage.tsx` use. */
+const DEFAULT_OPEN_ARMED_UNTIL_KEY = 'penny_settings_default_open_armed_until';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
 const LOCK_ON_BACKGROUND_KEY = 'penny_settings_lock_on_background';
 const CASHFLOW_BUFFER_KEY = 'penny_settings_cashflow_buffer';
@@ -86,6 +94,13 @@ async function loadSmsTrackingEnabled(): Promise<boolean> {
   return (await getItem(SMS_TRACKING_ENABLED_KEY)) === '1';
 }
 
+async function loadDefaultOpenArmedUntil(): Promise<number | null> {
+  const raw = await getItem(DEFAULT_OPEN_ARMED_UNTIL_KEY);
+  if (raw === null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 async function loadFontScale(): Promise<FontScale> {
   const raw = await getItem(FONT_SCALE_KEY);
   if (raw === 'small' || raw === 'default' || raw === 'large' || raw === 'xl') return raw;
@@ -96,6 +111,9 @@ interface SettingsContextValue {
   safeModeVisibility: SafeModeVisibility;
   /** SMS Tracking master on/off (docs/plans/sms-transaction-tracking.md §7) — default off. */
   smsTrackingEnabled: boolean;
+  /** "Default to Open mode" (punch-list item 12) — epoch-ms the current 3-day arming expires at, or
+   *  `null` when never armed, manually reverted, or already expired-and-reconciled. */
+  defaultOpenArmedUntil: number | null;
   fontScale: FontScale;
   lockOnBackground: boolean;
   cashflowBuffer: number;
@@ -109,6 +127,8 @@ interface SettingsContextValue {
   taxStatutoryOverride: number | null;
   setSafeModeVisibility: (key: keyof SafeModeVisibility, visible: boolean) => void;
   setSmsTrackingEnabled: (value: boolean) => void;
+  /** Arms (a future epoch-ms) or clears (`null`) the "Default to Open mode" window. */
+  setDefaultOpenArmedUntil: (value: number | null) => void;
   setFontScale: (scale: FontScale) => void;
   setLockOnBackground: (value: boolean) => void;
   setCashflowBuffer: (value: number) => void;
@@ -123,6 +143,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [safeModeVisibility, setSafeModeVisibilityState] = useState<SafeModeVisibility>(DEFAULT_SAFE_MODE_VISIBILITY);
   const [smsTrackingEnabled, setSmsTrackingEnabledState] = useState(false);
+  const [defaultOpenArmedUntil, setDefaultOpenArmedUntilState] = useState<number | null>(null);
   const [fontScale, setFontScaleState] = useState<FontScale>('default');
   const [lockOnBackground, setLockOnBackgroundState] = useState(false);
   const [cashflowBuffer, setCashflowBufferState] = useState(DEFAULT_CASHFLOW_BUFFER);
@@ -136,6 +157,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     Promise.all([
       loadSafeModeVisibility(),
       loadSmsTrackingEnabled(),
+      loadDefaultOpenArmedUntil(),
       loadFontScale(),
       loadLockOnBackground(),
       loadCashflowBuffer(),
@@ -147,6 +169,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       ([
         loadedSafeMode,
         loadedSmsTrackingEnabled,
+        loadedDefaultOpenArmedUntil,
         loadedFontScale,
         loadedLockOnBackground,
         loadedCashflowBuffer,
@@ -158,6 +181,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setSafeModeVisibilityState(loadedSafeMode);
         setSmsTrackingEnabledState(loadedSmsTrackingEnabled);
+        setDefaultOpenArmedUntilState(loadedDefaultOpenArmedUntil);
         setFontScaleState(loadedFontScale);
         setLockOnBackgroundState(loadedLockOnBackground);
         setCashflowBufferState(loadedCashflowBuffer);
@@ -183,6 +207,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setSmsTrackingEnabled = useCallback((value: boolean) => {
     void setItem(SMS_TRACKING_ENABLED_KEY, value ? '1' : '0');
     setSmsTrackingEnabledState(value);
+  }, []);
+
+  const setDefaultOpenArmedUntil = useCallback((value: number | null) => {
+    if (value === null || !Number.isFinite(value) || value <= 0) {
+      void removeItem(DEFAULT_OPEN_ARMED_UNTIL_KEY);
+      setDefaultOpenArmedUntilState(null);
+    } else {
+      void setItem(DEFAULT_OPEN_ARMED_UNTIL_KEY, String(value));
+      setDefaultOpenArmedUntilState(value);
+    }
   }, []);
 
   const setFontScale = useCallback((scale: FontScale) => {
@@ -249,6 +283,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     () => ({
       safeModeVisibility,
       smsTrackingEnabled,
+      defaultOpenArmedUntil,
       fontScale,
       lockOnBackground,
       cashflowBuffer,
@@ -258,6 +293,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxStatutoryOverride,
       setSafeModeVisibility,
       setSmsTrackingEnabled,
+      setDefaultOpenArmedUntil,
       setFontScale,
       setLockOnBackground,
       setCashflowBuffer,
@@ -269,6 +305,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [
       safeModeVisibility,
       smsTrackingEnabled,
+      defaultOpenArmedUntil,
       fontScale,
       lockOnBackground,
       cashflowBuffer,
@@ -278,6 +315,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxStatutoryOverride,
       setSafeModeVisibility,
       setSmsTrackingEnabled,
+      setDefaultOpenArmedUntil,
       setFontScale,
       setLockOnBackground,
       setCashflowBuffer,

@@ -238,6 +238,16 @@ export function CheckpointTimelinePage() {
                   <Text className="text-[8.5px] text-secondary">Penny</Text>
                 </View>
               </View>
+              {/* Item 6 — Diff shows the real, unrounded figure, not the ±₹1 tolerance
+               *  `checkpointDiagnostics.ts` already uses to decide "agrees" elsewhere in this app — so a
+               *  genuinely tiny (sub-rupee) difference can still render as a red, non-zero-signed
+               *  "₹0.00" once formatted. Stated once here rather than changing what Diff actually shows,
+               *  so the precise value stays visible for anyone who wants it. */}
+              <View className="flex-row px-3 py-1.5 border-t border-theme" style={{ backgroundColor: theme.surface }}>
+                <Text className="text-[8.5px] text-tertiary flex-1">
+                  Differences under ₹1 are normal rounding and still count as reconciled.
+                </Text>
+              </View>
               <View
                 className="flex-row px-3 py-2 border-t border-theme"
                 style={{ backgroundColor: theme.surfaceSecondary }}
