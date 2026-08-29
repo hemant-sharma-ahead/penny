@@ -1,9 +1,9 @@
-import { Fragment, useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { Account } from '@/core/db/types';
+import type { Account, Expense } from '@/core/db/types';
 import { accountsRepo, bankStatementImportsRepo, expensesRepo } from '@/core/db/repositories';
 import { delta } from '@/core/accounts/balanceCalculator';
 import { computeCheckpointDiagnostics, type CheckpointComparison } from '@/core/bank-import/checkpointDiagnostics';
@@ -18,7 +18,7 @@ import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { Banner, Button, Card, EmptyState } from '~/components/ui';
+import { Banner, Button, Card, EmptyState, PennyLoader } from '~/components/ui';
 import { tint } from '~/lib/color';
 import type { HomeStackParamList } from '~/navigation/HomeStack';
 import { useOpeningBalanceResolution, type OpeningBalanceImplied } from './useOpeningBalanceResolution';
@@ -52,8 +52,25 @@ export function CheckpointTimelinePage() {
   const { accountId } = route.params;
   useDefaultHeaderBack('CheckpointTimeline');
 
-  const { items: accounts, reload: reloadAccounts } = useRepository(accountsRepo);
-  const { items: allExpenses, reload: reloadExpenses } = useRepository(expensesRepo);
+  const { items: accounts, loading: accountsLoading, reload: reloadAccounts } = useRepository(accountsRepo);
+  // Tier 2 performance fix (2026-08-28) — identical swap to `FullLedgerPage.tsx`'s: every use of
+  // `allExpenses` below is already scoped to this one account, so the real indexed `queryByAccount()`
+  // replaces `useRepository(expensesRepo)`'s `getAll()` with no downstream logic change.
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+  const reloadExpenses = useCallback(() => {
+    let cancelled = false;
+    expensesRepo.queryByAccount(accountId).then((rows) => {
+      if (!cancelled) {
+        setAllExpenses(rows);
+        setExpensesLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+  useEffect(() => reloadExpenses(), [reloadExpenses]);
   const { items: allImportRecords } = useRepository(bankStatementImportsRepo);
   // The anchor-boundary divider's own Update/Keep actions write straight to `accountsRepo` (via
   // `useOpeningBalanceResolution`) without navigating away — this page needs to actually see that write
@@ -122,6 +139,17 @@ export function CheckpointTimelinePage() {
     update: updateAnchor,
     dismiss: dismissAnchor
   } = useOpeningBalanceResolution(account, anchorFinding);
+
+  // Both repos start empty until their first load resolves — without this, a genuinely-loading screen
+  // showed the same "Account not found" message below as an actually-deleted account (identical bug to
+  // `FullLedgerPage.tsx`'s, fixed there the same way — found 2026-08-28, real-device performance pass).
+  if (accountsLoading || expensesLoading) {
+    return (
+      <SafeAreaView edges={[]} className="flex-1 items-center justify-center" style={{ backgroundColor: modeBg }}>
+        <PennyLoader size="lg" accessibilityLabel="Loading checkpoint timeline" />
+      </SafeAreaView>
+    );
+  }
 
   if (!account || !diagnostics) {
     return (

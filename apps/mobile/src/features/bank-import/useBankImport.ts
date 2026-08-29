@@ -95,14 +95,31 @@ export function useBankImport(accountId: string) {
   const [step, setStep] = useState<BankImportStep>('setup');
 
   // ── Data (loaded once, read fresh at commit time where it matters) ──────────────────────────────
-  const { items: accounts } = useRepository(accountsRepo);
-  const { items: allExpenses } = useRepository(expensesRepo);
-  const { items: categories } = useRepository(expenseCategoriesRepo);
-  const { items: hashtags } = useRepository(hashtagsRepo);
-  const { items: importRecords } = useRepository(bankStatementImportsRepo);
-  const { items: overrides } = useRepository(bankNarrationOverridesRepo);
+  const { items: accounts, loading: accountsLoading } = useRepository(accountsRepo);
+  const { items: allExpenses, loading: allExpensesLoading } = useRepository(expensesRepo);
+  const { items: categories, loading: categoriesLoading } = useRepository(expenseCategoriesRepo);
+  const { items: hashtags, loading: hashtagsLoading } = useRepository(hashtagsRepo);
+  const { items: importRecords, loading: importRecordsLoading } = useRepository(bankStatementImportsRepo);
+  const { items: overrides, loading: overridesLoading } = useRepository(bankNarrationOverridesRepo);
   const { modes: allPaymentModes } = usePaymentModes();
-  const { items: iouPersons } = useRepository(personsRepo);
+  const { items: iouPersons, loading: iouPersonsLoading } = useRepository(personsRepo);
+  // Real bug found 2026-08-28, real-device testing: `confirmMapping()` below runs the two-tier
+  // matcher against whatever `importRecords`/`allExpenses`/etc. happen to be in state at that instant
+  // — none of these `useRepository()` loads were previously gated. Reach "Continue to review" before
+  // `importRecords` finishes its first load and it's still `[]`, so Tier 1's exact-provenance lookup
+  // (`matcher.ts`'s `findProvenanceMatch`) finds nothing for every row from a PREVIOUSLY-imported
+  // statement, and Tier 2's fuzzy fallback explicitly excludes already-checkpointed expenses from its
+  // candidate pool (by design, for a different reason — see `matchStatementRows`'s own doc comment) —
+  // so a row that should provenance-match instead falls all the way through to unmatched. Exposed as
+  // `dataLoading` below; `SetupStep.tsx`'s "Continue to review" button disables on it.
+  const dataLoading =
+    accountsLoading ||
+    allExpensesLoading ||
+    categoriesLoading ||
+    hashtagsLoading ||
+    importRecordsLoading ||
+    overridesLoading ||
+    iouPersonsLoading;
   // Seeded here (not just in the settings screen) so the researched defaults exist the first time
   // *any* import happens, even if the user never visits Settings → Cash-withdrawal codes first.
   const { codes: cashWithdrawalCodes } = useBankCashWithdrawalCodes();
@@ -373,7 +390,10 @@ export function useBankImport(accountId: string) {
   const [loneWolfDeletions, setLoneWolfDeletions] = useState<Set<string>>(new Set());
 
   const confirmMapping = useCallback(() => {
-    if (!mappingReady) return;
+    // Guarded here, not just at the 3 button call sites (`SetupStep.tsx`'s plain button,
+    // `ExpenseCoverageNudge.tsx`, `OpeningBalancePrompt.tsx`) — a single point of enforcement so no
+    // future entry point can reintroduce the race this fixes. See `dataLoading`'s own doc comment.
+    if (!mappingReady || dataLoading) return;
     const cm: ColumnMapping = {
       date: mapping.date,
       narration: mapping.narration,
@@ -408,6 +428,7 @@ export function useBankImport(accountId: string) {
     setStep('review');
   }, [
     mappingReady,
+    dataLoading,
     mapping,
     tokenizedRows,
     headers,
@@ -1220,6 +1241,7 @@ export function useBankImport(accountId: string) {
   return {
     step,
     setStep,
+    dataLoading,
     account,
     accounts,
     cashAccounts,

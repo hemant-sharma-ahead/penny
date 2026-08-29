@@ -20,6 +20,7 @@ import { db, restoreTables } from '@/core/db/schema';
 import { deriveKey, decrypt, encrypt, unwrapKey } from '@/core/crypto/engine';
 import { keystore } from '@/core/crypto/keystore';
 import { lockSession } from '@/core/crypto/securityManager';
+import { invalidateAllRepositoryCaches } from '@/core/db/repositories';
 import { validMerchantMemoryKeys } from '@/core/expenses/merchantMemory';
 import type { Expense, SecurityRecord } from '@/core/db/types';
 
@@ -308,6 +309,10 @@ export async function importBackup(
   checkCancelled();
   onPhase2Start?.();
   await restoreTables(entries);
+  // Bypasses every `EncryptedRepository` (a raw batch write) — see
+  // `invalidateAllRepositoryCaches()`'s own doc comment for why this is required here. Safe to call
+  // before the session lock below: it only drops in-memory caches, it doesn't touch the DMK.
+  invalidateAllRepositoryCaches();
 
   // Every already-mounted screen/hook needs to reload once the session is unlocked again — see the
   // doc comment above `consumePendingFullRefresh` for the full explanation.
@@ -402,6 +407,12 @@ export async function mergeBundle(bundle: { stores: Record<string, unknown[]> })
     stats.skipped += perStore.skipped;
   }
 
+  // Bypasses every `EncryptedRepository` (raw `table.put()` above) — see
+  // `invalidateAllRepositoryCaches()`'s own doc comment. Unlike `importBackup`, this can run mid-session
+  // with other screens already mounted and reading cached data, so this has to fire unconditionally,
+  // not just for the stores that actually changed — simplest correct option, and cheap since a sync/
+  // recovery merge is not a hot path.
+  invalidateAllRepositoryCaches();
   return stats;
 }
 

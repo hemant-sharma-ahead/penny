@@ -158,10 +158,10 @@ Two modes control what's visible on-screen. These are independent of encryption 
 type PrivacyMode = 'safe' | 'open';
 ```
 
-| Mode   | Display                                                     | Colour          | Default |
+| Mode   | Display                                                      | Colour          | Default |
 | ------ | ------------------------------------------------------------ | --------------- | ------- |
 | `safe` | Only amounts explicitly flagged sensitive are masked as •••• | Amber (#f59e0b) | Yes     |
-| `open` | All data visible                                            | Red (#dc2626)   | No      |
+| `open` | All data visible                                             | Red (#dc2626)   | No      |
 
 **Switching to `open` mode requires PIN verification** (plus a one-time shoulder-surfing warning screen). This is a deliberate friction point — Open mode shows all data on screen. Open has no persisted default and no visible countdown — it auto-reverts to Safe the moment the app backgrounds (an `AppState` safety net), or stays until the user switches back manually.
 
@@ -180,6 +180,13 @@ All 17 primary stores are encrypted:
 
 Plus the stores added in later milestones (see `docs/SCHEMA.md` for the authoritative list):
 `accounts`, `activity_log`, `merchant_memory`, `transaction_templates` (Pre-Phase 1.5); `persons`, `ledger_entries` (Phase 1.5 Track 1); `device_keys`, `group_keys`, `sync_cursor` (Phase 1.5 Track B — device keypairs, per-group keys, sync cursors; private key material is DMK-encrypted like everything else).
+
+**One documented exception (2026-08-28):** `expenses` additionally stores `date`/`accountId`/
+`toAccountId`/`categoryId`/`type` as plaintext, indexed columns — a deliberate trade-off, not a
+gap, made only for this one table since without a queryable field, every read (even "this month's
+transactions") had to decrypt the entire table first. Amount, description, category name (looked up
+via the separately-encrypted `categoryId` reference), hashtags, and notes all stay fully encrypted,
+same as before. No other store gets this treatment.
 
 ### Plain stores (IndexedDB, no encryption)
 

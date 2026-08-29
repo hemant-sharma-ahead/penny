@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
+import type { ExpenseRowStore, IndexedExpenseRow } from './store';
 import type {
   Account,
   ActivityLog,
@@ -93,9 +94,13 @@ export class PennyDatabase extends Dexie {
       price_cache: 'id, symbol, fetchedAt',
       privacy_stats: 'id, domain',
 
-      // Encrypted stores — only id indexed; all field data is ciphertext
-      // Secondary indexes on encrypted stores would leak information, so we index id only.
+      // Encrypted stores — only id indexed; all field data is ciphertext.
+      // Secondary indexes on encrypted stores would leak information, so we index id only by default.
       // Queries requiring filtering must decrypt in application layer.
+      // EXCEPTION (v16 below, 2026-08-28): `expenses` gains 5 plaintext, indexed columns —
+      // date/accountId/toAccountId/categoryId/type — a deliberate, documented trade-off for the one
+      // table with real row-count pressure. See `store.ts`'s `ExpenseRowStore` doc comment and v16's
+      // own comment for the full reasoning; every other table here keeps the id-only rule unchanged.
       profile: 'id',
       holdings: 'id',
       expenses: 'id',
@@ -174,10 +179,59 @@ export class PennyDatabase extends Dexie {
     // v15 — senders explicitly marked "never a transaction" (2026-08-17), durable/sender-wide unlike a
     // per-record `dismissed` status. Encrypted; id-only index.
     this.version(15).stores({ sms_excluded_senders: 'id' });
+
+    // v16 — Tier 2 performance fix (2026-08-28): 5 plaintext, indexed columns on `expenses` — `date`,
+    // `accountId`, `toAccountId`, `categoryId`, `type` — mirroring `IndexedExpenseRow`/`ExpenseRowStore`
+    // in `store.ts`. Deliberate, documented reversal of this file's earlier "index id only" rule
+    // (above) for exactly these 5 structural/opaque-id fields — amount/description/hashtags/notes stay
+    // fully encrypted as before. No `.upgrade()` — same reasoning as every other encrypted-store
+    // version bump above (this hook runs pre-unlock, before the DMK exists to decrypt anything);
+    // existing rows get these columns via a post-unlock backfill instead (`useExpenses.ts`, flag
+    // `penny_expense_index_v1`).
+    this.version(16).stores({ expenses: 'id, date, accountId, toAccountId, categoryId, type' });
   }
 }
 
 export const db = new PennyDatabase();
+
+/** Dexie counterpart to `schema.native.ts`'s `makeExpensesRowStore()` — same `ExpenseRowStore`
+ *  contract, real `.where(...)` queries instead of raw SQL. Exists because `apps/web-react` (frozen)
+ *  and the entire vitest suite run against THIS file (this codebase's own documented rule: tests
+ *  never exercise `schema.native.ts`), so the indexed-query logic needs identical coverage here even
+ *  though `apps/mobile` never runs it. */
+function makeExpensesRowStore(): ExpenseRowStore {
+  const table = db.expenses as unknown as Table<IndexedExpenseRow, string>;
+  return {
+    get: (id) => table.get(id),
+    put: (record) => table.put(record).then(() => undefined),
+    toArray: () => table.toArray(),
+    delete: (id) => table.delete(id),
+    count: () => table.count(),
+    update: (id, changes) => table.update(id, changes as object),
+    clear: () => table.clear(),
+    queryByDateRange: (startMs, endMs) => table.where('date').between(startMs, endMs, true, true).toArray(),
+    async queryByAccount(accountId) {
+      const [byAccount, byToAccount] = await Promise.all([
+        table.where('accountId').equals(accountId).toArray(),
+        table.where('toAccountId').equals(accountId).toArray()
+      ]);
+      const merged = new Map(byAccount.map((r) => [r.id, r]));
+      for (const r of byToAccount) merged.set(r.id, r);
+      return [...merged.values()];
+    },
+    queryByCategory: (categoryId) => table.where('categoryId').equals(categoryId).toArray(),
+    // One real Dexie transaction wrapping every row's update, not ~10,000 individual auto-committing
+    // `table.update()` calls — same reasoning as `schema.native.ts`'s `executeBatch()` counterpart.
+    async backfillIndexColumnsBatch(entries) {
+      if (entries.length === 0) return;
+      await db.transaction('rw', table, async () => {
+        for (const { id, fields } of entries) await table.update(id, fields as object);
+      });
+    }
+  };
+}
+
+export const expensesIndexedStore: ExpenseRowStore = makeExpensesRowStore();
 
 /** Web/Dexie counterpart to `schema.native.ts`'s `restoreTables()` — see that file's doc comment for
  *  the full contract and why this exists as its own purpose-built exception to `RowStore`, not a

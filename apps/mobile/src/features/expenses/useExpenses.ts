@@ -437,6 +437,37 @@ export function useExpenses() {
     })().catch(() => {});
   }, [expensesLoading, expenses, reloadMerchantMemory]);
 
+  // One-time index backfill (Tier 2 performance fix, 2026-08-28) — existing expenses only ever had
+  // `date`/`accountId`/`toAccountId`/`categoryId`/`type` inside `ciphertext`; `expensesRepo.put()` only
+  // writes the new plaintext index columns going forward (`repositories.ts`'s `indexFields`), so
+  // anything recorded before this shipped needs those columns filled in once. `expenses` is already
+  // fully loaded and decrypted by the time this runs (same `expensesLoading` gate as the backfill
+  // above), so there's no extra decrypt cost here — just persisting the 5 columns, in one batch
+  // (found 2026-08-28, real-device testing: the original per-row `Promise.all` of ~10,000 individual
+  // updates cost a real, measurable ~2s one-time stall; `backfillIndexColumnsBatch` wraps them all in
+  // one transaction instead).
+  const indexBackfilledRef = useRef(false);
+  useEffect(() => {
+    if (indexBackfilledRef.current || expensesLoading) return;
+    indexBackfilledRef.current = true;
+    (async () => {
+      if (await getItem('penny_expense_index_v1')) return;
+      await expensesRepo.backfillIndexColumnsBatch(
+        expenses.map((e) => ({
+          id: e.id,
+          fields: {
+            date: e.date,
+            ...(e.accountId !== undefined && { accountId: e.accountId }),
+            ...(e.toAccountId !== undefined && { toAccountId: e.toAccountId }),
+            categoryId: e.categoryId,
+            type: e.type ?? 'expense'
+          }
+        }))
+      );
+      await setItem('penny_expense_index_v1', '1');
+    })().catch(() => {});
+  }, [expensesLoading, expenses]);
+
   const expenseCategories = useMemo(
     () => categories.filter((c) => !c.isGroup && (!c.applicableTo || c.applicableTo === 'expense')),
     [categories]

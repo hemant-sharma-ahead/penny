@@ -43,8 +43,8 @@ bottom — market context and quick links to every module.
 rendered as soon as their async load finished — not when the user actually had any data — producing
 misleading or outright false results for a brand-new install:
 
-- **Glance header** (`GlanceHeader`) — gated on the actual *values* (`totalAssets === 0 &&
-  summary.netWorth === 0`), not `accountBalances.length` — an account with a genuinely zero balance
+- **Glance header** (`GlanceHeader`) — gated on the actual _values_ (`totalAssets === 0 &&
+summary.netWorth === 0`), not `accountBalances.length` — an account with a genuinely zero balance
   (freshly added, not yet reconciled) still counts as a row in that array, which let the real ₹0 hero
   through even with nothing meaningful to show (found 2026-08-05, a day after the row-count version
   shipped). Checking both values together (rather than `netWorth` alone) still shows the real hero for a
@@ -63,8 +63,8 @@ misleading or outright false results for a brand-new install:
   `HomeEmptyPromptCard` ("Track your expenses" — two actions, `+ Add account` straight to `Accounts` and
   `Go to Expenses` for bank-statement import or bringing expenses in from another app; "Track Insurance";
   "Track Loans") — never gated on each other. An earlier version gated all three together (`spentThisMonth
-  === 0 && insuranceCover === 0 && loansOutstanding === 0`), which hid the Insurance/Loans prompts again
-  the instant *any* figure went non-zero — e.g. a user who'd started tracking expenses but hadn't added
+=== 0 && insuranceCover === 0 && loansOutstanding === 0`), which hid the Insurance/Loans prompts again
+  the instant _any_ figure went non-zero — e.g. a user who'd started tracking expenses but hadn't added
   insurance yet went back to seeing a silent `'—'` for Insurance, defeating the point (found 2026-08-05).
   This is also the only fix for Insurance/Loans/Accounts having no navigation entry point anywhere else
   in the app (confirmed via a full nav-tree search) — a silent `'—'` gave a fresh user no reason to ever
@@ -77,7 +77,7 @@ misleading or outright false results for a brand-new install:
   (`hs.derived`'s `avgMonthlyExpenses`/`liquidAssets`/`monthlyEmiObligations`/`totalActiveGoals`/
   `assetClassCount`/`hasLifeInsurance`/`hasHealthInsurance`, plus `hs.incomeNeeded`), not each
   component's own `status` — `insuranceComponent` (`core/health/scorer.ts`) hardcodes `hasData: true`
-  unconditionally (having *no* insurance is real, meaningful information there, unlike the other
+  unconditionally (having _no_ insurance is real, meaningful information there, unlike the other
   components), so it can never report the scorer's own `'no_data'` status; an
   `every(c => c.status === 'no_data')` check across all 6 components silently never became true, quietly
   defeating the empty-state gate entirely (found 2026-08-05, a day after shipping the `'no_data'`-based
@@ -195,6 +195,12 @@ Seen state is tracked per-story by a `freshnessKey` in `localStorage` (`penny_st
 Net worth is calculated live each time the Home screen loads: it sums all holdings and account balances (assets) and subtracts all liabilities, reading from `liabilitiesRepo.getAll()`, `expensesRepo.getAll()`, `holdingsRepo.getAll()`, `accountsRepo.getAll()`, `ledgerEntriesRepo.getAll()`, and `personsRepo.getAll()`. **Net IOU** = Σ`signedAmount` over ledger entries (`core/iou/ledger`), **but only for active (non-archived) persons** — `loadSummary` builds an `activePersonIds` set from `persons.filter((p) => !p.isArchived)` and skips entries whose person is archived, so a deleted IOU (which soft-archives the person while keeping its entries for integrity) no longer lingers in net worth, matching the IOU-tab totals. A positive net is added to assets as an "Owed to You" line and to net worth; a negative net is added to liabilities — which offsets the cash movement of any IOU-linked transaction so net worth stays correct end-to-end.
 
 `useHome` also subscribes to `penny:txn-changed` (`hooks/useTxnRefresh`) so balances/net worth reload live when the IOU screen records or removes a linked transaction, rather than only on navigation.
+
+**Cold-start loading state, 2026-08-28:** while `summary` is still `null` (the first load hasn't
+resolved yet), `HomePage.tsx` shows a centered `PennyLoader` in place of `GlanceHeader`/`AccountsStrip`
+instead of rendering nothing — previously a slow cold decrypt of the full transaction history (see
+`docs/ARCHITECTURE.md`'s Tier 1/2/3 performance decision-log entry) made the screen read as blank
+rather than busy.
 
 `useHome.ts` additionally computes `investableCorpus` (`core/calculators/retirementProjection.ts`'s
 `calcInvestableCorpus()`, fed by `core/accounts/balanceCalculator.ts`'s `calcLiquidFunds()`) and, on each

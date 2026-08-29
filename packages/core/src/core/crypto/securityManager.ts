@@ -10,6 +10,7 @@
 // PINs are rejected. An opt-in policy erases all data after N consecutive failures.
 
 import { db } from '@/core/db/schema';
+import { invalidateAllRepositoryCaches } from '@/core/db/repositories';
 import { decrypt, deriveKey, generateMasterKey, generateSalt, unwrapKey, wrapKey } from './engine';
 import { deriveRecoveryKeypair } from '@/core/identity/recovery';
 import { keystore } from './keystore';
@@ -95,6 +96,10 @@ export function isWeakPin(pin: string): boolean {
 
 export async function wipeAllData(): Promise<void> {
   await Promise.all(db.tables.map((t) => t.clear()));
+  // Bypasses every `EncryptedRepository` (raw `RowStore.clear()`) — its per-repo in-memory cache
+  // would otherwise keep serving pre-wipe data. See `invalidateAllRepositoryCaches()`'s own doc
+  // comment for the full list of the 3 bypasses in this codebase that need this call.
+  invalidateAllRepositoryCaches();
   keystore.lock();
 }
 

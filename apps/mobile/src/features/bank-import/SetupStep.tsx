@@ -219,14 +219,19 @@ export function SetupStep({ bi }: SetupStepProps) {
             // Was gated on `mappingReady` alone (every field mapped) — that says nothing about whether
             // the mapping actually *works*, so a wrong date format could map every field "correctly"
             // and still produce zero usable rows, yet still let the user proceed into an empty review
-            // screen. Also requires at least one row having actually parsed.
+            // screen. Also requires at least one row having actually parsed. `bi.dataLoading` gate
+            // added 2026-08-28 (real-device testing) — matching previously ran against whatever
+            // `importRecords`/`allExpenses`/etc. happened to be loaded at that instant, so reaching
+            // this button before those repos' first load resolved silently produced wrong match
+            // results for a previously-imported statement (see `useBankImport.ts`'s own doc comment).
             <Button
               variant="primary"
               fullWidth
+              loading={bi.dataLoading}
               disabled={!bi.mappingReady || bi.mappingPreview?.rows.length === 0}
               onPress={bi.confirmMapping}
             >
-              Continue to review
+              {bi.dataLoading ? 'Loading…' : 'Continue to review'}
             </Button>
           )}
         </View>

@@ -1621,12 +1621,12 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 
 ## Context providers
 
-| Context                  | Stored in                    | Key values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Context                  | Stored in                    | Key values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PrivacyContext`         | React state + localStorage   | **`apps/web-react` (frozen) — unchanged:** `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding. **`apps/mobile` diverged 2026-08-18** — `PrivacyMode` is `'safe' \| 'open'` only (no `'privacy'`, no `openModeExpiresAt`/timer); `shouldMask` behavior for Safe/Open is unchanged; `mode` always starts at `'safe'`; Open auto-reverts to Safe on `AppState` backgrounding instead of `visibilitychange`. See `docs/PRIVACY.md`. |
-| `SettingsContext`        | localStorage                 | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()`                                                                                                                                  |
-| `EventModeContext`       | Dexie (`hashtags` store)     | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it.                                                                                                                            |
+| `SettingsContext`        | localStorage                 | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `EventModeContext`       | Dexie (`hashtags` store)     | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ---
 
@@ -2549,10 +2549,10 @@ untouched (frozen). Durable architectural notes beyond what the feature docs
   it rather than calling `<Icon>` directly, so sourcing a new bank's logo only means adding one entry to
   `BANK_LOGOS`, not rewiring call sites. Now covers HDFC/ICICI/Axis/HSBC (Simple Icons CC0 marks,
   verified against two independent CDN mirrors, not fabricated); the remaining 8 presets checked again
-  and confirmed to have no safely-redistributable logo *mark* — but colors aren't copyrightable, so
+  and confirmed to have no safely-redistributable logo _mark_ — but colors aren't copyrightable, so
   `bankAccentColor()` (`components/shared/bankAccentColor.ts` — its own file, not `BankLogo.tsx`, since
   a component file can't carry a second non-component export under `react-refresh/only-export-
-  components`) tints the generic fallback icon/badge with each bank's real brand color for 3 of those 8
+components`) tints the generic fallback icon/badge with each bank's real brand color for 3 of those 8
   (SBI, Kotak, IndusInd) where that color was verified; the other 5 (BoB, Yes Bank, PNB, Canara, IDFC
   First) have no verified color either and stay on the plain account-type default.
 - **About Penny + a new standalone Privacy Promise page (`AboutPennyPage.tsx`,
@@ -2583,8 +2583,8 @@ untouched (frozen). Durable architectural notes beyond what the feature docs
   it belongs in `backupManager.ts`'s `BACKUP_STORES` in the same change — nothing currently enforces
   that the two stay in sync.
 - **CSV import: the 2026-08-13 bulk-import render-cap rule (`CLAUDE.md`'s Reliability non-negotiables)
-  had an incomplete application, not a wrong one.** `TransactionsStage.tsx` capped the *rows* inside one
-  tile (`TileRowList.tsx`) but rendered the *tiles themselves* — `needsInputGroups`/`stagedGroups`/
+  had an incomplete application, not a wrong one.** `TransactionsStage.tsx` capped the _rows_ inside one
+  tile (`TileRowList.tsx`) but rendered the _tiles themselves_ — `needsInputGroups`/`stagedGroups`/
   `skippedGroups` — via a plain unbounded `.map()`. Same "Show N more" pattern added to all three, plus
   `review/CarryForwardExcluded.tsx`'s own previously-uncapped row list. A reminder that this rule needs
   checking at every `.map()` over bulk/imported data in a render tree, not just the first one found.
@@ -2604,7 +2604,7 @@ genuinely reusable lesson worth its own note here:
   Android, changing a view's `zIndex` at the native rendering layer isn't a cheap style tweak — it can
   force that view to be torn down and recreated, and when that happened to land mid-keystroke while the
   soft keyboard's IME still held focus, the IME was dismissed with no error, no crash, just a keyboard
-  that silently closed while typing. This is the *real* root cause of a bug two earlier fix rounds
+  that silently closed while typing. This is the _real_ root cause of a bug two earlier fix rounds
   (items 24/36, a missing `onShow`+ref pattern for `autoFocus` inside a `Modal`) had misattributed —
   that pattern is real and still correct for its own bug (`ExpenseForm.tsx`'s description field), but it
   never explained this one, and wasn't confirmed end-to-end on-device before being treated as the fix.
@@ -2624,7 +2624,7 @@ genuinely reusable lesson worth its own note here:
   transfer-pairing bug (item 68) took 3 rounds to actually close: rounds 1–2 were real, correct fixes in
   isolation (a category-defaulting improvement, then a pure function that resolved confirmed transfer
   pairs) but both landed only in the commit-time path (`useImport.ts`'s `commitAndImport()`) while the
-  *live* `rowActions` memo — the thing actually driving what the categorization UI shows the user while
+  _live_ `rowActions` memo — the thing actually driving what the categorization UI shows the user while
   reviewing — kept re-poisoning the same rows. Round 3 applied the identical resolution at the live memo
   too. Worth checking both paths, not just the one a unit test can reach, whenever a bug report describes
   something the user sees mid-flow (not just in the final imported result).
@@ -2640,7 +2640,7 @@ section; one cross-cutting note worth keeping here:
 
 - **New files**: `packages/core/src/core/import/importCashWithdrawalGrouping.ts`
   (`groupCashWithdrawalCandidates`, unit-tested) partitions a cash-withdrawal category's rows by resolved
-  source account *before* generating suggestions, so a category spanning several real accounts produces
+  source account _before_ generating suggestions, so a category spanning several real accounts produces
   one accurate suggestion per account instead of one vague "Multiple accounts" fallback.
   `apps/mobile/src/features/import/review/CashWithdrawalSeeAllModal.tsx` (virtualized date+amount list,
   same `Modal` shell as `TransactionBrowserModal.tsx`), `DuplicatesSeeAllModal.tsx` (same shell, reused
@@ -2716,7 +2716,7 @@ Bisection findings (each confirmed by an actual rebuild + on-device test, not in
 
 - **Debug (Metro-served JS) never reproduced it** — only a release build did, ruling out a plain logic
   bug reproducible in dev.
-- **A `./gradlew clean` failure + building anyway** (the exact cause of the *prior* 2026-08-23 v1.5.2
+- **A `./gradlew clean` failure + building anyway** (the exact cause of the _prior_ 2026-08-23 v1.5.2
   incident — `clean` fails on a known CMake/ninja codegen ordering issue, and running `assembleRelease`
   straight after reuses a mix of stale and fresh build outputs) was suspected first, since it matched
   known prior art, but a **genuinely clean rebuild** (`rm -rf android/app/build android/app/.cxx
@@ -2730,7 +2730,7 @@ android/build` before `assembleRelease`) **still crashed identically** — rulin
   led to the next, correct finding below rather than a false minifier conclusion.
 - **The real variable was fresh-install vs. warm-relaunch, not minification or determinism.** A
   genuinely fresh install (`adb uninstall` then install) crashed 5/5 times; a warm relaunch
-  (`am force-stop` + relaunch) of an *already-installed* app with existing data survived 5/5 times, using
+  (`am force-stop` + relaunch) of an _already-installed_ app with existing data survived 5/5 times, using
   literally the same APK. This is what actually explains the earlier "flaky" result — the two test
   conditions were never actually the same scenario.
 - **The pre-session release APK (extracted from git history, commit `21a7f75`) did not crash on a fresh
@@ -2743,7 +2743,7 @@ android/build` before `assembleRelease`) **still crashed identically** — rulin
   a single line/import before the fix shipped — the leading hypothesis is a module-evaluation-order/
   timing issue specific to Hermes-bytecode release compilation exposed by this file's new import graph
   (`AccountFormModal`/`useAccountForm`/`ACCOUNT_TYPE_META`, none of which are new to the app, just new to
-  this *screen*'s — and thus the Onboarding stack's — early-loaded import graph), but this remains
+  this _screen_'s — and thus the Onboarding stack's — early-loaded import graph), but this remains
   unconfirmed via an actual symbolicated JS stack trace.
 
 **Interim fix shipped** (v1.6.1): all three touched onboarding files (`AddAccountsScreen.tsx`,
@@ -2755,13 +2755,13 @@ Add-Account consistency fix fully rolled back, not partially, to get a known-wor
 live instrumentation (each of `AddAccountsScreen.tsx`'s imports individually wrapped in its own
 try/catch, rebuilt and re-tested fresh-install each time) isolated the crash to one single line: the
 static `import { useAccountForm } from '~/hooks/useAccountForm'`. Confirmed by minimal bisection —
-converting every *other* import in the file back to a normal static `import` one at a time while
+converting every _other_ import in the file back to a normal static `import` one at a time while
 leaving only `useAccountForm` as a plain `require()` call never crashed (6/6 on-device launches: 3 fresh
 installs, 3 warm relaunches); converting `useAccountForm` itself back to a static `import` reproduced the
 crash again immediately. `useAccountForm.ts` has no circular import in its own dependency graph
 (`@/core/accounts/meta`/`accountValidation.ts` only import types), and the identical named export is
 already statically imported without issue from `AccountsPage.tsx` elsewhere in the app — so this isn't
-"the hook is broken," it's specific to `AddAccountsScreen.tsx` being one of the *first* consumers of that
+"the hook is broken," it's specific to `AddAccountsScreen.tsx` being one of the _first_ consumers of that
 export reached during cold boot (Onboarding's stack is eagerly `require()`'d by the root navigator,
 confirmed directly from the built bundle's own require-graph — confirming, incidentally, that the
 require-graph itself is NOT gated on onboarding status the way the leading hypothesis in the interim fix
@@ -2790,7 +2790,7 @@ would have looked "verified" while still missing a warm-relaunch-only crash, or 
 `adb`-command version of this rule (written into the same commit as this incident's interim revert) was
 followed correctly for both fixes in this incident, but turning it into a real script removes any future
 reliance on remembering/retyping the exact command sequence correctly under time pressure — the actual
-failure mode that let the *first* two incidents (v1.5.2, then v1.6.0) ship with no check running at all.
+failure mode that let the _first_ two incidents (v1.5.2, then v1.6.0) ship with no check running at all.
 
 ### Decision: IOU/Goals sync-bug pass + Add IOU/Settle Up redesign + Health Score staleness fix (2026-08-26/27) — `apps/mobile` + `packages/core` only
 
@@ -2804,7 +2804,7 @@ cross-cutting architectural summary.
 
 - **Origin-agnostic linking.** `reconcileExpenseLink`/`reconcileGoalLink` (`packages/core/src/core/iou/
 expenseLink.ts` / `core/goals/goalLink.ts`) used to match an existing linked record only by
-  `origin === 'expense'`, making an entry/contribution created the *other* way invisible to a
+  `origin === 'expense'`, making an entry/contribution created the _other_ way invisible to a
   same-transaction edit from the other side — fixed to match on `linkedTxnId` alone in both, `origin`
   preserved (not forced) since UI elsewhere still reads it.
 - **Direct-repo-bypass staleness.** `IouView.tsx`/`useGoals.ts` had mutation functions calling
@@ -2891,6 +2891,116 @@ payment mode, and a real "Closed" account status distinct from the still-unused 
   wording ("Due", "Renews in N days", "Overdue") were deliberately left alone — not the same bug shape.
   Full Ledger's "Load earlier transactions" button also switched from a plain bordered `Pressable` to
   the shared `Button` component (`variant="primary"`).
+
+### Decision: Transaction-storage performance fix — cache, notify coalescing, indexed queries (2026-08-28) — `apps/mobile` + `packages/core` only
+
+**Rationale:** real-device report — at ~10k transactions, app open took seconds, screen switches
+showed nothing for a while, and editing a single transaction took ~20 seconds (confirmed live via
+logcat: `Skipped 2062 frames!`, one continuous Choreographer stall). Root cause traced to the storage
+layer, not any one screen: `RowStore` can only `get(id)` or `toArray()` (full scan) — every field but
+`id` is opaque AES-GCM ciphertext, so no table can ever be filtered/sorted without decrypting
+everything first. On top of that, 12 independent call sites each called `expensesRepo.getAll()` with
+no sharing, and `notifyTxnChanged()` had 14 independent subscribers — so a single write fanned out
+into up to 14 redundant full-table decrypts, serialized through op-sqlite's single connection. Fixed
+in 3 parts (referred to during the session as "Tier 1/2/3" — unrelated to the Track 4 provider-porting
+tiers referenced elsewhere in this doc's early Track 4 entries):
+
+- **In-memory cache inside `EncryptedRepository`** (`packages/core/src/core/db/repository.ts`) — every
+  repo is a true module-level singleton (`repositories.ts`), so caching lives at exactly the right
+  level to be shared by every caller with zero call-site changes. `getAll()` caches its decrypted
+  result and de-dupes concurrent in-flight calls into one real decrypt; `put()`/`delete()` patch the
+  cache (always a NEW array reference, never mutated in place — plenty of code keys a `useMemo`/
+  `useEffect` off that reference's identity). The only 4 writes that bypass `EncryptedRepository`
+  entirely (`securityManager.ts`'s `wipeAllData()`, `seedDemoData.ts`'s `wipeDemoData()`,
+  `backupManager.ts`'s `importBackup`/`mergeBundle`) call the new `invalidateAllRepositoryCaches()`
+  immediately after. `packages/core/tests/setup.ts` gained a global `beforeEach` calling the same
+  function — the whole test suite's `db.<table>.clear()` reset pattern would otherwise leave a
+  previous test's cached rows visible to the next one.
+- **Coalesced `notifyTxnChanged()`** (`useTxnRefresh.ts`/`.native.ts`) — onto a microtask, so several
+  near-simultaneous calls collapse into one flush instead of firing every listener N times over.
+- **Real indexed queries for `expenses`** — the one table with genuine row-count pressure. New
+  `IndexedExpenseRow`/`ExpenseRowStore` (`store.ts`) — 5 plaintext, indexed columns (`date`,
+  `accountId`, `toAccountId`, `categoryId`, `type`) alongside the normal `id`/`iv`/`ciphertext`
+  envelope, a deliberate, documented reversal of `schema.ts`'s "index id only" rule for exactly these
+  5 structural/opaque-id fields — amount, description, hashtags, and notes stay fully encrypted as
+  before. Implemented natively in `schema.native.ts` (real SQL `ALTER TABLE`/indexes/`WHERE` queries)
+  and mirrored in `schema.ts` (Dexie `.where(...)`) since `apps/web-react` (frozen) and the entire
+  vitest suite run against the Dexie file, not the SQLite one, per this codebase's own established
+  rule. `EncryptedRepository` gained `queryByDateRange`/`queryByAccount`/`queryByCategory` — real on
+  `expensesRepo` (constructed with the indexed store + a field extractor in `repositories.ts`), a
+  correctness-preserving `getAll()` + JS-filter fallback on every other repo. A one-time backfill
+  (`useExpenses.ts`, flag `penny_expense_index_v1`, same pattern as `penny_merchant_memory_v3`) fills
+  the 5 columns for rows written before this shipped. `FullLedgerPage.tsx`/`CheckpointTimelinePage.tsx`
+  switched their own account-scoped `expenses` load from `getAll()` to `queryByAccount()` — every use
+  of that data in both files was already scoped to one account, so this was a transparent swap.
+  Deliberately NOT swapped: `useExpenses.ts`'s own core `expenses` state (feeds too many other
+  consumers — merchant-memory backfill, IOU seeding, hashtag counts — that genuinely need the full
+  table; Tier 1's cache already makes that full read cheap after the first decrypt per session).
+- Considered indexing `hashtags`/IOU `personId` too — declined. Tags are user-authored free text (can
+  be genuinely sensitive, e.g. "therapy"), not an opaque id, and need a multi-entry/junction index, not
+  a plain column; `Expense` has no `personId` field at all (IOU links live on the much smaller
+  `ledger_entries` table instead) — not part of this table's scaling problem.
+- Loading indicators added for the "shows nothing for a while" half of the report: `HomePage.tsx`
+  (`GlanceHeader`/`AccountsStrip`'s slot), `AccountsPage.tsx`/`AccountList.tsx` (new `loading` flag on
+  `useAccounts.ts` — previously indistinguishable from "genuinely zero accounts," both start as `[]`),
+  and `FullLedgerPage.tsx`/`CheckpointTimelinePage.tsx` (previously showed "Account not found" during
+  every cold load, not just a real deletion, since both repos start empty pre-fetch).
+- Verified live on-device (OnePlus 8T): pre-fix, editing a transaction produced `Skipped 2062 frames!`
+  (~20s stall); post-fix (Tier 1 + coalescing only, same device, same data, installed as an update —
+  not a fresh install), zero Choreographer stall events across the same flow, worst single frame 218ms.
+
+**Same-day follow-ups, found continuing the real-device pass:**
+
+- **Batched the one-time index backfill.** The original `Promise.all` of ~10,000 individual
+  `backfillIndexColumns()` calls cost a real, measurable ~2s one-time stall on its only run (confirmed
+  via a controlled repeat-cold-open test: stall present on the first post-upgrade open, gone on the
+  next two). Replaced with `backfillIndexColumnsBatch()` — one `executeBatch()` call natively (same
+  "many statements, one transaction" primitive `restoreTables()` already uses) and one real
+  `db.transaction()` on Dexie — cutting ~10,000 autocommit writes down to one round-trip.
+- **Fixed a real, separate bug in `useAccounts.ts`**: `.filter().sort()` always allocates a new array,
+  even when the underlying `accountsRepo.getAll()` result is the identical (Tier-1-cached) reference —
+  so `useAccountVerification.ts`'s own `useMemo` (checkpoint diagnostics for every account) recomputed
+  on every screen focus regardless of whether anything changed. Fixed by skipping the transform when
+  the raw `getAll()` reference is unchanged since last time.
+- **Found and fixed the real account-tile bottleneck** (traced via temporary `console.log` timing
+  instrumentation on a debug build, then removed): `groupExpensesByDate()` — 700ms–1.5s for ~5,000
+  rows, and running TWICE per tap. The double-run was `AccountDetailModal.tsx`'s own `accountTxns`
+  being a plain, unmemoized `.filter()` computed fresh on every render (this component reliably
+  re-renders twice on open) — `EntityTransactionsModal.tsx`'s `groupExpensesByDate` is itself
+  `useMemo`'d on that array's identity, so a fresh reference each render defeated the memo entirely.
+  Fixed with a real `useMemo` there. The per-call cost itself was `groupExpensesByDate`
+  (`core/expenses/filterAndAggregate.ts`) grouping into a `Map` first, then separately `.sort()`ing AND
+  spread-copying every individual day's own item array — thousands of tiny sort/copy operations for an
+  account with transactions spread across thousands of distinct days. Rewritten to sort the whole array
+  once, globally, then do a single O(n) grouping pass with no further sorting/copying (same-day rows
+  are already contiguous once sorted). New test coverage: `tests/expenses/filterAndAggregate.test.ts`.
+- **Fixed a real, separate race in bank-import matching**: `useBankImport.ts`'s `confirmMapping()` (the
+  "Continue to review" action, 3 separate entry points) ran the two-tier matcher against whatever
+  `importRecords`/`allExpenses`/etc. happened to be loaded at that instant — none of the underlying
+  `useRepository()` loads were gated. Reaching that action before `importRecords` finished its first
+  load meant Tier 1's exact-provenance lookup found nothing for a previously-imported statement, and
+  Tier 2's fuzzy fallback (which excludes already-checkpointed expenses by design) couldn't help either
+  — landing rows in "unmatched" that should have provenance-matched instantly. Fixed with a `dataLoading`
+  flag gating the action itself (not just one button), so no future entry point can reintroduce the race.
+- **Found, but reverted, a separate real matching bug**: `matcher.ts`'s `findProvenanceMatch()` has no
+  way to avoid re-matching the same stored import record to two DIFFERENT statement rows when they
+  share identical accountId/date/amount/narration (e.g. two same-day cash withdrawals of the same
+  amount) — the first row claims the record correctly, the second gets the identical record back, sees
+  its linked expense already claimed, and falls through to Tier 2's checkpoint exclusion into
+  "unmatched" even though its real counterpart is sitting right there. A fix (excluding already-claimed
+  records from the lookup) was implemented and unit-tested, but reverted the same day after an
+  unresolved, ambiguous real-device crash (`TypeError: Cannot read property 'create' of undefined` at
+  startup) that could not be cleanly reproduced in an isolated debug-build+emulator bisection — leaving
+  genuine ambiguity about whether this function was really the cause or a stale release-build cache
+  was. Left in place as a documented known limitation (`findProvenanceMatch`'s own doc comment,
+  `matcher.test.ts`'s matching test kept as `it.skip`) rather than re-risked without a clean bisection.
+- **Real build-tooling trap, hit twice**: `./gradlew assembleRelease` can report `packageRelease
+UP-TO-DATE`/`createBundleReleaseJsAndAssets UP-TO-DATE` and skip re-bundling the JS entirely even
+  after `packages/core`/`apps/mobile` source changed — silently shipping a stale bundle with an
+  installed-looking-successful build. Confirmed by explicitly checking for the `Android Bundled Xms
+apps/mobile/index.ts` line in the build output, not just `BUILD SUCCESSFUL`; forcing a real re-bundle
+  requires deleting `apps/mobile/android/app/build/generated/assets/react` before rebuilding. See
+  `CONTRIBUTING.md`'s release-APK build steps for the now-explicit warning.
 
 ---
 

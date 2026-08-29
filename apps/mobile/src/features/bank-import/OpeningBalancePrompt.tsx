@@ -159,7 +159,7 @@ export function OpeningBalancePrompt({ bi }: OpeningBalancePromptProps) {
             . Recomputing every checkpoint since — this may take a moment on a long history.
           </Text>
         </View>
-        <Button variant="primary" fullWidth onPress={bi.confirmMapping} className="mt-2.5">
+        <Button variant="primary" fullWidth loading={bi.dataLoading} onPress={bi.confirmMapping} className="mt-2.5">
           Continue to review
         </Button>
       </AccentCard>
@@ -182,13 +182,19 @@ export function OpeningBalancePrompt({ bi }: OpeningBalancePromptProps) {
         </Text>{' '}
         disagreement.
       </Text>
-      <Button variant="secondary" fullWidth onPress={bi.deferAnchorDecision} className="mb-1.5">
+      <Button
+        variant="secondary"
+        fullWidth
+        loading={bi.dataLoading}
+        onPress={bi.deferAnchorDecision}
+        className="mb-1.5"
+      >
         Review the new import's rows first
       </Button>
       <Button variant="secondary" fullWidth onPress={bi.acceptAnchorShift} className="mb-1.5">
         {`Accept — shift everything by ${formatCurrency(Math.abs(check.diff))}`}
       </Button>
-      <Button variant="ghost" fullWidth onPress={bi.flagAnchorDisagreement}>
+      <Button variant="ghost" fullWidth loading={bi.dataLoading} onPress={bi.flagAnchorDisagreement}>
         {`Keep the original ${formatCurrency(check.oldOpeningBalance)}, flag for later`}
       </Button>
     </AccentCard>

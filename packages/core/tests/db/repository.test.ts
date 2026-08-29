@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '@/core/db/schema';
 import { EncryptedRepository } from '@/core/db/repository';
+import { expensesRepo } from '@/core/db/repositories';
 import { deriveKey, generateSalt } from '@/core/crypto/engine';
 import { keystore } from '@/core/crypto/keystore';
 import type { Expense } from '@/core/db/types';
@@ -111,5 +112,103 @@ describe('EncryptedRepository — round-trip', () => {
     keystore.setMasterKey(wrongKey);
 
     await expect(repo.get(sampleExpense.id)).rejects.toThrow();
+  });
+});
+
+// Tier 2 performance fix (2026-08-28) — `expensesRepo` (the real singleton, wired with indexed-query
+// support in `repositories.ts`) gains real SQL/Dexie-indexed queries over 5 plaintext columns. These
+// tests use `expensesRepo` specifically (not a bare `EncryptedRepository`, unlike the suite above)
+// since that's the one repo actually constructed with the `indexed` option.
+describe('EncryptedRepository — indexed expense queries (Tier 2)', () => {
+  const jan1: Expense = { ...sampleExpense, id: 'idx-jan-1', date: Date.UTC(2026, 0, 1), accountId: 'acc-a' };
+  const jan15: Expense = {
+    ...sampleExpense,
+    id: 'idx-jan-15',
+    date: Date.UTC(2026, 0, 15),
+    accountId: 'acc-b',
+    categoryId: 'cat-002'
+  };
+  const feb1: Expense = { ...sampleExpense, id: 'idx-feb-1', date: Date.UTC(2026, 1, 1), accountId: 'acc-a' };
+  const transferIntoB: Expense = {
+    ...sampleExpense,
+    id: 'idx-transfer',
+    date: Date.UTC(2026, 0, 20),
+    type: 'transfer',
+    accountId: 'acc-a',
+    toAccountId: 'acc-b'
+  };
+
+  beforeEach(async () => {
+    await setupKeystore();
+    await db.expenses.clear();
+    await Promise.all([jan1, jan15, feb1, transferIntoB].map((e) => expensesRepo.put(e)));
+  });
+
+  it('queryByDateRange returns only rows within range, correctly decrypted', async () => {
+    const jan = await expensesRepo.queryByDateRange(Date.UTC(2026, 0, 1), Date.UTC(2026, 0, 31));
+    expect(jan.map((e) => e.id).sort()).toEqual(['idx-jan-1', 'idx-jan-15', 'idx-transfer']);
+    expect(jan.find((e) => e.id === 'idx-jan-15')?.categoryId).toBe('cat-002');
+  });
+
+  it('queryByAccount matches accountId OR toAccountId, never double-counting a row on both sides', async () => {
+    const acctA = await expensesRepo.queryByAccount('acc-a');
+    expect(acctA.map((e) => e.id).sort()).toEqual(['idx-feb-1', 'idx-jan-1', 'idx-transfer']);
+
+    const acctB = await expensesRepo.queryByAccount('acc-b');
+    expect(acctB.map((e) => e.id).sort()).toEqual(['idx-jan-15', 'idx-transfer']);
+  });
+
+  it('queryByCategory returns only matching rows', async () => {
+    const cat002 = await expensesRepo.queryByCategory('cat-002');
+    expect(cat002.map((e) => e.id)).toEqual(['idx-jan-15']);
+  });
+
+  it('raw stored row exposes date/accountId/toAccountId/categoryId/type as plaintext, but keeps amount/description/hashtags encrypted', async () => {
+    const raw = (await db.expenses.get('idx-jan-15')) as unknown as Record<string, unknown>;
+    expect(raw.date).toBe(Date.UTC(2026, 0, 15));
+    expect(raw.accountId).toBe('acc-b');
+    expect(raw.categoryId).toBe('cat-002');
+    expect(raw.type).toBe('expense');
+
+    const rawStr = JSON.stringify(raw);
+    expect(rawStr).not.toContain('Grocery shopping');
+    expect(rawStr).not.toContain('groceries');
+    expect(rawStr).not.toContain('"amount":1500');
+  });
+
+  it('backfillIndexColumnsBatch writes the index columns for pre-existing rows in one batch, without touching iv/ciphertext', async () => {
+    // Simulate a row written before Tier 2 shipped — direct Dexie write, bypassing `expensesRepo.put()`
+    // entirely, so it never got the 5 index columns `indexFields` normally populates.
+    const preExisting: Expense = { ...sampleExpense, id: 'idx-legacy', date: Date.UTC(2026, 2, 1), accountId: 'acc-c' };
+    const legacyRepo = new EncryptedRepository<Expense>(db.expenses as never); // no `indexed` option — same as pre-Tier-2 writes
+    await legacyRepo.put(preExisting);
+
+    const beforeRaw = (await db.expenses.get('idx-legacy')) as unknown as Record<string, unknown>;
+    expect(beforeRaw.date).toBeUndefined();
+    const { iv: ivBefore, ciphertext: ciphertextBefore } = beforeRaw as { iv: string; ciphertext: string };
+
+    await expensesRepo.backfillIndexColumnsBatch([
+      {
+        id: 'idx-legacy',
+        fields: { date: preExisting.date, accountId: 'acc-c', categoryId: preExisting.categoryId, type: 'expense' }
+      },
+      { id: 'idx-jan-1', fields: { date: jan1.date, accountId: 'acc-a', categoryId: jan1.categoryId, type: 'expense' } }
+    ]);
+
+    const afterRaw = (await db.expenses.get('idx-legacy')) as unknown as Record<string, unknown>;
+    expect(afterRaw.date).toBe(Date.UTC(2026, 2, 1));
+    expect(afterRaw.accountId).toBe('acc-c');
+    // iv/ciphertext must be byte-for-byte unchanged — this is a column update, not a re-encryption.
+    expect(afterRaw.iv).toBe(ivBefore);
+    expect(afterRaw.ciphertext).toBe(ciphertextBefore);
+
+    // The now-indexed row is findable via the real query, and decrypts correctly.
+    const acctC = await expensesRepo.queryByAccount('acc-c');
+    expect(acctC.map((e) => e.id)).toEqual(['idx-legacy']);
+    expect(acctC[0]?.description).toBe(sampleExpense.description);
+  });
+
+  it('backfillIndexColumnsBatch is a no-op on an empty array', async () => {
+    await expect(expensesRepo.backfillIndexColumnsBatch([])).resolves.toBeUndefined();
   });
 });

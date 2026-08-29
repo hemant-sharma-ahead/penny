@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { accountsRepo, expenseCategoriesRepo, expensesRepo, hashtagsRepo } from '@/core/db/repositories';
 import type { Account, Expense } from '@/core/db/types';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
@@ -18,6 +18,12 @@ export function useAccounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [txns, setTxns] = useState<Expense[]>([]);
   const [saving, setSaving] = useState(false);
+  // True only until the very first load resolves — lets `AccountsPage`/`AccountList` show a real
+  // loading state instead of silently reusing the "no accounts yet" empty prompt, which was
+  // indistinguishable from "still loading" (both start as `[]`). Found 2026-08-28, real-device
+  // performance pass — never flips back to `true` on a later `reload()` (a pull-to-refresh or
+  // focus-triggered reload has real content to keep showing while it re-fetches).
+  const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
   // Read-only — just enough for the "view transactions for this account" drill-down
@@ -26,10 +32,22 @@ export function useAccounts() {
   const { items: hashtags, reload: reloadHashtags } = useRepository(hashtagsRepo);
   const categoryMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
+  // Tracks the raw `accountsRepo.getAll()` reference last transformed into `accounts` — `.filter()`/
+  // `.sort()` always allocate a NEW array, even when `accs` is the exact same (Tier 1-cached, unwritten
+  // since last time) reference, so every `reload()` — including every screen-focus retrigger — was
+  // giving `accounts` a new identity regardless of whether anything actually changed. Found 2026-08-28,
+  // real-device testing: `useAccountVerification.ts`'s own `useMemo` keys off this exact `accounts`
+  // reference and recomputes checkpoint diagnostics for EVERY account on each such change — for an
+  // account with thousands of transactions, a real, avoidable cost on every single Accounts-tab focus.
+  const lastAccsRef = useRef<Account[] | null>(null);
   const reload = useCallback(() => {
     Promise.all([accountsRepo.getAll(), expensesRepo.getAll()]).then(([accs, exps]) => {
-      setAccounts(accs.filter((a) => !a.isArchived).sort((a, b) => a.createdAt - b.createdAt));
+      if (lastAccsRef.current !== accs) {
+        lastAccsRef.current = accs;
+        setAccounts(accs.filter((a) => !a.isArchived).sort((a, b) => a.createdAt - b.createdAt));
+      }
       setTxns(exps);
+      setLoading(false);
     });
   }, []);
 
@@ -164,6 +182,7 @@ export function useAccounts() {
     accounts,
     txns,
     saving,
+    loading,
     totalBalance,
     saveAccount,
     deleteAccount,

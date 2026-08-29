@@ -222,6 +222,19 @@ cd android
 ./gradlew assembleRelease
 ```
 
+**Gradle can silently skip re-bundling the JS — always check for the "Android Bundled" line, not
+just "BUILD SUCCESSFUL."** Found 2026-08-28: `assembleRelease` reported `createBundleReleaseJsAndAssets
+UP-TO-DATE`/`packageRelease UP-TO-DATE` and produced an APK that looked freshly built but still ran
+the PREVIOUS source snapshot — a real `packages/core` change never made it into the installed app,
+even though the build genuinely succeeded. Before trusting a release build, confirm the output
+actually contains a line like `Android Bundled 15161ms apps/mobile/index.ts (8603 modules)` — if it
+instead says `UP-TO-DATE`, force a real re-bundle:
+
+```bash
+rm -rf apps/mobile/android/app/build/generated/assets/react
+cd apps/mobile/android && ./gradlew assembleRelease
+```
+
 **Step 4, non-negotiable — verify it actually launches, on a real connected device, before
 committing.** This has broken multiple times (2026-08-23's v1.5.2, 2026-08-24's v1.6.0, both
 root-caused in `docs/ARCHITECTURE.md`'s matching decision-log entries) — a build that compiles

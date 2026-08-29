@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView, RefreshControl, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
@@ -31,7 +31,7 @@ import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { Banner, Button, Card, ConfirmDialog, EmptyState, Modal } from '~/components/ui';
+import { Banner, Button, Card, ConfirmDialog, EmptyState, Modal, PennyLoader } from '~/components/ui';
 import { ExpenseForm, PossibleMatchPickerModal, type StatementPresetInput } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
@@ -62,8 +62,27 @@ export function FullLedgerPage() {
   const { accountId } = route.params;
   useDefaultHeaderBack('FullLedger');
 
-  const { items: accounts, reload: reloadAccounts } = useRepository(accountsRepo);
-  const { items: allExpenses, reload: reloadExpenses } = useRepository(expensesRepo);
+  const { items: accounts, loading: accountsLoading, reload: reloadAccounts } = useRepository(accountsRepo);
+  // Tier 2 performance fix (2026-08-28) — every use of `allExpenses` below is already scoped to this
+  // one account (`accountId === account.id || toAccountId === account.id`), so there was never a
+  // reason to decrypt the WHOLE `expenses` table here. Replaces `useRepository(expensesRepo)`'s
+  // `getAll()` with the real indexed `queryByAccount()` — same `items`/`loading`/`reload` shape, just
+  // scoped at the query itself instead of filtered afterward in JS.
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+  const reloadExpenses = useCallback(() => {
+    let cancelled = false;
+    expensesRepo.queryByAccount(accountId).then((rows) => {
+      if (!cancelled) {
+        setAllExpenses(rows);
+        setExpensesLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+  useEffect(() => reloadExpenses(), [reloadExpenses]);
   const { items: allImportRecords, reload: reloadImportRecords } = useRepository(bankStatementImportsRepo);
   const { items: categories } = useRepository(expenseCategoriesRepo);
   const { items: hashtags } = useRepository(hashtagsRepo);
@@ -326,6 +345,18 @@ export function FullLedgerPage() {
     notifyAccountsChanged();
     return record;
   }, []);
+
+  // Both repos start empty until their first load resolves — without this check, a genuinely-loading
+  // screen showed the same "Account not found" message below as an actually-deleted account (found
+  // 2026-08-28, real-device performance pass: `accounts`/`allExpenses` are both `[]` on first render,
+  // so `!account` was true during every cold load, not just a real deletion).
+  if (accountsLoading || expensesLoading) {
+    return (
+      <SafeAreaView edges={[]} className="flex-1 items-center justify-center" style={{ backgroundColor: modeBg }}>
+        <PennyLoader size="lg" accessibilityLabel="Loading ledger" />
+      </SafeAreaView>
+    );
+  }
 
   if (!account) {
     return (

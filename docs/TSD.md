@@ -55,7 +55,7 @@ Each encrypted record is independently encrypted with the Master Key:
 - Auth tag: 128-bit (GCM default), ensures integrity
 - Stored format: `{ iv: Uint8Array, ciphertext: Uint8Array }`
 
-Only the fields listed in the `EncryptedRepository` configuration are encrypted. Non-sensitive fields (like `id`, index fields) remain plaintext for Dexie query performance.
+Each record is encrypted as a single whole (`JSON.stringify()`'d, then AES-GCM'd as one blob) — not field-by-field. Only `id` stays plaintext, for every table except one: `expenses` also keeps `date`/`accountId`/`toAccountId`/`categoryId`/`type` as plaintext, indexed columns (added 2026-08-28, Tier 2 performance fix) — a deliberate trade-off for the one table with real row-count pressure, since without a queryable field SQLite/Dexie can only ever "hand back every row," meaning even a single-month read cost scales with total transaction count instead of what's actually asked for. Everything else on an expense — amount, description, category name (looked up via the separately-encrypted `categoryId` reference), hashtags, notes — stays fully encrypted inside the ciphertext blob, same as every other table's every field besides `id`.
 
 ### PIN lockout
 

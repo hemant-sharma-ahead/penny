@@ -27,6 +27,7 @@ import {
   goalsRepo,
   holdingsRepo,
   insurancePoliciesRepo,
+  invalidateAllRepositoryCaches,
   ledgerEntriesRepo,
   liabilitiesRepo,
   personsRepo,
@@ -1695,6 +1696,9 @@ export async function wipeDemoData(): Promise<void> {
     db.group_events.clear(),
     db.group_keys.clear()
   ]);
+  // Bypasses every `EncryptedRepository` above (raw `RowStore.clear()`) — see
+  // `invalidateAllRepositoryCaches()`'s own doc comment for why this is required here.
+  invalidateAllRepositoryCaches();
   // Clears the demo-seeded marker + dismissal/one-time-init markers so a re-seed surfaces inbox
   // suggestions cleanly (see `./seedDemoStorage` for the localStorage/AsyncStorage split).
   clearDemoSeedMarkers();

@@ -4,7 +4,7 @@ import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types
 import { formatCurrency } from '@/lib/formatters';
 import { computeBalance } from '@/core/accounts/balanceCalculator';
 import { CHECKPOINT_ELIGIBLE } from '@/core/bank-import/accountVerification';
-import { Card, Button, ConfirmDialog, EmptyState, IconBadge, SectionLabel } from '~/components/ui';
+import { Card, Button, ConfirmDialog, EmptyState, IconBadge, PennyLoader, SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { BankLogo, bankAccentColor } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -17,6 +17,10 @@ interface AccountListProps {
   accounts: Account[];
   txns: Expense[];
   totalBalance: number;
+  /** True only until `useAccounts`'s first load resolves — distinguishes "still loading" from
+   *  "genuinely zero accounts," which used to render identically (both start as `accounts: []`,
+   *  found 2026-08-28, real-device performance pass). */
+  loading: boolean;
   shouldMask: (sensitive: boolean | undefined) => boolean;
   categoryMap: Map<string, ExpenseCategory>;
   hashtags: Hashtag[];
@@ -51,6 +55,7 @@ export function AccountList({
   accounts,
   txns,
   totalBalance,
+  loading,
   shouldMask,
   categoryMap,
   hashtags,
@@ -251,7 +256,11 @@ export function AccountList({
         </Card>
       )}
 
-      {accounts.length === 0 ? (
+      {loading ? (
+        <Card className="items-center justify-center py-10">
+          <PennyLoader size="lg" accessibilityLabel="Loading your accounts" />
+        </Card>
+      ) : accounts.length === 0 ? (
         <Card>
           <EmptyState
             icon="ti-wallet"

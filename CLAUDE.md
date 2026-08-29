@@ -142,7 +142,7 @@ Phase 1.
   directly) that two full investigation rounds of reading code, checking library docs, and
   capturing a real on-device stack trace were needed to actually find, because `docs/
 ARCHITECTURE.md`'s own storage-adapter writeup (search "Track 2" / "RowStore") was never
-  consulted first. Before writing or debugging *any* code that touches `db[tableName]` directly
+  consulted first. Before writing or debugging _any_ code that touches `db[tableName]` directly
   (not through `EncryptedRepository`) — check `docs/ARCHITECTURE.md`'s storage-adapter section
   and `store.ts`'s `RowStore` interface first, every time; never assume `schema.ts` alone is the
   whole picture for any `packages/core/src/core/db/` file, the same way rule 5 above already
@@ -168,6 +168,14 @@ ARCHITECTURE.md`'s own storage-adapter writeup (search "Track 2" / "RowStore") w
   now, not instructions to retype under time pressure. See `CONTRIBUTING.md`'s "Building a
   standalone Android APK" step 4. If no device is available, say so explicitly rather than shipping
   unverified.
+- **`./gradlew assembleRelease` reporting `BUILD SUCCESSFUL` is not evidence the JS actually got
+  re-bundled** — found 2026-08-28: it can report `createBundleReleaseJsAndAssets UP-TO-DATE` and
+  produce an APK that looks freshly built but still runs the PREVIOUS source snapshot, silently
+  shipping stale code with no error at any step (`verify-release-apk.sh` wouldn't catch this either —
+  the stale bundle typically still launches fine, it just isn't the change you meant to test). Before
+  trusting a release build, confirm the output contains a real `Android Bundled Xms
+apps/mobile/index.ts (N modules)` line, not `UP-TO-DATE` — see `CONTRIBUTING.md`'s matching warning
+  for the force-re-bundle command.
 - **A hook that loads data once at mount, with no subscription to the app's refresh bus
   (`useTxnRefresh`/`notifyTxnChanged`, `packages/core/src/hooks/useTxnRefresh.ts`), will go stale
   the moment anything else — including another instance of itself — writes the same data**, since
@@ -179,7 +187,7 @@ ARCHITECTURE.md`'s own storage-adapter writeup (search "Track 2" / "RowStore") w
   `docs/ARCHITECTURE.md`'s matching 2026-08-26/27 entry. When adding or reviewing a hook that reads
   data another screen can also write: (1) always mutate through that hook's own repository wrapper,
   never the raw `EncryptedRepository` directly, and (2) if the hook's data can go stale from an
-  *other* screen's write, subscribe via `useTxnRefresh` and reload. A full app-wide audit of every
+  _other_ screen's write, subscribe via `useTxnRefresh` and reload. A full app-wide audit of every
   mutation path against this is its own separate, not-yet-started task
   (`docs/plans/real-device-testing-pass.md`'s Phase 7) — don't treat fixing one instance as having
   covered the rest.

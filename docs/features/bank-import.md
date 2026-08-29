@@ -650,6 +650,26 @@ linked cash account). Core: `suggestRetroactiveCashTransfer()`/`applyCashTransfe
   self-disambiguating relative wording ("Due", "Renews in N days", "Trial may end", "Overdue") where a
   bare day+month isn't actually ambiguous.
 
+**Real-device performance + correctness pass, 2026-08-28:**
+
+- **A real race in the matching step, found via a re-import that should have shown everything already
+  matched but didn't.** `useBankImport.ts`'s "Continue to review" action ran the two-tier matcher
+  against whatever `importRecords`/`allExpenses`/etc. happened to be loaded at that exact instant — none
+  of the underlying repo loads were gated on their own `loading` flag. Reaching that action before
+  `importRecords` finished loading meant Tier 1's exact-provenance lookup found nothing for a
+  previously-imported statement, and Tier 2's fuzzy fallback (which excludes already-checkpointed
+  expenses by design) couldn't help either — rows landed in "unmatched" that should have provenance-
+  matched instantly. Fixed with a `dataLoading` flag gating the action itself, not just one of its 3
+  button entry points, so no future call site can reintroduce the race.
+- **Known, still-open limitation**: two statement rows sharing identical accountId/date/amount/narration
+  (e.g. two same-day cash withdrawals of the same amount) can both resolve to the same stored provenance
+  record on re-import — the first claims it correctly, the second falls through to Tier 2's checkpoint
+  exclusion and lands in "unmatched" even though its real counterpart is sitting right there. A fix was
+  implemented and reverted the same day after an unresolved, ambiguous real-device crash that couldn't be
+  cleanly attributed to it in isolation — see `packages/core/src/core/bank-import/matcher.ts`'s
+  `findProvenanceMatch()` doc comment for the full writeup. Manually reassigning the affected row from
+  the review screen's own picker is the workaround until this is revisited.
+
 ## Limitations
 
 - PDF import is deferred (issue #4, second half) — text-layer extraction only, no OCR/scanned-PDF

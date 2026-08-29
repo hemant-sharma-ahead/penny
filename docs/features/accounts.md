@@ -50,7 +50,7 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
   glow blob opposite the main corner glow — see `docs/DESIGN_GUIDELINES.md`'s "Identity-colour gradient
   mini card" entry for what's a faithful port vs. a pragmatic RN approximation (RN has no inset
   box-shadow, CSS blur filter, or repeating-linear-gradient). See `docs/mockups/proposals/
-  accounts-list-v1.html`'s "Direction D — Mini Cards v2" section for the approved reference.
+accounts-list-v1.html`'s "Direction D — Mini Cards v2" section for the approved reference.
 - **`apps/mobile`, 2026-08-19: account list redesigned again — gradient mini cards dropped.** Real-device
   testing reported the v2 gradient cards as not following the theme, wasting space, and still not
   showing real bank icons everywhere despite the logos below. Replaced (7 mockup concepts explored,
@@ -72,7 +72,7 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
   bank's real official brand color instead (`bankAccentColor()`, its own file since a component file
   can't have a second non-component export under Fast Refresh's rule) rather than left on the generic
   account-type default; both the icon glyph and its badge background (`AccountList.tsx`) use it. The
-  remaining 5 presets (BoB, Yes Bank, PNB, Canara, IDFC First, custom) have no verified logo *or* color
+  remaining 5 presets (BoB, Yes Bank, PNB, Canara, IDFC First, custom) have no verified logo _or_ color
   yet — inventing either would be equally dishonest, so they stay on the plain account-type default.
 - **`apps/mobile`, 2026-08-27: default account + payment mode, and a real Closed status.** Bank/Credit
   Card/Wallet accounts (never Cash, already the implicit fallback) gain two new toggles in Add/Edit
@@ -82,7 +82,7 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
     set may hold this — turning it on for one account while a DIFFERENT account already has it shows a
     confirm popup naming that account before anything is saved; Cancel leaves both untouched.
   - **Closed** — the account is no longer operational (you closed it with the bank). Distinct from
-    *archived* (still operational, just not something you want to keep logging to — that's a separate,
+    _archived_ (still operational, just not something you want to keep logging to — that's a separate,
     still-unbuilt idea, see Current limitations): a closed account is hidden from every picker that
     assigns a NEW/edited transaction (this form's own inline "+ Add account", `EntryForm.tsx`/
     `SettleUpModal.tsx`, bulk account-reassign, Groups' composer, bank-import's cash-transfer target) but
@@ -104,6 +104,16 @@ Critically, **balances are not stored** — they are always derived on read. Eve
 Transfers are recorded as a single transaction with both a source `accountId` and a destination `toAccountId`. Income is an expense-store record with type `income` linked to the receiving account.
 
 The Home dashboard's accounts strip reads all accounts and computes their live balances in a single pass.
+
+**Performance, 2026-08-28:** `useAccounts.ts` now shows a real loading state (`AccountList.tsx`'s
+`loading` prop) instead of silently reusing the "no accounts yet" empty prompt during the first load —
+both used to start as `[]` and were indistinguishable. Opening an account's transaction list
+(`AccountDetailModal.tsx`) is also substantially faster for accounts with thousands of transactions —
+its own `accountTxns`/balance computation is now memoized (was recomputing, and re-grouping the whole
+list by date, on every one of the two renders this modal reliably does on open), and the shared
+`groupExpensesByDate()` (`core/expenses/filterAndAggregate.ts`) itself was rewritten to sort once
+globally instead of separately sorting and copying every individual day's row group. Full writeup in
+`docs/ARCHITECTURE.md`'s matching 2026-08-28 decision-log entry.
 
 Each `Account` carries an optional `hideInSafeMode` flag (undefined/false = visible, the default). Both `AccountList` (this page) and `AccountsStrip` (Home) resolve masking per account via `usePrivacy().shouldMask(acc.hideInSafeMode)` — Open never masks, Safe masks only flagged accounts. The Total Balance card is an aggregate, never flagged sensitive, so it always stays visible in Safe. See `docs/ARCHITECTURE.md` → Context providers.
 

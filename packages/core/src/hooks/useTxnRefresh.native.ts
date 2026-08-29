@@ -12,10 +12,24 @@ import { TXN_CHANGED_EVENT } from './useTxnRefresh.constants';
 export { TXN_CHANGED_EVENT };
 
 const listeners = new Set<() => void>();
+let flushScheduled = false;
 
-/** Broadcast that transactions changed so balance/forecast views in other hooks reload. */
+/**
+ * Broadcast that transactions changed so balance/forecast views in other hooks reload. Coalesced onto
+ * a microtask (2026-08-28) — several call sites in the same write can each call this once in a tight
+ * sequence (e.g. a bulk mutation's own call plus a caller's), and every listener here now reads from
+ * `EncryptedRepository`'s own in-memory cache (`repository.ts`) rather than re-decrypting, so a burst
+ * of calls within the same tick collapsing into one flush avoids firing every listener N times over
+ * for what's really one logical change, at zero cost to correctness — `queueMicrotask` still runs
+ * before the next paint, so this stays imperceptible from a "did it refresh" standpoint.
+ */
 export function notifyTxnChanged(): void {
-  for (const listener of listeners) listener();
+  if (flushScheduled) return;
+  flushScheduled = true;
+  queueMicrotask(() => {
+    flushScheduled = false;
+    for (const listener of listeners) listener();
+  });
 }
 
 /**

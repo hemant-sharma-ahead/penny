@@ -26,6 +26,7 @@ export function AccountsPage() {
     accounts,
     txns,
     saving,
+    loading,
     totalBalance,
     saveAccount,
     deleteAccount,
@@ -107,6 +108,7 @@ export function AccountsPage() {
           accounts={accounts}
           txns={txns}
           totalBalance={totalBalance}
+          loading={loading}
           shouldMask={shouldMask}
           categoryMap={categoryMap}
           hashtags={hashtags}

@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGroupContext } from '~/context/GroupContext';
 import { GroupDashboard } from '~/features/groups/GroupDashboard';
 import { DailyTipCard } from '~/components/shared';
+import { Card, PennyLoader } from '~/components/ui';
 import { StoriesRow } from './stories/StoriesRow';
 import { GlanceHeader } from './GlanceHeader';
 import { AccountsStrip } from './AccountsStrip';
@@ -73,7 +74,18 @@ export function HomePage() {
               (one new curated tip a day, stops once all are shown, toggle in Discover Penny). */}
           <DailyTipCard onSeeAll={() => navigation.navigate('DiscoverTips')} />
 
-          {summary && <GlanceHeader summary={summary} assetGroups={assetGroups} totalAssets={totalAssets} />}
+          {summary ? (
+            <GlanceHeader summary={summary} assetGroups={assetGroups} totalAssets={totalAssets} />
+          ) : (
+            // Cold-start placeholder — `summary` stays null until `useHome`'s first load resolves.
+            // Previously this slot (and AccountsStrip's below) rendered nothing at all, which is what
+            // made a slow load read as a blank screen rather than a busy one (2026-08-28, real-device
+            // performance pass). Roughly matches GlanceHeader's own height so the layout doesn't jump
+            // once real content swaps in.
+            <Card radius="lg" className="items-center justify-center py-10 mb-4">
+              <PennyLoader size="lg" accessibilityLabel="Loading your summary" />
+            </Card>
+          )}
 
           <MoneyStatsCard />
 
