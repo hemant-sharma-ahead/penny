@@ -3002,25 +3002,93 @@ apps/mobile/index.ts` line in the build output, not just `BUILD SUCCESSFUL`; for
   requires deleting `apps/mobile/android/app/build/generated/assets/react` before rebuilding. See
   `CONTRIBUTING.md`'s release-APK build steps for the now-explicit warning.
 
+### Decision: retire `apps/web-react` entirely; `schema.ts` drops Dexie (2026-08-29)
+
+**Rationale:** `apps/web-react` had been frozen since 2026-07-31 (see the Mobile Migration decision
+above) — kept only as a historical design/behavior reference, never updated past that point, with
+`apps/mobile` fully superseding it in every module. Once a DB-structure review (prompted by a
+performance investigation into Analytics/Subscriptions) surfaced that `packages/core/src/core/db/
+schema.ts` (Dexie/IndexedDB) existed purely to serve two consumers — `apps/web-react`'s own runtime,
+and the entire `vitest` suite (`schema.native.ts`, what `apps/mobile` actually runs on, has zero
+automated test coverage by this codebase's own established rule) — retiring the frozen app made the
+Dexie dependency itself removable, not just the app.
+
+**The one real blocker, handled first:** deleting `schema.ts`'s Dexie backing without giving
+`EncryptedRepository`'s tests something else to run against would have deleted the DB layer's entire
+automated safety net at the same time — exactly the "tests pass, real engine breaks" gap that already
+caused one real bug (`backupManager.ts`'s `.bulkPut()`, a Dexie-only method called against
+`schema.native.ts`). Sequencing: rewrote `schema.ts` in place (same filename, same import path,
+same exported shape — `db`, `expensesIndexedStore`, `restoreTables()`) as a plain in-memory
+`Map`-backed implementation of the exact same `RowStore<T>`/`ExpenseRowStore` contract
+`schema.native.ts` already implements, confirmed the full 1224-test suite still passed unchanged
+against it, **then** deleted `apps/web-react`.
+
+**Why the file kept its name/path instead of being deleted and replaced with a new test double:**
+every consumer (`repositories.ts`, `securityManager.ts`, `backupManager.ts`, `seedDemoData.ts`,
+`priceCache.ts`, the market-data clients) already imports the bare specifier `./schema`/
+`@/core/db/schema`, and Metro's platform-extension resolution already sends `apps/mobile` to
+`schema.native.ts` for that same bare specifier. Keeping the filename meant zero import-site changes
+anywhere in the codebase — the same "swap the engine underneath, callers never notice" property
+`store.ts`'s `RowStore<T>` seam was always designed to give every prior storage-engine swap (expo-
+sqlite → MMKV → op-sqlite, see `schema.native.ts`'s own history comment).
+
+**What changed as a result:**
+
+- `packages/core/package.json`: `dexie` + `fake-indexeddb` dependencies removed entirely.
+- `eslint.config.js`: the "Dexie may only be imported from `packages/core/src/core/db/`" rule is now
+  "Dexie must never be imported anywhere" (no override left for `core/db/`, since nothing there needs
+  it anymore) — kept as a defensive rule against reintroduction, not deleted outright.
+- `packages/core/tests/backup/backupManager.test.ts`'s rollback-regression test now spies on
+  `db.accounts.put` instead of Dexie's `bulkPut` — `restoreTables()`'s own snapshot/rollback (added to
+  the new in-memory `schema.ts`, mirroring the atomicity Dexie's `transaction()`/op-sqlite's
+  `executeBatch()` already gave the two real engines) is what the test now exercises.
+- Root `tsconfig.json` (dropped the `apps/web-react` project reference), root `package.json` (`dev`/
+  `build`/`test` scripts no longer target `web-react`), `pnpm-workspace.yaml` (needed no change — its
+  `apps/*` glob just naturally stopped matching a deleted directory).
+- Retired alongside the app itself (nothing left for them to do): `docs/MOBILE_PARITY.md`,
+  `docs/ANDROID_EMULATOR.md` (both docs), and `.claude/agents/web-developer.md`/
+  `.claude/agents/parity-auditor.md`/`.claude/skills/parity-sweep/` (both agents + the skill existed
+  solely to work on or audit against `apps/web-react`). `mobile-developer`/`ui-designer`/
+  `code-reviewer`/`test-writer`'s agent definitions and `ui-design-check`'s skill had their
+  web-react-comparison instructions removed (cross-platform consistency checking has no second
+  platform to check against anymore).
+- **Explicitly NOT swept**: the very large number of historical "ported from `apps/web-react`'s X"
+  provenance comments scattered across `apps/mobile/src/` (a legitimate, still-accurate record of
+  where each piece of code originated, not a functional dependency) — rewriting all of those was
+  judged disproportionate to this task and would destroy real historical context for no functional
+  benefit. Also not swept: whether any `.native.ts`/`.web.ts` pair's _unsuffixed_ base file (e.g. the
+  `googleDriveProvider.ts`/`.web.ts`/`.native.ts` trio) is now genuinely dead code because its only
+  reason to exist was serving `apps/web-react`'s Vite bundler specifically — flagged here as a real,
+  separate follow-up audit, not chased down in this pass.
+
+**Verification:** `tsc -b` clean across the whole workspace, `eslint packages/*/src apps/*/src` clean,
+full `vitest` suite (`packages/core` + root `workers/` tests) passing identically before and after
+(1224 passed/1 skipped in `@penny/core`, 43 passed at root).
+
 ---
 
 ## Dependency graph (simplified)
 
+**Updated 2026-08-29** — this used to describe `apps/web-react`'s entry chain
+(`main.tsx`/`App.tsx`/`router/index.tsx`/`AppShell`/`BottomNav`); that app is retired. Below is
+`apps/mobile`'s real equivalent.
+
 ```
-main.tsx
+index.ts
   └─► App.tsx
         ├─► PrivacyContext
         ├─► SettingsContext
         ├─► EventModeContext
-        └─► router/index.tsx
+        └─► navigation/RootNavigator.tsx
               └─► AuthGuard
-                    └─► AppShell
-                          ├─► BottomNav
-                          └─► <feature pages>
-                                ├─► src/core/<domain>
-                                │     └─► src/core/db/repositories
-                                │           └─► src/core/crypto/keystore
-                                ├─► src/components/ui/<primitives>
-                                ├─► src/components/privacy/<masking>
-                                └─► src/context/<PrivacyContext, etc.>
+                    └─► MainNavigator.tsx
+                          └─► MainTabs.tsx (persistent tab bar + header chrome)
+                                └─► HomeStack / ExpensesStack / <other per-tab stacks>
+                                      └─► <feature pages>
+                                            ├─► @/core/<domain>
+                                            │     └─► @/core/db/repositories
+                                            │           └─► @/core/crypto/keystore
+                                            ├─► components/ui/<primitives>
+                                            ├─► components/privacy/<masking>
+                                            └─► context/<PrivacyContext, etc.>
 ```

@@ -16,23 +16,24 @@ Phase 1.
 
 - Working directory: `/Users/hemant.sharma/Projects/penny`
 - Monorepo (pnpm workspace): `packages/core/` (platform-agnostic business logic) +
-  `apps/web-react/` (React 19 + Vite + Tailwind — **legacy, frozen as of 2026-07-31: no
-  further changes**, kept only as a historical design/behavior reference) + `apps/mobile/`
-  (React Native/Expo — **the primary, actively-developed app: all new features, fixes, and
-  UI changes land here**) + `workers/` (independent Cloudflare Workers, excluded from the
-  pnpm workspace)
+  `apps/mobile/` (React Native/Expo — **the one app: all features, fixes, and UI changes
+  land here**) + `workers/` (independent Cloudflare Workers, excluded from the pnpm
+  workspace). `apps/web-react` (the original React 19 + Vite + Tailwind app) was retired and
+  deleted 2026-08-29 — it had been frozen since 2026-07-31 and was fully superseded by
+  `apps/mobile`; `packages/core/src/core/db/schema.ts` dropped its Dexie dependency at the
+  same time and is now a plain in-memory `RowStore` implementation used only by `vitest`
+  (`apps/mobile` still runs on `schema.native.ts`/op-sqlite, unaffected). See
+  `docs/ARCHITECTURE.md`'s matching decision-log entry for the full rationale.
 - Currency/locale: `en-IN`, Indian Rupees (₹)
 
 ## Current status — always check these, never assume from memory
 
 - **Overall roadmap/phase status**: [`docs/ROADMAP.md`](docs/ROADMAP.md) (shipped history,
   decided/in-progress phases, future ideas — merged from three previously separate docs)
-- **Mobile-vs-web parity status, per module**: [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md)
-  — historical record of the migration's parity effort (now complete, merged 2026-07-31).
-  Since `apps/web-react` is frozen, this is no longer an active "catch up to web" checklist
-  for new work, just a reference for what was verified.
 - **Mobile migration tech stack, rationale, and lessons-learned playbook**:
-  [`docs/plans/mobile-migration.md`](docs/plans/mobile-migration.md)
+  [`docs/plans/mobile-migration.md`](docs/plans/mobile-migration.md) — `docs/MOBILE_PARITY.md`
+  (the migration's parity checklist) was retired 2026-08-29 alongside `apps/web-react` itself,
+  the thing it was tracking parity against.
 
 ## Non-negotiable rules
 
@@ -86,12 +87,6 @@ Phase 1.
   HTML mockup in `docs/mockups/proposals/` (never edit an existing mockup without asking),
   grounded in the real current screen — get it approved before touching `apps/mobile` code.
   See `.claude/skills/ui-design-check/`.
-
-**Legacy app:**
-
-- `apps/web-react` is frozen — do not edit it for feature work, bug fixes, or design
-  changes. It's kept only as a historical reference for what `apps/mobile` was built to
-  match. If a change genuinely requires touching it, confirm with the user first.
 
 **Reliability:**
 
@@ -282,15 +277,14 @@ changed since the task started, then check each of these and update whichever ac
 changed (see `.claude/skills/documentation-maintenance/` for the full procedure):
 
 1. `docs/features/<module>.md` if the feature's capabilities, data model, or limitations changed
-2. `docs/SCHEMA.md` if any Dexie store fields were added/changed/removed
+2. `docs/SCHEMA.md` if any database store fields were added/changed/removed
 3. `docs/ARCHITECTURE.md` if new files, directories, hooks, or components were added
 4. `docs/DESIGN_GUIDELINES.md` if a UI pattern, rule, theme, or color token changed
-5. `docs/MOBILE_PARITY.md` if a mobile-vs-web parity gap was found or fixed
-6. `docs/ROADMAP.md` if a phase/track status or architectural decision changed
-7. This file's own Non-negotiable rules (above) if a new hard rule applies broadly, or
+5. `docs/ROADMAP.md` if a phase/track status or architectural decision changed
+6. This file's own Non-negotiable rules (above) if a new hard rule applies broadly, or
    `CONTRIBUTING.md` if it's a build/architecture/TypeScript standard specifically
-8. The relevant `docs/plans/` file if the approach or scope of an in-progress initiative changed
-9. **The persistent memory folder** — check it for anything durable that isn't written in a
+7. The relevant `docs/plans/` file if the approach or scope of an in-progress initiative changed
+8. **The persistent memory folder** — check it for anything durable that isn't written in a
    doc yet (a decision, a gotcha, a still-open item, a standing preference). Memory is
    recalled contextually, not guaranteed to load every session the way this file and
    `docs/` are — anything that needs to survive should live in a doc, not stay memory-only.
@@ -305,27 +299,25 @@ Never mark a task complete without checking this list — but check it **once**,
 
 ## Where to find things
 
-| Need                                                                                                             | Go to                                                                                                                                                     |
-| ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Product vision, users, competitive positioning                                                                   | [`docs/BRD.md`](docs/BRD.md)                                                                                                                              |
-| Encryption model, Chip AI architecture, PII pipeline                                                             | [`docs/TSD.md`](docs/TSD.md)                                                                                                                              |
-| Full database schema                                                                                             | [`docs/SCHEMA.md`](docs/SCHEMA.md)                                                                                                                        |
-| Privacy rules, PII definitions                                                                                   | [`docs/PRIVACY.md`](docs/PRIVACY.md)                                                                                                                      |
-| UI design — ethos, patterns, themes, colors                                                                      | [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md)                                                                                                  |
-| Codebase map, architectural decision log                                                                         | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                                                                            |
-| External API registry                                                                                            | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md)                                                                                                          |
-| Backend strategy (Cloudflare Workers, Model B, scale)                                                            | [`docs/BACKEND_STRATEGY.md`](docs/BACKEND_STRATEGY.md)                                                                                                    |
-| Roadmap — shipped, in-progress, future ideas                                                                     | [`docs/ROADMAP.md`](docs/ROADMAP.md)                                                                                                                      |
-| Mobile parity status per module                                                                                  | [`docs/MOBILE_PARITY.md`](docs/MOBILE_PARITY.md)                                                                                                          |
-| Detailed phase/track plans                                                                                       | [`docs/plans/`](docs/plans/)                                                                                                                              |
-| Per-feature documentation                                                                                        | [`docs/features/`](docs/features/)                                                                                                                        |
-| Running any surface (web, mobile, Capacitor, workers)                                                            | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                                      |
-| Code standards + best practices (architecture rules, TypeScript standards, pre-commit gates)                     | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                                      |
-| Adding a feature module, anti-patterns, refactor signals, file naming, India-specific conventions                | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ("Feature module architecture" onward)                                                                     |
-| Shared component library                                                                                         | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ("Component inventory")                                                                                    |
-| Adding an external API integration                                                                               | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md)                                                                                                          |
-| Auditing `apps/mobile` vs `apps/web-react` for parity gaps                                                       | [`.claude/skills/parity-sweep/`](.claude/skills/parity-sweep/SKILL.md)                                                                                    |
-| Keeping docs current after a change                                                                              | [`.claude/skills/documentation-maintenance/`](.claude/skills/documentation-maintenance/SKILL.md)                                                          |
-| Reviewing/proposing UI, cross-platform design consistency                                                        | [`.claude/skills/ui-design-check/`](.claude/skills/ui-design-check/SKILL.md)                                                                              |
-| Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer, ui-designer) | [`.claude/agents/`](.claude/agents/)                                                                                                                      |
-| Current docs for a fast-moving library (RN/Expo/native packages) instead of relying on training data             | Context7 MCP, configured project-wide in [`.mcp.json`](.mcp.json) — works anonymously; add an API key in Context7's dashboard only if you hit rate limits |
+| Need                                                                                                 | Go to                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product vision, users, competitive positioning                                                       | [`docs/BRD.md`](docs/BRD.md)                                                                                                                              |
+| Encryption model, Chip AI architecture, PII pipeline                                                 | [`docs/TSD.md`](docs/TSD.md)                                                                                                                              |
+| Full database schema                                                                                 | [`docs/SCHEMA.md`](docs/SCHEMA.md)                                                                                                                        |
+| Privacy rules, PII definitions                                                                       | [`docs/PRIVACY.md`](docs/PRIVACY.md)                                                                                                                      |
+| UI design — ethos, patterns, themes, colors                                                          | [`docs/DESIGN_GUIDELINES.md`](docs/DESIGN_GUIDELINES.md)                                                                                                  |
+| Codebase map, architectural decision log                                                             | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                                                                                                            |
+| External API registry                                                                                | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md)                                                                                                          |
+| Backend strategy (Cloudflare Workers, Model B, scale)                                                | [`docs/BACKEND_STRATEGY.md`](docs/BACKEND_STRATEGY.md)                                                                                                    |
+| Roadmap — shipped, in-progress, future ideas                                                         | [`docs/ROADMAP.md`](docs/ROADMAP.md)                                                                                                                      |
+| Detailed phase/track plans                                                                           | [`docs/plans/`](docs/plans/)                                                                                                                              |
+| Per-feature documentation                                                                            | [`docs/features/`](docs/features/)                                                                                                                        |
+| Running `apps/mobile`, or the Cloudflare workers                                                     | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                                      |
+| Code standards + best practices (architecture rules, TypeScript standards, pre-commit gates)         | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                                                                      |
+| Adding a feature module, anti-patterns, refactor signals, file naming, India-specific conventions    | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ("Feature module architecture" onward)                                                                     |
+| Shared component library                                                                             | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ("Component inventory")                                                                                    |
+| Adding an external API integration                                                                   | [`docs/EXTERNAL_APIS.md`](docs/EXTERNAL_APIS.md)                                                                                                          |
+| Keeping docs current after a change                                                                  | [`.claude/skills/documentation-maintenance/`](.claude/skills/documentation-maintenance/SKILL.md)                                                          |
+| Reviewing/proposing UI                                                                               | [`.claude/skills/ui-design-check/`](.claude/skills/ui-design-check/SKILL.md)                                                                              |
+| Specialized subagents (mobile-developer, code-reviewer, test-writer, ui-designer)                    | [`.claude/agents/`](.claude/agents/)                                                                                                                      |
+| Current docs for a fast-moving library (RN/Expo/native packages) instead of relying on training data | Context7 MCP, configured project-wide in [`.mcp.json`](.mcp.json) — works anonymously; add an API key in Context7's dashboard only if you hit rate limits |

@@ -1,15 +1,14 @@
 ---
 name: test-writer
-description: Writes and maintains Vitest tests for packages/core and apps/web-react. Use when asked to add test coverage for new/changed logic, or to fix a failing test.
+description: Writes and maintains Vitest tests for packages/core. Use when asked to add test coverage for new/changed logic, or to fix a failing test.
 color: purple
 ---
 
 You write and maintain tests for Penny — `packages/core`'s business logic (Vitest, run via
-`pnpm --filter @penny/core test`) and `apps/web-react` (`pnpm --filter web-react test`).
-`apps/mobile` currently has no dedicated test suite of its own; logic it depends on lives
-in `packages/core` and should be tested there. `workers/` has its own Vitest config at the
-repo root (`pnpm test:workers`) — tests for the API proxy/auth/groups workers live in
-`tests/worker/`, not inside `packages/core`.
+`pnpm --filter @penny/core test`). `apps/mobile` has no dedicated test suite of its own;
+logic it depends on lives in `packages/core` and should be tested there. `workers/` has its
+own Vitest config at the repo root (`pnpm test:workers`) — tests for the API proxy/auth/
+groups workers live in `tests/worker/`, not inside `packages/core`.
 
 Before writing a new test, read an existing test file covering similar logic in the same
 directory to match the repo's actual conventions (mocking style, fixture patterns, describe/
@@ -38,13 +37,14 @@ a library API you're unsure of, check Context7 (see `CLAUDE.md`) rather than ass
   the same output across the web (`SubtleCrypto`) and native (`react-native-quick-crypto`)
   engines — extend this file, don't create a parallel one, when adding new crypto primitives.
 - **Repository/db logic** (`packages/core/src/core/db/`): tests exercise
-  `EncryptedRepository<T>` against a real (test) Dexie instance, not a hand-mocked one —
-  check `packages/core/tests/db/` for the existing pattern before adding a new mock style.
+  `EncryptedRepository<T>` against `schema.ts` — a plain in-memory `RowStore` implementation
+  used only by `vitest` (real `apps/mobile` runs on `schema.native.ts`/op-sqlite instead;
+  see that file's own doc comment) — not a hand-mocked repository. Check
+  `packages/core/tests/db/` for the existing pattern before adding a new mock style.
 - **Workers** (`workers/api-proxy/`, `workers/auth/`, `workers/groups/`): pure worker logic
   is unit-tested from the repo root's `tests/worker/` (via the root `vitest.config.ts`,
   which is scoped only to `tests/worker/**/*.test.ts` against `environment: 'node'`) —
   don't add worker tests inside `packages/core` or a worker's own directory.
 
 Verification: run the specific test file you touched, then the full suite
-(`pnpm --filter @penny/core test && pnpm --filter web-react test && pnpm test:workers`) to
-confirm no regression elsewhere.
+(`pnpm --filter @penny/core test && pnpm test:workers`) to confirm no regression elsewhere.

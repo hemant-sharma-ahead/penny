@@ -68,15 +68,16 @@ describe('backupManager — envelope round-trip', () => {
     expect(await unlock(PIN)).toBe('ok');
     keystore.lock();
 
-    // Simulate some table's `bulkPut` throwing partway through the restore — `accounts` sits after
+    // Simulate some table's write throwing partway through the restore — `accounts` sits after
     // `security` in `BACKUP_STORES`, so a real bug here would have already replaced `security` with the
     // backup's copy before this throws, corrupting the vault even though the overall restore "failed."
-    // `restoreTables()` runs the whole thing inside one real Dexie `transaction()`, so this also
-    // exercises Dexie's own automatic rollback, not a hand-rolled one.
-    const bulkPutSpy = vi.spyOn(db.accounts, 'bulkPut').mockRejectedValueOnce(new Error('simulated write failure'));
+    // `restoreTables()`'s own snapshot/rollback (`schema.ts`) is what's under test here, not any one
+    // engine's native transaction primitive — the real engines get the same atomicity from Dexie's
+    // `transaction()` (web, retired) / op-sqlite's `executeBatch()` (native) instead.
+    const putSpy = vi.spyOn(db.accounts, 'put').mockRejectedValueOnce(new Error('simulated write failure'));
 
     await expect(importBackup(text, PASS)).rejects.toThrow('simulated write failure');
-    bulkPutSpy.mockRestore();
+    putSpy.mockRestore();
 
     // The whole transaction must have rolled back — `security` must still be the CURRENT vault's
     // record, not the backup's, so the CURRENT PIN still unlocks (the exact case that read as "the app

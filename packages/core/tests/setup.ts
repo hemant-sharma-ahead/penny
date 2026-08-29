@@ -1,4 +1,3 @@
-import 'fake-indexeddb/auto';
 import { beforeEach } from 'vitest';
 import { invalidateAllRepositoryCaches } from '@/core/db/repositories';
 

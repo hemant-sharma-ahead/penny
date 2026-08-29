@@ -6,21 +6,20 @@ This is the navigation guide for all Penny documentation. Start here.
 
 ## Quick orientation
 
-| If you want to…                                                       | Read…                                               |
-| --------------------------------------------------------------------- | --------------------------------------------------- |
-| Understand the project identity, rules, and where to look for status  | [`CLAUDE.md`](../CLAUDE.md)                         |
-| Set up your development environment (web, mobile, Capacitor, workers) | [`CONTRIBUTING.md`](../CONTRIBUTING.md)             |
-| Understand the full product vision and requirements                   | [`docs/BRD.md`](BRD.md)                             |
-| Understand the encryption and privacy architecture                    | [`docs/TSD.md`](TSD.md)                             |
-| Look up a specific Dexie store's fields                               | [`docs/SCHEMA.md`](SCHEMA.md)                       |
-| Understand what PII is and how it's handled                           | [`docs/PRIVACY.md`](PRIVACY.md)                     |
-| Find a file or understand how the codebase is structured              | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)           |
-| See what's shipped, in progress, or a future idea                     | [`docs/ROADMAP.md`](ROADMAP.md)                     |
-| Check `apps/mobile` vs `apps/web-react` parity status per module      | [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md)         |
-| Look up an external API Penny calls                                   | [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md)         |
-| Design or adjust any screen (UI rules, patterns, tokens)              | [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md) |
-| Read a detailed phase/track plan (why/what/how)                       | [`docs/plans/`](plans/)                             |
-| Understand a specific feature in depth                                | [`docs/features/`](features/)                       |
+| If you want to…                                                      | Read…                                               |
+| -------------------------------------------------------------------- | --------------------------------------------------- |
+| Understand the project identity, rules, and where to look for status | [`CLAUDE.md`](../CLAUDE.md)                         |
+| Set up your development environment (mobile, workers)                | [`CONTRIBUTING.md`](../CONTRIBUTING.md)             |
+| Understand the full product vision and requirements                  | [`docs/BRD.md`](BRD.md)                             |
+| Understand the encryption and privacy architecture                   | [`docs/TSD.md`](TSD.md)                             |
+| Look up a specific database store's fields                           | [`docs/SCHEMA.md`](SCHEMA.md)                       |
+| Understand what PII is and how it's handled                          | [`docs/PRIVACY.md`](PRIVACY.md)                     |
+| Find a file or understand how the codebase is structured             | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)           |
+| See what's shipped, in progress, or a future idea                    | [`docs/ROADMAP.md`](ROADMAP.md)                     |
+| Look up an external API Penny calls                                  | [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md)         |
+| Design or adjust any screen (UI rules, patterns, tokens)             | [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md) |
+| Read a detailed phase/track plan (why/what/how)                      | [`docs/plans/`](plans/)                             |
+| Understand a specific feature in depth                               | [`docs/features/`](features/)                       |
 
 ---
 
@@ -28,22 +27,20 @@ This is the navigation guide for all Penny documentation. Start here.
 
 ### Core docs
 
-| File                                                | What it covers                                                                                                                                                             |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`CLAUDE.md`](../CLAUDE.md)                         | Project identity, non-negotiable rules, reference table — orientation for every session                                                                                    |
-| [`CONTRIBUTING.md`](../CONTRIBUTING.md)             | Local setup for every surface, branching, commit conventions, pre-commit gates, PR rules                                                                                   |
-| [`docs/BRD.md`](BRD.md)                             | Business requirements: vision, target users, competitive positioning, feature requirements by phase                                                                        |
-| [`docs/TSD.md`](TSD.md)                             | Technical specification: encryption model, Chip AI prompt architecture, PII pipeline                                                                                       |
-| [`docs/PRIVACY.md`](PRIVACY.md)                     | PII categories, anonymisation treatments, bureau data handling, privacy architecture                                                                                       |
-| [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)           | Codebase map (every folder, component, hook, utility), architectural decision log                                                                                          |
-| [`docs/SCHEMA.md`](SCHEMA.md)                       | All Dexie stores with every field, type, and description                                                                                                                   |
-| [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md)         | Every external API Penny calls, canonical constants file, and Worker-proxy status                                                                                          |
-| [`docs/ROADMAP.md`](ROADMAP.md)                     | Shipped milestone history, decided/in-progress phase scope + architecture decisions, and future feature ideas — all three merged into one doc                              |
-| [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md)         | Current per-module `apps/mobile` vs `apps/web-react` parity status, populated by the `parity-sweep` skill                                                                  |
-| [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md) | **Single source of truth for UI design** — ethos, layout/modal rules, patterns, themes, tokens, mockup workflow                                                            |
-| [`docs/BACKEND_STRATEGY.md`](BACKEND_STRATEGY.md)   | Model B backend strategy: what the server stores (nothing personal), scale rules, backup/recovery, contact-email hosting decision                                          |
-| [`docs/ANDROID_EMULATOR.md`](ANDROID_EMULATOR.md)   | Step-by-step: wrap `apps/web-react` with Capacitor and run it on an Android emulator (a side-by-side comparison tool, not the primary mobile path — see `CONTRIBUTING.md`) |
-| [`docs/plans/`](plans/)                             | Detailed approved phase/track plans (why/what/how, step breakdowns) — see [`plans/README.md`](plans/README.md) for the index                                               |
+| File                                                | What it covers                                                                                                                                |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`CLAUDE.md`](../CLAUDE.md)                         | Project identity, non-negotiable rules, reference table — orientation for every session                                                       |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md)             | Local setup for `apps/mobile` + workers, branching, commit conventions, pre-commit gates, PR rules                                            |
+| [`docs/BRD.md`](BRD.md)                             | Business requirements: vision, target users, competitive positioning, feature requirements by phase                                           |
+| [`docs/TSD.md`](TSD.md)                             | Technical specification: encryption model, Chip AI prompt architecture, PII pipeline                                                          |
+| [`docs/PRIVACY.md`](PRIVACY.md)                     | PII categories, anonymisation treatments, bureau data handling, privacy architecture                                                          |
+| [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)           | Codebase map (every folder, component, hook, utility), architectural decision log                                                             |
+| [`docs/SCHEMA.md`](SCHEMA.md)                       | All database stores with every field, type, and description                                                                                   |
+| [`docs/EXTERNAL_APIS.md`](EXTERNAL_APIS.md)         | Every external API Penny calls, canonical constants file, and Worker-proxy status                                                             |
+| [`docs/ROADMAP.md`](ROADMAP.md)                     | Shipped milestone history, decided/in-progress phase scope + architecture decisions, and future feature ideas — all three merged into one doc |
+| [`docs/DESIGN_GUIDELINES.md`](DESIGN_GUIDELINES.md) | **Single source of truth for UI design** — ethos, layout/modal rules, patterns, themes, tokens, mockup workflow                               |
+| [`docs/BACKEND_STRATEGY.md`](BACKEND_STRATEGY.md)   | Model B backend strategy: what the server stores (nothing personal), scale rules, backup/recovery, contact-email hosting decision             |
+| [`docs/plans/`](plans/)                             | Detailed approved phase/track plans (why/what/how, step breakdowns) — see [`plans/README.md`](plans/README.md) for the index                  |
 
 ### Feature docs
 
@@ -83,12 +80,12 @@ Each feature file follows a standard template: **What it is → User-facing capa
 | [`features/feedback.md`](features/feedback.md)                             | Contact/Feedback: `mailto:` deep-link                                                                             |
 
 Not yet documented here (a known gap, not yet closed): Import, Profile, Security,
-Settings — functional in both apps but without a dedicated `docs/features/` file yet.
+Settings — functional but without a dedicated `docs/features/` file yet.
 
 ### Claude Code tooling
 
-| File                                                                                                | When it's used                                                                |
-| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| File                                                                                                | When it's used                                                              |
+| --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Code standards/best-practices, feature-module structure, the component library, and                 |
 | external-API integration used to each have their own `.claude/commands/penny-*.md` file —           |
 | retired 2026-08-13 (they weren't reliably loaded each session the way `CLAUDE.md` is, and           |
@@ -99,15 +96,12 @@ Settings — functional in both apps but without a dedicated `docs/features/` fi
 | `docs/DESIGN_GUIDELINES.md` (component/UI conventions), `docs/EXTERNAL_APIS.md` (adding a           |
 | new API client), `docs/PRIVACY.md`/`docs/TSD.md` (privacy/encryption detail), and                   |
 | `docs/ROADMAP.md` (phase context — always the current status, never a separate snapshot).           |
-| [`.claude/skills/parity-sweep/`](../.claude/skills/parity-sweep/SKILL.md)                           | Auditing `apps/mobile` against `apps/web-react` for parity gaps               |
-| [`.claude/skills/documentation-maintenance/`](../.claude/skills/documentation-maintenance/SKILL.md) | Determining which docs need updating after a change                           |
-| [`.claude/skills/ui-design-check/`](../.claude/skills/ui-design-check/SKILL.md)                     | Reviewing/proposing UI against design guidelines + cross-platform consistency |
-| [`.claude/agents/mobile-developer.md`](../.claude/agents/mobile-developer.md)                       | Implementing/porting `apps/mobile` features and fixes                         |
-| [`.claude/agents/web-developer.md`](../.claude/agents/web-developer.md)                             | Implementing `apps/web-react` + `packages/core` web-side features             |
-| [`.claude/agents/parity-auditor.md`](../.claude/agents/parity-auditor.md)                           | Read-only parity auditing — finds gaps, never fixes them                      |
-| [`.claude/agents/code-reviewer.md`](../.claude/agents/code-reviewer.md)                             | Reviewing a diff before commit through React/RN/design/standards lenses       |
-| [`.claude/agents/test-writer.md`](../.claude/agents/test-writer.md)                                 | Writing/maintaining Vitest tests                                              |
-| [`.claude/agents/ui-designer.md`](../.claude/agents/ui-designer.md)                                 | Designing/refactoring UI, producing mockup proposals                          |
+| [`.claude/skills/documentation-maintenance/`](../.claude/skills/documentation-maintenance/SKILL.md) | Determining which docs need updating after a change                         |
+| [`.claude/skills/ui-design-check/`](../.claude/skills/ui-design-check/SKILL.md)                     | Reviewing/proposing UI against design guidelines                            |
+| [`.claude/agents/mobile-developer.md`](../.claude/agents/mobile-developer.md)                       | Implementing `apps/mobile` features and fixes                               |
+| [`.claude/agents/code-reviewer.md`](../.claude/agents/code-reviewer.md)                             | Reviewing a diff before commit through React Native/design/standards lenses |
+| [`.claude/agents/test-writer.md`](../.claude/agents/test-writer.md)                                 | Writing/maintaining Vitest tests                                            |
+| [`.claude/agents/ui-designer.md`](../.claude/agents/ui-designer.md)                                 | Designing/refactoring UI, producing mockup proposals                        |
 
 ---
 
@@ -158,5 +152,9 @@ What's coming, in which phase.
 Open questions where feedback helps.
 ```
 
-Mobile-specific behavior/deviations belong in the same file, in a **Mobile
-(`apps/mobile`)** section, rather than a separate mobile-only doc.
+Every feature doc describes `apps/mobile` directly — there's no other app to carve out a
+separate section against. Feature docs written before `apps/web-react`'s 2026-08-29
+retirement may still carry a legacy **Mobile (`apps/mobile`)** subsection distinguishing
+mobile-only behavior from a web baseline that no longer exists; fold that content into the
+main sections the next time that doc is touched, rather than leaving the split in place
+indefinitely.

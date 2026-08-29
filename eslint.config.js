@@ -36,18 +36,12 @@ export default defineConfig([
             },
             {
               group: ['dexie'],
-              message: 'Dexie may only be imported from packages/core/src/core/db/'
+              message:
+                'Dexie was retired 2026-08-29 (apps/web-react removal — packages/core/src/core/db/schema.ts is now a plain in-memory RowStore, not Dexie). Do not reintroduce it.'
             }
           ]
         }
       ]
-    }
-  },
-  {
-    // Allow Dexie in the db core layer
-    files: ['packages/core/src/core/db/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': 'off'
     }
   },
   {
@@ -60,7 +54,6 @@ export default defineConfig([
   {
     // Provider files intentionally export both a Provider component and a hook
     files: [
-      'apps/web-react/src/context/*.tsx',
       'packages/core/src/core/sync/SyncProvider.tsx',
       'packages/core/src/core/sync/SyncProvider.native.tsx',
       'apps/mobile/src/theme/ThemeProvider.tsx',

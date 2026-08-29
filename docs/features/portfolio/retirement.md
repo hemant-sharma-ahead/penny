@@ -168,9 +168,9 @@ Manual entry is NOT replaced — this is purely additive, feeding the exact same
   tapping opens a rate + month-by-month recalculation popup that also flags — without asserting
   either figure is wrong — when the recorded amount and a fresh recalculation disagree (e.g. an
   older manual entry, or contributions edited after the interest was recorded).
-- **Cross-platform note:** this is a new capability built `apps/mobile`-only — `apps/web-react` is
-  frozen (no equivalent UI exists or is planned there); see this feature's `Mobile` section below
-  and `docs/MOBILE_PARITY.md`.
+- **Cross-platform note:** this was a new capability built `apps/mobile`-only, back when
+  `apps/web-react` (since retired 2026-08-29) was still frozen; see this feature's `Mobile`
+  section below.
 - **Real-vs-estimate blending (real-device bugfix batch, 2026-08-07):** `epfComputeAllMonths()`
   previously had NO visibility into real `EpfTransaction[]` at all — it always generated a pure
   formula estimate for every month, even for months a passbook import had already logged a real
@@ -241,6 +241,7 @@ Manual entry is NOT replaced — this is purely additive, feeding the exact same
   with a formula popup, never asserted as fact. Mockup:
   `docs/mockups/proposals/epf-employer-switch-v1.html`. **Implemented but not yet manually verified
   on-device.**
+
 - **Second on-device round (2026-08-11, `docs/plans/epf-passbook-import.md` §10.10) — 8 more real
   bugs found testing the round above, plus a Gross/CTC display change.** Interest/transfer/
   withdrawal reconciliation was still unscoped by employer (only contributions had been scoped in

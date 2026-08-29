@@ -55,7 +55,7 @@ describe('EncryptedRepository — round-trip', () => {
     const repo = new EncryptedRepository<Expense>(db.expenses as never);
     await repo.put(sampleExpense);
 
-    // Read directly from Dexie — bypasses EncryptedRepository
+    // Read directly from the raw table — bypasses EncryptedRepository
     const raw = await db.expenses.get(sampleExpense.id);
     expect(raw).toBeDefined();
 
@@ -116,7 +116,7 @@ describe('EncryptedRepository — round-trip', () => {
 });
 
 // Tier 2 performance fix (2026-08-28) — `expensesRepo` (the real singleton, wired with indexed-query
-// support in `repositories.ts`) gains real SQL/Dexie-indexed queries over 5 plaintext columns. These
+// support in `repositories.ts`) gains real indexed queries over 5 plaintext columns. These
 // tests use `expensesRepo` specifically (not a bare `EncryptedRepository`, unlike the suite above)
 // since that's the one repo actually constructed with the `indexed` option.
 describe('EncryptedRepository — indexed expense queries (Tier 2)', () => {
@@ -177,8 +177,8 @@ describe('EncryptedRepository — indexed expense queries (Tier 2)', () => {
   });
 
   it('backfillIndexColumnsBatch writes the index columns for pre-existing rows in one batch, without touching iv/ciphertext', async () => {
-    // Simulate a row written before Tier 2 shipped — direct Dexie write, bypassing `expensesRepo.put()`
-    // entirely, so it never got the 5 index columns `indexFields` normally populates.
+    // Simulate a row written before Tier 2 shipped — a direct raw-table write, bypassing
+    // `expensesRepo.put()` entirely, so it never got the 5 index columns `indexFields` normally populates.
     const preExisting: Expense = { ...sampleExpense, id: 'idx-legacy', date: Date.UTC(2026, 2, 1), accountId: 'acc-c' };
     const legacyRepo = new EncryptedRepository<Expense>(db.expenses as never); // no `indexed` option — same as pre-Tier-2 writes
     await legacyRepo.put(preExisting);

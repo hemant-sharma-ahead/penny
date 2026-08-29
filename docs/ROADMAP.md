@@ -3,8 +3,7 @@
 Merged from three previously separate, overlapping docs (`ROADMAP.md`, `MILESTONES.md`,
 `WHATS_NEXT.md`) into one file with three clearly labeled parts, so there's one place to
 check "what's shipped," "what's decided/in progress," and "what's a future idea" instead of
-three files that had started drifting apart. Current per-module mobile-parity status lives
-in [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md), not here.
+three files that had started drifting apart.
 
 - **[Part 1 — Shipped](#part-1--shipped)**: complete milestone history, M0 through present.
 - **[Part 2 — Decided / In Progress](#part-2--decided--in-progress)**: phase scope +
@@ -511,14 +510,14 @@ decisions made for each phase, so they don't need to be re-derived in future ses
 
 ## Phase boundaries
 
-| Phase                                | Scope                                                                                                                                     | Status                                                                                                                                                     |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 1 (M0–M15)                     | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                                |
-| Pre-Phase 1.5                        | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                                |
-| Phase 1.5                            | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅, E ✅ deployed; **Track F** 🚧 F1–F3 ✅, F4 next). Remaining: Track E live verification + F4 + Stage F |
-| Mobile migration (React Native/Expo) | Port `apps/web-react` to `apps/mobile`, folded in from the original "Phase 2 mobile apps" sketch since it's now active, not future        | 🚧 In progress — see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) + [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md)                           |
-| Phase 2                              | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, desktop layout                                                         | ⏳ Future                                                                                                                                                  |
-| Phase 3                              | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                                  |
+| Phase                                | Scope                                                                                                                                     | Status                                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 1 (M0–M15)                     | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                                                  |
+| Pre-Phase 1.5                        | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                                                  |
+| Phase 1.5                            | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅, E ✅ deployed; **Track F** 🚧 F1–F3 ✅, F4 next). Remaining: Track E live verification + F4 + Stage F                   |
+| Mobile migration (React Native/Expo) | Port `apps/web-react` to `apps/mobile`, folded in from the original "Phase 2 mobile apps" sketch since it's now active, not future        | ✅ Complete — `apps/web-react` retired and deleted 2026-08-29 (frozen since 2026-07-31, fully superseded); see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) |
+| Phase 2                              | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, desktop layout                                                         | ⏳ Future                                                                                                                                                                    |
+| Phase 3                              | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                                                    |
 
 ## Pre-Phase 1.5 — Track 2: Identity, Account & Security
 
@@ -808,11 +807,11 @@ Each group has its own **Group Key** (AES-256), completely independent of person
 ### Mobile apps (iOS + Android) — 🚧 in progress, this is the active `feat/rn-migration` branch
 
 Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
-[`docs/plans/mobile-migration.md`](plans/mobile-migration.md). Current per-module parity status:
-[`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md). Superseded from this section's original sketch:
+[`docs/plans/mobile-migration.md`](plans/mobile-migration.md). Superseded from this section's
+original sketch:
 
 - **Expo (managed workflow)**, not bare React Native CLI, not Capacitor — a single codebase targets iOS,
-  Android, and eventually web via `react-native-web`.
+  Android, and (via `expo start --web`/`react-native-web`) a web preview mode.
 - **NativeWind** for styling (not plain RN StyleSheet as originally sketched here) — reuses the same
   semantic token names already in `docs/DESIGN_GUIDELINES.md`, lowering the risk of visual drift
   between platforms.
@@ -820,11 +819,13 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
   with near-zero changes.
 - Storage/crypto adapters: `@op-engineering/op-sqlite` (behind `EncryptedRepository<T>`'s existing
   interface) and `react-native-quick-crypto` (polyfills `crypto.subtle`).
-- **Long-term vision**: once mobile is fully verified at parity, evaluate rendering web via
-  `apps/mobile`'s `react-native-web` build and retiring `apps/web-react` as a separate Vite/DOM
-  codebase entirely — one codebase for every platform, the same principle Cashew (a mature
-  cross-platform budgeting app looked at for structural inspiration) achieves via Flutter's single
-  rendering engine. Not started; a real future decision point, not a current plan.
+- **"Long-term vision" resolved 2026-08-29**: this section used to frame "retire `apps/web-react`
+  once mobile reaches parity" as a future, not-yet-decided step evaluated _against_ unifying it into
+  `apps/mobile`'s `react-native-web` build. That evaluation didn't end up mattering — `apps/web-react`
+  was frozen long enough (since 2026-07-31) with zero remaining active users/purpose that it was
+  simply retired and deleted outright, with no unification needed (there's only ever been one app to
+  maintain going forward). `apps/mobile`'s existing `.web.ts` platform-suffix variants (Google Drive
+  auth, etc.) already cover the "does it work via `expo start --web`" need on their own.
 
 ### Other Phase 2 items
 
@@ -843,7 +844,11 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
 - Desktop layout (≥768px breakpoint, sidebar nav)
 - Push notifications (EMI reminders, insurance renewals, goal milestones)
 - Watchlist (stocks + MFs with price alerts)
-- **Persistent storage on native (Capacitor) builds** — Penny never calls `navigator.storage.persist()`, so a WebView's IndexedDB (which holds the encrypted vault) is "best-effort" and could be evicted by the OS under storage pressure. Before shipping native apps, request persistence on boot and verify it's granted on real devices. Verification steps in [ANDROID_EMULATOR.md → Storage durability on device](ANDROID_EMULATOR.md#storage-durability-on-device-phase-2-to-do).
+- ~~Persistent storage on native (Capacitor) builds~~ — **moot**: this was a concern specific to
+  the abandoned Capacitor+WebView approach (a WebView's IndexedDB is "best-effort," evictable
+  under OS storage pressure, unless `navigator.storage.persist()` is called). `apps/mobile`'s real
+  storage (`@op-engineering/op-sqlite`, a native SQLite file in the app's own private storage) was
+  never subject to that WebView-specific eviction policy in the first place.
 
 ## Phase 3
 
@@ -915,7 +920,7 @@ since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes
   `PrivacyMode` is now `'safe' | 'open'` on `apps/mobile`. The ambient mode-driven screen
   tinting (Safe/Private/Open repainting the background) had already been removed
   2026-07-31 (see `docs/DESIGN_GUIDELINES.md` §4). What remains of the original question —
-  whether Safe/Open masking should be removed as a feature *entirely* — is still open, but
+  whether Safe/Open masking should be removed as a feature _entirely_ — is still open, but
   narrower than before.
 - **Settings' "Modules" visibility-toggle section** — still open; tied to the Portfolio
   redesign below (once Home's News/Calculators tiles are removed, this section may no

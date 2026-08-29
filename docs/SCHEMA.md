@@ -1,12 +1,19 @@
 # Penny — Database Schema
 
-All stores use Dexie.js (IndexedDB). All primary keys are UUIDs (not auto-increment — required for future cross-device sync).
+`apps/mobile` (the one app) stores everything via `@op-engineering/op-sqlite` — see "Mobile (React
+Native) storage engine" below. All primary keys are UUIDs (not auto-increment — required for future
+cross-device sync).
 
-Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparently encrypts fields on write and decrypts on read via the in-memory Master Key. Plain stores are written directly to IndexedDB with no encryption.
+Encrypted stores use `EncryptedRepository<T>`, which transparently encrypts fields on write and
+decrypts on read via the in-memory Master Key, against whatever `RowStore<T>` implementation backs
+it (`store.ts`'s storage-engine seam). Plain stores are written directly with no encryption.
 
 **Store counts:** 38 active stores total — 36 encrypted + 2 plain.
 
-**Schema versions:**
+**Schema history** (the version numbers below are Dexie's own numbering scheme — the tool this
+history was originally built and tracked in; `apps/web-react`, the app that ran Dexie, was retired
+2026-08-29, but the numbering is kept here purely as a stable, already-established changelog
+ordering, not because Dexie itself is still involved):
 
 - v1: Initial 19 stores (17 encrypted + 2 plain)
 - v2: Added `accounts` (multi-account tracking, M9) — 20 total
@@ -33,10 +40,9 @@ Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparent
 ## Mobile (React Native) storage engine
 
 Since Track 2 of the [mobile migration](plans/mobile-migration.md), `apps/mobile` runs on
-`@op-engineering/op-sqlite` instead of Dexie — Metro resolves `packages/core/src/core/db/schema.native.ts`
-in place of `schema.ts` for any native build (verified via bundle inspection; web/`apps/web-react` is
-completely unaffected and keeps using Dexie unchanged). This is the third storage engine this file has
-used, each swap driven by a real on-device bug:
+`@op-engineering/op-sqlite` — Metro resolves `packages/core/src/core/db/schema.native.ts` in place of
+`schema.ts` for any native build (verified via bundle inspection). This is the third storage engine
+this file has used, each swap driven by a real on-device bug:
 
 1. **`expo-sqlite`** (Track 2). Needed a single app-wide FIFO queue serializing every DB call — reads
    included — because its native binding corrupted its statement handle under concurrent reads, not just
@@ -48,8 +54,8 @@ used, each swap driven by a real on-device bug:
    confirmed on-device this still didn't feel as smooth as web.
 3. **`@op-engineering/op-sqlite`** (2026-07-26, same day). Real async SQLite: `execute()` dispatches to a
    native thread and only the final result crosses back to JS — the same "off-thread, single result
-   handoff" shape Dexie/IndexedDB already has on web. WAL journal mode is enabled; only one connection is
-   opened, per op-sqlite's own guidance (no manual reader/writer pool).
+   handoff" shape Dexie/IndexedDB had given `apps/web-react` (retired 2026-08-29). WAL journal mode is
+   enabled; only one connection is opened, per op-sqlite's own guidance (no manual reader/writer pool).
 
 This version also fixes a second inefficiency present in _both_ prior RN adapters (not unique to MMKV):
 both stored each encrypted row as `JSON.stringify({id, iv, ciphertext})` in a single text column/value — a
@@ -64,13 +70,16 @@ EXISTS` for every known table runs unconditionally on every launch (a no-op afte
 table's column set is fixed forever once created this way.
 
 The storage-engine seam is `packages/core/src/core/db/store.ts`'s `RowStore<T>` interface (`get/put/toArray/
-delete/count/update/clear`) — `EncryptedRepository<T>`'s constructor takes a `RowStore<EncryptedRecord>`
-instead of Dexie's `Table` directly; Dexie's `Table` already structurally satisfies this interface, so this
-was a type-only change on the web side, and each RN storage-engine swap needed zero changes to
-`EncryptedRepository`, `securityManager.ts`, `priceCache.ts`, or any other caller — they only ever depend
-on this interface, never on how storage works underneath it. Cross-engine correctness (PBKDF2/AES-GCM/
-deterministic-Ed25519 vectors run under Web Crypto here, to be reproduced on-device against
-`react-native-quick-crypto`) is tracked in `packages/core/tests/crypto/crossEngineVectors.test.ts`.
+delete/count/update/clear`) — `EncryptedRepository<T>`'s constructor takes a `RowStore<EncryptedRecord>`,
+never a concrete engine directly. Dexie's `Table` (when `apps/web-react` was still around) structurally
+satisfied this interface with zero adapter code needed; `schema.native.ts`'s op-sqlite-backed stores and
+`schema.ts`'s current plain in-memory `Map`-backed stores (the engine `vitest` now runs against, since
+2026-08-29 — see `docs/ARCHITECTURE.md`'s matching decision-log entry) both implement it explicitly. Every
+engine swap so far needed zero changes to `EncryptedRepository`, `securityManager.ts`, `priceCache.ts`, or
+any other caller — they only ever depend on this interface, never on how storage works underneath it.
+Cross-engine correctness (PBKDF2/AES-GCM/deterministic-Ed25519 vectors run under Web Crypto here, to be
+reproduced on-device against `react-native-quick-crypto`) is tracked in
+`packages/core/tests/crypto/crossEngineVectors.test.ts`.
 
 ---
 

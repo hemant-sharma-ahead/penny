@@ -1,18 +1,20 @@
 # Contributing to Penny
 
-Penny is a pnpm workspace with three platform surfaces sharing one business-logic
-package. This doc covers running and contributing to all of them. If you only need "how
-do I run the app," jump to [Running `apps/web-react`](#running-appsweb-react-the-web-app)
-or [Running `apps/mobile`](#running-appsmobile-expo--react-native).
+Penny is a pnpm workspace: one app (`apps/mobile`) sharing business logic with one
+package (`packages/core`), plus independent Cloudflare Workers. This doc covers running
+and contributing to it. If you only need "how do I run the app," jump to
+[Running `apps/mobile`](#running-appsmobile-expo--react-native).
+
+> `apps/web-react` (the original React 19 + Vite + Tailwind app) was retired and deleted
+> 2026-08-29 — it had been frozen since 2026-07-31 and was fully superseded by
+> `apps/mobile`. If you're looking for it, see `docs/ARCHITECTURE.md`'s matching
+> decision-log entry; there is nothing left to run.
 
 ## Repo layout
 
 ```
 packages/core/    Platform-agnostic business logic — crypto, db, calculators, all core/* domains
-apps/web-react/   The web app (React 19 + Vite + Tailwind) — currently the source of truth
-                  for functionality/behavior/design that apps/mobile is ported against
-apps/mobile/      React Native (Expo) port of apps/web-react — in progress, see
-                  docs/plans/mobile-migration.md and docs/MOBILE_PARITY.md
+apps/mobile/      React Native (Expo) — the one app
 workers/          Independent Cloudflare Workers (api-proxy, auth, groups) — each has its
                   own package.json/lockfile and its own README.md; not part of the pnpm
                   workspace (excluded deliberately, see pnpm-workspace.yaml)
@@ -23,9 +25,9 @@ docs/             Deep reference — see docs/README.md for the full index
 **Root-level config** (`tsconfig.json`, `eslint.config.js`, `.prettierrc`, `.nvmrc`,
 `package.json`) is genuinely shared across `packages/*` and `apps/*` — a single
 TypeScript project-references build, one lint config enforcing cross-package architecture
-rules, one formatting standard. It is not legacy from before the workspace split; each
-app already owns its own complete build config (`apps/web-react/vite.config.ts`,
-`apps/mobile/metro.config.js`, etc.) and the root only orchestrates.
+rules, one formatting standard. It is not legacy from before the workspace split; the app
+already owns its own complete build config (`apps/mobile/metro.config.js`, etc.) and the
+root only orchestrates.
 
 ## Prerequisites
 
@@ -33,20 +35,20 @@ app already owns its own complete build config (`apps/web-react/vite.config.ts`,
 - `pnpm` (`npm install -g pnpm` if you don't have it)
 - From the repo root: `pnpm install` (sets up the whole workspace at once)
 
-## Quick reference — running the apps
+## Quick reference — running the app
 
-One glance to pick a surface and get moving; each column links to its full section below
+One glance to pick a target and get moving; each column links to its full section below
 for flags, troubleshooting, and prerequisites.
 
-|                                                                                                   | [web-react](#running-appsweb-react-the-web-app) | [web-react + Capacitor](#running-appsweb-react-wrapped-in-capacitor-android-emulator-side-by-side-comparison)       | [apps/mobile](#running-appsmobile-expo--react-native)                                                                                                                                               | [RN Web](#running-appsmobile-expo--react-native)                                                  |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Dev command**                                                                                   | `pnpm dev` (repo root)                          | `cd apps/web-react && npx cap open android` (no package-script shortcut yet — Capacitor isn't installed, see below) | `pnpm android` / `pnpm ios` (from `apps/mobile`)<br>— or directly: `npx expo run:android` / `run:ios`                                                                                               | `pnpm web` (from `apps/mobile`)<br>— or with a forced cache clear: `npx expo start --web --clear` |
-| **Runs at**                                                                                       | `http://localhost:5173`                         | Android Studio emulator/device                                                                                      | Emulator/AVD or a paired device, via a dev client                                                                                                                                                   | `http://localhost:8081` (or `:8082` if `:8081` is taken) in a browser                             |
-| **Prerequisite**                                                                                  | None — `pnpm install` is enough                 | `@capacitor/*` packages (not currently installed — see below) + Android Studio                                      | Android Studio (Android) or Xcode (iOS) — **not** Expo Go                                                                                                                                           | Just Expo, no native toolchain                                                                    |
-| **Picks up code changes via**                                                                     | Vite HMR — instant                              | `pnpm build && npx cap sync android`, then re-run from Android Studio                                               | Fast Refresh for JS/TS; full native rebuild only for native deps, `metro.config.js`, `app.json`, or `android/`/`ios/` project file changes                                                          | `react-native-web` + Fast Refresh, same as web                                                    |
-| **Status**                                                                                        | Source of truth for functionality/design        | Dormant — perf/behavior comparison tool only, not the primary mobile path                                           | In progress — see `docs/MOBILE_PARITY.md`                                                                                                                                                           | Same JS as `apps/mobile`, rendered as real DOM — useful for quick browser checks of mobile code   |
-| **Force a JS-only relaunch** (no rebuild — a stuck screen/state, not a stale Metro server)        | Just refresh the browser tab                    | Re-run from Android Studio, or the same `adb`/simulator commands as `apps/mobile`                                   | Android: `adb shell am force-stop com.hesh.penny && adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1`.<br>iOS: relaunch from the Simulator (⌘⇧H twice, or Device → Restart) | Just refresh the browser tab                                                                      |
-| **Full native rebuild + reinstall** (native dep changed, or `app.json`/`android/`/`ios/` changed) | N/A — no native step                            | `pnpm build && npx cap sync android`, then re-run from Android Studio                                               | `npx expo run:android` / `run:ios` again — recompiles, bakes in the current `app.json`, reinstalls onto the emulator/device                                                                         | N/A — restart Metro (`npx expo start --web --clear`) is enough, no native step                    |
+|                                                                                                   | [apps/mobile](#running-appsmobile-expo--react-native)                                                                                                                                               | [RN Web](#running-appsmobile-expo--react-native)                                                  |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Dev command**                                                                                   | `pnpm android` / `pnpm ios` (from `apps/mobile`)<br>— or directly: `npx expo run:android` / `run:ios`                                                                                               | `pnpm web` (from `apps/mobile`)<br>— or with a forced cache clear: `npx expo start --web --clear` |
+| **Runs at**                                                                                       | Emulator/AVD or a paired device, via a dev client                                                                                                                                                   | `http://localhost:8081` (or `:8082` if `:8081` is taken) in a browser                             |
+| **Prerequisite**                                                                                  | Android Studio (Android) or Xcode (iOS) — **not** Expo Go                                                                                                                                           | Just Expo, no native toolchain                                                                    |
+| **Picks up code changes via**                                                                     | Fast Refresh for JS/TS; full native rebuild only for native deps, `metro.config.js`, `app.json`, or `android/`/`ios/` project file changes                                                          | `react-native-web` + Fast Refresh, same as web                                                    |
+| **Status**                                                                                        | The one app                                                                                                                                                                                         | Same JS as `apps/mobile`, rendered as real DOM — useful for quick browser checks                  |
+| **Force a JS-only relaunch** (no rebuild — a stuck screen/state, not a stale Metro server)        | Android: `adb shell am force-stop com.hesh.penny && adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1`.<br>iOS: relaunch from the Simulator (⌘⇧H twice, or Device → Restart) | Just refresh the browser tab                                                                      |
+| **Full native rebuild + reinstall** (native dep changed, or `app.json`/`android/`/`ios/` changed) | `npx expo run:android` / `run:ios` again — recompiles, bakes in the current `app.json`, reinstalls onto the emulator/device                                                                         | N/A — restart Metro (`npx expo start --web --clear`) is enough, no native step                    |
 
 `--clear` wipes the Metro bundler cache — worth adding any time you've hit a bundle that
 seems stuck on old code, or after changing `app.json`'s `extra` config; drop it for a
@@ -66,11 +68,11 @@ next opens as if freshly installed. Useful for testing onboarding, or getting un
 a bad local state — this is a data reset, not a code reload; nothing here touches source
 files or the dev server.
 
-|                    | web-react (browser)                                                                                                                                                        | apps/mobile (Android, via `adb`)                                                                                                                                           | apps/mobile (iOS Simulator)                                                                                                                                                     |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Command**        | In the browser's DevTools console:<br>`localStorage.clear();`<br>`indexedDB.deleteDatabase('penny');`<br>`window.location.reload();`                                       | `adb shell pm clear com.hesh.penny`<br>then relaunch: `adb shell am force-stop com.hesh.penny && adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1` | Long-press the app icon → Remove App → Delete App (or `xcrun simctl uninstall booted <bundle-id>`), then reinstall: `npx expo run:ios`                                          |
-| **What it clears** | Dexie (IndexedDB) + any `localStorage` (theme pref, plain caches like news/market)                                                                                         | Everything in the app's private storage — `op-sqlite` DB, `AsyncStorage`, session/DMK                                                                                      | Same as Android — a full uninstall is the only guaranteed full wipe (no `pm clear` equivalent on iOS)                                                                           |
-| **Notes**          | `indexedDB.deleteDatabase('penny')` must run before/without another tab holding the DB open, or it silently queues instead of deleting — close other tabs of the app first | Package name is `com.hesh.penny` (from `app.json`'s `android.package`) — reinstalling isn't needed, `pm clear` alone resets state                                          | `app.json`'s `ios.bundleIdentifier` is set (`com.hesh.penny`, 2026-08-16) but iOS isn't built yet — no Xcode/`ios/` prebuild has happened, so there's nothing to reset here yet |
+|                    | apps/mobile (Android, via `adb`)                                                                                                                                           | apps/mobile (iOS Simulator)                                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Command**        | `adb shell pm clear com.hesh.penny`<br>then relaunch: `adb shell am force-stop com.hesh.penny && adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1` | Long-press the app icon → Remove App → Delete App (or `xcrun simctl uninstall booted <bundle-id>`), then reinstall: `npx expo run:ios`                                          |
+| **What it clears** | Everything in the app's private storage — `op-sqlite` DB, `AsyncStorage`, session/DMK                                                                                      | Same as Android — a full uninstall is the only guaranteed full wipe (no `pm clear` equivalent on iOS)                                                                           |
+| **Notes**          | Package name is `com.hesh.penny` (from `app.json`'s `android.package`) — reinstalling isn't needed, `pm clear` alone resets state                                          | `app.json`'s `ios.bundleIdentifier` is set (`com.hesh.penny`, 2026-08-16) but iOS isn't built yet — no Xcode/`ios/` prebuild has happened, so there's nothing to reset here yet |
 
 ## Sharing a test file with the Android emulator (for testing file-picker flows)
 
@@ -126,25 +128,6 @@ full setup (KV/D1 resource creation, migrations, secrets).
 way to run them. First-time setup per worker (creating KV/D1 resources, running
 migrations, `wrangler secret put`, etc.) isn't repeated here — see each worker's own
 README, linked in the header row above.
-
-## Running `apps/web-react` (the web app)
-
-```bash
-pnpm dev            # from repo root — delegates to apps/web-react's own Vite dev server
-```
-
-App runs at `http://localhost:5173`. DevTools → 390px viewport to see the mobile layout.
-You usually don't need to set any environment variables — the app runs fully on local/
-simulated data by default. See `apps/web-react/.env.example` for what's supported;
-`.env.production` (committed, non-secret) points at the deployed API Proxy Worker so
-market/NAV/vehicle data works out of the box. **Never put secrets in a `VITE_*` var** —
-they're public in the shipped bundle.
-
-**Backend worker (optional):** the API Proxy Worker lives in
-[`workers/api-proxy/`](workers/api-proxy/README.md) — run it locally with `wrangler dev`
-or deploy it (see its own README). Point `apps/web-react/.env.local` at
-`VITE_API_PROXY=http://localhost:8787` to use a local worker instead of the deployed one,
-or leave it unset to force direct, no-backend calls.
 
 ## Running `apps/mobile` (Expo / React Native)
 
@@ -344,36 +327,6 @@ divergence, 2026-08-13) in one pass:
    emulator) once the fix is verified**, before running the normal pre-commit verification
    sweep.
 
-## Running `apps/web-react` wrapped in Capacitor (Android emulator, side-by-side comparison)
-
-A second way to see the web app on Android — useful for direct perf/behavior comparisons
-against `apps/mobile` (this is how the two were compared during the mobile migration's
-storage-engine investigation), **not** the primary mobile path (that's `apps/mobile`
-above). Wraps the built `apps/web-react` bundle in a native Android shell via
-[Capacitor](https://capacitorjs.com/).
-
-**Status: dormant, not currently installed.** `apps/web-react/capacitor.config.ts` exists
-(moved there from the repo root — it only ever wraps this one app's build, never
-`apps/mobile`), but the `@capacitor/*` packages aren't currently in any `package.json` —
-they were last used ad hoc and need reinstalling fresh, from **`apps/web-react/`**:
-
-```bash
-cd apps/web-react
-npm install --save @capacitor/core @capacitor/android   # or pnpm add
-npm install --save-dev @capacitor/cli
-pnpm build                           # builds this app, output at ./dist
-npx cap add android                  # creates the native android/ project, copies dist/ in
-npx cap open android                 # opens it in Android Studio — wait for Gradle sync
-```
-
-The rebuild loop after a code change (from `apps/web-react/`): `pnpm build && npx cap sync
-android`, then re-run from Android Studio or `cd android && ./gradlew assembleDebug`.
-
-The `android/` folder itself is git-ignored (generated, like `dist/`) — regenerate it with
-the commands above on a fresh clone. Full step-by-step (AVD creation, terminal-only flow,
-keyboard setup, troubleshooting table, the Phase-2 storage-persistence to-do) lives in
-[`docs/ANDROID_EMULATOR.md`](docs/ANDROID_EMULATOR.md).
-
 ## Running the Workers
 
 Each worker under `workers/` is independent (own `package.json`, own lockfile, own
@@ -389,7 +342,9 @@ and [`docs/BACKEND_STRATEGY.md`](docs/BACKEND_STRATEGY.md) for the architecture 
 ## Architecture rules (enforced by ESLint)
 
 - `@anthropic-ai/sdk` may only be imported from `packages/core/src/core/ai-safety/anthropicClient.ts`
-- `dexie` may only be imported from `packages/core/src/core/db/`
+- `dexie` is retired (2026-08-29, `apps/web-react` removal) and must never be reintroduced
+  anywhere — `packages/core/src/core/db/schema.ts` is a plain in-memory `RowStore`, and
+  `apps/mobile` runs on `schema.native.ts`/op-sqlite
 - Feature modules (`apps/*/src/features/`) must not cross-import — only from `core/`,
   `components/`, `context/`, `hooks/`, `lib/`
 - `no-console` is a warning — never log PII
@@ -403,7 +358,7 @@ platform-variance-minimization principle.
 
 ## The encryption boundary
 
-**Never access Dexie tables directly from feature code.** Always go through
+**Never access a database table directly from feature code.** Always go through
 `EncryptedRepository<T>` in `packages/core/src/core/db/repository.ts`:
 
 ```ts
@@ -428,17 +383,17 @@ never skip or weaken it.
 
 ## Scripts (from the repo root)
 
-| Script              | What it does                                                   |
-| ------------------- | -------------------------------------------------------------- |
-| `pnpm dev`          | Start `apps/web-react`'s Vite dev server                       |
-| `pnpm build`        | `tsc -b` (repo-wide) + `apps/web-react`'s Vite build           |
-| `pnpm lint`         | ESLint across `packages/*/src apps/*/src`                      |
-| `pnpm lint:fix`     | ESLint auto-fix                                                |
-| `pnpm format`       | Prettier write                                                 |
-| `pnpm format:check` | Prettier check (used in CI)                                    |
-| `pnpm type-check`   | `tsc -b`                                                       |
-| `pnpm test`         | `packages/core` tests + `apps/web-react` tests + workers tests |
-| `pnpm test:workers` | Just the workers' own test suite                               |
+| Script              | What it does                                                                  |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `pnpm dev`          | Start `apps/mobile`'s Expo dev server (`expo start`)                          |
+| `pnpm build`        | `tsc -b` (repo-wide) — see the APK build steps above for a real release build |
+| `pnpm lint`         | ESLint across `packages/*/src apps/*/src`                                     |
+| `pnpm lint:fix`     | ESLint auto-fix                                                               |
+| `pnpm format`       | Prettier write                                                                |
+| `pnpm format:check` | Prettier check (used in CI)                                                   |
+| `pnpm type-check`   | `tsc -b`                                                                      |
+| `pnpm test`         | `packages/core` tests + workers tests                                         |
+| `pnpm test:workers` | Just the workers' own test suite                                              |
 
 `apps/mobile` currently has no dedicated test suite of its own — logic it depends on lives
 in `packages/core` and is tested there.
@@ -530,18 +485,16 @@ automatically after finishing a step; present what changed and ask).
 
 ## Key documents
 
-| File                           | What it covers                                                                                      |
-| ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `CLAUDE.md`                    | Orientation for Claude Code sessions — identity, non-negotiable rules, reference table              |
-| `CONTRIBUTING.md`              | This file — setup, branching, commits, CI, PR rules                                                 |
-| `docs/README.md`               | Documentation index — navigate all docs from here                                                   |
-| `docs/BRD.md`                  | Product vision, users, competitive positioning                                                      |
-| `docs/ARCHITECTURE.md`         | Codebase map (dirs, components, hooks) + architectural decision log                                 |
-| `docs/SCHEMA.md`               | All Dexie stores with field definitions                                                             |
-| `docs/EXTERNAL_APIS.md`        | Registry of every external API Penny calls                                                          |
-| `docs/PRIVACY.md`              | PII definitions, anonymisation rules, privacy architecture                                          |
-| `docs/ROADMAP.md`              | Shipped history, decided/in-progress phases, future ideas                                           |
-| `docs/MOBILE_PARITY.md`        | Current per-module `apps/mobile` vs `apps/web-react` parity status                                  |
-| `docs/features/`               | Per-feature documentation — what's built, data model, planned improvements                          |
-| `.claude/skills/parity-sweep/` | The methodology for auditing mobile against web for parity gaps                                     |
-| `.claude/agents/`              | Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer) |
+| File                    | What it covers                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `CLAUDE.md`             | Orientation for Claude Code sessions — identity, non-negotiable rules, reference table |
+| `CONTRIBUTING.md`       | This file — setup, branching, commits, CI, PR rules                                    |
+| `docs/README.md`        | Documentation index — navigate all docs from here                                      |
+| `docs/BRD.md`           | Product vision, users, competitive positioning                                         |
+| `docs/ARCHITECTURE.md`  | Codebase map (dirs, components, hooks) + architectural decision log                    |
+| `docs/SCHEMA.md`        | All database stores with field definitions                                             |
+| `docs/EXTERNAL_APIS.md` | Registry of every external API Penny calls                                             |
+| `docs/PRIVACY.md`       | PII definitions, anonymisation rules, privacy architecture                             |
+| `docs/ROADMAP.md`       | Shipped history, decided/in-progress phases, future ideas                              |
+| `docs/features/`        | Per-feature documentation — what's built, data model, planned improvements             |
+| `.claude/agents/`       | Specialized subagents (mobile-developer, code-reviewer, test-writer, ui-designer)      |
