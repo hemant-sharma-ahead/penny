@@ -363,6 +363,15 @@ relay + a few Crons.
 5. ✅ **Market ticker strip → static CDN from the start** (fixed global set: indices/metals/forex, the
    highest-volume call). **Per-scheme MF/NPS NAV + per-symbol stock stay cached passthrough** (can't
    pre-generate thousands of schemes; low-frequency portfolio-view calls).
+6. ✅ **Reaffirmed 2026-08-29** (raised again during a DB-structure review, as a hypothetical — not a
+   new proposal): **never store personal transaction data — encrypted or not — in Cloudflare D1/R2 in
+   bulk.** This is the same Model B boundary as #1 above, restated with concrete numbers because they're
+   worth keeping: a single 1M-row user's `expenses` table alone would cost ~300 MB (→ ~16 such users
+   before D1's 5 GB free tier is gone), and one All-Time Analytics view for that one user is ~1M
+   row-reads — 20% of the _entire_ free tier's daily 5M-read budget, in one screen tap. It would also
+   make the app slower for Penny's actual single-user/single-device access pattern (a local SQLite read
+   is sub-millisecond; a network round-trip isn't, and fails offline entirely), not faster. Full
+   comparison: `docs/ARCHITECTURE.md`'s matching 2026-08-29 decision entry.
 
 Reconcile [`plans/phase-1.5-groups-household-os.md`](plans/phase-1.5-groups-household-os.md) (Tracks C/D)
 and [`ROADMAP.md`](ROADMAP.md) to match when those tracks are built.

@@ -171,6 +171,11 @@ Every income, expense, and transfer transaction.
 > other field above (`amount`, `merchant`, `notes`, `hashtags`, ...) stays fully encrypted, same as
 > before. See `packages/core/src/core/db/store.ts`'s `ExpenseRowStore` doc comment and `docs/PRIVACY.md`
 > for the full reasoning — no other table in this doc gets this treatment.
+>
+> **If this pattern is ever extended to another table** (or a full referential-integrity restructure
+> is undertaken across every table), use the **hybrid shape**, not this duplicate-column approach
+> generalized — see `docs/ARCHITECTURE.md`'s 2026-08-29 "DB-structure review" decision entry for the
+> full comparison and why.
 
 ---
 

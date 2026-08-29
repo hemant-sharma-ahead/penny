@@ -3065,6 +3065,47 @@ sqlite → MMKV → op-sqlite, see `schema.native.ts`'s own history comment).
 full `vitest` suite (`packages/core` + root `workers/` tests) passing identically before and after
 (1224 passed/1 skipped in `@penny/core`, 43 passed at root).
 
+### Decision: DB-structure review — future-restructure shape decided in advance, never store personal data server-side (2026-08-29)
+
+**Rationale:** a performance investigation into Analytics/Subscriptions surfaced a broader question —
+should Penny move toward real DB-level referential integrity (real `FOREIGN KEY` constraints, no
+duplicate plaintext/encrypted columns) instead of Tier 2's current duplicate-column pattern
+(`docs/SCHEMA.md`'s `expenses` "Storage note")? Full analysis lived in a session plan file, not
+committed as its own doc; the two durable conclusions are recorded here so they survive even though
+the bigger restructure itself was **not** undertaken now (a cheap JS consistency-checker for
+referential integrity was recommended instead — not yet built; a real, separate follow-up).
+
+**1. If the restructure is ever done, use the hybrid shape — not true per-field encryption, and not
+Tier 2's duplication, extended everywhere:**
+
+| Approach                                      | Shape                                                                                                                                                                                         | Why not                                                                                                                                                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| True per-field encryption                     | Every sensitive field gets its own `iv`/`ciphertext` pair, as separate columns                                                                                                                | Real IV+auth-tag overhead (~28 bytes) **per encrypted field, per row** — multiplies storage cost for no benefit over the alternative below                                                             |
+| Tier 2's duplication, extended to every table | Real plaintext columns alongside an unchanged, still-full encrypted blob                                                                                                                      | A field lives in two places at once — the exact "why 2 columns?" question Tier 2 already had to answer for `expenses` specifically; fine for one table, not a pattern to generalize                    |
+| **Hybrid (recommended, if ever done)**        | One small `ciphertext` blob holding _only_ the still-sensitive fields (amount, description, notes, free text) + separate real plaintext columns for everything structural (ids, dates, enums) | One encrypt/decrypt op per row like today, zero duplication (a field lives in exactly one place), and real plaintext id columns make genuine SQL `FOREIGN KEY` constraints possible for the first time |
+
+**2. Never store personal transaction data in Cloudflare — encrypted or not — reaffirming
+`docs/BACKEND_STRATEGY.md`'s settled Model B decision (2026-06-27), not a new question.** Raised again
+in this session as a hypothetical ("what if we stored a heavy user's full history in D1"); walked
+through concretely rather than dismissed on principle alone:
+
+- **Storage:** ~300 MB estimated for one 1M-row user's `expenses` table alone → **~16 such users**
+  before D1's entire 5 GB free tier is gone.
+- **Reads:** a single All-Time Analytics view for one such user is ~1M row-reads — **20% of the
+  entire free tier's daily 5M-read budget, in one screen tap, from one user.**
+- **Performance:** would make the app _slower_, not faster, for Penny's actual access pattern
+  (single-user, single-device, local SQLite reads are sub-millisecond; a Cloudflare round-trip is
+  100s of ms and fails entirely offline — a real regression for the BRD's India/patchy-connectivity
+  target market).
+- **Privacy:** even encrypted, reverses "server holds ciphertext or nothing" into "server holds every
+  user's full history" — a single breach exposes everyone at once, a fundamentally different risk
+  class than one compromised phone; at "unencrypted" (as the hypothetical also considered), it ends
+  the "local-first, zero backend" claim entirely.
+
+No code or docs changed to reverse Model B — this is a confirmation, filed here (not only in
+`docs/BACKEND_STRATEGY.md`) because the concrete numbers above are new and worth keeping alongside
+the rest of this session's DB-structure findings.
+
 ---
 
 ## Dependency graph (simplified)
