@@ -13,6 +13,8 @@ import { buildMarketSnapshot, getMarketSnapshot } from './market';
 import { fetchNewsFeed, isKnownFeed } from './news';
 import { EPF_RATE_TABLE } from './epfRates';
 import { PPF_RATE_TABLE } from './ppfRates';
+import { EPF_BASIC_TO_GROSS_TABLE } from './epfBasicToGrossRates';
+import { EPF_INCOME_TAX_TABLE } from './epfIncomeTaxRates';
 import { SMS_PATTERN_BUNDLE } from './smsPatterns';
 import {
   getVehicle,
@@ -51,6 +53,14 @@ export default {
 
     // PPF interest rate table — same shape/rationale as /epf-rates above.
     if (url.pathname === '/ppf-rates') return json(PPF_RATE_TABLE);
+
+    // EPF Basic-to-Gross ratio table — same shape/rationale as /epf-rates above (a convention, not
+    // an officially declared rate — see epfBasicToGrossRates.ts's own doc comment).
+    if (url.pathname === '/epf-basic-to-gross-rates') return json(EPF_BASIC_TO_GROSS_TABLE);
+
+    // Indian income-tax slab table — same shape/rationale as /epf-rates above; see
+    // epfIncomeTaxRates.ts's own doc comment for scope/simplifications.
+    if (url.pathname === '/epf-income-tax-rates') return json(EPF_INCOME_TAX_TABLE);
 
     // SMS transaction-parsing templates — same shape/rationale as /epf-rates above; only pattern
     // templates are served here, never any user SMS content (see smsPatterns.ts's own doc comment).

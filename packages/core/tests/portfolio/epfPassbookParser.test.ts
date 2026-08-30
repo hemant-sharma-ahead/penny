@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseEpfPassbookPdf, classifyRow, EpfPassbookParseError } from '@/core/portfolio/epfPassbookParser';
+import {
+  parseEpfPassbookPdf,
+  classifyRow,
+  reflowWrappedRows,
+  EpfPassbookParseError
+} from '@/core/portfolio/epfPassbookParser';
 
 // Synthetic fixture (fake data throughout — no real UAN/member ID/name) built to mirror the exact
 // structural quirks of a REAL EPFO passbook PDF, verified during this feature's design/feasibility
@@ -131,5 +136,54 @@ describe('classifyRow', () => {
 
   it('defaults to contribution for an unrecognized CR row', () => {
     expect(classifyRow('CR', 'Some unrecognized credit particulars')).toBe('contribution');
+  });
+});
+
+// Real bug this covers (2026-08-30, found against a real multi-employer transfer): pdf.js's text
+// extraction can split one transaction row across several physical lines when its particulars text is
+// long — a real "TRANSFER IN" row's own old-Member-Id reference routinely does this. `ROW_PATTERN` only
+// ever matches a row complete on ONE line, so such a row was previously silently invisible to the
+// parser entirely. See `reflowWrappedRows`'s own doc comment for the full real-sample writeup.
+describe('reflowWrappedRows', () => {
+  it('leaves already-complete single-line rows untouched', () => {
+    const text = [
+      'Apr-2020 15-05-2020 CR Cont. for Due-Month 052020 20,000 15,000 2,400 734 1,250',
+      'some other line'
+    ].join('\n');
+    expect(reflowWrappedRows(text)).toBe(text);
+  });
+
+  it('merges a date+CR/DR-only line with its wrapped particulars + numbers onto one line', () => {
+    const text = [
+      'Aug-2019 06-09-2019 CR',
+      'TRANSFER IN - Old Member Id', // pii-ignore: fabricated
+      'ABCD1234567890', // pii-ignore: fabricated
+      '0 0 44444 44444 0'
+    ].join('\n');
+    const reflowed = reflowWrappedRows(text);
+    expect(reflowed.split('\n')).toHaveLength(1);
+    expect(reflowed).toBe('Aug-2019 06-09-2019 CR TRANSFER IN - Old Member Id ABCD1234567890 0 0 44444 44444 0'); // pii-ignore: fabricated
+  });
+
+  it('stops absorbing at the next real row rather than swallowing it into a guessed match', () => {
+    const text = [
+      'Aug-2019 06-09-2019 CR', // wrap never actually completes — malformed/truncated real sample
+      'TRANSFER IN - something',
+      'Sep-2019 07-10-2019 CR Cont. for Due-Month 082019 20,000 15,000 2,400 734 1,250'
+    ].join('\n');
+    const reflowed = reflowWrappedRows(text);
+    // The malformed first row is left as its best-effort merge (still won't match ROW_PATTERN, and
+    // parseRows already silently skips anything that doesn't — see its own "structurally malformed"
+    // comment) — the key behavior under test is that the SEPARATE, genuinely complete Sep row is
+    // never absorbed into it.
+    expect(reflowed).toContain('Sep-2019 07-10-2019 CR Cont. for Due-Month 082019 20,000 15,000 2,400 734 1,250');
+  });
+
+  it('gives up after a hard cap rather than absorbing indefinitely on a truly malformed PDF', () => {
+    const junkLines = Array.from({ length: 20 }, (_, i) => `junk line ${i}`);
+    const text = ['Aug-2019 06-09-2019 CR', ...junkLines].join('\n');
+    const reflowed = reflowWrappedRows(text);
+    // Absorbed at most MAX_WRAPPED_CONTINUATION_LINES (10) junk lines, not all 20.
+    expect(reflowed.split('\n')).toHaveLength(1 + (junkLines.length - 10));
   });
 });

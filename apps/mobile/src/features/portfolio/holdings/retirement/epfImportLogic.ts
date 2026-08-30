@@ -33,6 +33,7 @@ import { parseEpfExcelExport, EpfExcelParseError } from '@/core/portfolio/epfExc
 import {
   reconcileEpfContributionRows,
   reconcileEpfBalanceEvent,
+  reconcileEpfBalanceEventAtDate,
   type EpfReconciliationItem
 } from '@/core/portfolio/epfReconciliation';
 import { fyLabel, dateToFyStartYear } from './epfInterestOnDemand';
@@ -205,8 +206,15 @@ export async function pickAndParseEpfFiles(): Promise<EpfImportFile[] | null> {
 
 // ─── Commit logic (pure, no I/O) ────────────────────────────────────────────
 
+/** 2026-08-30 fix — was `item.wagesMonth ?? item.type` alone, which silently collapsed multiple
+ *  non-contribution items of the SAME type in one unit (e.g. two genuinely separate `transfer_in`
+ *  events in one FY — see `reconcileEpfBalanceEventAtDate`'s own doc comment) onto the identical key,
+ *  making them indistinguishable in the review screen's `checkedKeys`/`conflictChoices` tracking (one
+ *  checkbox toggle would silently affect both). Appending the item's own date makes every item's key
+ *  unique in practice — two genuinely distinct events landing on the exact same calendar day is the one
+ *  case this can't distinguish, an acceptable, very rare edge case for real passbook data. */
 export function itemKey(item: EpfReconciliationItem): string {
-  return item.wagesMonth ?? item.type;
+  return item.wagesMonth ?? `${item.type}-${item.date}`;
 }
 
 function findEmployerIndex(employers: EpfEmployer[], memberId: string | undefined, companyName: string): number {
@@ -504,11 +512,34 @@ function mergeCheckpoints(emp: EpfEmployer, unit: EpfImportEmployerUnit): EpfEmp
   return { ...emp, balanceCheckpoints: cps };
 }
 
+/** Auto-attributes an IMPORTED `transfer_in` row back to whichever OLD employer it actually came
+ *  from, straight from the passbook's own real data — no guessing. A transfer-in row's own
+ *  particulars always carry the source's real "Old Member Id" (e.g. "TRANSFER IN - Old Member Id
+ *  TNMAS0031309..."), which is the EXACT SAME value already stored as that old employer's own
+ *  `memberId` (from when ITS passbook was first imported). Matching the imported row's particulars
+ *  text against every known employer's `memberId` is therefore a real, deterministic identification,
+ *  not a heuristic.
+ *
+ *  Real bug this fixes (2026-08-30): before this existed, `transferredFromEmployerId` was ONLY ever
+ *  set by the manual "It was transferred" confirm flow (`useEpfPendingTransfer`) — a transfer-in row
+ *  that came from a genuine PDF import (exactly the case this feature exists to handle) never got it,
+ *  so `epfPendingTransferSuccessor` kept treating the source employer as still-pending forever, even
+ *  once its real transfer had already been correctly imported and was sitting right there in the
+ *  ledger. */
+function resolveTransferSourceEmployerId(
+  sourceParticulars: string,
+  employers: EpfEmployer[],
+  excludeEmployerId: string | undefined
+): string | undefined {
+  return employers.find((e) => e.id !== excludeEmployerId && e.memberId && sourceParticulars.includes(e.memberId))?.id;
+}
+
 function buildImportedTxn(
   item: EpfReconciliationItem,
   row: ParsedEpfPassbookRow | undefined,
   batchId: string,
-  employerId: string | undefined
+  employerId: string | undefined,
+  employers: EpfEmployer[]
 ): EpfTransaction {
   const base: EpfTransaction = {
     id: crypto.randomUUID(),
@@ -523,6 +554,10 @@ function buildImportedTxn(
   // per-employer ledger view needs EVERY transaction type attributed to its real employer, not just
   // contributions — `reconcileUnit` already knows exactly which employer's unit produced this row.
   if (employerId) base.employerId = employerId;
+  if (item.type === 'transfer_in') {
+    const sourceId = resolveTransferSourceEmployerId(item.sourceParticulars, employers, employerId);
+    if (sourceId) base.transferredFromEmployerId = sourceId;
+  }
   if (item.type === 'contribution') {
     base.employeeAmount = item.imported.employeeAmount;
     base.employerAmount = item.imported.employerAmount;
@@ -554,13 +589,20 @@ function mergeImportedIntoExisting(
   item: EpfReconciliationItem,
   row: ParsedEpfPassbookRow | undefined,
   batchId: string,
-  employerId: string | undefined
+  employerId: string | undefined,
+  employers: EpfEmployer[]
 ): EpfTransaction {
   const updated: EpfTransaction = { ...existing, sourceRef: batchId, sourceParticulars: item.sourceParticulars };
   // Backfill employerId onto a legacy match/conflict that predates this field (any type now, not
   // just contribution — see `buildImportedTxn`'s own 2026-08-11 doc comment) — same idea as
   // `backfillEmployerIds` for the employer record itself, never overwrites an already-set value.
   if (!updated.employerId && employerId) updated.employerId = employerId;
+  // Same auto-attribution as `buildImportedTxn` — backfills a legacy/already-imported transfer_in
+  // that predates this fix, never overwrites an already-set value.
+  if (item.type === 'transfer_in' && !updated.transferredFromEmployerId) {
+    const sourceId = resolveTransferSourceEmployerId(item.sourceParticulars, employers, employerId);
+    if (sourceId) updated.transferredFromEmployerId = sourceId;
+  }
   if (item.type === 'contribution') {
     updated.employeeAmount = item.imported.employeeAmount;
     updated.employerAmount = item.imported.employerAmount;
@@ -586,10 +628,13 @@ function mergeImportedIntoExisting(
  *  fabricated `wagesMonth`, never recognized as the one-time transfer it is. Rows are now split by
  *  their parser-classified `rowType` (`epfPassbookParser.ts`'s `classifyRow`) first: real
  *  contribution rows go through the existing wagesMonth-keyed reconciliation; transfer_in/withdrawal
- *  rows are grouped by type (summed if a passbook somehow has more than one of the same type in one
- *  FY — mirrors `epfExcelImport.ts`'s own same-type-same-FY aggregation) and reconciled via
- *  `reconcileEpfBalanceEvent`, using the row's own real date/particulars rather than the
- *  FY-end-date/"Int. Updated" label that function's original interest-only design defaults to.
+ *  rows are each reconciled INDIVIDUALLY at their own exact real date (`reconcileEpfBalanceEventAtDate`
+ *  — see that function's own doc comment for why this replaced an earlier same-type/same-FY
+ *  aggregation: a real passbook can and does contain several genuinely distinct transfer_in events in
+ *  one FY — e.g. the actual principal transfer, followed months later by a separate "TRANSFER IN -
+ *  INTEREST AMOUNT ONLY" catch-up credit — which the old aggregate approach silently collapsed into one
+ *  combined item dated to whichever event happened to be latest, discarding the real earlier date the
+ *  principal actually moved on).
  *
  *  A second real bug found via real-device testing: a mid-month EMPLOYER SWITCH (e.g. leaving
  *  Company A partway through August, joining Company B the same month) means both employers can
@@ -645,42 +690,15 @@ export function reconcileUnit(unit: EpfImportUnit, holding: Holding): EpfReconci
 
   const contribItems = reconcileEpfContributionRows(contributionRows, employerScopedTxns);
 
-  const nonContribByType = new Map<
-    'transfer_in' | 'withdrawal',
-    { employeeAmount: number; employerAmount: number; pensionAmount: number; date: number; particulars: string[] }
-  >();
-  for (const row of nonContributionRows) {
-    const type = row.rowType as 'transfer_in' | 'withdrawal';
-    const group = nonContribByType.get(type) ?? {
-      employeeAmount: 0,
-      employerAmount: 0,
-      pensionAmount: 0,
-      date: row.date,
-      particulars: []
-    };
-    group.employeeAmount += row.employeeAmount;
-    group.employerAmount += row.employerAmount;
-    group.pensionAmount += row.pensionAmount;
-    group.date = Math.max(group.date, row.date); // most recent, if somehow more than one
-    group.particulars.push(row.particulars);
-    nonContribByType.set(type, group);
-  }
-  const nonContribItems: EpfReconciliationItem[] = [];
-  for (const [type, group] of nonContribByType) {
-    const item = reconcileEpfBalanceEvent(
-      type,
-      unit.fyStartYear,
-      {
-        employeeAmount: group.employeeAmount,
-        employerAmount: group.employerAmount,
-        pensionAmount: group.pensionAmount
-      },
-      employerScopedNonContribTxns,
-      group.date,
-      group.particulars.join('; ')
-    );
-    if (item) nonContribItems.push(item);
-  }
+  const nonContribItems: EpfReconciliationItem[] = nonContributionRows.map((row) =>
+    reconcileEpfBalanceEventAtDate(
+      row.rowType as 'transfer_in' | 'withdrawal',
+      { employeeAmount: row.employeeAmount, employerAmount: row.employerAmount, pensionAmount: row.pensionAmount },
+      row.date,
+      row.particulars,
+      employerScopedNonContribTxns
+    )
+  );
 
   const interestItem = unit.creditedInterest
     ? reconcileEpfBalanceEvent('interest', unit.fyStartYear, unit.creditedInterest, employerScopedNonContribTxns)
@@ -734,13 +752,13 @@ export function commitUnit(
     const row = rowsByMonth?.get(item.wagesMonth ?? '');
     if (item.kind === 'new') {
       if (!selection.checkedKeys.has(key)) continue;
-      transactions = [...transactions, buildImportedTxn(item, row, batchId, unitEmployerId)];
+      transactions = [...transactions, buildImportedTxn(item, row, batchId, unitEmployerId, employers)];
     } else if (item.kind === 'conflict') {
       const choice = selection.conflictChoices.get(key) ?? 'imported';
       if (choice === 'imported' && item.existing) {
         const existingId = item.existing.id;
         transactions = transactions.map((t) =>
-          t.id === existingId ? mergeImportedIntoExisting(t, item, row, batchId, unitEmployerId) : t
+          t.id === existingId ? mergeImportedIntoExisting(t, item, row, batchId, unitEmployerId, employers) : t
         );
       }
     }

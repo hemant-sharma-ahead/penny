@@ -69,11 +69,18 @@ export function Modal({
             style={{ maxHeight: '100%', overflow: 'hidden', boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.2)' }}
           >
             {title !== undefined && (
-              <View className="flex-row items-center justify-between px-5 pt-5">
-                <Text className="text-base font-semibold text-primary">{title}</Text>
+              <View className="flex-row items-center justify-between gap-2 px-5 pt-5">
+                {/* `flex-1` + `numberOfLines` (found 2026-08-30) — without a flex basis, a long title
+                    (e.g. an employer name appended to a sheet title) has no bound and pushes the close
+                    button along with it instead of wrapping/truncating, squeezing it toward — or
+                    past — the card's own right edge. Truncating here is safe for every existing
+                    caller: nothing relies on a multi-line title. */}
+                <Text className="text-base font-semibold text-primary flex-1" numberOfLines={1}>
+                  {title}
+                </Text>
                 <Pressable
                   onPress={onClose}
-                  className="w-8 h-8 items-center justify-center rounded-lg"
+                  className="w-8 h-8 items-center justify-center rounded-lg shrink-0"
                   accessibilityLabel="Close"
                 >
                   <Icon name="ti-x" size={18} color={theme.textTertiary} />

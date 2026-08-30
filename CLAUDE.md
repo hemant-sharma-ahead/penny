@@ -199,6 +199,19 @@ apps/mobile/index.ts (N modules)` line, not `UP-TO-DATE` — see `CONTRIBUTING.m
   mutation path against this is its own separate, not-yet-started task
   (`docs/plans/real-device-testing-pass.md`'s Phase 7) — don't treat fixing one instance as having
   covered the rest.
+- **A modal/popup that takes a snapshot object (not an id) as a prop, and can itself open a further
+  stacked child action capable of mutating that same object's underlying parent data, will keep
+  rendering the stale snapshot it was opened with even after the child's save updates the parent
+  correctly.** A different staleness class from the refresh-bus rule above (that one is about a hook
+  never reloading across screens; this one is about a component holding onto an object reference
+  instead of re-deriving it) — found 2026-08-30 in `EpfEmployerDetailModal.tsx` (a real "Save ratio
+  doesn't work" report: a save from its own stacked pending-transfer confirm sheet updated `holding`
+  correctly, but the modal kept showing the object it was opened with). Fixed by taking an id
+  (`employerId`) instead of the object, and re-resolving the live value from the parent's own data
+  (`holding.assetMeta.epfEmployers.find(...)`) fresh on every render — rendering nothing if the id no
+  longer resolves, rather than crashing. Any modal/popup that can trigger a save from a child it opens
+  while still open must re-resolve its own subject from the parent's live data by id every render,
+  never hold onto the object reference it was constructed with.
 
 ## Working style
 

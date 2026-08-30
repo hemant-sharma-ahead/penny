@@ -12,12 +12,13 @@ import {
   AmountInput,
   Banner,
   ProgressBar,
-  StatBox
+  StatBox,
+  ConfirmDialog
 } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint, ink } from '~/lib/color';
-import { epochToDateInput } from '@/lib/formatters';
+import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsLifecycleFund } from '@/core/nps';
 import {
@@ -46,7 +47,8 @@ import {
   estimateGrossAndCtc,
   EPF_DEFAULT_BASIC_TO_GROSS_PCT
 } from '@/core/portfolio/epfCalculations';
-import { resolveAnyTxnOwner, epfHasPendingTransfer } from './epfEmployerScoping';
+import { resolveAnyTxnOwner, epfPendingTransferSuccessor, epfResolvedTransfer } from './epfEmployerScoping';
+import { EpfPendingTransferModal } from './EpfPendingTransferModal';
 import type { EpfMonthEntry } from '@/core/portfolio/epfCalculations';
 import { getEpfRateTable, type EpfRateTable } from '@/core/portfolio/epfInterestRates';
 import { getInterestRateForFy, type EpfInterestMonthTrace } from '@/core/portfolio/epfInterestCalculator';
@@ -1107,6 +1109,12 @@ export function EpfAllTransactionsSheet({
   // (no rate/month-by-month trace, just the employee/employer split), see `EPF_TX_LABELS` for the
   // shared per-type label/color already used for the row itself.
   const [selectedOtherTxn, setSelectedOtherTxn] = useState<EpfTransaction | null>(null);
+  // Delete for a transfer_in/withdrawal/advance row (2026-08-30) — real gap this fixes: there was
+  // previously no way to remove one at all, which became a real blocker once "It was transferred"
+  // (above) could create one that needs correcting — e.g. picking the wrong destination, or a later
+  // re-import bringing in the REAL transfer-in row that should replace a manually-recorded guess.
+  const [confirmDeleteOtherTxn, setConfirmDeleteOtherTxn] = useState(false);
+  const [deletingOtherTxn, setDeletingOtherTxn] = useState(false);
   const [correctingInterest, setCorrectingInterest] = useState(false);
   const [keepingRecorded, setKeepingRecorded] = useState(false);
   const [addingHike, setAddingHike] = useState(false);
@@ -1175,12 +1183,44 @@ export function EpfAllTransactionsSheet({
     [employerFilter, allEmployers, allTransactions]
   );
 
-  // "Pending transfer" (2026-08-xx) — see `epfHasPendingTransfer`'s own doc comment for the heuristic
-  // and its limits. Tentative wording only; never asserted as a fact Penny can't actually confirm.
-  const pendingTransfer = useMemo(
-    () => (employerFilter ? epfHasPendingTransfer(employerFilter, allEmployers, allTransactions) : false),
+  // "Pending transfer" (2026-08-xx, made actionable 2026-08-30) — see
+  // `epfPendingTransferSuccessor`'s own doc comment for the heuristic and its limits. Tentative
+  // wording only; never asserted as a fact Penny can't actually confirm — the banner itself always
+  // asks rather than assumes.
+  // 2026-08-30 — the full resolution flow moved OUT to `EpfPendingTransferModal` (shared with the card
+  // tile's own identical pill via `useEpfPendingTransfer`); this sheet only needs the READ-ONLY pieces
+  // to show its own pill/confirmation line and to open that modal, not the mutation handlers.
+  const pendingTransferSuccessor = useMemo(
+    () => (employerFilter ? epfPendingTransferSuccessor(employerFilter, allEmployers, allTransactions) : null),
     [employerFilter, allEmployers, allTransactions]
   );
+  const resolvedTransfer = useMemo(
+    () => (employerFilter ? epfResolvedTransfer(employerFilter, allEmployers, allTransactions) : null),
+    [employerFilter, allEmployers, allTransactions]
+  );
+  const [showPendingTransferModal, setShowPendingTransferModal] = useState(false);
+
+  async function handleDeleteOtherTxn() {
+    if (!selectedOtherTxn || deletingOtherTxn) return;
+    setDeletingOtherTxn(true);
+    try {
+      const updated: Holding = {
+        ...holding,
+        assetMeta: {
+          ...holding.assetMeta,
+          epfTransactions: allTransactions.filter((t) => t.id !== selectedOtherTxn.id)
+        },
+        updatedAt: Date.now()
+      };
+      await onSave(updated);
+      setConfirmDeleteOtherTxn(false);
+      setSelectedOtherTxn(null);
+    } catch {
+      // Leave the confirm dialog open so the user can retry.
+    } finally {
+      setDeletingOtherTxn(false);
+    }
+  }
 
   async function handleSaveRatio() {
     if (!employerFilter || savingRatio) return;
@@ -1211,6 +1251,7 @@ export function EpfAllTransactionsSheet({
     otherTxns: EpfTransaction[];
     totalEmployee: number;
     totalEmployerEpf: number;
+    totalEps: number;
   };
 
   const fyGroups = useMemo(() => {
@@ -1225,7 +1266,8 @@ export function EpfAllTransactionsSheet({
             months: [],
             otherTxns: [],
             totalEmployee: 0,
-            totalEmployerEpf: 0
+            totalEmployerEpf: 0,
+            totalEps: 0
           });
         }
         const g = groups.get(m.fyLabel);
@@ -1233,6 +1275,7 @@ export function EpfAllTransactionsSheet({
         g.months.push(m);
         g.totalEmployee += m.empAmount;
         g.totalEmployerEpf += m.eplrEpfAmount;
+        g.totalEps += m.epsAmount;
       }
     }
 
@@ -1251,7 +1294,8 @@ export function EpfAllTransactionsSheet({
           months: [],
           otherTxns: [],
           totalEmployee: 0,
-          totalEmployerEpf: 0
+          totalEmployerEpf: 0,
+          totalEps: 0
         });
       }
       groups.get(fyLabel)?.otherTxns.push(tx);
@@ -1509,11 +1553,49 @@ export function EpfAllTransactionsSheet({
           </Pressable>
         )}
 
-        {pendingTransfer && employerFilter && (
-          <Banner variant="info" icon="ti-transfer">
-            Your PF balance from {employerFilter.companyName} may not have been transferred to your next employer yet —
-            Penny hasn't seen a transfer-in credit for it.
-          </Banner>
+        {/* 2026-08-30 — the full resolution flow (banner, 3 actions, "why transfer" guidance, confirm
+            step) moved OUT to its own dedicated `EpfPendingTransferModal`, shared with the card tile's
+            own identical pill (per direct feedback: this ledger sheet and the company-details popup
+            were each growing their own copy of the same fairly involved flow). Just a tappable pill
+            here, or a small resolved-confirmation line once answered. */}
+        {employerFilter && pendingTransferSuccessor && (
+          <Pressable
+            onPress={() => setShowPendingTransferModal(true)}
+            className="flex-row items-center gap-1.5 self-start px-2 py-1 rounded-full"
+            style={{ backgroundColor: tint(theme.info, 15) }}
+          >
+            <Icon name="ti-transfer" size={11} color={theme.info} />
+            <Text className="text-[10px] font-bold" style={{ color: theme.info }}>
+              Pending transfer
+            </Text>
+            <Icon name="ti-chevron-right" size={10} color={theme.info} />
+          </Pressable>
+        )}
+
+        {resolvedTransfer && (
+          <View
+            className="rounded-xl border p-3 flex-row items-start gap-2"
+            style={{ backgroundColor: tint(theme.success, 10), borderColor: tint(theme.success, 30) }}
+          >
+            <Icon name="ti-circle-check" size={16} color={theme.success} />
+            <Text className="text-xs leading-relaxed flex-1" style={{ color: ink(theme.success, theme.textPrimary) }}>
+              Transferred to <Text style={{ fontWeight: '700' }}>{resolvedTransfer.destination.companyName}</Text> on{' '}
+              {new Date(resolvedTransfer.transaction.date).toLocaleDateString('en-IN', {
+                month: 'short',
+                year: 'numeric'
+              })}
+              {!masked && ` — ${formatCurrency(resolvedTransfer.transaction.amount ?? 0)}`}.
+            </Text>
+          </View>
+        )}
+
+        {showPendingTransferModal && employerFilter && (
+          <EpfPendingTransferModal
+            holding={holding}
+            employer={employerFilter}
+            onSave={onSave}
+            onClose={() => setShowPendingTransferModal(false)}
+          />
         )}
 
         {joiningContradiction && (
@@ -1544,7 +1626,8 @@ export function EpfAllTransactionsSheet({
               {filter === 'all' && group.months.length > 0 && (
                 <Text className="text-[10px] text-tertiary tabular-nums">
                   {group.months.length} months
-                  {!masked && ` · ₹${(group.totalEmployee + group.totalEmployerEpf).toLocaleString('en-IN')}`}
+                  {!masked &&
+                    ` · ₹${(group.totalEmployee + group.totalEmployerEpf + group.totalEps).toLocaleString('en-IN')}`}
                 </Text>
               )}
             </View>
@@ -1587,6 +1670,19 @@ export function EpfAllTransactionsSheet({
                         <Text className="text-xs font-semibold" style={{ color: EPF_TX_COLORS[tx.type] }}>
                           {EPF_TX_LABELS[tx.type]}
                         </Text>
+                        {/* 2026-08-30 — a real passbook can label a transfer-in credit "INTEREST AMOUNT
+                            ONLY" (a separate interest catch-up, not the principal itself moving) —
+                            surfaced here so it's never mistaken for the main transfer at a glance,
+                            without needing its own transaction type (see `reconcileEpfBalanceEventAtDate`'s
+                            doc comment for why the underlying type stays `transfer_in`). */}
+                        {tx.type === 'transfer_in' && /interest/i.test(tx.sourceParticulars ?? '') && (
+                          <Text
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: tint(theme.textTertiary, 15), color: theme.textTertiary }}
+                          >
+                            interest only
+                          </Text>
+                        )}
                         {ratePct !== null && (
                           <Text
                             className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
@@ -1655,10 +1751,17 @@ export function EpfAllTransactionsSheet({
                     {!masked ? (
                       <View className="items-end">
                         <Text className="text-xs font-semibold text-primary tabular-nums">
-                          ₹{(entry.empAmount + entry.eplrEpfAmount).toLocaleString('en-IN')}
+                          ₹{(entry.empAmount + entry.eplrEpfAmount + entry.epsAmount).toLocaleString('en-IN')}
                         </Text>
+                        {/* 2026-08-30 fix — real reported gap: this row's own total silently excluded
+                            EPS (the pension component), showing only the employee+employer-EPF sum
+                            even though EPS is a genuine part of what was actually contributed that
+                            month. Now shows all three, still broken down individually so the EPS
+                            portion (not withdrawable, per the card's own "EPS goes to pension fund"
+                            caption) stays visible, not hidden inside a single opaque total. */}
                         <Text className="text-[9px] text-tertiary tabular-nums">
-                          ₹{entry.empAmount.toLocaleString('en-IN')} + ₹{entry.eplrEpfAmount.toLocaleString('en-IN')}
+                          ₹{entry.empAmount.toLocaleString('en-IN')} + ₹{entry.eplrEpfAmount.toLocaleString('en-IN')} +
+                          ₹{entry.epsAmount.toLocaleString('en-IN')}
                         </Text>
                       </View>
                     ) : (
@@ -1936,9 +2039,22 @@ export function EpfAllTransactionsSheet({
                   source statement to pick up the real split.
                 </Text>
               )}
+              <Button variant="danger" size="sm" fullWidth onPress={() => setConfirmDeleteOtherTxn(true)}>
+                Delete
+              </Button>
             </Modal>
           );
         })()}
+
+      <ConfirmDialog
+        isOpen={confirmDeleteOtherTxn}
+        onClose={() => setConfirmDeleteOtherTxn(false)}
+        onConfirm={handleDeleteOtherTxn}
+        title="Delete this entry?"
+        message={`This removes the ${selectedOtherTxn ? EPF_TX_LABELS[selectedOtherTxn.type] : 'entry'} from your EPF ledger — it'll no longer count toward your total.`}
+        confirmLabel="Delete"
+        loading={deletingOtherTxn}
+      />
 
       {/* Estimated Gross/CTC formula popup (Fix 4) — always shows the exact calculation and lets the
           user override the Basic-to-Gross ratio if they know their real one; never asserts either
@@ -2284,16 +2400,24 @@ export function EpfSalaryHikeSheet({
   holding,
   empId,
   onSave,
-  onClose
+  onClose,
+  initialMonth,
+  initialBasic
 }: {
   holding: Holding;
   empId: string;
   onSave: (updated: Holding) => Promise<void>;
   onClose: () => void;
+  /** Prefills from the "hike detected" nudge (2026-08-30, `findUnrecordedEpfHikes`) — a suggestion the
+   *  user still reviews/can edit before saving, same "always reviewable, never silently trusted"
+   *  convention as every other prefilled suggestion in this feature. `undefined` for the normal manual
+   *  "+ Hike" entrypoint, which keeps today's blank defaults. */
+  initialMonth?: string;
+  initialBasic?: string;
 }) {
   const emp = (holding.assetMeta?.epfEmployers ?? []).find((e) => e.id === empId);
-  const [hikeMonth, setHikeMonth] = useState('');
-  const [hikeBasic, setHikeBasic] = useState('');
+  const [hikeMonth, setHikeMonth] = useState(initialMonth ?? '');
+  const [hikeBasic, setHikeBasic] = useState(initialBasic ?? '');
   const [saving, setSaving] = useState(false);
 
   const canSave =
@@ -2334,6 +2458,12 @@ export function EpfSalaryHikeSheet({
   return (
     <Modal onClose={onClose} title="Add Salary Hike">
       <Text className="text-xs text-tertiary -mt-2">{emp.companyName}</Text>
+
+      {initialMonth != null && (
+        <Text className="text-[10px] -mt-1" style={{ color: '#378add' }}>
+          Detected from your imported passbook — review before saving, edit if needed
+        </Text>
+      )}
 
       <TextInput
         label="Effective from (YYYY-MM)"

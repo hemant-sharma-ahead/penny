@@ -136,6 +136,20 @@ export interface EpfEmployer {
    *  50%) — always shown as a labelled estimate with its formula visible, never asserted as fact,
    *  since Penny has no way to know the real Gross/CTC split from EPF data alone. */
   basicToGrossPct?: number;
+  /** Set `true` only once the user has explicitly answered "It was withdrawn" (not transferred) on
+   *  the "pending transfer" banner (2026-08-30 — see `epfEmployerScoping.ts`'s
+   *  `epfPendingTransferSuccessor`) — stops that banner from re-appearing for THIS employer once the
+   *  user has confirmed the closing balance genuinely left EPF (a real settlement/withdrawal, already
+   *  correctly recorded) rather than moving into a successor employer's own account. Never set by an
+   *  import — only by this explicit user answer, same "computed on demand, dismissal tracked
+   *  separately" pattern as `EpfTransaction.interestMismatchAcknowledged`. */
+  pendingTransferDismissed?: boolean;
+  /** "YYYY-MM" wage months the user explicitly dismissed ("Not now") on the "hike detected" nudge
+   *  banner (2026-08-30 — see `epfCalculations.ts`'s `findUnrecordedEpfHikes`) — stops that specific
+   *  suggestion from re-appearing every time the card re-renders. Adding the hike for real (the
+   *  banner's other action) also naturally stops it recurring, since the detector re-checks against
+   *  the updated `hikeTimeline` — this field only covers the "I don't want to add it" path. */
+  dismissedHikeMonths?: string[];
 }
 
 export type EpfTransactionType = 'contribution' | 'interest' | 'transfer_in' | 'withdrawal' | 'advance';
@@ -183,6 +197,15 @@ export interface EpfTransaction {
    *  as a "needs review" flag once acknowledged — same "computed on demand, dismissal tracked
    *  separately" pattern already used elsewhere in this app (e.g. `Account.dismissedVerificationFindings`). */
   interestMismatchAcknowledged?: boolean;
+  /** Set only on a `transfer_in` transaction created via the "pending transfer" banner's own "It was
+   *  transferred" confirm step (2026-08-30 — `RetirementSheets.tsx`) — which OLD (now-closed) employer
+   *  this credit resolves. Exists so `epfEmployerScoping.ts`'s `epfPendingTransferSuccessor` can tell
+   *  EXACTLY which old employer's gap a given transfer-in already closes, rather than assuming it must
+   *  always be the chronologically-next employer — a real reported gap: EPFO transfers always target
+   *  whichever Member ID is CURRENTLY active at the time the transfer is filed, which can mean two
+   *  different old, closed employers both correctly transfer into the SAME later employer, skipping
+   *  over an employer that happened to sit chronologically in between. */
+  transferredFromEmployerId?: string;
 }
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────

@@ -40,6 +40,19 @@ export const EPF_RATES_BASE: string | null = PROXY ? `${PROXY}/epf-rates` : null
  *  (`ppfInterestRates.ts`'s `PPF_RATE_TABLE_FALLBACK`) and never blocks on network. */
 export const PPF_RATES_BASE: string | null = PROXY ? `${PROXY}/ppf-rates` : null;
 
+/** EPF Basic-to-Gross ratio table (2026-08-30, EPF hike/CTC estimate — see
+ *  `epfBasicToGrossRates.ts`'s own doc comment for why this exists) — same shape/rationale as
+ *  `EPF_RATES_BASE` above: a small, mostly-static JSON route so a convention change (e.g. the
+ *  Code on Wages 2019's 50%-of-remuneration floor) is a backend redeploy, not an app-store release.
+ *  Null when no backend is configured; the app then falls back to its own baked-in table
+ *  (`epfBasicToGrossRates.ts`'s `EPF_BASIC_TO_GROSS_TABLE_FALLBACK`) and never blocks on network. */
+export const EPF_BASIC_TO_GROSS_RATES_BASE: string | null = PROXY ? `${PROXY}/epf-basic-to-gross-rates` : null;
+
+/** Indian income-tax slab table (2026-08-30, `epfIncomeTaxRates.ts`) — same shape/rationale as
+ *  `EPF_BASIC_TO_GROSS_RATES_BASE` above. Null when no backend is configured; the app then falls back
+ *  to its own baked-in table (`EPF_INCOME_TAX_TABLE_FALLBACK`) and never blocks on network. */
+export const EPF_INCOME_TAX_RATES_BASE: string | null = PROXY ? `${PROXY}/epf-income-tax-rates` : null;
+
 /** SMS transaction-parsing templates (2026-08-15, docs/plans/sms-transaction-tracking.md §5) — same
  *  shape/rationale as `EPF_RATES_BASE` above: a small, mostly-static JSON route so a bank changing
  *  its SMS wording is a backend redeploy, not an app-store release. Null when no backend is

@@ -297,9 +297,69 @@ const ROW_PATTERN = new RegExp(
   'gm'
 );
 
+/** Non-global counterpart of `ROW_PATTERN`, used only to TEST whether a single (possibly already
+ *  merged) line is a complete row yet — a global regex's `lastIndex` state makes `.test()` unsafe to
+ *  call repeatedly on different strings, so this exists purely to avoid that footgun in
+ *  `reflowWrappedRows` below. */
+const ROW_PATTERN_SINGLE = new RegExp(ROW_PATTERN.source);
+
+/** A real, previously-silent bug found 2026-08-30 via a genuine multi-employer EPF transfer: pdf.js's
+ *  text extraction can split ONE transaction table row across several physical text lines when its
+ *  particulars text is long enough — routinely true for a real "TRANSFER IN - Old Member Id ..." row,
+ *  which is far longer than a plain "Cont. for Due-Month ..." row. The date+CR/DR prefix lands on its
+ *  own line with nothing else after it, the particulars text (sometimes an old member ID broken across
+ *  more than one line) wraps across one or more further lines, and the row's own 5 trailing numeric
+ *  columns can end up on a line of their OWN, entirely separate from the particulars text. `ROW_PATTERN`
+ *  only ever matches a row that's complete on ONE line — such a row was previously invisible to the
+ *  parser entirely (never even reaching `classifyRow`), which is exactly how a real transfer-in credit
+ *  could be completely absent from Penny even though it's genuinely present in the passbook's own text.
+ *  Confirmed against a real sample: 4 genuine `transfer_in` rows recovered, all previously silently
+ *  dropped, 0 false merges against every other already-correctly-parsing sample checked.
+ *
+ *  Reassembles the text BEFORE `parseRows` runs: whenever a line matches ONLY the row's own date+CR/DR
+ *  prefix (nothing else on it), greedily absorbs the following lines onto the same line until the
+ *  merged result is a complete, matchable row — stopping the moment it hits a blank line, the start of
+ *  a genuinely new row, or a hard cap (defensive — real samples needed at most a handful of lines),
+ *  rather than guessing how many lines to absorb. A row that was already complete on one line is
+ *  untouched (its own line never matches the "prefix only" trigger), so the common case is unaffected —
+ *  confirmed against every other real sample already parsing correctly before this fix. */
+const WRAPPED_ROW_PREFIX_ONLY = /^[A-Za-z]{3}-\d{4}\s+\d{2}[/-]\d{2}[/-]\d{4}\s+(CR|DR)\s*$/;
+const WRAPPED_ROW_PREFIX = /^[A-Za-z]{3}-\d{4}\s+\d{2}[/-]\d{2}[/-]\d{4}\s+(CR|DR)\b/;
+const MAX_WRAPPED_CONTINUATION_LINES = 10;
+
+/** Exported purely for direct unit testing (packages/core/tests/portfolio/epfPassbookParser.test.ts) —
+ *  operates on already-extracted text, so it's testable with plain strings, no real/synthetic PDF
+ *  needed. Not meant to be called from outside this module otherwise. */
+export function reflowWrappedRows(text: string): string {
+  const lines = text.split('\n');
+  const result: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = (lines[i] ?? '').trim();
+    if (!WRAPPED_ROW_PREFIX_ONLY.test(line)) {
+      result.push(lines[i] ?? '');
+      i++;
+      continue;
+    }
+    let merged = line;
+    let absorbed = 0;
+    while (absorbed < MAX_WRAPPED_CONTINUATION_LINES && !ROW_PATTERN_SINGLE.test(merged)) {
+      const next = (lines[i + 1 + absorbed] ?? '').trim();
+      // A blank line or the start of the NEXT real row means this row's own continuation ran out —
+      // stop rather than swallowing unrelated content into a guessed match.
+      if (next === '' || WRAPPED_ROW_PREFIX.test(next)) break;
+      merged += ` ${next}`;
+      absorbed++;
+    }
+    result.push(merged);
+    i += 1 + absorbed;
+  }
+  return result.join('\n');
+}
+
 function parseRows(text: string): ParsedEpfPassbookRow[] {
   const rows: ParsedEpfPassbookRow[] = [];
-  for (const m of text.matchAll(ROW_PATTERN)) {
+  for (const m of reflowWrappedRows(text).matchAll(ROW_PATTERN)) {
     const [, wageMonthRaw, dateRaw, crDr, particulars, epfWages, epsWages, employee, employer, pension] = m;
     const wagesMonth = parseWageMonth(wageMonthRaw ?? '');
     const date = parseDdMmYyyy(dateRaw ?? '');

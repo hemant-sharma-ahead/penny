@@ -16,25 +16,91 @@ export function resolveAnyTxnOwner(t: EpfTransaction, employers: EpfEmployer[]):
   return epfResolveTxnEmployer(t, employers);
 }
 
-/** Whether a CLOSED employer's PF balance looks like it hasn't been transferred to its successor
- *  yet — a real, recurring gap: EPF transfers can take months, and until one posts, the old
- *  employer's own PF account keeps existing (and earning interest — see `epfComputeAllMonths`'s own
- *  "an employer's balance keeps earning interest until transferred" handling). Heuristic, not
- *  certain: the immediate next employer (by `fromDate`) has no `transfer_in` transaction attributed
- *  to it. `false` for a still-current employer (nothing to transfer FROM yet) or one with no later
- *  employer at all (nothing to check against — e.g. the most recent job change hasn't been followed
- *  by a newer one). Always phrased as tentative in the UI — this can't distinguish "genuinely
- *  pending" from "already transferred via a route Penny has no record of" (e.g. claimed directly
- *  through the EPFO portal, never imported). */
+/** A SUGGESTED destination employer for a CLOSED employer's PF balance that hasn't shown up as a
+ *  transfer-in credit anywhere yet — a real, recurring gap: EPF transfers can take months, and a lot of
+ *  real EPFO passbooks never show an explicit transfer-in credit at all even when the money genuinely
+ *  moved (found via real-device testing against a real multi-employer career: the OLD employer's own
+ *  passbook shows a plain "Final Settlement"/withdrawal row with no "TRANSFER" wording anywhere, and the
+ *  NEW employer's own opening balance checkpoint is a genuine 0 — EPFO's own record simply doesn't
+ *  distinguish "settled to bank" from "settled via transfer" in the text). Left unresolved, this
+ *  silently understates the holding's total corpus by exactly the amount that left the old account —
+ *  see `RetirementSheets.tsx`'s "pending transfer" banner, which offers an explicit choice (record it as
+ *  a transfer-in, picking any employer as the real destination, or confirm it really was withdrawn)
+ *  instead of just noting the gap.
+ *
+ *  2026-08-30 fix — real reported bug: this used to always suggest the chronologically NEXT employer by
+ *  `fromDate`, and considered a gap "resolved" only once THAT specific employer had any `transfer_in` at
+ *  all. Real-world EPFO transfers don't work that way — per EPFO's own transfer rules, a transfer always
+ *  targets whichever Member ID is CURRENTLY ACTIVE at the time the transfer is actually filed, not
+ *  necessarily "whichever job came next" — so two different old, closed employers (e.g. two jobs held
+ *  years apart) can both correctly transfer into the SAME later, still-current employer, filed together,
+ *  skipping right over an employer that happened to sit chronologically in between. The suggestion now
+ *  defaults to the CURRENTLY ACTIVE employer (no `toDate`) when one exists, falling back to the
+ *  chronologically-next employer only when nothing is currently active — but it's still only ever a
+ *  DEFAULT: the confirm step lets the user pick any other employer instead. "Already resolved" is now
+ *  tracked via `EpfTransaction.transferredFromEmployerId` — an exact link back to THIS employer
+ *  specifically, checked across every employer in the holding, not just whichever one happens to be
+ *  suggested this time — so confirming a transfer to a non-default destination correctly stops the
+ *  banner from re-appearing too.
+ *
+ *  `null` for a still-current employer (nothing to transfer FROM yet), one with no other employer at
+ *  all to suggest, one the user has already explicitly answered "it was withdrawn" for
+ *  (`pendingTransferDismissed`), or one that already has a real `transfer_in` recorded anywhere crediting
+ *  it (via `transferredFromEmployerId`). */
+export function epfPendingTransferSuccessor(
+  employer: EpfEmployer,
+  employers: EpfEmployer[],
+  transactions: EpfTransaction[]
+): EpfEmployer | null {
+  if (!employer.toDate || employer.pendingTransferDismissed) return null;
+  // Prefers the explicit `transferredFromEmployerId` link (set by the manual confirm flow, or by a
+  // fresh import — see `epfImportLogic.ts`'s `resolveTransferSourceEmployerId`) but also falls back to
+  // matching a transfer-in row's own `sourceParticulars` text against this employer's real `memberId`
+  // — the exact same real, deterministic identification, just evaluated on demand rather than stamped
+  // at commit time. Needed so an ALREADY-imported transfer-in row (from before that stamping existed)
+  // is recognized too, without requiring the user to re-import anything.
+  const alreadyResolved = transactions.some(
+    (t) =>
+      t.type === 'transfer_in' &&
+      (t.transferredFromEmployerId === employer.id ||
+        (employer.memberId && t.sourceParticulars?.includes(employer.memberId)))
+  );
+  if (alreadyResolved) return null;
+  const currentlyActive = employers.find((e) => e.id !== employer.id && !e.toDate);
+  if (currentlyActive) return currentlyActive;
+  const nextByDate = employers
+    .filter((e) => e.id !== employer.id && e.fromDate >= employer.fromDate)
+    .sort((a, b) => a.fromDate - b.fromDate)[0];
+  return nextByDate ?? null;
+}
+
+/** The real, already-confirmed transfer-in for a closed employer, if the user has already answered
+ *  "It was transferred" for it (or a real import already recorded one — same `memberId` fallback
+ *  matching as `epfPendingTransferSuccessor`, for the identical reason) — powers a small persistent
+ *  confirmation once resolved, so the answer doesn't just silently disappear with no trace once given
+ *  (2026-08-30). */
+export function epfResolvedTransfer(
+  employer: EpfEmployer,
+  employers: EpfEmployer[],
+  transactions: EpfTransaction[]
+): { transaction: EpfTransaction; destination: EpfEmployer } | null {
+  const transaction = transactions.find(
+    (t) =>
+      t.type === 'transfer_in' &&
+      (t.transferredFromEmployerId === employer.id ||
+        (employer.memberId && t.sourceParticulars?.includes(employer.memberId)))
+  );
+  if (!transaction) return null;
+  const destination = resolveAnyTxnOwner(transaction, employers);
+  return destination ? { transaction, destination } : null;
+}
+
+/** Convenience boolean wrapper around `epfPendingTransferSuccessor` for callers that only need to know
+ *  whether a banner should show at all, not which successor it points to. */
 export function epfHasPendingTransfer(
   employer: EpfEmployer,
   employers: EpfEmployer[],
   transactions: EpfTransaction[]
 ): boolean {
-  if (!employer.toDate) return false;
-  const successor = employers
-    .filter((e) => e.id !== employer.id && e.fromDate >= employer.fromDate)
-    .sort((a, b) => a.fromDate - b.fromDate)[0];
-  if (!successor) return false;
-  return !transactions.some((t) => t.type === 'transfer_in' && resolveAnyTxnOwner(t, employers)?.id === successor.id);
+  return epfPendingTransferSuccessor(employer, employers, transactions) !== null;
 }

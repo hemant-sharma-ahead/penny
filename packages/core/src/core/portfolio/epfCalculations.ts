@@ -131,6 +131,80 @@ export function epfMonthsBetween(fromMs: number, toMs: number): number {
   return Math.max(0, (t.getFullYear() - f.getFullYear()) * 12 + t.getMonth() - f.getMonth());
 }
 
+/** "1 year, 3 months, 24 days" style tenure label (2026-08-30 — the Employer Detail popup's own
+ *  "Experience" field) — a real calendar-aware Y/M/D breakdown, not just a rounded month count like
+ *  `epfMonthsBetween` (which stays as-is for its own existing callers, e.g. the card's compact
+ *  "X months" caption). Zero-value components are omitted entirely (e.g. exactly 2 years shows "2
+ *  years", not "2 years, 0 months, 0 days") — always at least one component, even for a same-day
+ *  range ("0 days"). */
+export function epfExperienceLabel(fromMs: number, toMs: number): string {
+  const from = new Date(fromMs);
+  const to = new Date(toMs);
+  let years = to.getFullYear() - from.getFullYear();
+  let months = to.getMonth() - from.getMonth();
+  let days = to.getDate() - from.getDate();
+  if (days < 0) {
+    // Borrow from the PREVIOUS calendar month relative to `to` — its own day count, not `from`'s.
+    const prevMonthDays = new Date(to.getFullYear(), to.getMonth(), 0).getDate();
+    days += prevMonthDays;
+    months -= 1;
+  }
+  if (months < 0) {
+    months += 12;
+    years -= 1;
+  }
+  years = Math.max(0, years);
+  months = Math.max(0, months);
+  days = Math.max(0, days);
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} year${years === 1 ? '' : 's'}`);
+  if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+  if (days > 0 || parts.length === 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+  return parts.join(', ');
+}
+
+export interface EpfEmployerTotals {
+  employeeTotal: number;
+  employerTotal: number;
+  pensionTotal: number;
+  interestEarned: number;
+}
+
+/** Per-EMPLOYER employee/employer/pension contribution totals plus interest earned — the same figures
+ *  `epfBuildCardData` already computes, but scoped to ONE employer instead of the whole holding (2026-08-30
+ *  — the Employer Detail popup's own stat grid). Contribution/pension totals reuse `epfComputeAllMonths`
+ *  (the single source of truth blending real + estimated months) filtered by `employerId`, so this can
+ *  never disagree with the card's own holding-wide sum by construction — it's the exact same per-month
+ *  entries, just summed over a subset. Interest uses the same real/legacy-fallback read convention as
+ *  `epfReconciliation.ts`'s `existingAmounts()`/`epfInterestOnDemand.ts`'s `recordedInterestTotal()` (kept
+ *  inlined here rather than imported — that second one lives in `apps/mobile`, and this file is
+ *  packages/core-only). */
+export function epfEmployerTotals(
+  employer: EpfEmployer,
+  employers: EpfEmployer[],
+  transactions: EpfTransaction[]
+): EpfEmployerTotals {
+  let employeeTotal = 0;
+  let employerTotal = 0;
+  let pensionTotal = 0;
+  for (const m of epfComputeAllMonths(employers, transactions)) {
+    if (m.employerId !== employer.id) continue;
+    employeeTotal += m.empAmount;
+    employerTotal += m.eplrEpfAmount;
+    pensionTotal += m.epsAmount;
+  }
+  let interestEarned = 0;
+  for (const t of transactions) {
+    if (t.type !== 'interest') continue;
+    if (epfResolveTxnEmployer(t, employers)?.id !== employer.id) continue;
+    interestEarned +=
+      t.employeeAmount != null || t.employerAmount != null
+        ? (t.employeeAmount ?? 0) + (t.employerAmount ?? 0)
+        : (t.amount ?? 0);
+  }
+  return { employeeTotal, employerTotal, pensionTotal, interestEarned };
+}
+
 export function epfMonthLabel(ms: number): string {
   return new Date(ms).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
 }
@@ -186,6 +260,80 @@ export function epfCheckWageDiscrepancy(
   const relDiff = (realEmployeeAmount - predictedAmount) / predictedAmount;
   if (Math.abs(relDiff) <= WAGE_DISCREPANCY_RELATIVE_TOLERANCE) return null;
   return { direction: relDiff > 0 ? 'higher' : 'lower', realAmount: realEmployeeAmount, predictedAmount };
+}
+
+export interface EpfDetectedHike {
+  /** "YYYY-MM" — the earliest real wage month where the higher value first appears. */
+  wagesMonth: string;
+  fromDate: number; // epoch ms — 1st of `wagesMonth`
+  basicSalary: number; // the new (higher) wage evidenced by the passbook itself
+}
+
+/** Scans an employer's REAL logged contributions (`EpfTransaction.epfWages` — the same wage-base
+ *  column a real passbook import already carries) for a genuine, sustained increase over what
+ *  `epfGetSalaryForMonth` currently predicts, that isn't yet reflected in `hikeTimeline` — i.e. a real
+ *  salary hike the passbook itself proves happened, but nothing has ever recorded.
+ *
+ *  Real bug this exists to fix (found 2026-08-30, via a concrete real-device report: "CTC/Gross/Net
+ *  wrong for every employer except the most recent one"). `EpfEmployer.basicSalary` is set exactly
+ *  ONCE, from whichever unit happens to be the FIRST one ever imported for that employer
+ *  (`createEmployerFromUnit`) — every LATER re-import of that same employer (`extendEmployerCoverage`)
+ *  extends its date coverage but never re-examines wage data for a change, and `hikeTimeline` is
+ *  otherwise only ever populated by the separate, fully manual "+ Hike" action. A multi-year employer
+ *  imported from several yearly passbooks — the normal way this feature is used — ends up with its
+ *  ENTIRE CTC/Gross/Net Monthly display frozen at whatever wage the very first imported year happened
+ *  to show, silently ignoring every real raise the later years' own passbooks already prove happened.
+ *  A currently-employer's own figures can look fine purely by coincidence (few years imported so far,
+ *  so the frozen starting wage hasn't had time to go stale) — not because anything about it is actually
+ *  more correct.
+ *
+ *  Deliberately DETECTION only — never silently writes to `hikeTimeline` itself. A point-in-time hike
+ *  date/amount is being INFERRED from wage evidence (the real hike could have taken effect any day at
+ *  or before the month it first appears, given EPFO's own one-month deposit lag), which is exactly the
+ *  same kind of inference this feature already only ever surfaces as a confirmable suggestion elsewhere
+ *  (see `estimateProRataEdgeDate`'s own doc comment) — never trusted outright. Callers (the "hike
+ *  detected" nudge banner, `apps/mobile`) always ask the user to confirm/adjust before adding.
+ *
+ *  Requires the row IMMEDIATELY AFTER a candidate (if one exists yet) to still be at/above the new
+ *  level, so a single anomalous or mis-scanned row can't be mistaken for a real, sustained raise; skips
+ *  the employer's own joining/leaving wage month entirely (a pro-rata partial there is expected to be
+ *  LOWER, never a hike — same exclusion `checkWageDiscrepancy`, apps/mobile, already applies). Returns
+ *  every genuine step found, oldest first, each evaluated against a "virtual" timeline that already
+ *  includes every hike found earlier in the same scan — so two real raises in one employer's history
+ *  are both detected, not just the first. */
+export function findUnrecordedEpfHikes(employer: EpfEmployer, transactions: EpfTransaction[]): EpfDetectedHike[] {
+  const fromMonth = epfMonthKeyOf(employer.fromDate);
+  const toMonth = employer.toDate ? epfMonthKeyOf(employer.toDate) : null;
+  const realRows = transactions
+    .filter(
+      (t): t is EpfTransaction & { wagesMonth: string; epfWages: number } =>
+        t.type === 'contribution' && !!t.wagesMonth && !!t.epfWages && t.epfWages > 0
+    )
+    .filter((t) =>
+      t.employerId
+        ? t.employerId === employer.id
+        : epfEmployerForWagesMonth([employer], t.wagesMonth)?.id === employer.id
+    )
+    .filter((t) => t.wagesMonth !== fromMonth && t.wagesMonth !== toMonth)
+    .sort((a, b) => a.wagesMonth.localeCompare(b.wagesMonth));
+
+  const detected: EpfDetectedHike[] = [];
+  let virtualHikes = [...(employer.hikeTimeline ?? [])];
+
+  for (let i = 0; i < realRows.length; i++) {
+    const row = realRows[i];
+    if (!row) continue;
+    const predicted = epfGetSalaryForMonth({ ...employer, hikeTimeline: virtualHikes }, row.wagesMonth);
+    if (predicted <= 0) continue;
+    const relDiff = (row.epfWages - predicted) / predicted;
+    if (relDiff <= WAGE_DISCREPANCY_RELATIVE_TOLERANCE) continue;
+    const next = realRows[i + 1];
+    if (next && (next.epfWages - row.epfWages) / row.epfWages < -WAGE_DISCREPANCY_RELATIVE_TOLERANCE) continue;
+    const fromDate = new Date(`${row.wagesMonth}-01T00:00:00`).getTime();
+    detected.push({ wagesMonth: row.wagesMonth, fromDate, basicSalary: row.epfWages });
+    virtualHikes = [...virtualHikes, { fromDate, basicSalary: row.epfWages }];
+  }
+  return detected;
 }
 
 export function epfLatestSalary(emp: EpfEmployer): number {

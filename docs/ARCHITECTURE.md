@@ -3261,6 +3261,139 @@ worker-thread or cross-realm use, like PDF.js) is a real risk area on Hermes —
 realistic, real-world-sized payload on an actual device or emulator, not just a small synthetic
 fixture under a debug/Metro session, before trusting a "works on-device" spike result.
 
+### Decision: EPF passbook-import sixth round — line-wrap parsing gap, multi-event reconciliation collapse, mid-year transfer-in interest gap, checkpoint-drift compounding, stale-snapshot modal bug, pending-transfer resolution overhaul, hike detection, two new rate tables (2026-08-30) — `apps/mobile` + `packages/core` + `workers/api-proxy` only
+
+**Rationale:** found chasing a real multi-employer EPF transfer report end to end — one real
+transfer surfaced a parsing gap, which once fixed surfaced a reconciliation bug, which once fixed
+surfaced an interest-calculation gap, plus two longer-standing correctness/UX gaps (a modal
+snapshot-staleness bug, a chronologically-naive transfer-successor guess) found investigating the
+same report. Recorded together since they were all found and fixed in one session against the same
+underlying data, alongside two new, unrelated capabilities (hike detection, two new Cloudflare-backed
+rate tables) added in the same pass.
+
+**1. pdf.js text extraction can split ONE transaction row across several physical lines —
+previously silently invisible rows.** `epfPassbookParser.ts`'s `ROW_PATTERN` only ever matched a row
+complete on one line; a row with long particulars text (routinely true for a real "TRANSFER IN - Old
+Member Id ..." row) can have its date+CR/DR prefix, its wrapped particulars, and its trailing numeric
+columns land on three or more separate lines — such a row never even reached `classifyRow`, so a real
+transfer-in credit could be completely absent from Penny despite being genuinely present in the
+passbook's own text. Fixed with a new `reflowWrappedRows()`, run before `parseRows`: whenever a line
+matches ONLY a row's own date+CR/DR prefix with nothing else on it, greedily absorbs following lines
+onto the same line until the merged result is a complete, matchable row — stopping at a blank line, the
+start of a genuinely new row, or a defensive hard cap, never guessing how many lines to absorb. A row
+already complete on one line is untouched. Confirmed against a real sample: 4 genuine `transfer_in`
+rows recovered, all previously silently dropped, zero false merges against every other already-correct
+sample checked.
+
+**2. A single FY can contain SEVERAL distinct transfer_in/withdrawal events — the old
+aggregate-by-type-per-FY reconciliation model silently collapsed them into one, wrong-dated entry.**
+`epfImportLogic.ts`'s `reconcileUnit` used to group every non-contribution row in a unit by type and
+sum them into one combined item dated to the LATEST row — correct only if at most one such event
+happens per FY per type, which a real passbook (once bug 1 above stopped hiding wrapped rows) proved
+false: e.g. the actual principal transfer posting on one date, followed months later by a separate
+"TRANSFER IN - INTEREST AMOUNT ONLY" catch-up credit. The old aggregation silently discarded the real,
+earlier date the principal actually moved on. Fixed with a new `reconcileEpfBalanceEventAtDate()`
+(`epfReconciliation.ts`), matching by each row's own exact real date instead of `(type, FY)` — every
+genuinely distinct event now stays its own item. `itemKey()` (`epfImportLogic.ts`) was also fixed in
+the same pass: it used to be `item.wagesMonth ?? item.type` alone, which collapsed two distinct
+non-contribution items of the same type in one unit onto an identical review-screen key (one checkbox
+toggle silently affecting both) — now `` `${item.type}-${item.date}` ``, unique in practice.
+
+**3. A mid-year transfer-in was invisible to the interest simulation for the exact year it
+landed in.** `sumEpfBalanceBeforeFy` already correctly folded a transfer-in into every LATER year's
+opening balance, but `calculateEpfInterestForYear`/`buildEpfInterestInput`
+(`epfInterestCalculator.ts`) had no concept of an in-year transfer at all — the year the credit
+actually arrived silently computed interest as if the transferred balance had earned nothing for the
+months after it landed. Fixed by adding `monthlyTransfersIn` (mirroring `monthlyWithdrawals`'s existing
+shape/timing exactly): added to the balance at month-end, after that month's own interest is already
+computed, so it starts earning interest from the following month — a transfer posts on its own real
+date, not subject to a contribution's wage-deposit lag, so no offset is applied the way a contribution's
+`wagesMonth` gets one.
+
+**4. Balance-seed drift compounded forward year over year for an employer with a same-FY switch
+settlement Penny can't fully reconstruct.** `sumEpfBalanceBeforeFy` (`apps/mobile`'s
+`epfInterestOnDemand.ts`) always re-derived an FY's opening balance by re-summing every earlier
+transaction — any small drift from the real passbook (e.g. a settlement with no corresponding
+transfer-in row to reconstruct it from) fed forward into every subsequent year's own calculation,
+since each year built its opening balance from the previous year's already-drifted total rather than
+ever re-anchoring to a real, stated value. Fixed to prefer a real passbook-stated
+`EpfBalanceCheckpoint` (`latestCheckpointBeforeFy`) whenever one exists for the employer — a value
+already captured at import time (`epfImportLogic.ts`'s `mergeCheckpoints`) but never actually read
+anywhere until now — falling back to the historical transaction sum only when no checkpoint was ever
+imported. Removes the compounding entirely for any employer with real passbook checkpoints.
+
+**5. "Save ratio doesn't work" — a modal holding a snapshot object instead of re-resolving its
+subject live, by id, on every render.** `EpfEmployerDetailModal.tsx` (new) originally took an
+`EpfEmployer` object captured at tap time; a save made from ITS OWN stacked child popup (e.g. the
+pending-transfer confirm sheet) correctly updated the parent `holding`, but the modal kept rendering
+the stale snapshot object it was opened with, so a value written by the child action appeared to not
+have saved at all when reflected back in this modal's own UI. Fixed by taking `employerId` instead and
+re-resolving `allEmployers.find((e) => e.id === employerId)` fresh from `holding` on every render,
+rendering nothing if the employer no longer exists rather than crashing. **General pattern worth
+remembering**: a modal/popup that can itself open a further child action capable of mutating the same
+parent data it displays must re-derive its own subject from the parent's live data by id on every
+render — never hold onto the object it was opened with, even though "just pass the object" looks
+simpler and works fine until exactly this stacked-mutation shape happens.
+
+**6. Pending-transfer suggestion assumed the wrong destination — real EPFO transfers target
+whichever Member ID is CURRENTLY ACTIVE, not "whichever job came next."** `epfHasPendingTransfer`
+used to always suggest the chronologically-next employer by `fromDate` and considered a gap "resolved"
+only once THAT specific employer had any `transfer_in` at all. Real career data broke this: two
+different old, closed employers (jobs held years apart) can both correctly transfer into the SAME
+later, still-current employer, filed together, skipping right over an employer that happened to sit
+chronologically in between — the old logic never recognized the skipped employer's gap as resolved.
+Rebuilt as `epfPendingTransferSuccessor()` (renamed from `epfHasPendingTransfer`, which now wraps it as
+a boolean convenience): defaults the suggestion to the CURRENTLY ACTIVE employer (no `toDate`) when one
+exists, falling back to the chronologically-next employer only when nothing is currently active — but
+it's always just a default, never enforced; the confirm flow (new `useEpfPendingTransfer.ts` hook +
+`EpfPendingTransferModal.tsx`) lets the user pick any other employer instead. "Already resolved" is now
+tracked via a new `EpfTransaction.transferredFromEmployerId` (see `docs/SCHEMA.md`) — an exact link back
+to the specific old employer, checked across every employer in the holding, not just whichever one
+happens to be suggested this time. A companion `epfImportLogic.ts` function,
+`resolveTransferSourceEmployerId()`, auto-attributes this same field on a freshly IMPORTED transfer_in
+row too, by matching the passbook's own "Old Member Id" text against a known employer's `memberId` — a
+real, deterministic identification (the same value that employer's own passbook import already stored
+as its `memberId`), not a heuristic guess.
+
+**7. New: hike detection from real imported wage data (`findUnrecordedEpfHikes`,
+`epfCalculations.ts`).** Real reported gap: `EpfEmployer.basicSalary`/`hikeTimeline` is set once from
+whichever unit is the FIRST ever imported for an employer; a later re-import extends date coverage but
+never re-examines wage data for a change, so a multi-year employer built from several yearly passbooks
+had its entire CTC/Gross/Net Monthly display frozen at the first imported year's wage, silently
+ignoring every real raise later years' own passbooks already proved happened. Scans an employer's real
+`EpfTransaction.epfWages` for a sustained increase over what `epfGetSalaryForMonth` currently predicts
+that isn't yet in `hikeTimeline`, requiring the row immediately after a candidate to still be at/above
+the new level (so one anomalous row can't be mistaken for a real raise) and skipping the employer's own
+joining/leaving wage month. Detection only — never silently writes to `hikeTimeline`; the card's new
+"hike detected" nudge banner always asks the user to confirm/adjust before adding (or dismiss via the
+new `EpfEmployer.dismissedHikeMonths`, see `docs/SCHEMA.md`).
+
+**8. New: two Cloudflare-backed rate tables, mirroring the existing EPF/PPF interest-rate
+architecture exactly** — `packages/core/src/core/portfolio/epfBasicToGrossRates.ts` (`/epf-basic-to-
+gross-rates`) and `epfIncomeTaxRates.ts` (`/epf-income-tax-rates`), both offline-first with a 30-day
+cache and a baked-in fallback table, both registered in `docs/EXTERNAL_APIS.md`. The Basic-to-Gross
+table replaces a single flat `EPF_DEFAULT_BASIC_TO_GROSS_PCT` default (50%) used for every era with a
+real convention change (40% pre-Nov-2025 Code on Wages, 50% after) — found via a real mismatch reported
+against a 2014 hike point. The income-tax table models BOTH the Old Regime (frozen at its FY2019-20
+shape, still valid today) and New Regime (from FY2020-21) independently, shown side by side rather than
+asserting one — the first version of this file computed only the New Regime, silently assuming everyone
+from FY2020-21 onward had chosen it, caught by a direct question before shipping. Powers a new "In Hand
+Monthly" (post-tax) figure in the EPF hike breakdown popup, alongside the existing pre-tax "Net
+Monthly." Both tables are deliberately labelled estimates/conventions, never asserted as fact, same
+principle as every other computed-on-behalf-of-the-user value in this feature.
+
+**Smaller fixes in the same round:** the Employer Detail popup (`EpfEmployerDetailModal.tsx`, new)
+replaces tapping an employer row going straight into its transaction ledger — company identity,
+editable exact dates, per-employer totals (`epfEmployerTotals`, new), and the full hike table now live
+there, reached by tapping the row, with the ledger one explicit "See all transactions" tap away.
+`Modal.tsx`'s title now gets `flex-1`+`numberOfLines={1}` (a long title, e.g. an employer name appended
+to a sheet title, had no bound and could squeeze the close button off-screen). `EpfImportFlow.tsx`'s
+batch-summary screen gained `scrollable`+`footer` plus a 15-file render cap with "Show all" — a large
+batch previously made the confirm button unreachable. `EpfAllTransactionsSheet`'s contribution-row
+total previously silently excluded EPS (pension) from both the per-month row and the FY-header
+subtotal — now includes it. `EpfEmployerPickerSheet.tsx` now shows a per-employer "N need review"
+badge (previously only a card-level total existed).
+
 ---
 
 ## Dependency graph (simplified)

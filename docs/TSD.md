@@ -348,8 +348,13 @@ assetClass: 'epf'
                                   // 2026-08: gained currentEmploymentConfirmed (only set once the
                                   // user explicitly confirms "still employed" post-import) and
                                   // confirmedFys (FYs with a real import, even a contribution-free
-                                  // one — see docs/plans/epf-passbook-import.md §10.6/§10.7)
-  epfTransactions?: EpfTransaction[]  // 2026-08-07: gained epfWages/epsWages/sourceParticulars/sourceRef
+                                  // one — see docs/plans/epf-passbook-import.md §10.6/§10.7);
+                                  // 2026-08-30: gained pendingTransferDismissed/dismissedHikeMonths
+                                  // (dismissal flags for the pending-transfer banner and the "hike
+                                  // detected" nudge — see §10.14)
+  epfTransactions?: EpfTransaction[]  // 2026-08-07: gained epfWages/epsWages/sourceParticulars/sourceRef;
+                                  // 2026-08-30: gained transferredFromEmployerId (which old employer a
+                                  // transfer_in credit resolves — see §10.14)
   epfHikeGroups?: EpfHikeGroup[]
   // See docs/features/portfolio/retirement.md and docs/plans/epf-passbook-import.md for the full
   // field list and the passbook-PDF-import feature these fields support.
