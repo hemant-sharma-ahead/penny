@@ -97,6 +97,19 @@ Phase 1.
 - Hermes (native builds) and V8 (RN Web/Node) do **not** parse non-ISO date strings
   identically — never assume a format that "parses fine" in `pnpm web`/Node also works on
   a real device without testing it there.
+- Hermes's own built-in `structuredClone` has a real, confirmed bug: it can throw `Cannot read
+  property 'json' of null` on certain payloads a library's internal `postMessage`-based
+  message-passing sends between its "main" and "worker" sides — found 2026-08-30 in `unpdf`/PDF.js's
+  own fake-worker protocol (`epfPassbookParser.ts`), where it silently dropped the *reply* message
+  after a successful parse, leaving the caller's promise hanging forever with no error, no timeout,
+  nothing. Any library using a `postMessage`/`structuredClone`-based protocol internally (common for
+  libraries originally written for real worker-thread or cross-realm use) is a real risk area on
+  Hermes — verify it against a realistic, real-world-sized payload on an actual device or emulator,
+  not just a small synthetic fixture under a debug/Metro session, before trusting a "works
+  on-device" spike result. If hit again, the fix is a manual deep-clone replacing
+  `globalThis.structuredClone` before the library runs — see that file's `ensureWorkingStructuredClone()`
+  for a working reference implementation and `docs/ARCHITECTURE.md`'s matching decision-log entry
+  for the full investigation.
 - Any `.map()` over user-imported/bulk data needs a render cap ("first N + show all") —
   an unbounded render of a large real file is a native crash risk even when parsing itself
   is instant. Full writeup + the real crash this codifies: `docs/ARCHITECTURE.md`'s

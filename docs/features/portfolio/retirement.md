@@ -96,6 +96,24 @@ Manual entry is NOT replaced — this is purely additive, feeding the exact same
   (`tests/fixtures/epf-passbook-synthetic.pdf`) is a synthetic stand-in with fake data, generated to
   mirror the real structure exactly (real passbooks carry PII in their text layer even with the
   visual image redacted, so one was never committed).
+  - **Real-device bug found and fixed, 2026-08-30**: the spike above only ever ran against a small
+    synthetic PDF under a debug/Metro build — a real, larger passbook PDF (with an embedded legacy
+    Devanagari font needing font-substitution machinery PDF.js only has for browser/Node
+    environments) hung `getDocumentProxy()`/`extractText()` indefinitely, both on a real device and
+    the Android emulator, in both debug and release builds. Root-caused (via direct instrumentation,
+    not guesswork) to a genuine bug in **Hermes/React Native's own built-in `structuredClone`**: it
+    throws `Cannot read property 'json' of null` specifically on the *reply* message PDF.js's
+    internal fake-worker protocol sends back after successfully parsing a document (the request
+    clones fine; the response doesn't) — and since that internal message-passing has no error
+    handling around the clone call, the reply is silently dropped, leaving the original request
+    waiting forever. Fixed by replacing `globalThis.structuredClone` with a manual deep-clone
+    (`ensureWorkingStructuredClone()` in `epfPassbookParser.ts`) before PDF.js ever runs — safe here
+    since PDF.js's "fake worker" never actually crosses a real thread boundary, so a plain copy is
+    behaviorally equivalent. Also disabled PDF.js's font-substitution path entirely
+    (`useSystemFonts: false, disableFontFace: true` — `extractText()` never needs real glyph
+    rendering) and added a 15s hard timeout as a safety net for any other, still-undiscovered
+    on-device PDF.js issue. See `docs/ARCHITECTURE.md`'s matching decision-log entry for the full
+    investigation writeup.
 - **Interest calculator** (`packages/core/src/core/portfolio/epfInterestCalculator.ts`): EPF
   interest is entirely manual today (no auto-crediting logic existed before this) — this simulates
   EPFO's real month-by-month accrual (a contribution deposited in month M+1 earns zero interest

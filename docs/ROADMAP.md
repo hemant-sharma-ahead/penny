@@ -839,7 +839,11 @@ original sketch:
   banners, "calculate it for me," tappable interest rows with rate + recalculation breakdown) is
   wired up and live on the EPF card. `apps/web-react` is frozen, so this has no web equivalent — a
   deliberate, permanent divergence, not a pending parity gap. PDF export (presentation-only, not
-  re-importable) remains phase 2, not yet scoped.
+  re-importable) remains phase 2, not yet scoped. **2026-08-30 correction**: "shipped" above held for
+  the feature's UI/logic, but PDF parsing itself was actually broken for any real (larger,
+  non-Latin-font) passbook on-device the whole time — a genuine Hermes `structuredClone` bug, not
+  caught by the original spike's small synthetic test file. Now fixed — see
+  `docs/features/portfolio/retirement.md`'s "Real-device bug found and fixed" note.
 - Export: wealth snapshot PDF + tax summary PDF
 - Desktop layout (≥768px breakpoint, sidebar nav)
 - Push notifications (EMI reminders, insurance renewals, goal milestones)

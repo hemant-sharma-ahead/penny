@@ -410,6 +410,14 @@ special "isSplitYear" flag or branching logic needed anywhere in the calculator.
 Recorded here for completeness since it directly de-risked this whole plan and should not be
 re-run or re-litigated by whoever implements this next.
 
+**Correction, 2026-08-30**: "confirmed working, text extracted successfully, on-device" below turned
+out to be true only for the *small* sample PDF this spike happened to use — a real, larger passbook
+PDF (with an embedded legacy Devanagari font) hung indefinitely on-device, a genuine Hermes/React
+Native bug (`structuredClone`), not caught by this spike at the time. Now fixed — see
+`docs/features/portfolio/retirement.md`'s "Real-device bug found and fixed" note and
+`docs/ARCHITECTURE.md`'s matching decision-log entry for the full writeup. The rest of this section's
+findings (library choice, Node-level verification) still stand.
+
 - **Library selected: `unpdf`** (npm, zero runtime dependencies, single bundled serverless-PDF.js
   build, no DOM/Canvas dependency needed for `extractText()`). Chosen specifically because
   Penny's own `zip.js` dependency once broke under Metro's async-require mechanism due to a

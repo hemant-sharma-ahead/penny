@@ -178,6 +178,7 @@ export function RetirementCard({
   const [epfNudgeFy, setEpfNudgeFy] = useState<number | null>(null);
   const [epfImportFiles, setEpfImportFiles] = useState<EpfImportFile[] | null>(null);
   const [epfExporting, setEpfExporting] = useState(false);
+  const [epfImporting, setEpfImporting] = useState(false);
   const [confirmingEmpId, setConfirmingEmpId] = useState<string | null>(null);
   // "Are you still working at X?" → "No" (2026-08-xx fix) — opens the LWD-confirm modal below instead
   // of silently guessing a leaving date.
@@ -221,9 +222,23 @@ export function RetirementCard({
     [holding.assetClass, meta.epfEmployers, meta.epfTransactions, epfRateTable]
   );
 
+  /** Real-device report, 2026-08-29: picking a PDF silently did nothing on failure — this `await`
+   *  had no try/catch at all, so a native picker/file-copy failure (`DocumentPicker.getDocumentAsync`,
+   *  `epfImportLogic.ts`) was an unhandled rejection with no UI feedback, and no loading state made a
+   *  slow parse indistinguishable from a hung one. Matches `handleEpfExport`'s existing
+   *  loading/try/catch/toast shape below. */
   async function handleEpfImportPress() {
-    const files = await pickAndParseEpfFiles();
-    if (files) setEpfImportFiles(files);
+    if (epfImporting) return;
+    setEpfImporting(true);
+    try {
+      const files = await pickAndParseEpfFiles();
+      if (files) setEpfImportFiles(files);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      showToast({ message: `Couldn't open that file: ${detail}` });
+    } finally {
+      setEpfImporting(false);
+    }
   }
 
   /** Tapping an employer row directly opens ITS OWN scoped ledger, no picker needed. */
@@ -764,6 +779,7 @@ export function RetirementCard({
                 icon="ti-file-upload"
                 color="#64748b15"
                 textColor="#64748b"
+                loading={epfImporting}
                 onPress={handleEpfImportPress}
               >
                 Import
@@ -1507,10 +1523,24 @@ export function RetirementUntrackedCard({
   const label = type.toUpperCase();
   const [epfImportFiles, setEpfImportFiles] = useState<EpfImportFile[] | null>(null);
   const [showPpfImport, setShowPpfImport] = useState(false);
+  const [epfImporting, setEpfImporting] = useState(false);
+  const { showToast } = useToast();
 
+  /** See `RetirementCard`'s `handleEpfImportPress` doc comment — same missing try/catch/loading bug,
+   *  same fix, on this card's own "or import passbook PDF →" entry point (the first-ever-import,
+   *  no-holding-yet path). */
   async function handleImportPress() {
-    const files = await pickAndParseEpfFiles();
-    if (files) setEpfImportFiles(files);
+    if (epfImporting) return;
+    setEpfImporting(true);
+    try {
+      const files = await pickAndParseEpfFiles();
+      if (files) setEpfImportFiles(files);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      showToast({ message: `Couldn't open that file: ${detail}` });
+    } finally {
+      setEpfImporting(false);
+    }
   }
 
   return (
@@ -1533,9 +1563,13 @@ export function RetirementUntrackedCard({
       </View>
       <Text className="text-xs text-secondary leading-relaxed">{cfg.description}</Text>
       {type === 'epf' && onSave && (
-        <Pressable onPress={handleImportPress} className="items-end mt-1.5">
+        <Pressable
+          onPress={epfImporting ? undefined : handleImportPress}
+          className="flex-row items-center justify-end gap-1.5 mt-1.5"
+        >
+          {epfImporting && <ActivityIndicator size="small" color={cfg.color} />}
           <Text className="text-[10px] font-semibold" style={{ color: cfg.color }}>
-            or import passbook PDF →
+            {epfImporting ? 'Opening…' : 'or import passbook PDF →'}
           </Text>
         </Pressable>
       )}

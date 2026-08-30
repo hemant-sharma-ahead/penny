@@ -15,9 +15,105 @@
 // matching below is done on the English half only (via distinctive anchor substrings/patterns),
 // exactly as the one real open-source reference parser found during this feature's research
 // (pdfplumber-based, Python) also does — see the design doc's §4 for the verified column layout.
-import { getDocumentProxy, extractText } from 'unpdf';
+import * as pdfjsModule from 'unpdf/pdfjs';
+import { definePDFJSModule, getDocumentProxy, extractText } from 'unpdf';
+
+/** Real, root-caused device bug, 2026-08-29 — see this file's other doc comments below for the full
+ *  investigation. React Native/Hermes's own built-in `structuredClone` throws `TypeError: Cannot read
+ *  property 'json' of null` on certain values PDF.js's internal message-passing protocol sends between
+ *  its "main" and "fake worker" MessageHandler instances (`LoopbackPort.postMessage()` calls
+ *  `structuredClone()` directly) — confirmed via direct instrumentation: the *request* side of a
+ *  `GetDocRequest` clones fine, but the *reply* clone (the worker's response, once parsing succeeds)
+ *  throws. Since `LoopbackPort.postMessage()` has no error handling around that call, the thrown
+ *  exception is swallowed by whatever dispatches the reply, and the reply is simply never delivered —
+ *  the original caller's promise waits forever for a response that will never arrive. This is a bug in
+ *  Hermes's/RN's own `structuredClone` implementation, not in PDF.js or this app's own code. Since
+ *  `LoopbackPort` never actually crosses a real thread boundary (it's an in-process loopback, not a
+ *  real `Worker`), a manual deep-clone that just COPIES rather than truly "structured-clones" is a
+ *  behaviorally-correct replacement here — swapped in globally, once, before PDF.js ever runs. */
+function manualDeepClone<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value as object)) return seen.get(value as object) as T;
+  if (value instanceof Uint8Array) return value.slice() as T;
+  if (ArrayBuffer.isView(value)) {
+    const view = value as ArrayBufferView;
+    return new (view.constructor as new (buf: ArrayBufferLike, byteOffset: number, length: number) => T)(
+      view.buffer.slice(0),
+      view.byteOffset,
+      (view as unknown as { length: number }).length
+    );
+  }
+  if (value instanceof ArrayBuffer) return value.slice(0) as T;
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (value instanceof RegExp) return new RegExp(value.source, value.flags) as T;
+  if (Array.isArray(value)) {
+    const clone: unknown[] = [];
+    seen.set(value, clone);
+    for (const item of value) clone.push(manualDeepClone(item, seen));
+    return clone as T;
+  }
+  if (value instanceof Map) {
+    const clone = new Map();
+    seen.set(value, clone);
+    for (const [k, v] of value) clone.set(manualDeepClone(k, seen), manualDeepClone(v, seen));
+    return clone as T;
+  }
+  if (value instanceof Set) {
+    const clone = new Set();
+    seen.set(value, clone);
+    for (const v of value) clone.add(manualDeepClone(v, seen));
+    return clone as T;
+  }
+  // Plain object (or a PDF.js-internal class instance carried across the loopback "port" as data) —
+  // clone own enumerable properties. `Object.create(null)`-shaped objects and real plain objects both
+  // land here; anything with exotic own accessors is out of scope for this message-passing use case.
+  const clone: Record<string, unknown> = {};
+  seen.set(value, clone);
+  for (const key of Object.keys(value as object)) {
+    clone[key] = manualDeepClone((value as Record<string, unknown>)[key], seen);
+  }
+  return clone as T;
+}
+
+let structuredCloneReplaced = false;
+function ensureWorkingStructuredClone(): void {
+  if (structuredCloneReplaced) return;
+  structuredCloneReplaced = true;
+  globalThis.structuredClone = ((value: unknown) => manualDeepClone(value)) as typeof structuredClone;
+}
 
 export class EpfPassbookParseError extends Error {}
+
+/** Real-device bug, 2026-08-29: `unpdf`'s own internal PDF.js loader (`resolvePDFJSImport()`)
+ *  resolves its ~1.6MB serverless PDF.js bundle via its own `await import('unpdf/pdfjs')` — a dynamic
+ *  import of a third-party submodule, unreliable in this project's Metro/Expo setup (a genuine hang
+ *  in a release build; a different, Metro-dev-server-chunk-fetch-specific error in a debug build).
+ *  Routed around here via a plain static top-level import instead, handed to `unpdf`'s own documented
+ *  escape hatch (`definePDFJSModule`) so `getDocumentProxy`/`extractText` never invoke unpdf's
+ *  internal dynamic-import resolver at all. */
+let pdfjsModuleReady: Promise<void> | null = null;
+function ensurePdfjsModuleDefined(): Promise<void> {
+  pdfjsModuleReady ??= definePDFJSModule(async () => pdfjsModule);
+  return pdfjsModuleReady;
+}
+
+/** Defensive safety net, 2026-08-29. The actual on-device hang was root-caused to a real Hermes/RN
+ *  bug — see `ensureWorkingStructuredClone`'s doc comment above — and is now fixed. Kept as a hard
+ *  timeout regardless, so any *other*, still-undiscovered on-device PDF.js issue fails honestly
+ *  instead of leaving the UI stuck on a loading state forever. */
+const PDF_PARSE_TIMEOUT_MS = 15_000;
+
+async function withParseTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('PDF parsing timed out')), PDF_PARSE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export interface ParsedEpfPassbookRow {
   /** "YYYY-MM" — the wage/salary month this row's contribution relates to. Meaningless for a
@@ -276,8 +372,16 @@ function parseCreditedInterest(
 export async function parseEpfPassbookPdf(data: Uint8Array): Promise<ParsedEpfPassbook> {
   let text: string;
   try {
-    const pdf = await getDocumentProxy(data);
-    const extracted = await extractText(pdf, { mergePages: true });
+    await ensurePdfjsModuleDefined();
+    ensureWorkingStructuredClone();
+    // extractText() never needs real glyph rendering, only the text layer — `getDocumentProxy()`'s
+    // own Node-only defaults (`disableFontFace`/`standardFontDataUrl`/`cMapUrl`) never apply outside
+    // Node, so without this, PDF.js would otherwise attempt browser-only font-substitution machinery
+    // for this file's embedded non-standard fonts (a legacy Devanagari font, plus a Latin font) —
+    // verified in plain Node to produce identical extracted text with these options set.
+    const fontOptions = { useSystemFonts: false, disableFontFace: true, isEvalSupported: false };
+    const pdf = await withParseTimeout(getDocumentProxy(data, fontOptions));
+    const extracted = await withParseTimeout(extractText(pdf, { mergePages: true }));
     text = extracted.text;
   } catch {
     throw new EpfPassbookParseError('Could not read this file as a PDF.');
