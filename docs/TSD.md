@@ -222,7 +222,7 @@ liabilities
 
 insurance_policies
   id: string (UUID)
-  *type: 'term_life' | 'whole_life' | 'endowment' | 'ulip' | 'health' | 'vehicle' | 'property' | 'travel' | 'other'
+  *type: 'term' | 'life' | 'health' | 'vehicle' | 'home' | 'travel' | 'other' (renamed/collapsed 2026-08-31 — see docs/SCHEMA.md; this block otherwise predates the same redesign and is illustrative only, not the canonical field list)
   *name: string
   *insurer?: string
   *policyNumber?: string
@@ -460,7 +460,7 @@ The function reads from multiple stores: holdings, expenses, goals, accounts, li
   assetClasses: string[]          // ["equity", "mf", "epf", "fd"]
   goalCount: number
   liabilityCount: number
-  insurancePolicies: string[]     // ["term_life", "health"]
+  insurancePolicies: string[]     // ["term", "health"]
   healthScore: number             // 0–100
   ageBand?: string                // "29–34"
   employmentType?: string         // "salaried"

@@ -3,7 +3,6 @@ import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
-import type { InsurancePolicy } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { Button, Banner, PageHeader, EmptyState } from '~/components/ui';
 import { useInsurance } from './useInsurance';
@@ -22,12 +21,30 @@ export function InsurancePage() {
   const { shouldMask } = usePrivacy();
   const { safeModeVisibility } = useSettings();
   const masked = shouldMask(!safeModeVisibility.insurance);
-  const { policies, savePolicy, removePolicy, totalAnnualPremium, expiringCount, sorted, reload } = useInsurance();
+  const {
+    policies,
+    savePolicy,
+    removePolicy,
+    totalAnnualPremium,
+    expiringCount,
+    sorted,
+    reload,
+    insurerMemories,
+    rememberInsurer,
+    markAsPaid,
+    unmarkPayment,
+    candidateExpenses
+  } = useInsurance();
   const { refreshing, onRefresh } = usePullToRefresh(reload);
   useDefaultHeaderBack('Insurance');
 
   const [showForm, setShowForm] = useState(false);
-  const [editingPolicy, setEditingPolicy] = useState<InsurancePolicy | null>(null);
+  // An id, never the policy object itself — re-resolved live from `policies` below on every render, so
+  // a "Mark as paid"/un-mark applied while this form stays open (a stacked child action mutating the
+  // very policy the form was opened with) is never displayed stale. Same "never snapshot" rule the EPF
+  // employer-detail-modal incident established (docs/ARCHITECTURE.md's decision log).
+  const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
+  const editingPolicy = editingPolicyId ? (policies.find((p) => p.id === editingPolicyId) ?? null) : null;
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
@@ -56,7 +73,7 @@ export function InsurancePage() {
             )}
 
             {sorted.map((policy) => (
-              <PolicyCard key={policy.id} policy={policy} masked={masked} onEdit={setEditingPolicy} />
+              <PolicyCard key={policy.id} policy={policy} masked={masked} onEdit={(p) => setEditingPolicyId(p.id)} />
             ))}
 
             <CoverageSummary policies={policies} totalAnnualPremium={totalAnnualPremium} masked={masked} />
@@ -71,28 +88,33 @@ export function InsurancePage() {
           accessibilityLabel="Add policy"
           className="w-14 h-14 rounded-full shadow-lg"
           onPress={() => {
-            setEditingPolicy(null);
+            setEditingPolicyId(null);
             setShowForm(true);
           }}
         />
       </View>
 
-      {(showForm || editingPolicy) && (
+      {(showForm || editingPolicyId) && (
         <PolicyForm
           editing={editingPolicy}
+          insurerMemories={insurerMemories}
+          rememberInsurer={rememberInsurer}
+          markAsPaid={markAsPaid}
+          unmarkPayment={unmarkPayment}
+          candidateExpenses={candidateExpenses}
           onSave={async (policy) => {
             await savePolicy(policy);
             setShowForm(false);
-            setEditingPolicy(null);
+            setEditingPolicyId(null);
           }}
           onDelete={async (id) => {
             await removePolicy(id);
             setShowForm(false);
-            setEditingPolicy(null);
+            setEditingPolicyId(null);
           }}
           onClose={() => {
             setShowForm(false);
-            setEditingPolicy(null);
+            setEditingPolicyId(null);
           }}
         />
       )}

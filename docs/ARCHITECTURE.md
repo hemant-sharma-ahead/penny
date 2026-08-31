@@ -3396,6 +3396,153 @@ badge (previously only a card-level total existed).
 
 ---
 
+### Decision: three unrelated bug fixes — delete-modal-race, Cashew day-truncated dedup, `notifyTxnChanged()` gap in `useLoggedRepository` (2026-08-31) — `apps/mobile` + `packages/core` only
+
+**Rationale:** three independent reports investigated and fixed in the same session, alongside the
+Insurance redesign below; recorded together since none shares a root cause with the others.
+
+**1. "Delete from an open form modal" could background/close the whole app.** Every portfolio-holdings
+section's delete-from-form flow called `onRemove(id).then(close)` — remove first, close after. The Undo
+toast `useLoggedRepository.remove()` fires checks whether another native `Modal` is still open; since the
+form's own modal hadn't closed yet, the toast rendered as a **second stacked native Android Dialog**, and
+both tearing down together could background the whole app. Fixed by flipping the order (`close(); void
+onRemove(id).catch(...)` — close first, remove after) in `RetirementSection.tsx`, `RealAssetsSection.tsx`,
+`EquitySection.tsx`, `PreciousMetalsSection.tsx`, `FixedIncomeSection.tsx` (all under
+`apps/mobile/src/features/portfolio/holdings/`), and `GoalsTab.tsx`, plus `.catch(() => console.warn(...))`
+guards so a failed delete doesn't produce a silent unhandled rejection. **General pattern worth
+remembering:** a delete triggered from inside a still-open native `Modal`, where the delete's own
+side-effect (an Undo toast, another modal) also render-gates on modal state, must close its own modal
+*before* firing the mutation, not after — otherwise two native dialogs briefly coexist and tear down
+together. Also added a defensive try/catch to `AutoBackupCard.tsx`'s `backupNowToCloud()` for consistency
+with the file's other handlers — the Google-Drive-backup variant of this same symptom was **not**
+confirmed via static analysis as sharing this exact root cause; flag as unconfirmed/defensive-only if it
+recurs.
+
+**2. Cashew CSV import didn't catch a duplicate against a manually-added expense.** `importPipeline.ts`'s
+`dedupKey()` compares full epoch-ms timestamps — a manually-entered expense carries the real wall-clock
+time it was saved at, while Cashew's CSV export is always midnight-local with no time-of-day, so an
+otherwise-identical (day/amount/description) row never matched. Fixed with a new `dedupDayKey()`
+(day-truncated), used **only** when matching an imported row against **existing DB expenses**
+(`buildResolvedPreviewRowsByIndex`'s `existingExpenseIdsByKey`, populated by `useImport.ts`'s
+`loadReferenceData`) — in-batch/same-file matching stays on the original exact `dedupKey()` (a **different**
+already-fixed bug, see `docs/features/expenses.md`'s Import section, required that one to stay
+exact — day-truncating it would reintroduce false-positive collisions between two genuinely distinct
+same-day transactions in one file). The existing "Not a duplicate — import anyway" per-row override
+(`useImport.ts`'s `unflagDuplicate`) remains the safety valve for any resulting false positives from the
+new day-truncated comparison. Tests: `packages/core/tests/import/importPipeline.test.ts`.
+
+**3. Insurance's Home-card never disappeared after adding a policy, not even via pull-to-refresh — two
+independent gaps.** (a) `useLoggedRepository.ts` (the shared base for Insurance/Loans/Goals/Budgets/IOU/
+Subscriptions) never broadcast `notifyTxnChanged()` on save/remove — fixed by adding that broadcast
+directly inside its `save`/`remove`, covering all 5 consumers that lacked it at once
+(`usePortfolioHoldings.ts`/`useGoals.ts` already had their own workaround calls; calling it twice there is
+harmless, since `notifyTxnChanged()` is coalesced onto one microtask flush). (b) Home's pull-to-refresh
+only ever reloaded `useHome()`'s net-worth summary, never the separate `useHomeStats()` hook
+(insurance-cover/loans-outstanding figures, previously privately instantiated inside `MoneyStatsCard.tsx`
+with no way for a parent to reach its `reload`) — fixed by lifting `useHomeStats()` into
+`apps/mobile/src/features/home/HomePage.tsx` (now returns `{ stats, reload }` instead of just `stats`),
+folding its `reload` into `HomePage`'s pull-to-refresh via a new `combinedReload`, and passing `stats` down
+to `MoneyStatsCard` as a prop instead of it calling the hook itself.
+`apps/mobile/src/features/home/useRetirementProjection.ts` updated for the new return shape (only ever
+needed `stats`). **General pattern worth remembering — this is at least the third time this exact class of
+bug has recurred** (see the 2026-08-26/27 IOU/Goals/Portfolio entry above): a hook that loads data once at
+mount, with no subscription to `notifyTxnChanged()`/`useTxnRefresh`, goes stale the moment anything else
+writes the same data, since bottom-tab screens stay mounted rather than unmounting on tab switch — and a
+hook that's only ever privately instantiated inside a child component (no `reload` reachable by a parent's
+own pull-to-refresh) is a second, independent way the same symptom can show up even once the broadcast
+itself is fixed.
+
+---
+
+### Decision: Insurance feature redesign — premium-schedule/due-date engine, insurer picklists, dense 2-column form relayout (2026-08-31) — `apps/mobile` + `packages/core` only
+
+**Rationale:** the original Insurance module (ported as-is from `apps/web-react` in Track 4) stored a
+policy's coverage/premium/renewal-date as one flat annual figure regardless of type — adequate for
+Health/Vehicle/Home/Travel/Other's genuinely-annual renewal model, but wrong for Term/Life, where a
+lapsed premium is the single highest-stakes thing this module could let slip through unnoticed. Went
+through several mockup rounds (`docs/mockups/proposals/insurance-redesign-v1.html` through `v4.html` for
+the whole-feature exploration, then a separate follow-up — `insurance-form-layout-options-v1.html`/`v2.html`
+— after the user tried the first shipped form and disliked its layout).
+
+**1. New `packages/core/src/core/insurance/` module** — `insurers.ts` (WebSearch-researched real,
+IRDAI-registered insurer picklists: 11 life / 8 health / 11 general, the last shared by Vehicle/Home/Travel
+since they're the same regulatory category in India), `insurerMemory.ts` ("Other"-insurer suggestion
+memory, mirroring `core/expenses/merchantMemory.ts`'s exact pattern — new encrypted store
+`insurer_memory`, see `docs/SCHEMA.md`), `premiumSchedule.ts` (all due-date/grace-period/revival-window/
+discount math — `gracePeriodDays` 15 days Monthly / 30 days Quarterly-Half-yearly-Annual, WebSearch-verified
+against GoDigit/Axis Max Life/Kotak Life/PayBima; `revivalWindowYears` 3 years ULIP / 5 years non-linked,
+per IRDAI's June 2024 Master Circular; `applyMarkAsPaid`/`isPaidUp`/`computeDueStatus`'s 5-state machine),
+`expenseLinking.ts` (`findCandidateExpenses`/`buildPremiumExpense` for the mark-as-paid expense-linking
+choices). `InsuranceType` itself was renamed/collapsed in the same pass (`'term_life' | 'whole_life' |
+'endowment' | 'ulip' | ... | 'property' | ...` → `'term' | 'life' | ... | 'home' | ...`, with the former
+Whole-Life/Endowment/ULIP distinction now carried by a single `isULIP` flag on `'life'`) — see
+`docs/SCHEMA.md`'s `insurance_policies` entry for the full field-level diff.
+
+**2. Cash-flow forecaster and Reminders now understand a real payment schedule, not just an annual
+guess.** `forecaster.ts`'s insurance block branches: a Term/Life policy with a real schedule
+(`paymentFrequency !== 'S'` and `nextPremiumDueDate` set) emits one `CashFlowEvent` (carrying a new
+`policyId`) per real due-schedule occurrence via `scheduledOccurrencesWithin()`, instead of one flat annual
+event; every other case keeps the original flat event; a genuinely paid-up policy (`isPaidUp()`) emits
+nothing. `reminders.ts` gained a `'mark_paid'` `ReminderAction` + `policyId` on `Reminder` so a due premium
+surfaces in the existing header Reminders bell with its own action — deliberately not a new bespoke
+notification component. A new shared hook, `apps/mobile/src/hooks/useInsurancePremiumActions.ts`
+(`markPremiumPaid`/`unmarkLastPremiumPayment`/`candidateExpensesForPolicy`), lives in `hooks/` rather than
+`features/insurance/` specifically because both `features/insurance/useInsurance.ts` and the unrelated
+`hooks/useReminders.ts` need to call the exact same real repo write — this codebase's established
+"promote to hooks/ for cross-consumption" convention, avoiding either a feature-to-feature import
+(architecture-rule violation) or a duplicated write path.
+
+**3. Real bug fixed mid-session: a Limited Pay policy never reached "Paid up."** A policy that pays for
+N years while cover continues longer (`premiumPaymentTerm === 'limited'`) kept generating due-date/
+mark-as-paid prompts forever past year N — `nextPremiumDueDate` always rolled forward on every
+`applyMarkAsPaid()` call with no completion check. Fixed inside `applyMarkAsPaid()` itself (returns
+`nextPremiumDueDate: undefined` once the pay term completes) plus a new `isPaidUp()` helper, used
+consistently by the forecaster (no stale event), `useInsurance.ts`'s sort order (a paid-up policy sorts to
+the end instead of falling back to a stale `renewalDate`), and the form's own UI (a "Paid up — cover
+continues without further premiums." banner replaces the due-date section).
+
+**4. Dense 2-column form relayout — a real, user-driven second pass, not a one-shot design.** The form
+was rewritten twice: an initial type-conditional layout (matching the `-redesign-v4.html` mockup), then a
+full second relayout after the user tried the shipped form on-device and gave specific, detailed
+complaints about it — the exact field arrangement of the final layout (hero coverage field + preset pills;
+paired [Insurer|Premium]/[Plan|Policy #]/[Start|End date] rows; a full-row payment-frequency pill group
+instead of a cramped segmented control sharing a row with Premium; duration presets living directly under
+the date row with no separate label since their only purpose is setting End date; Mark-as-paid moved
+before Nominee(s) rather than after) was specified by the user by hand, not designed from scratch by an
+agent. **Rationale worth generalizing:** a mockup being "approved" before implementation (per this
+project's own mandatory-mockup rule) doesn't guarantee the shipped layout survives real on-device use
+unchanged — a dense, many-field form is exactly the kind of screen where a static HTML mockup can look
+right but feel cramped/awkward once real interaction (frequency picker + premium sharing a row, duration
+presets reading like their own separate feature instead of a shortcut for one field) is tried on a real
+device. When a user reports "I tried it and don't like the layout" for a form that already went through
+mockup approval, treat that as a legitimate second mockup-quality design pass (a fresh, explicit
+`-v2.html`/follow-up mockup discussion, per the "never edit an existing mockup without asking" rule), not
+as scope creep to push back on.
+
+**5. `InsurancePage.tsx` holds `editingPolicyId: string | null`, never the policy object** — the same
+"never snapshot, always re-resolve live by id" rule first established for the EPF employer-detail modal
+(see the 2026-08-30 entry above), applied here because the form can trigger its own child mutation
+(mark-as-paid) while still open, which would otherwise leave the form rendering a stale snapshot of the
+policy it was opened with.
+
+**6. New shared UI pieces:** `apps/mobile/src/features/insurance/InsurerField.tsx` (centered-Modal radio
+list scoped to the policy type's insurer category, plus an "Other" free-text row with locally-remembered
+suggestions) and `apps/mobile/src/features/insurance/Chip.tsx` (a small single-select pill — label/active/
+onPress — distinct from the pre-existing `components/ui/DismissibleChip`, which always has an "×" for
+removable tags, not single-select). See `docs/DESIGN_GUIDELINES.md` §3 for the design-pattern writeup.
+
+**Deliberate, documented scope limits** (not oversights): un-marking a payment only ever reverses the
+most recent entry; `installmentAmount()`'s even-division-by-frequency math doesn't model real insurers'
+~3–5%/year "modal loading" surcharge for non-annual modes; "link an existing expense" candidates aren't
+restricted to the premium category; Health's co-pay is a single flat percentage; Vehicle's new
+registration/IDV/NCB% fields are intentionally unlinked from the pre-existing, separate vehicle-insurance
+fields on a Real Assets Vehicle holding (two independent places by the user's own explicit decision); only
+Term/Life got the new due-date mechanics and full card visual treatment — Health/Vehicle/Home/Travel/Other
+kept a lighter restyle of the original simple annual-renewal card. Full writeup:
+`docs/features/insurance.md`.
+
+---
+
 ## Dependency graph (simplified)
 
 **Updated 2026-08-29** — this used to describe `apps/web-react`'s entry chain

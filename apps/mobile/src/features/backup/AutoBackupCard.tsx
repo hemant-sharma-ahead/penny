@@ -223,15 +223,23 @@ export function AutoBackupCard({ onFixForeignBlob }: { onFixForeignBlob?: () => 
    *  instead of silence. `manual: true` so this always attempts the push even if the auto-backup
    *  toggle is off. */
   async function backupNowToCloud() {
-    const before = getBackupState().lastBackupAt;
-    await runNow(true);
-    const after = getBackupState();
-    if (after.lastBackupAt && after.lastBackupAt !== before) {
-      showToast({ message: 'Backed up just now.' });
-    } else if (after.status === 'idle' && !after.error) {
-      showToast({ message: 'Already up to date — nothing new to back up.' });
+    // `runNow` itself never rethrows (every branch resolves into `setState`), but this stays
+    // defensive/try-catch-wrapped anyway, matching every other handler in this file
+    // (`handleSwitchAccount`/`handleDisconnectAccount`/`handleOverwriteConfirm`/`exportToDevice`)
+    // rather than being the one call site in the file that assumes success unconditionally.
+    try {
+      const before = getBackupState().lastBackupAt;
+      await runNow(true);
+      const after = getBackupState();
+      if (after.lastBackupAt && after.lastBackupAt !== before) {
+        showToast({ message: 'Backed up just now.' });
+      } else if (after.status === 'idle' && !after.error) {
+        showToast({ message: 'Already up to date — nothing new to back up.' });
+      }
+      // status errors (offline / quota / needs_reconnect) already surface via the banners below.
+    } catch (err) {
+      showToast({ message: err instanceof Error ? err.message : 'Backup failed' });
     }
-    // status errors (offline / quota / needs_reconnect) already surface via the banners below.
   }
 
   function handleBackupNow() {

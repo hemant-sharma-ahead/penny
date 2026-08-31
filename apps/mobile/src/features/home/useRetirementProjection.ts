@@ -43,7 +43,7 @@ const FALLBACK_AGE = 30;
 export function useRetirementProjection(summary: HomeSummary | null): RetirementProjectionState {
   const { plan, loading: planLoading, update } = useRetirementPlan();
   const { profile } = useProfile();
-  const stats = useHomeStats();
+  const { stats } = useHomeStats();
   const [snapshots, setSnapshots] = useState<NetWorthSnapshot[]>([]);
 
   useEffect(() => {

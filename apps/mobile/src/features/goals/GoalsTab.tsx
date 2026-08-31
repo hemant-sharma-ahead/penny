@@ -225,9 +225,13 @@ export function GoalsTab({
             await saveGoal(goal);
             setShowForm(false);
           }}
-          onDelete={async (id) => {
-            await removeGoal(id);
+          // Close first, then remove — see RetirementSection.tsx's `del` for the full rationale
+          // (closing-after-remove let the Undo toast stack a second native Modal on top of this
+          // one, and both tearing down together could background the whole app). Still returns
+          // the promise (not fire-and-forget) — `GoalForm.handleDelete` chains its own `.catch`.
+          onDelete={(id) => {
             setShowForm(false);
+            return removeGoal(id).then(() => {});
           }}
           onClose={() => setShowForm(false)}
         />

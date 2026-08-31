@@ -24,6 +24,7 @@ import type {
   Hashtag,
   Holding,
   InsurancePolicy,
+  InsurerMemory,
   LedgerEntry,
   Liability,
   MerchantMemory,
@@ -64,6 +65,7 @@ export const goalsRepo = new EncryptedRepository<Goal>(db.goals as never);
 export const goalContributionsRepo = new EncryptedRepository<GoalContribution>(db.goal_contributions as never);
 export const liabilitiesRepo = new EncryptedRepository<Liability>(db.liabilities as never);
 export const insurancePoliciesRepo = new EncryptedRepository<InsurancePolicy>(db.insurance_policies as never);
+export const insurerMemoryRepo = new EncryptedRepository<InsurerMemory>(db.insurer_memory as never);
 export const chipInsightsRepo = new EncryptedRepository<ChipInsight>(db.chip_insights as never);
 export const aiCallLogRepo = new EncryptedRepository<AiCallLog>(db.ai_call_log as never);
 export const subscriptionsRepo = new EncryptedRepository<Subscription>(db.subscriptions as never);
@@ -111,6 +113,7 @@ const ALL_REPOS: Array<{ invalidateCache(): void }> = [
   goalContributionsRepo,
   liabilitiesRepo,
   insurancePoliciesRepo,
+  insurerMemoryRepo,
   chipInsightsRepo,
   aiCallLogRepo,
   subscriptionsRepo,

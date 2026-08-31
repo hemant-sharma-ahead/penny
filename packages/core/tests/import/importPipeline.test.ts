@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   dedupKey,
+  dedupDayKey,
   buildPreviewRows,
   matchCategory,
   buildResolvedPreviewRows,
@@ -55,6 +56,31 @@ describe('dedupKey', () => {
     const c = dedupKey(1_700_000_000_000, 100, 'Tea');
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+  });
+});
+
+// Real reported bug (2026-08-31): importing a Cashew CSV where some rows had already been manually
+// added to Penny still imported all of them — none flagged as duplicates. Root cause: a manual entry's
+// date carries the real wall-clock time it was entered, while Cashew's export is always midnight-local
+// with no time-of-day at all — comparing full epoch-ms (`dedupKey`) never matched even though the day,
+// amount, and description all genuinely agreed.
+describe('dedupDayKey', () => {
+  it('matches two timestamps on the same local day regardless of time-of-day', () => {
+    const morning = new Date(2026, 3, 10, 9, 15).getTime(); // manually entered mid-morning
+    const midnight = new Date(2026, 3, 10, 0, 0).getTime(); // Cashew's export, always midnight-local
+    expect(dedupDayKey(morning, 250, 'Groceries')).toBe(dedupDayKey(midnight, 250, 'Groceries'));
+  });
+
+  it('still differs across two different calendar days', () => {
+    const day1 = new Date(2026, 3, 10, 9, 15).getTime();
+    const day2 = new Date(2026, 3, 11, 9, 15).getTime();
+    expect(dedupDayKey(day1, 250, 'Groceries')).not.toBe(dedupDayKey(day2, 250, 'Groceries'));
+  });
+
+  it('still differs on amount or description, same as dedupKey', () => {
+    const t = new Date(2026, 3, 10, 9, 15).getTime();
+    expect(dedupDayKey(t, 250, 'Groceries')).not.toBe(dedupDayKey(t, 300, 'Groceries'));
+    expect(dedupDayKey(t, 250, 'Groceries')).not.toBe(dedupDayKey(t, 250, 'Rent'));
   });
 });
 
@@ -596,7 +622,9 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
       [0, { categoryId: 'cat-food', categoryName: 'Groceries' }],
       [1, { categoryId: 'cat-rent', categoryName: 'Rent' }]
     ]);
-    const key = dedupKey(0, 100, 'same');
+    // Keyed by dedupDayKey — see that function's doc comment for why the DB-match side is day-truncated,
+    // unlike the same-batch check this test is really exercising.
+    const key = dedupDayKey(0, 100, 'same');
     // Only ONE real existing expense id shares this key — a plain Set would have flagged BOTH rows
     // (unconditional membership test); the id-list-based fix only lets one of them claim it.
     const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-1']]]));
@@ -607,7 +635,7 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
   it('2026-08-16: the duplicate row carries the specific matched expense id, not just a boolean flag', () => {
     const rows = [row({ description: 'Same' })];
     const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-food', categoryName: 'Groceries' }]]);
-    const key = dedupKey(0, 100, 'same');
+    const key = dedupDayKey(0, 100, 'same');
     const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-42']]]));
     expect(result[0]).toMatchObject({ duplicate: true, matchedExpenseId: 'exp-42' });
   });
@@ -640,6 +668,18 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
     const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
     expect(result[0]?.duplicate).toBe(false);
     expect(result[1]?.duplicate).toBe(false); // no longer falsely flagged as a repeat of row 0
+  });
+
+  it('2026-08-31 fix: matches a DB expense against a CSV row on the same day despite differing time-of-day', () => {
+    // Exact reported scenario: a manually-entered expense (real wall-clock time) vs. a Cashew CSV row for
+    // the same day/amount/description (always midnight-local) — must now be recognized as a duplicate.
+    const midnight = new Date(2026, 3, 10, 0, 0).getTime();
+    const manualEntryTime = new Date(2026, 3, 10, 14, 32).getTime();
+    const rows = [row({ date: midnight, description: 'Groceries' })];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-food', categoryName: 'Groceries' }]]);
+    const key = dedupDayKey(manualEntryTime, 100, 'Groceries');
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-1']]]));
+    expect(result[0]).toMatchObject({ duplicate: true, matchedExpenseId: 'exp-1' });
   });
 
   it('a "skip" action marks the row skipped with an empty categoryId, falling back to "Other"', () => {

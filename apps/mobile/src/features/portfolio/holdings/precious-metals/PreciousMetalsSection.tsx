@@ -72,8 +72,12 @@ export function PreciousMetalsSection({ holdings, masked, onSave, onRemove }: Pr
             await onSave(h);
             setForm(null);
           }}
+          // Close first, then remove — see RetirementSection.tsx's `del` for the full rationale
+          // (closing-after-remove let the Undo toast stack a second native Modal on top of this
+          // one, and both tearing down together could background the whole app).
           onDelete={(id) => {
-            void onRemove(id).then(() => setForm(null));
+            setForm(null);
+            void onRemove(id).catch(() => {});
           }}
           onClose={() => setForm(null)}
         />

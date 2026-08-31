@@ -1,4 +1,5 @@
 import type { Expense, InsurancePolicy, Liability, Subscription } from '@/core/db/types';
+import { installmentAmount, isPaidUp, scheduledOccurrencesWithin } from '@/core/insurance/premiumSchedule';
 
 export type CashFlowType = 'loan_emi' | 'subscription' | 'insurance' | 'recurring' | 'income';
 
@@ -9,6 +10,9 @@ export interface CashFlowEvent {
   direction: 'in' | 'out';
   amount: number; // always positive; sign comes from `direction`
   dueMs: number; // midnight of due date
+  /** Set only on a Term/Life due-SCHEDULE occurrence (never on a flat annual renewal event) — lets
+   *  `buildReminders()` offer the `mark_paid` action and identify which policy it belongs to. */
+  policyId?: string;
 }
 
 const DAY_MS = 86_400_000;
@@ -89,18 +93,52 @@ export function forecastEvents(
     }
   }
 
-  // Insurance renewals within horizon
+  // Insurance — Term/Life policies with a real payment schedule set (`nextPremiumDueDate` + a
+  // non-Single frequency) emit one event per due-schedule occurrence within the horizon, using the
+  // discount-aware per-installment amount (insurance-redesign-v4.html §④/§⑦), instead of one flat
+  // annual event. Every other type (Health/Vehicle/Home/Travel/Other), and any Term/Life policy with no
+  // schedule set yet (legacy records predating this field, or Single premium), keeps the original flat
+  // annual renewal event.
+  //
+  // A Term/Life policy that finished a Limited Pay term (`isPaidUp`) is a THIRD, distinct case, not the
+  // same as "no schedule was ever set" — `applyMarkAsPaid()` sets `nextPremiumDueDate` to `undefined`
+  // exactly once a Limited Pay policy's pay term completes (`premiumSchedule.ts`'s own doc comment), so
+  // without this explicit check that policy would silently fall into the `else` branch below and start
+  // emitting its old flat `renewalDate`/`annualPremium` event again — falsely suggesting an annual
+  // premium is still owed on a policy that has genuinely finished paying and needs no further
+  // installments. Emits NO insurance event at all for a paid-up policy.
   for (const p of policies) {
-    const dueMs = startOfDay(p.renewalDate);
-    if (dueMs >= todayStart && dueMs < horizonEnd) {
-      events.push({
-        id: `ins-${p.id}`,
-        label: `${p.insurer} renewal`,
-        type: 'insurance',
-        direction: 'out',
-        amount: p.annualPremium,
-        dueMs
-      });
+    if ((p.type === 'term' || p.type === 'life') && isPaidUp(p, todayStart)) continue;
+    const hasSchedule =
+      (p.type === 'term' || p.type === 'life') &&
+      p.paymentFrequency !== undefined &&
+      p.paymentFrequency !== 'S' &&
+      p.nextPremiumDueDate !== undefined;
+    if (hasSchedule) {
+      for (const occurrence of scheduledOccurrencesWithin(p, todayStart, horizonEnd)) {
+        const dueMs = startOfDay(occurrence);
+        events.push({
+          id: `ins-due-${p.id}-${dueMs}`,
+          label: `${p.planName ?? p.insurer} premium`,
+          type: 'insurance',
+          direction: 'out',
+          amount: installmentAmount(p, dueMs),
+          dueMs,
+          policyId: p.id
+        });
+      }
+    } else {
+      const dueMs = startOfDay(p.renewalDate);
+      if (dueMs >= todayStart && dueMs < horizonEnd) {
+        events.push({
+          id: `ins-${p.id}`,
+          label: `${p.insurer} renewal`,
+          type: 'insurance',
+          direction: 'out',
+          amount: p.annualPremium,
+          dueMs
+        });
+      }
     }
   }
 

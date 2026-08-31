@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { expensesRepo, subscriptionsRepo } from '@/core/db/repositories';
+import { expensesRepo, insurancePoliciesRepo, subscriptionsRepo } from '@/core/db/repositories';
 import { buildOccurrence } from '@/core/expenses/recurringDue';
 import { buildReminders, reminderCounts, type Reminder, type ReminderState } from '@/core/reminders/reminders';
 import { logActivity } from '@/core/db/activityLog';
 import { getJSON, setJSON } from '~/lib/storage';
 import { useForecast } from '~/hooks/useForecast';
+import { markPremiumPaid, type MarkPaidChoice } from '~/hooks/useInsurancePremiumActions';
 
 const STATE_KEY = 'penny_reminder_state';
 const DAY_MS = 86_400_000;
@@ -72,6 +73,26 @@ export function useReminders() {
     [markDone, reload]
   );
 
+  // Term/Life premium "Mark as paid" (insurance-redesign-v4.html §④/§⑦) — tapped from the bell, this
+  // opens the SAME optional log/link/skip choice the Insurance screen's own form offers, not a fourth,
+  // different interaction (per the mockup's own §⑦ note). Reuses the shared
+  // `~/hooks/useInsurancePremiumActions.ts` write so both hook instances stay identical — this bell has
+  // no `useInsurance()` instance of its own to call into (a fresh `Agent`/hook mount here would be a
+  // second, independent local-state copy, not the fix), fetching the live policy record fresh by id
+  // instead of caching one, consistent with this app's "never snapshot" rule for anything that can be
+  // mutated by a stacked child action.
+  const markInsurancePaid = useCallback(
+    async (r: Reminder, choice: MarkPaidChoice) => {
+      if (!r.policyId) return;
+      const policy = await insurancePoliciesRepo.get(r.policyId);
+      if (!policy) return;
+      await markPremiumPaid(policy, choice);
+      markDone(r.id);
+      reload();
+    },
+    [markDone, reload]
+  );
+
   const cancelSub = useCallback(
     async (r: Reminder) => {
       if (!r.subscriptionId) return;
@@ -91,5 +112,5 @@ export function useReminders() {
     [markDone, reload]
   );
 
-  return { loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub };
+  return { loading, nowMs, reminders, counts, snooze, markDone, log, cancelSub, markInsurancePaid };
 }

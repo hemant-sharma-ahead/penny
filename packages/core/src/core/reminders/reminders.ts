@@ -10,7 +10,7 @@ const DAY_MS = 86_400_000;
 const SOON_DAYS = 7;
 
 export type ReminderUrgency = 'overdue' | 'today' | 'soon';
-export type ReminderAction = 'log' | 'cancel' | 'none';
+export type ReminderAction = 'log' | 'cancel' | 'none' | 'mark_paid';
 
 export interface Reminder {
   id: string; // stable across renders for snooze/done state
@@ -22,6 +22,7 @@ export interface Reminder {
   action: ReminderAction;
   subscriptionId?: string; // when action === 'cancel'
   due?: DueRecurring; // when action === 'log' (carries the template to post)
+  policyId?: string; // when action === 'mark_paid' — the InsurancePolicy this due-schedule occurrence belongs to
 }
 
 export interface ReminderState {
@@ -77,6 +78,25 @@ export function buildReminders(
     seenRecurring.add(norm(d.template.description));
   }
 
+  // Overdue Term/Life premium due-schedule occurrences — `forecastEvents()` deliberately still returns
+  // these (bounded look-back, see `scheduledOccurrencesWithin`'s doc comment) even though the "upcoming
+  // outflows" loop below only looks forward; unlike an EMI/subscription, an unmarked premium genuinely
+  // hasn't been paid, so it belongs in "Overdue" with the grace-period countdown, not silently dropped.
+  for (const e of events) {
+    if (e.type === 'insurance' && e.policyId && e.direction === 'out' && e.dueMs < todayStart) {
+      out.push({
+        id: e.id,
+        label: e.label,
+        amount: e.amount,
+        dueMs: e.dueMs,
+        kind: e.type,
+        urgency: 'overdue',
+        action: 'mark_paid',
+        policyId: e.policyId
+      });
+    }
+  }
+
   // Upcoming outflows within the next 7 days.
   for (const e of events) {
     if (e.direction !== 'out' || e.dueMs < todayStart || e.dueMs >= soonEnd) continue;
@@ -88,8 +108,9 @@ export function buildReminders(
       dueMs: e.dueMs,
       kind: e.type,
       urgency: e.dueMs <= todayStart ? 'today' : 'soon',
-      action: e.type === 'subscription' ? 'cancel' : 'none',
-      ...(e.type === 'subscription' ? { subscriptionId: subscriptionIdOf(e.id) } : {})
+      action: e.type === 'subscription' ? 'cancel' : e.policyId ? 'mark_paid' : 'none',
+      ...(e.type === 'subscription' ? { subscriptionId: subscriptionIdOf(e.id) } : {}),
+      ...(e.policyId ? { policyId: e.policyId } : {})
     });
   }
 

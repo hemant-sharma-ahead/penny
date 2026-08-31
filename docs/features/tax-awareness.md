@@ -33,7 +33,7 @@ Models **GST 2.0** (22 Sep 2025: 12% & 28% retired → mostly 5%/18%, new 40% de
 
 **Deduction tracking (Old Tax Regime):**
 
-- **80C** aggregates: EPF contributions from the `holdings` store (EPF asset class), PPF/ELSS holdings, home loan principal from `liabilities` (type `home_loan`, derived from amortisation schedule), and insurance premiums from `insurance_policies` where type is `term_life`, `whole_life`, or `endowment`.
+- **80C** aggregates: EPF contributions from the `holdings` store (EPF asset class), PPF/ELSS holdings, home loan principal from `liabilities` (type `home_loan`, derived from amortisation schedule), and insurance premiums from `insurance_policies` where type is `term` or `life` (renamed/collapsed 2026-08-31 from the old `term_life`/`whole_life`/`endowment`/`ulip` — see `docs/features/insurance.md`).
 - **80D** pulls health insurance premiums from `insurance_policies` where type is `health`. Split into own-family (≤ ₹25K) and parents (additional ≤ ₹25K, or ₹50K if parents are senior citizens — senior-citizen flag is a Phase 2 addition).
 - **24B** pulls home loan interest from the `liabilities` store, calculated from outstanding balance, rate, and EMI schedule if available.
 

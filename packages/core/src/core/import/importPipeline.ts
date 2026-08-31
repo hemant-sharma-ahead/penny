@@ -1,5 +1,6 @@
 import type { ExpenseCategory } from '@/core/db/types';
 import { CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
+import { toDateKey } from '@/lib/date';
 import type { ParsedRow } from './importParsers';
 import type { CategoryResolution } from './importCategoryResolution';
 import type { TransferPair } from './importTransferPairing';
@@ -22,6 +23,27 @@ import type { TransferPair } from './importTransferPairing';
  *  day/amount/description are no longer falsely conflated. */
 export function dedupKey(date: number, amount: number, desc: string): string {
   return `${date}|${amount}|${desc.toLowerCase().trim()}`;
+}
+
+/** Day-truncated sibling of `dedupKey` — used ONLY when matching an imported row against EXISTING DB
+ *  expenses (`buildResolvedPreviewRowsByIndex`'s `existingExpenseIdsByKey`), never for in-batch/same-file
+ *  matching, which must stay on the full-epoch-ms key above (see that function's own doc comment for why
+ *  day-truncation there caused real data loss for genuinely-distinct same-day rows within one file).
+ *
+ *  Real reported bug (2026-08-31): importing a 10-row Cashew CSV where 2 of those transactions had
+ *  ALREADY been manually added to Penny still imported all 10, none flagged as duplicates. Root cause: a
+ *  manually-entered expense's date carries whatever wall-clock time the user happened to be filling the
+ *  form in (`ExpenseForm.tsx` defaults a new entry's time to `Date.now()`), while a budgeting-app CSV
+ *  export's date column has no time-of-day at all (Cashew's own export is always midnight-local for every
+ *  row) — comparing full epoch-ms therefore never matches even when the day, amount, and description all
+ *  genuinely agree. Day-truncating only the DB-comparison side fixes this without reopening the original
+ *  same-file collision bug: the DB-match consumption is already 1:1 (one existing expense id is popped per
+ *  matching row, never shared across multiple import rows — see `buildResolvedPreviewRowsByIndex`), and
+ *  the "Not a duplicate — import anyway" per-row override (`useImport.ts`'s `unflagDuplicate`) already
+ *  exists as the safety valve for the rarer case where two genuinely-distinct same-day/amount/description
+ *  transactions cause an over-eager false match here. */
+export function dedupDayKey(date: number, amount: number, desc: string): string {
+  return `${toDateKey(date)}|${amount}|${desc.toLowerCase().trim()}`;
 }
 
 // ─── Legacy pipeline (apps/mobile's current import wizard) ─────────────────────
@@ -422,7 +444,12 @@ export interface RowAction {
  *  prior import; the plan doc's own flagged "a wider matching window could still resurface false
  *  positives" case would need bank-import's row-index-based disambiguation to fully close, deferred),
  *  but it does make both the DB-match and same-batch portions honestly bounded rather than either
- *  silently amplifying the other. */
+ *  silently amplifying the other.
+ *
+ *  @param existingExpenseIdsByKey Keyed by `dedupDayKey` (day-truncated), not `dedupKey` — see that
+ *    function's own doc comment for why the DB-match side needs day-level tolerance while same-batch
+ *    matching (via `ref`/`fullRowSignature` above) stays on the exact full-epoch-ms key. Callers (see
+ *    `useImport.ts`'s `loadReferenceData`) must build this map with `dedupDayKey`, not `dedupKey`. */
 export function buildResolvedPreviewRowsByIndex(
   rows: ParsedRow[],
   rowActions: Map<number, RowAction>,
@@ -440,7 +467,10 @@ export function buildResolvedPreviewRowsByIndex(
     const resolved = rowActions.get(i);
     const override = rowOverrides?.get(i);
     const ref = dedupKey(row.date, row.amount, row.description);
-    const remainingIds = remainingExistingMatches.get(ref);
+    // DB match uses the day-truncated key (see `dedupDayKey`'s own doc comment) — `ref` above stays the
+    // full-epoch-ms key for `sourceRef`/same-batch matching, which must stay exact.
+    const dbRef = dedupDayKey(row.date, row.amount, row.description);
+    const remainingIds = remainingExistingMatches.get(dbRef);
     const matchedExpenseId = remainingIds && remainingIds.length > 0 ? remainingIds.pop() : undefined;
     const matchesExistingExpense = matchedExpenseId !== undefined;
     // Fuller signature than `ref` alone (see this function's own doc comment, fix #2) — two rows only

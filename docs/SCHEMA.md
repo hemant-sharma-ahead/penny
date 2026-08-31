@@ -8,7 +8,7 @@ Encrypted stores use `EncryptedRepository<T>`, which transparently encrypts fiel
 decrypts on read via the in-memory Master Key, against whatever `RowStore<T>` implementation backs
 it (`store.ts`'s storage-engine seam). Plain stores are written directly with no encryption.
 
-**Store counts:** 38 active stores total — 36 encrypted + 2 plain.
+**Store counts:** 40 active stores total — 38 encrypted + 2 plain.
 
 **Schema history** (the version numbers below are Dexie's own numbering scheme — the tool this
 history was originally built and tracked in; `apps/web-react`, the app that ran Dexie, was retired
@@ -34,6 +34,7 @@ ordering, not because Dexie itself is still involved):
 - v14: Added `sms_transactions`, `sms_account_mappings` (SMS-Based Transaction Tracking, Android
   only) — 38 total
 - v15: Added `sms_excluded_senders` (durable per-sender "never a transaction" exclusion) — 39 total
+- v16: Added `insurer_memory` (Insurance redesign — "Other" insurer suggestion memory) — 40 total
 
 ---
 
@@ -317,23 +318,73 @@ All debt obligations — loans, credit cards, BNPL, informal borrowings.
 
 ### `insurance_policies`
 
-Life, health, vehicle, and other insurance policies.
+Life, health, vehicle, home, travel, and other insurance policies. Redesigned 2026-08-31: the base
+fields (still the whole shape for Health/Vehicle/Home/Travel/Other's simple annual-renewal model) are
+followed by a large, **all-optional** block of Term/Life premium-schedule/due-date fields plus a few
+other per-type fields — every field added in the redesign is optional so an existing saved policy keeps
+working unchanged. See [`docs/features/insurance.md`](features/insurance.md) for the full behavior.
 
-| Field            | Type                                                                                                                 | Notes                                         |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| id               | string (UUID)                                                                                                        | Primary key                                   |
-| type             | `'term_life' \| 'whole_life' \| 'endowment' \| 'ulip' \| 'health' \| 'vehicle' \| 'property' \| 'travel' \| 'other'` |                                               |
-| name             | string                                                                                                               | Policy name or description                    |
-| insurer          | string?                                                                                                              | Insurer name e.g. `'LIC'`, `'Star Health'`    |
-| policyNumber     | string?                                                                                                              | Encrypted — never shown in logs or sent to AI |
-| sumAssured       | number?                                                                                                              | Cover amount in ₹                             |
-| premium          | number?                                                                                                              | Premium amount in ₹                           |
-| premiumFrequency | `'monthly' \| 'quarterly' \| 'half-yearly' \| 'yearly'`?                                                             | Payment cadence                               |
-| startDate        | number?                                                                                                              | Epoch ms — policy start                       |
-| renewalDate      | number?                                                                                                              | Epoch ms — next renewal                       |
-| maturityDate     | number?                                                                                                              | Epoch ms — for endowment/ULIP                 |
-| nominees         | string[]?                                                                                                            | Nominee names — PII, never sent to AI         |
-| note             | string?                                                                                                              | Free text                                     |
+| Field                      | Type                                                                         | Notes                                                                                                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| id                         | string (UUID)                                                                | Primary key                                                                                                                                                                              |
+| type                       | `'term' \| 'life' \| 'health' \| 'vehicle' \| 'home' \| 'travel' \| 'other'` | Renamed/collapsed 2026-08-31 from the old `'term_life' \| 'whole_life' \| 'endowment' \| 'ulip' \| ... \| 'property' \| ...` — Whole Life/Endowment/ULIP are now all `'life'`, distinguished by the `isULIP` flag below; `'property'` renamed to `'home'` |
+| insurer                    | string                                                                       | Free text, or one of `core/insurance/insurers.ts`'s researched picklists e.g. `'LIC (Life Insurance Corporation)'`, `'Star Health and Allied Insurance'`                                |
+| policyNumber               | string?                                                                      | Encrypted — never shown in logs or sent to AI                                                                                                                                            |
+| coverageAmount             | number                                                                       | Cover amount in ₹ — base field of record, the only coverage figure for Health/Vehicle/Home/Travel/Other                                                                                  |
+| annualPremium              | number                                                                       | Annual premium in ₹ — base field of record                                                                                                                                               |
+| renewalDate                | number                                                                       | Epoch ms — next annual renewal. Still authoritative for Health/Vehicle/Home/Travel/Other; additive (not replaced) alongside Term/Life's richer schedule below                            |
+| sumInsured                 | number?                                                                      | Base optional field                                                                                                                                                                      |
+| nominees                   | string?                                                                      | PII, never sent to AI                                                                                                                                                                    |
+| notes                      | string?                                                                      | Free text                                                                                                                                                                                |
+| planName                   | string?                                                                      | Plan name, distinct from `insurer` (e.g. "iSelect Smart360 Term Plan" from "HDFC Life")                                                                                                  |
+| startDate                  | number?                                                                      | Epoch ms                                                                                                                                                                                 |
+| durationYears              | number?                                                                      | Whole-year duration preset (Term/Life/Health/Vehicle/Home/Other) — mutually exclusive in practice with `durationDays`                                                                    |
+| durationDays               | number?                                                                      | Short-trip duration preset (Travel)                                                                                                                                                      |
+| endDate                    | number?                                                                      | Cover end date — auto-derived from `startDate` + duration unless `endDateIsCustom`                                                                                                       |
+| endDateIsCustom            | boolean?                                                                     |                                                                                                                                                                                            |
+| paymentFrequency           | `'M' \| 'Q' \| 'H' \| 'A' \| 'S'`?                                            | `PremiumFrequency` — Monthly/Quarterly/Half-yearly/Annual/Single. Term/Life's payment-schedule fields key off this                                                                       |
+| firstYearDiscountEnabled   | boolean?                                                                     |                                                                                                                                                                                            |
+| discountType               | `'pct' \| 'flat'`?                                                            | `DiscountType`                                                                                                                                                                            |
+| discountValue              | number?                                                                      | Percent (0–100) when `discountType === 'pct'`, else a flat ₹ amount off the Year-1 installment                                                                                           |
+| nextPremiumDueDate         | number?                                                                      | Term/Life only — next unpaid installment's due date. Auto-computed, rolled forward on each "Mark as paid"; user-overridable                                                             |
+| nextPremiumDueDateIsCustom | boolean?                                                                     |                                                                                                                                                                                            |
+| premiumPayments            | `PremiumPayment[]`?                                                          | Term/Life's "Mark as paid" history — append-only, newest last. See shape below                                                                                                           |
+| sumAssured                 | number?                                                                      | Term/Life-specific                                                                                                                                                                        |
+| premiumPaymentTerm         | `'regular' \| 'limited'`?                                                     | `PremiumPaymentTerm` — Term/Life only. 'Limited' stops premiums after `limitedPayYears` while cover continues for the full duration                                                     |
+| limitedPayYears            | number?                                                                      | Term/Life-specific, only meaningful when `premiumPaymentTerm === 'limited'`                                                                                                              |
+| isULIP                     | boolean?                                                                     | Life only — market-linked (ULIP, 3-year revival window) vs non-linked (Endowment/Whole Life, 5-year) — never used for fund-value tracking                                               |
+| maturityBenefit            | number?                                                                      | Life only                                                                                                                                                                                |
+| membersCovered             | string[]?                                                                    | Health-specific                                                                                                                                                                          |
+| coPayPct                   | number?                                                                      | Health-specific — a single flat percentage, no per-diagnosis variation                                                                                                                   |
+| vehicleRegNumber           | string?                                                                      | Vehicle-specific — deliberately unlinked from `AssetMeta.vehicleInsurancePolicyNo`/etc. on a Real Assets vehicle holding (two independent places by design)                             |
+| idv                        | number?                                                                      | Vehicle-specific — Insured Declared Value                                                                                                                                                |
+| ncbPct                     | number?                                                                      | Vehicle-specific — No Claim Bonus percentage                                                                                                                                             |
+| structureValue             | number?                                                                      | Home-specific                                                                                                                                                                            |
+| destination                | string?                                                                      | Travel-specific                                                                                                                                                                          |
+| tripStartDate              | number?                                                                      | Travel-specific — epoch ms                                                                                                                                                               |
+| tripEndDate                | number?                                                                      | Travel-specific — epoch ms                                                                                                                                                               |
+
+**`PremiumPayment`** (element of `premiumPayments`, not its own store): `{ id: string, dueMs: number
+(the schedule occurrence this settles), paidMs: number (when "Mark as paid" was tapped), amount: number
+(the exact discount-aware installment paid), linkedExpenseId?: string (set only for "log"/"link" choices,
+omitted for "skip") }`.
+
+---
+
+### `insurer_memory`
+
+New store (2026-08-31). Encrypted. Local "remembered custom insurer" suggestions for the Add/Edit
+policy form's "Other" (not-in-picklist) insurer option — mirrors `merchant_memory`'s exact
+normalize/key/build/search pattern (`core/insurance/insurerMemory.ts`). Included in backup/restore
+(`backupManager.ts`'s `BACKUP_STORES`).
+
+| Field      | Type                               | Notes                                                                                                     |
+| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| id         | string                              | `` `${category}::${normalizedName}` `` — namespaced so the same free-text name typed under two different insurer categories doesn't collide |
+| name       | string                              | Last raw (trimmed) name typed, for display                                                                |
+| category   | `'life' \| 'health' \| 'general'`   | `InsurerCategory` — scopes the suggestion to the right picklist category                                  |
+| usageCount | number                              | Incremented on each matching save                                                                         |
+| updatedAt  | number                              | Epoch ms                                                                                                   |
 
 ---
 

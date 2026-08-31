@@ -733,6 +733,31 @@ export interface Liability {
 
 export type InsuranceType = 'term' | 'health' | 'vehicle' | 'home' | 'travel' | 'life' | 'other';
 
+/** How often a premium installment is paid — Term/Life's payment-schedule fields below key off this.
+ *  'S' = Single premium (one-time, no recurring due date/schedule). */
+export type PremiumFrequency = 'M' | 'Q' | 'H' | 'A' | 'S';
+
+/** 'Regular' pays for the full policy term; 'Limited' stops after `limitedPayYears` while cover
+ *  continues for the full duration (Term/Life only). */
+export type PremiumPaymentTerm = 'regular' | 'limited';
+
+export type DiscountType = 'pct' | 'flat';
+
+/**
+ * One recorded premium installment (insurance-redesign-v4, §④/§⑥) — Term/Life's "Mark as paid" flow.
+ * `linkedExpenseId` is set only when the user chose "Log a new expense" or "Link an existing expense"
+ * at mark-as-paid time (insurance-redesign-v4.html §④'s three equal-weight choices); left unset for
+ * "Skip — just track the payment", same "computed on demand, optional ledger link" shape as
+ * `GoalContribution.linkedTxnId`.
+ */
+export interface PremiumPayment {
+  id: string;
+  dueMs: number; // the schedule occurrence this payment settles
+  paidMs: number; // when the user actually tapped "Mark as paid"
+  amount: number; // the exact installment amount paid (discount-aware)
+  linkedExpenseId?: string;
+}
+
 export interface InsurancePolicy {
   id: string;
   type: InsuranceType;
@@ -740,11 +765,84 @@ export interface InsurancePolicy {
   policyNumber?: string;
   coverageAmount: number;
   annualPremium: number;
+  /** Annual-renewal date — still the field of record for Health/Vehicle/Home/Travel/Other (one flat
+   *  renewal a year). Term/Life's richer payment schedule (below) is additive, not a replacement. */
   renewalDate: number;
   sumInsured?: number;
   nominees?: string;
   notes?: string;
   createdAt: number;
+  updatedAt: number;
+
+  // ── insurance-redesign-v4 additions (all optional — existing saved policies keep working) ──
+
+  /** Policy/plan name, distinct from `insurer` (e.g. "iSelect Smart360 Term Plan" from "HDFC Life"). */
+  planName?: string;
+  startDate?: number; // epoch ms
+  /** Whole-year duration (Term/Life/Health/Vehicle/Home/Other presets). Mutually exclusive in practice
+   *  with `durationDays` (Travel's short-trip presets) — a policy sets at most one. */
+  durationYears?: number;
+  durationDays?: number;
+  /** Cover end date — auto-derived from `startDate` + duration unless `endDateIsCustom`. */
+  endDate?: number;
+  endDateIsCustom?: boolean;
+  paymentFrequency?: PremiumFrequency;
+  firstYearDiscountEnabled?: boolean;
+  discountType?: DiscountType;
+  /** Percent (0-100) when `discountType === 'pct'`, else a flat rupee amount off the Year-1 installment. */
+  discountValue?: number;
+  /** Term/Life only — next unpaid installment's due date. Auto-computed from `startDate` + frequency,
+   *  rolled forward by `applyMarkAsPaid()` on each "Mark as paid"; user-overridable at any time. */
+  nextPremiumDueDate?: number;
+  nextPremiumDueDateIsCustom?: boolean;
+  /** Term/Life's "Mark as paid" history — newest last (append-only); UI shows newest-first. */
+  premiumPayments?: PremiumPayment[];
+
+  // Term/Life-specific
+  sumAssured?: number;
+  premiumPaymentTerm?: PremiumPaymentTerm;
+  limitedPayYears?: number;
+  /** Life only — market-linked (ULIP) vs non-linked (Endowment/Whole Life). Only ever used to pick the
+   *  correct revival-window wording if this ever lapses (3yr ULIP / 5yr non-linked, IRDAI June 2024
+   *  Master Circular) — see `core/insurance/premiumSchedule.ts`'s `revivalWindowYears()`. */
+  isULIP?: boolean;
+  maturityBenefit?: number; // Life only, optional
+
+  // Health-specific
+  membersCovered?: string[];
+  coPayPct?: number;
+
+  // Vehicle-specific — deliberately UNLINKED from `AssetMeta.vehicleInsurance*`/`vehicleInsurancePolicyNo`
+  // on a Real Assets vehicle holding (two independent places by design, already decided).
+  vehicleRegNumber?: string;
+  idv?: number;
+  ncbPct?: number;
+
+  // Home-specific
+  structureValue?: number;
+
+  // Travel-specific
+  destination?: string;
+  tripStartDate?: number;
+  tripEndDate?: number;
+}
+
+/** Scopes an `InsurerMemory` suggestion / the researched insurer picklist (`core/insurance/insurers.ts`)
+ *  to the right category — life insurers for Term/Life, standalone health insurers for Health, and
+ *  general insurers shared by Vehicle/Home/Travel/Other. */
+export type InsurerCategory = 'life' | 'health' | 'general';
+
+/**
+ * Local "remembered custom insurer" suggestions (insurance-redesign-v4.html §⑤) — mirrors
+ * `MerchantMemory`'s exact shape/convention (`core/expenses/merchantMemory.ts`): a free-text value typed
+ * once under "Other" is remembered so the next matching entry can reuse it, scoped by category the same
+ * way a merchant memory is scoped by transaction type. Encrypted store; `id` = `${category}::${normalizedName}`.
+ */
+export interface InsurerMemory {
+  id: string; // `${category}::${normalizedName}` — see core/insurance/insurerMemory.ts
+  name: string; // last raw (trimmed) name, for display
+  category: InsurerCategory;
+  usageCount: number;
   updatedAt: number;
 }
 

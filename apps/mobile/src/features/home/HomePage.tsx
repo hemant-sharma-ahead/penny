@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
@@ -13,6 +14,7 @@ import { MoneyStatsCard } from './MoneyStatsCard';
 import { FinancialHealthCard } from '~/features/health/FinancialHealthCard';
 import { HomeGroupsCard } from './HomeGroupsCard';
 import { useHome } from './useHome';
+import { useHomeStats } from './useHomeStats';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
@@ -43,7 +45,15 @@ export function HomePage() {
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeGroup } = useGroupContext();
   const { summary, assetGroups, totalAssets, reload } = useHome();
-  const { refreshing, onRefresh } = usePullToRefresh(reload);
+  const { stats, reload: reloadStats } = useHomeStats();
+  // Folds `useHomeStats`'s own reload into this screen's pull-to-refresh (2026-08-31 fix) — see that
+  // hook's own doc comment for why a manual refresh gesture previously couldn't clear a stale "Track
+  // Insurance"/"Track Loans" prompt at all, even after the underlying data actually changed.
+  const combinedReload = useCallback(() => {
+    reload();
+    reloadStats();
+  }, [reload, reloadStats]);
+  const { refreshing, onRefresh } = usePullToRefresh(combinedReload);
   useRegisterHeaderScreen('HomeMain');
 
   // When a group is the active context, Home becomes that group's dashboard. "Personal ▾"/the group
@@ -87,7 +97,7 @@ export function HomePage() {
             </Card>
           )}
 
-          <MoneyStatsCard />
+          <MoneyStatsCard stats={stats} />
 
           <FinancialHealthCard onNavigate={(to) => navigation.navigate(ROUTE_MAP[to])} />
 

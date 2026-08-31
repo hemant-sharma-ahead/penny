@@ -70,8 +70,16 @@ export function RetirementSection({ holdings, masked, onSave, onRemove }: Retire
     await saveHolding(h);
     close();
   };
+  // Close the modal BEFORE the async remove, not after (`.then(close)`) — closing first
+  // avoids a real bug: the Undo toast fired by `useLoggedRepository.remove()` checks whether
+  // another native `Modal` is still open (`ToastContext.tsx`'s `anyOtherModalOpen`) and, while
+  // this form's own `Modal` is still mounted, renders itself as a SECOND stacked native Modal.
+  // That modal then closes moments later when `close()` finally runs, tearing down two
+  // Android Dialog-backed windows within the same tick — a race that was surfacing as the
+  // whole app closing/backgrounding. See docs/ARCHITECTURE.md's matching decision-log entry.
   const del = (id: string) => {
-    void onRemove(id).then(close);
+    close();
+    void onRemove(id).catch(() => {});
   };
 
   return (

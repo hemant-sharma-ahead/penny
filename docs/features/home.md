@@ -243,6 +243,18 @@ single "Calculators" tile by then — was deleted outright once that calculator 
 `HomePage.tsx` composition is now: greeting + GlanceHeader + MoneyStatsCard + FinancialHealthCard +
 StoriesRow + HomeGroupsCard + AccountsStrip, full stop.
 
+**Mobile — 2026-08-31 pull-to-refresh fix:** `HomePage.tsx`'s pull-to-refresh only ever reloaded
+`useHome()`'s net-worth summary, never `useHomeStats()` (the Insurance-cover/Loans-outstanding figures
+`MoneyStatsCard` shows) — that hook was previously instantiated privately inside `MoneyStatsCard.tsx`
+itself, with no `reload` reachable by a parent's pull gesture, so e.g. adding an Insurance policy never
+made its Home-card total update even on a manual refresh. `useHomeStats()` now returns `{ stats, reload }`
+(was just `stats`) and is called from `HomePage.tsx`, which folds its `reload` into a new
+`combinedReload` alongside `useHome()`'s own and passes `stats` down to `MoneyStatsCard` as a prop.
+`useRetirementProjection.ts` updated for the new return shape (only needed `stats`). Landed alongside a
+separate fix making every `useLoggedRepository` consumer (Insurance included) actually broadcast
+`notifyTxnChanged()` on save/remove in the first place — see `docs/ARCHITECTURE.md`'s matching
+2026-08-31 decision-log entry for both halves of the bug.
+
 ## Current limitations
 
 - The Retirement Corpus chart's historical segment only appears once ≥2 monthly snapshots exist — a

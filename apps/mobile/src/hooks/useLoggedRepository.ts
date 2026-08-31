@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useRepository } from '@/hooks/useRepository';
 import { logActivity, restoreActivity, summarizeDiff } from '@/core/db/activityLog';
+import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
 import { useToast } from '~/context/ToastContext';
 import type { EncryptedRepository } from '@/core/db/repository';
 
@@ -18,6 +19,16 @@ interface LoggedOptions<T> {
  * `useToast` import points at the mobile `ToastContext`.
  * Drop-in replacement for `useRepository` that records CREATE/UPDATE on save and DELETE on remove,
  * and shows an Undo toast (restore + reload) after a delete. Same return shape as `useRepository`.
+ *
+ * **Broadcasts `notifyTxnChanged()` on every save/remove** (2026-08-31 fix) — this is the shared base
+ * for Insurance/Loans/Goals/Budgets/IOU/Subscriptions, and it never called this itself; individually,
+ * `usePortfolioHoldings.ts`/`useGoals.ts` had already worked around the gap by calling it at their own
+ * call sites, but Insurance/Loans/Budgets/IOU/Subscriptions hadn't — a real reported bug: adding an
+ * insurance policy never made Home's "Track Insurance" prompt (`useHomeStats.ts`, subscribed via
+ * `useTxnRefresh`) disappear until a full app restart. Fixing it here, once, covers every current and
+ * future consumer instead of requiring each one to remember it independently. Safe to call alongside an
+ * already-present call site — `notifyTxnChanged()` is coalesced onto one microtask flush regardless of
+ * how many times it's invoked in the same tick.
  */
 export function useLoggedRepository<T extends { id: string }>(repo: EncryptedRepository<T>, options: LoggedOptions<T>) {
   const { entityType, summarize, diffFields } = options;
@@ -41,6 +52,7 @@ export function useLoggedRepository<T extends { id: string }>(repo: EncryptedRep
       } else {
         logActivity({ action: 'CREATE', entityType, entityId: item.id, summary: `Added ${summarize(item)}` });
       }
+      notifyTxnChanged();
     },
     [items, baseSave, entityType, summarize, diffFields]
   );
@@ -64,8 +76,10 @@ export function useLoggedRepository<T extends { id: string }>(repo: EncryptedRep
         onAction: async () => {
           await restoreActivity(logId);
           reload();
+          notifyTxnChanged();
         }
       });
+      notifyTxnChanged();
     },
     [items, baseRemove, reload, showToast, entityType, summarize]
   );

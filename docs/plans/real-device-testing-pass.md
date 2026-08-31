@@ -1268,6 +1268,15 @@ No mockup needed — behavior/performance-only, no new UI.
 
 No mockup needed — behavior-only.
 
+**Partial progress, 2026-08-31 (found via an unrelated Insurance report, not a dedicated audit pass):**
+`useLoggedRepository.ts` itself — the shared base for Insurance/Loans/Goals/Budgets/IOU/Subscriptions —
+never called `notifyTxnChanged()` on save/remove at all. Fixed inside the shared hook, so every current
+and future consumer gets the broadcast for free rather than needing its own call (see
+`docs/ARCHITECTURE.md`'s matching 2026-08-31 decision-log entry). This closes the write-side gap for
+every `useLoggedRepository` consumer specifically, but the broader scope of this phase — a full audit of
+every mutation path that writes a transaction/ledger entry/group event, and wiring `GroupDashboard.tsx`
+into the same bus — is still open; don't treat this as the phase being complete.
+
 ---
 
 ## Phase 5 — Mobile gesture survey (item 5)

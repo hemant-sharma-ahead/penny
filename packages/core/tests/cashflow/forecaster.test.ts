@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { forecastEvents, projectBalance, type CashFlowEvent } from '@/core/cashflow/forecaster';
-import type { Expense } from '@/core/db/types';
+import type { Expense, InsurancePolicy } from '@/core/db/types';
 
 const DAY = 86_400_000;
 const NOW = new Date('2026-06-10T10:00:00').getTime();
@@ -98,6 +98,64 @@ describe('forecastEvents — recurring income vs expense direction', () => {
     expect(rent.length).toBe(3);
     // strictly increasing, ~30 days apart, all unique ids
     expect(new Set(rent.map((e) => e.id)).size).toBe(3);
+  });
+});
+
+const makePolicy = (over: Partial<InsurancePolicy> = {}): InsurancePolicy => ({
+  id: 'p1',
+  type: 'term',
+  insurer: 'HDFC Life',
+  coverageAmount: 10000000,
+  annualPremium: 12000,
+  renewalDate: NOW + 400 * DAY, // far outside the horizon in every test below
+  createdAt: 0,
+  updatedAt: 0,
+  ...over
+});
+
+describe('forecastEvents — insurance', () => {
+  it('emits one event per due-schedule occurrence for a Term/Life policy with a schedule set', () => {
+    const p = makePolicy({ type: 'term', paymentFrequency: 'M', nextPremiumDueDate: NOW, annualPremium: 12000 });
+    const events = forecastEvents([], [], [p], [], NOW, 95);
+    const insEvents = events.filter((e) => e.type === 'insurance');
+    expect(insEvents.length).toBe(4); // ~95 days / 30 ≈ 3-4 monthly occurrences
+    expect(insEvents.every((e) => e.amount === 1000)).toBe(true);
+    expect(insEvents.every((e) => e.policyId === 'p1')).toBe(true);
+  });
+
+  it('falls back to a single flat annual renewal event when no schedule is set', () => {
+    const p = makePolicy({ type: 'health', renewalDate: NOW + 5 * DAY });
+    const events = forecastEvents([], [], [p], [], NOW, 40);
+    const insEvents = events.filter((e) => e.type === 'insurance');
+    expect(insEvents).toHaveLength(1);
+    expect(insEvents[0]).toMatchObject({ id: 'ins-p1', amount: 12000 });
+    expect(insEvents[0]?.policyId).toBeUndefined();
+  });
+
+  it('falls back to the flat annual event for Term/Life with Single premium (no recurring schedule)', () => {
+    const p = makePolicy({ type: 'term', paymentFrequency: 'S', renewalDate: NOW + 5 * DAY });
+    const events = forecastEvents([], [], [p], [], NOW, 40);
+    expect(events.filter((e) => e.type === 'insurance')).toHaveLength(1);
+  });
+
+  it('emits NO insurance event at all for a Term/Life policy that finished a Limited Pay term (paid up) — a real gap, fixed 2026-08-31', () => {
+    // "Pay for 7 years, stay covered for 15", 8 years in — pay term long done, still well within cover.
+    // `nextPremiumDueDate` is left unset here, matching what `applyMarkAsPaid()` actually returns once
+    // the pay term completes (see `premiumSchedule.ts`'s doc comment) — before this fix, an undefined
+    // `nextPremiumDueDate` was indistinguishable from "no schedule was ever set", so this fell into the
+    // `else` branch and incorrectly resurrected the stale flat `renewalDate` below as a real event.
+    const start = NOW - 8 * 365 * DAY;
+    const p = makePolicy({
+      type: 'term',
+      paymentFrequency: 'A',
+      premiumPaymentTerm: 'limited',
+      limitedPayYears: 7,
+      startDate: start,
+      endDate: NOW + 7 * 365 * DAY,
+      renewalDate: NOW + 5 * DAY // stale leftover value — must NOT leak through as a fallback event
+    });
+    const events = forecastEvents([], [], [p], [], NOW, 400);
+    expect(events.filter((e) => e.type === 'insurance')).toHaveLength(0);
   });
 });
 

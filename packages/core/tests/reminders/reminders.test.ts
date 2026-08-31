@@ -76,4 +76,42 @@ describe('buildReminders', () => {
     const reminders = buildReminders([evt({ id: 'sub-b-1', label: 'B', dueMs: day(4) })], [due], NOW, empty);
     expect(reminderCounts(reminders)).toEqual({ total: 2, urgent: 1 }); // overdue urgent, soon not
   });
+
+  it('surfaces an overdue insurance due-schedule occurrence as mark_paid, not dropped', () => {
+    const events = [
+      evt({
+        id: 'ins-due-p1-x',
+        type: 'insurance',
+        label: 'HDFC Life premium',
+        amount: 900,
+        dueMs: day(-2),
+        policyId: 'p1'
+      })
+    ];
+    const reminders = buildReminders(events, [], NOW, empty);
+    expect(reminders).toHaveLength(1);
+    expect(reminders[0]).toMatchObject({ urgency: 'overdue', action: 'mark_paid', policyId: 'p1' });
+  });
+
+  it('gives an upcoming (not-yet-due) insurance schedule occurrence the mark_paid action too', () => {
+    const events = [
+      evt({
+        id: 'ins-due-p1-y',
+        type: 'insurance',
+        label: 'HDFC Life premium',
+        amount: 900,
+        dueMs: day(2),
+        policyId: 'p1'
+      })
+    ];
+    const reminders = buildReminders(events, [], NOW, empty);
+    expect(reminders[0]).toMatchObject({ urgency: 'soon', action: 'mark_paid', policyId: 'p1' });
+  });
+
+  it('keeps a flat annual renewal event (no policyId) as action none', () => {
+    const events = [evt({ id: 'ins-p1', type: 'insurance', label: 'HDFC Life renewal', amount: 12000, dueMs: day(2) })];
+    const reminders = buildReminders(events, [], NOW, empty);
+    expect(reminders[0]).toMatchObject({ action: 'none' });
+    expect(reminders[0]?.policyId).toBeUndefined();
+  });
 });

@@ -24,6 +24,7 @@ import { getOrCreatePerson } from '@/core/iou/personResolver';
 import { parseFlexibleDate, type ColumnMapping } from '@/core/import/importMatcher';
 import {
   dedupKey,
+  dedupDayKey,
   buildResolvedPreviewRowsByIndex,
   applyConfirmedTransferPairs,
   releaseConfirmedPairsFromGroupSkip,
@@ -389,13 +390,14 @@ export function useImport() {
 
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  /** Per-`dedupKey` LIST of matching existing DB expense ids — not just a count, and not just a `Set` of
-   *  which keys exist — see `buildResolvedPreviewRowsByIndex`'s own doc comment for the real
-   *  over-counting bug this fixes (2026-08-16): a plain Set let one existing expense be "claimed" as a
-   *  duplicate match by an unlimited number of re-uploaded file rows sharing its key. Keeping the actual
-   *  ids (not just a count) is also what lets `preview[i].matchedExpenseId` point at a real expense —
-   *  `expenseById` below resolves that id back to the full `Expense` for the "Already imported" bucket's
-   *  side-by-side comparison UI. */
+  /** Per-`dedupDayKey` (day-truncated — see that function's own doc comment for why the DB-comparison
+   *  side needs day-level tolerance, unlike in-batch matching) LIST of matching existing DB expense ids —
+   *  not just a count, and not just a `Set` of which keys exist — see `buildResolvedPreviewRowsByIndex`'s
+   *  own doc comment for the real over-counting bug this fixes (2026-08-16): a plain Set let one existing
+   *  expense be "claimed" as a duplicate match by an unlimited number of re-uploaded file rows sharing its
+   *  key. Keeping the actual ids (not just a count) is also what lets `preview[i].matchedExpenseId` point
+   *  at a real expense — `expenseById` below resolves that id back to the full `Expense` for the "Already
+   *  imported" bucket's side-by-side comparison UI. */
   const [existingKeys, setExistingKeys] = useState<Map<string, string[]>>(new Map());
   /** Every existing expense, by id — built alongside `existingKeys` from the same `loadReferenceData()`
    *  fetch (2026-08-16). Only consulted for rows `buildResolvedPreviewRowsByIndex` actually matched
@@ -425,7 +427,7 @@ export function useImport() {
         const keyIds = new Map<string, string[]>();
         const byId = new Map<string, Expense>();
         for (const e of exps) {
-          const key = dedupKey(e.date, e.amount, e.description);
+          const key = dedupDayKey(e.date, e.amount, e.description);
           const ids = keyIds.get(key) ?? [];
           ids.push(e.id);
           keyIds.set(key, ids);

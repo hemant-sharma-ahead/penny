@@ -60,7 +60,7 @@ Each feature file follows a standard template: **What it is → User-facing capa
 | [`features/portfolio/fixed-income.md`](features/portfolio/fixed-income.md) | FD + RD: maturity calculations, compound interest, projections                                                    |
 | [`features/portfolio/metals.md`](features/portfolio/metals.md)             | Gold + silver: live NAV-based pricing, karat adjustment                                                           |
 | [`features/goals.md`](features/goals.md)                                   | Goals: progress rings, SIP calculator, contributions                                                              |
-| [`features/insurance.md`](features/insurance.md)                           | Insurance policies: renewal tracking, coverage tracking                                                           |
+| [`features/insurance.md`](features/insurance.md)                           | Insurance policies: renewal/coverage tracking, Term/Life premium due-dates + mark-as-paid                         |
 | [`features/loans.md`](features/loans.md)                                   | Loans: amortization, payoff planner, XLSX download                                                                |
 | [`features/accounts.md`](features/accounts.md)                             | Accounts: income entries, transfers, live balances                                                                |
 | [`features/iou.md`](features/iou.md)                                       | IOU tracker: lent/borrowed, ageing alerts                                                                         |

@@ -154,6 +154,23 @@ Use these shared building blocks so a new screen feels familiar. Cohesion across
   badge (`docs/features/bank-import.md`'s balance-sync section) — see also the `coverage.ts`
   entry in `docs/ARCHITECTURE.md`'s decision log for why the underlying data stayed out of that
   badge's own closed finding-kind enum.
+- **Dense 2-column grid form + single-select `Chip` pill** (2026-08-31) — for a form with many
+  short/medium fields where a full-width row per field would push the common case below the fold, pair
+  fields into 2-column rows ([Insurer | Annual premium], [Plan name | Policy number], [Start date | End
+  date], …) and reserve a full-width row only for something that genuinely needs it (a pill group, a
+  toggle + its expanded controls, a multi-line field). A **hero field** above the grid (the single most
+  important number on the form, e.g. Sum assured/Sum insured/IDV — label and quick round-number preset
+  pills adapting per type) gets its own prominence rather than being just another paired field. This
+  layout was a genuine second design pass, not a one-shot: the first shipped version (matching the
+  originally-approved mockup) put the payment-frequency control and Premium in one cramped shared row and
+  duration presets under their own separate label — the user tried it on-device, gave specific complaints,
+  and a follow-up mockup discussion (`docs/mockups/proposals/insurance-form-layout-options-v1.html`/
+  `v2.html`) explored 5 alternatives before landing on the current one; see the matching entry in
+  `docs/ARCHITECTURE.md`'s decision log for the full before/after. A single-select pill for this kind of
+  form (payment frequency, discount type) uses the new `apps/mobile/src/features/insurance/Chip.tsx`
+  (label/active/onPress) — **distinct from** `components/ui/DismissibleChip`, which always renders an "×"
+  for a removable tag and is never single-select; don't reach for `DismissibleChip` when what's needed is
+  a plain selectable pill. Reference implementation: `apps/mobile/src/features/insurance/PolicyForm.tsx`.
 - **Unified read-only `Banner` for a frozen/settled entity** (2026-08-23) — when an entity has more than
   one distinct "why can't I edit this" reason (e.g. a group that's `closed` vs. one the user `left`), give
   each its own copy but render both through the **same** `Banner` component/placement rather than one real

@@ -50,6 +50,7 @@ const BACKUP_STORES = [
   'goal_contributions',
   'liabilities',
   'insurance_policies',
+  'insurer_memory',
   'chip_insights',
   'ai_call_log',
   'subscriptions',

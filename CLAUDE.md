@@ -198,7 +198,25 @@ apps/mobile/index.ts (N modules)` line, not `UP-TO-DATE` — see `CONTRIBUTING.m
   _other_ screen's write, subscribe via `useTxnRefresh` and reload. A full app-wide audit of every
   mutation path against this is its own separate, not-yet-started task
   (`docs/plans/real-device-testing-pass.md`'s Phase 7) — don't treat fixing one instance as having
-  covered the rest.
+  covered the rest. **2026-08-31:** the write-side half of this same gap existed at the shared-base
+  level, not just per-feature — `useLoggedRepository.ts` (the shared base for Insurance/Loans/Goals/
+  Budgets/IOU/Subscriptions) never called `notifyTxnChanged()` on save/remove at all, so Insurance's
+  Home-card stayed stale even via pull-to-refresh. Fixed inside `useLoggedRepository.ts` itself, so
+  every consumer gets the broadcast for free going forward instead of each feature needing to remember
+  to add its own call (calling it twice, as `usePortfolioHoldings.ts`/`useGoals.ts` already did via
+  their own workaround, is harmless — it's coalesced onto one microtask flush). Any new
+  `useLoggedRepository` consumer no longer needs its own `notifyTxnChanged()` call for this; a hook
+  that mutates via the raw `EncryptedRepository`/`useRepository` (not `useLoggedRepository`) still does.
+- **A delete triggered from inside a still-open native `Modal`, whose own side effect (an Undo toast,
+  another modal) also render-gates on "is a Modal currently open," must close its own modal *before*
+  firing the mutation — never after.** Found 2026-08-31 across every portfolio-holdings section's
+  delete-from-form flow: each called `onRemove(id).then(close)` (remove first, close after); the Undo
+  toast `useLoggedRepository.remove()` fires checks whether another native `Modal` is still open, and
+  since the form's own modal hadn't closed yet, the toast rendered as a **second stacked native Android
+  Dialog** — both tearing down together could background the whole app. Fixed by flipping the order
+  (`close()` first, then `void onRemove(id).catch(...)`) in every affected holdings section plus
+  `GoalsTab.tsx`, with a `.catch()` guard so a failed delete doesn't produce a silent unhandled
+  rejection. See `docs/ARCHITECTURE.md`'s matching 2026-08-31 decision-log entry.
 - **A modal/popup that takes a snapshot object (not an id) as a prop, and can itself open a further
   stacked child action capable of mutating that same object's underlying parent data, will keep
   rendering the stale snapshot it was opened with even after the child's save updates the parent
