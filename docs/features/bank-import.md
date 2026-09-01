@@ -27,6 +27,14 @@ match.
   than a tile grid since the preset list can grow), upload a CSV, then review the resolved column
   mapping inline as a small card (Date/Narration/Debit/Credit/Balance → the file's real headers),
   with a single "Edit mapping" action opening one popup with every field editable together.
+- **Raw file preview (2026-09-01).** Once the file's headers are known, a small preview table sits below
+  the "Continue to review" button (regardless of which of the three post-mapping states — plain button,
+  opening-balance prompt, expense-coverage nudge — is currently active): the file's own literal header row
+  plus its first 5 raw data rows, column-major and horizontally scrollable. Each header cell Penny's
+  column-mapping guess actually matched gets a small green "→ Date" etc. tag under it, so a wrong guess is
+  visually obvious against the real file content; every raw column shows, not just the 5 mapped ones (an
+  unmapped column is itself useful information — confirms nothing was silently dropped). `useBankImport.ts`
+  exposes `rawPreviewRows` (first 5 raw data rows) alongside the pre-existing `headers` for this.
 - A four-bucket review screen:
   1. **Matched** (confident, exact-amount) — collapsed by default, shown as a paired tile
      (statement line + recorded line); any pairing can be manually reassigned by tapping it.

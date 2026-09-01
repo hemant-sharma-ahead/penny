@@ -666,6 +666,13 @@ penny-csv-mapping-and-group-leave-v1.html`):
   produced it, so a fully-populated Custom mapping can now behave identically to picking the Cashew/
   MoneyView preset directly.
 
+**Downloadable "Penny CSV template" sample had drifted from the real export format (found + fixed
+2026-09-01).** The 2026-08-23 column additions above updated the export header and the importer's own
+column-mapping hints, but the actual downloadable `PENNY_TEMPLATE` sample CSV (`importParsers.ts`) was
+missed and still only had the original 8 columns — found via a real user report comparing the downloaded
+template against a real export. `PENNY_TEMPLATE` now has all 11 columns matching the real export header
+exactly, with realistic sample values.
+
 **IOU ↔ transactions:** an expense/income can seed an IOU entry (`useExpenses.seedIouFromExpense` +
 `core/iou/expenseLink`), and the IOU screen can create the matching expense/income — linked both ways
 by `LedgerEntry.linkedTxnId`, so deleting either side cascades. Because the IOU screen writes through

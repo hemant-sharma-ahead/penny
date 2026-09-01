@@ -265,6 +265,13 @@ export function useBankImport(accountId: string) {
     [xlsxRows, rawText, delimiter]
   );
   const headers = useMemo(() => extractHeaderRow(tokenizedRows), [tokenizedRows]);
+  /** First 5 raw data rows (header excluded — `tokenizedRows[0]` is the header row `headers` is already
+   *  extracted from) — feeds `SetupStep.tsx`'s "Raw file preview" table (2026-09-01, real user request:
+   *  seeing the file's own literal column names/date format alongside the mapping guess, not just the
+   *  mapping's own after-the-fact interpretation of it). Exposing a small slice rather than the full
+   *  `tokenizedRows` — the preview only ever needs a handful of rows, and this keeps that scoping decision
+   *  here rather than making every consumer re-slice it. */
+  const rawPreviewRows = useMemo(() => tokenizedRows.slice(1, 6), [tokenizedRows]);
 
   /** Confident whenever a known bank preset is active (every one declares its own `dateFormat`) —
    *  otherwise guessed from the actual chosen date column's real values via `detectDateFormat()`,
@@ -1274,6 +1281,7 @@ export function useBankImport(accountId: string) {
     mapping,
     setMappingField,
     headers,
+    rawPreviewRows,
     mappingReady,
     mappingPreview,
     delimiter,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { Banner, Button, Card, SectionLabel } from '~/components/ui';
@@ -233,6 +233,56 @@ export function SetupStep({ bi }: SetupStepProps) {
             >
               {bi.dataLoading ? 'Loading…' : 'Continue to review'}
             </Button>
+          )}
+
+          {/* Raw file preview (2026-09-01, real user request) — the "Column mapping" card above only
+              shows what Penny GUESSED each field maps to; this shows the file's own literal header row +
+              first few data rows so that guess can be visually sanity-checked against reality (a wrong
+              date-format guess, in particular, is much easier to spot here than from the mapping card
+              alone). Placed below "Continue to review" per the exact request — reference material, not
+              something that should compete with the primary action for attention. */}
+          {bi.rawPreviewRows.length > 0 && (
+            <View className="gap-1.5">
+              <SectionLabel className="mb-0">Raw file preview</SectionLabel>
+              <Text className="text-[10px] text-tertiary -mt-1">
+                First {bi.rawPreviewRows.length} row{bi.rawPreviewRows.length === 1 ? '' : 's'}, exactly as they appear
+                in your file — scroll sideways for more columns.
+              </Text>
+              <View className="border border-theme rounded-xl overflow-hidden">
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View className="flex-row">
+                    {bi.headers.map((header, colIdx) => {
+                      const mappedField = MAPPING_FIELDS.find((f) => bi.mapping[f.key] === header);
+                      return (
+                        <View
+                          key={`${header}-${colIdx}`}
+                          className={colIdx > 0 ? 'border-l border-theme' : ''}
+                          style={{ minWidth: 90 }}
+                        >
+                          <View className="px-2.5 py-1.5 bg-surface-2">
+                            <Text className="text-[10px] font-bold text-secondary" numberOfLines={1}>
+                              {header || '(unnamed)'}
+                            </Text>
+                            {mappedField && (
+                              <Text className="text-[8.5px] font-bold" style={{ color: theme.primary }}>
+                                → {mappedField.label}
+                              </Text>
+                            )}
+                          </View>
+                          {bi.rawPreviewRows.map((row, rowIdx) => (
+                            <View key={rowIdx} className={`px-2.5 py-1.5 ${rowIdx > 0 ? 'border-t border-theme' : ''}`}>
+                              <Text className="text-[10px] text-secondary" numberOfLines={1}>
+                                {row[colIdx] || ' '}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
           )}
         </View>
       )}

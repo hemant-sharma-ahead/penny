@@ -329,6 +329,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 }
 
+/** Non-throwing sibling of `useSettings()` — `null` outside `SettingsProvider` instead of throwing.
+ *  Exists ONLY for `~/theme/fontScale.ts`'s `useFontScale()`: `App.tsx` deliberately renders
+ *  `ToastProvider` ABOVE `SettingsProvider` (2026-08-29, so `PrivacyContext` can call `useToast()`) —
+ *  but `ToastProvider`'s OWN toast card is rendered as a SIBLING of `{children}` in its return value,
+ *  not nested inside it, so that card sits outside `SettingsProvider`'s subtree despite `SettingsProvider`
+ *  being a descendant of `ToastProvider` everywhere else. Every `<Text>` in this app is silently aliased
+ *  to `AppText.tsx` (`metro.config.js`'s Metro-alias shim), which calls `useFontScale()` unconditionally
+ *  — so the toast card's own `<Text>` elements crashed the whole app with `useSettings must be used
+ *  within SettingsProvider` the moment any toast fired (2026-09-01, real-device report: reproduced by
+ *  Google Drive's "Back up now" and every portfolio-holding delete, both of which call `showToast`).
+ *  Font scale is a cosmetic display preference, not a correctness-critical value — degrading to the
+ *  unscaled default outside `SettingsProvider` is the right trade-off; nothing else should use this
+ *  instead of `useSettings()`, which must keep throwing for every other real usage-order bug. */
+export function useSettingsOptional(): SettingsContextValue | null {
+  return useContext(SettingsContext);
+}
+
 export function useSettings(): SettingsContextValue {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error('useSettings must be used within SettingsProvider');

@@ -356,11 +356,16 @@ export function parseByFormat(text: string, format: ImportFormat, customMapping?
   return parseWithMapping(text, mapping, FORMAT_DATE_HINT[format]);
 }
 
+// Kept in sync with the real export header (`exportCsv.shared.ts`'s `header` const) — this drifted out
+// of sync once before (2026-08-23 added Account/IOU Person/Shared To Group to the export but never
+// updated this template, found via a real user report 2026-09-01) and the importer's own
+// `FORMAT_COLUMNS.penny`/`FORMAT_SYNONYMS.penny` hint already expects all 11 columns, so a stale 8-column
+// template silently under-demonstrated what a re-imported Penny export actually looks like.
 export const PENNY_TEMPLATE = [
-  'Date,Amount,Description,Category,Type,PaymentMode,Tags,Notes',
-  '14/06/2026,450,Groceries from DMart,Groceries,expense,UPI,#groceries,Weekly shop',
-  '14/06/2026,22000,Rent payment,Rent,expense,NetBanking,,',
-  '13/06/2026,3500,Dinner at restaurant,Dining & Café,expense,Card,#dining,',
-  '12/06/2026,95000,Salary credit,Salary,income,NetBanking,,',
-  '11/06/2026,1200,Netflix subscription,Subscriptions,expense,Card,#ott,'
+  'Date,Amount,Description,Category,Type,PaymentMode,Tags,Notes,Account,IOU Person,Shared To Group',
+  '14/06/2026,450,Groceries from DMart,Groceries,expense,UPI,#groceries,Weekly shop,HDFC Bank,,',
+  '14/06/2026,22000,Rent payment,Rent,expense,NetBanking,,,HDFC Bank,,',
+  '13/06/2026,3500,Dinner at restaurant,Dining & Café,expense,Card,#dining,,ICICI Bank,,Goa Trip',
+  '12/06/2026,95000,Salary credit,Salary,income,NetBanking,,,HDFC Bank,,',
+  '11/06/2026,1200,Netflix subscription,Subscriptions,expense,Card,#ott,,HDFC Bank,,'
 ].join('\n');

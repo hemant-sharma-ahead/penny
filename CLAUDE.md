@@ -230,6 +230,18 @@ apps/mobile/index.ts (N modules)` line, not `UP-TO-DATE` — see `CONTRIBUTING.m
   longer resolves, rather than crashing. Any modal/popup that can trigger a save from a child it opens
   while still open must re-resolve its own subject from the parent's live data by id every render,
   never hold onto the object reference it was constructed with.
+- **A provider that renders its own UI content as a sibling of `{children}`, not nested inside them,
+  can silently escape a descendant provider's subtree despite that descendant wrapping `{children}`
+  everywhere else in the tree.** Found 2026-09-01: `App.tsx` deliberately renders `<ToastProvider>`
+  above `<SettingsProvider>`, and `ToastProvider` renders its own toast card as a sibling of
+  `{children}` rather than nested inside them — so the toast card sat outside `SettingsProvider`'s
+  subtree even though `SettingsProvider` is a descendant of `ToastProvider` everywhere else in the
+  tree. Every `<Text>` in the app is aliased to a component that calls a hook throwing outside
+  `SettingsProvider`, so any toast that rendered crashed the whole app. When reordering two providers
+  relative to each other, check whether either one renders any of its own JSX outside `{children}` —
+  if so, that content sees the tree as if the provider now placed below it were never mounted. See
+  `docs/ARCHITECTURE.md`'s matching 2026-09-01 decision-log entry for the full fix
+  (`useSettingsOptional()`).
 
 ## Working style
 

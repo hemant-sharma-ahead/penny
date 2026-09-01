@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bank Import — raw file preview table (v1)</title>
+<style>
+  :root { --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 24px 120px; background: #05070a; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 900px; line-height: 1.65; margin-bottom: 24px; }
+  .intro b { color: #e6edf3; }
+  .intro code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
+
+  .row { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .col-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: #6e7681; text-align:center; margin-bottom: 10px; }
+  .col-label.new { color: var(--primary); }
+
+  .phone {
+    width: 320px; height: 690px; border-radius: 34px; border: 9px solid #111827; overflow: hidden;
+    position: relative; display: flex; flex-direction: column; box-shadow: 0 16px 34px rgba(0,0,0,0.45); flex-shrink: 0;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0b0f14; }
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; border-bottom: 1px solid #1c2128;
+  }
+  .header-row .title { font-size: 13px; font-weight: 700; color: #e6edf3; }
+  .body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+
+  .section-label { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #6e7681; margin-bottom: 6px; }
+  .field-block { display: flex; flex-direction: column; gap: 4px; }
+  .input-box {
+    background: #1c2128; border: 1px solid #2d333b; border-radius: 10px; padding: 9px 11px; font-size: 12.5px; color: #e6edf3;
+  }
+  .dashed-drop {
+    border: 2px dashed #2d333b; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #8b949e; font-size: 12px; text-align: center;
+  }
+  .mapping-card { background: #161b22; border: 1px solid #2d333b; border-radius: 10px; padding: 4px 10px; }
+  .mapping-row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 11.5px; border-top: 1px solid #21262d; }
+  .mapping-row:first-child { border-top: none; }
+  .mapping-row .l { color: #8b949e; }
+  .mapping-row .v { color: #e6edf3; font-weight: 600; }
+
+  .banner { border-radius: 10px; padding: 9px 11px; font-size: 11px; line-height: 1.5; }
+  .banner.info { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35); color: #93c5fd; }
+  .banner.info b { color: #dbeafe; }
+
+  .btn-primary {
+    background: var(--primary); border-radius: 12px; padding: 11px; text-align: center; font-size: 13px; font-weight: 800; color: #04140d;
+  }
+
+  /* --- New: raw preview table --- */
+  .preview-wrap { display: flex; flex-direction: column; gap: 6px; }
+  .preview-caption { font-size: 10.5px; color: #6e7681; }
+  .preview-scroll { overflow-x: auto; border: 1px solid #2d333b; border-radius: 10px; }
+  table.preview { border-collapse: collapse; font-size: 10px; white-space: nowrap; }
+  table.preview th {
+    background: #161b22; color: #8b949e; font-weight: 700; text-align: left; padding: 7px 9px;
+    border-bottom: 1px solid #2d333b; position: sticky; top: 0; text-transform: none;
+  }
+  table.preview th.mapped { color: var(--primary); }
+  table.preview th .tag {
+    display: block; font-size: 8.5px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: .03em; margin-top: 2px;
+  }
+  table.preview td { padding: 6px 9px; color: #c9d1d9; border-bottom: 1px solid #1c2128; }
+  table.preview tr:last-child td { border-bottom: none; }
+  table.preview tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+
+  .finding {
+    max-width: 900px; margin: 40px 0 18px; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+  .finding.done .tag { color: #6ee7b7; border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.1); }
+</style>
+</head>
+<body>
+
+<h1>Bank Import — raw file preview table</h1>
+<div class="intro">
+  Grounded in the real <code>SetupStep.tsx</code> (bank-import setup screen). Left: today's screen after a
+  file is picked. Right: the proposed addition — a compact, horizontally-scrollable table of the file's own
+  raw header row + first few data rows, placed exactly where asked: <b>below the "Continue to review" button</b>,
+  so it's available as a reference without competing with the primary action.
+</div>
+
+<div class="row">
+  <div>
+    <div class="col-label">Today</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="header-row"><span class="title">← Import statement</span></div>
+        <div class="body">
+          <div class="field-block">
+            <div class="section-label">Bank</div>
+            <div class="input-box">HDFC Bank ▾</div>
+          </div>
+          <div class="field-block">
+            <div class="section-label">Statement file</div>
+            <div class="dashed-drop">📄 <b style="color:#e6edf3">statement_aug2026.csv</b></div>
+          </div>
+          <div class="field-block">
+            <div class="section-label">Column mapping ✎ Edit mapping</div>
+            <div class="mapping-card">
+              <div class="mapping-row"><span class="l">Date (DD/MM/YYYY)</span><span class="v">Txn Date</span></div>
+              <div class="mapping-row"><span class="l">Narration</span><span class="v">Narration</span></div>
+              <div class="mapping-row"><span class="l">Debit / withdrawal</span><span class="v">Withdrawal Amt</span></div>
+              <div class="mapping-row"><span class="l">Credit / deposit</span><span class="v">Deposit Amt</span></div>
+              <div class="mapping-row"><span class="l">Balance</span><span class="v">Closing Balance</span></div>
+            </div>
+          </div>
+          <div class="banner info"><b>142 rows detected</b> · 01 Aug–31 Aug 2026<br/>Every row in the file parsed cleanly.</div>
+          <div class="btn-primary">Continue to review</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="col-label new">Proposed — raw preview added</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="header-row"><span class="title">← Import statement</span></div>
+        <div class="body">
+          <div class="field-block">
+            <div class="section-label">Bank</div>
+            <div class="input-box">HDFC Bank ▾</div>
+          </div>
+          <div class="field-block">
+            <div class="section-label">Statement file</div>
+            <div class="dashed-drop">📄 <b style="color:#e6edf3">statement_aug2026.csv</b></div>
+          </div>
+          <div class="field-block">
+            <div class="section-label">Column mapping ✎ Edit mapping</div>
+            <div class="mapping-card">
+              <div class="mapping-row"><span class="l">Date (DD/MM/YYYY)</span><span class="v">Txn Date</span></div>
+              <div class="mapping-row"><span class="l">Narration</span><span class="v">Narration</span></div>
+              <div class="mapping-row"><span class="l">Debit / withdrawal</span><span class="v">Withdrawal Amt</span></div>
+              <div class="mapping-row"><span class="l">Credit / deposit</span><span class="v">Deposit Amt</span></div>
+              <div class="mapping-row"><span class="l">Balance</span><span class="v">Closing Balance</span></div>
+            </div>
+          </div>
+          <div class="banner info"><b>142 rows detected</b> · 01 Aug–31 Aug 2026<br/>Every row in the file parsed cleanly.</div>
+          <div class="btn-primary">Continue to review</div>
+
+          <!-- NEW -->
+          <div class="preview-wrap">
+            <div class="section-label" style="color:var(--primary)">Raw file preview</div>
+            <div class="preview-caption">First 5 rows, exactly as they appear in your file — scroll sideways for more columns.</div>
+            <div class="preview-scroll">
+              <table class="preview">
+                <thead>
+                  <tr>
+                    <th class="mapped">Txn Date<span class="tag">→ Date</span></th>
+                    <th class="mapped">Narration<span class="tag">→ Narration</span></th>
+                    <th>Chq/Ref No.</th>
+                    <th class="mapped">Withdrawal Amt<span class="tag">→ Debit</span></th>
+                    <th class="mapped">Deposit Amt<span class="tag">→ Credit</span></th>
+                    <th class="mapped">Closing Balance<span class="tag">→ Balance</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>01/08/26</td><td>UPI-SWIGGY-payment</td><td>0000441</td><td>450.00</td><td></td><td>84,213.50</td></tr>
+                  <tr><td>02/08/26</td><td>NEFT-SALARY-CREDIT</td><td>0000442</td><td></td><td>95,000.00</td><td>1,79,213.50</td></tr>
+                  <tr><td>03/08/26</td><td>ATM-WDL-KA03AB</td><td>0000443</td><td>10,000.00</td><td></td><td>1,69,213.50</td></tr>
+                  <tr><td>04/08/26</td><td>UPI-NETFLIX-sub</td><td>0000444</td><td>649.00</td><td></td><td>1,68,564.50</td></tr>
+                  <tr><td>05/08/26</td><td>IMPS-RENT-PAYMENT</td><td>0000445</td><td>22,000.00</td><td></td><td>1,46,564.50</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="finding done">
+  <span class="tag">Design decisions</span>
+  <ul style="margin:8px 0 0; padding-left:18px;">
+    <li><b>Placement:</b> below "Continue to review," per your exact spec — reference material, not a blocker.</li>
+    <li><b>Which columns show:</b> ALL raw columns from the file (not just the 5 mapped ones) — e.g. "Chq/Ref No." above, which nothing maps to. Seeing an unmapped column is itself useful information (confirms nothing important was silently dropped).</li>
+    <li><b>Mapped-column callouts:</b> a small green "→ Date" / "→ Narration" tag under whichever raw header Penny actually picked for each of the 5 target fields — ties this table directly back to the "Column mapping" card above it, so a wrong guess is obvious at a glance (the tag lands on a column that clearly isn't a date, for example).</li>
+    <li><b>Row count:</b> first 5 data rows (excluding the header) — enough to sanity-check date format/column meaning without turning this into a full data browser.</li>
+    <li><b>Horizontal scroll, not wrapping:</b> real bank exports commonly have 6-10+ columns; wrapping would make the table unreadable, so it scrolls sideways instead, same convention as a real spreadsheet.</li>
+    <li><b>Data source:</b> reuses <code>useBankImport.ts</code>'s already-parsed <code>headers</code>/<code>tokenizedRows</code> (currently internal-only) — needs exposing on the hook's return value, not a new parse path.</li>
+  </ul>
+</div>
+
+<div class="finding">
+  <span class="tag">Open question</span>
+  Should this table appear as soon as a file is picked (even before a bank/mapping is fully resolved), or only
+  once <code>bi.headers.length &gt; 0</code> (i.e. right where "Column mapping" already gates itself)? I'd
+  default to the same gate as "Column mapping" — it needs the same parsed data, and showing it any earlier
+  would mean showing raw rows with no mapping context to compare them against yet.
+</div>
+
+</body>
+</html>

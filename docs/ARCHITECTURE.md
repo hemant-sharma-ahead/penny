@@ -3541,6 +3541,58 @@ Term/Life got the new due-date mechanics and full card visual treatment — Heal
 kept a lighter restyle of the original simple annual-renewal card. Full writeup:
 `docs/features/insurance.md`.
 
+### Decision: real app-crashing toast/`SettingsProvider` bug, Penny CSV template drift, Bank Import raw-file preview (2026-09-01) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a small follow-up session after the Insurance redesign above; three unrelated items,
+recorded together since none shares a root cause with the others.
+
+**1. Any toast anywhere in the app crashed it outright — found via real-device logcat, not the theory
+from the previous session.** `App.tsx` deliberately renders `<ToastProvider>` above (outside)
+`<SettingsProvider>` — a 2026-08-29 change so `PrivacyContext.tsx` could call `useToast()` directly. But
+every `<Text>` in the app is aliased (via `metro.config.js`'s `resolveRequest`) to
+`apps/mobile/src/components/AppText.tsx`, which calls `useFontScale()`
+(`apps/mobile/src/theme/fontScale.ts`), which called the throwing `useSettings()`
+(`apps/mobile/src/context/SettingsContext.tsx`). `ToastProvider` renders its own toast card as a
+**sibling of `{children}`, not nested inside them** — so despite `SettingsProvider` being a descendant of
+`ToastProvider` everywhere else in the tree, the toast card itself sits outside `SettingsProvider`'s
+subtree. Any toast that rendered — "Backed up just now," the Undo toast on every delete — hit
+`useSettings()`'s "must be used within SettingsProvider" throw the instant it tried to render text,
+crashing the whole app. This has been broken since 2026-08-29; the previous session's "close-before-remove"
+delete-flow fix (see the three-unrelated-bug-fixes entry above) was a real, separate, valid fix to a
+different race, but was a red herring for *this* symptom, corrected only once real crash logs were
+captured. **Fix:** a new non-throwing `useSettingsOptional(): SettingsContextValue | null` export on
+`SettingsContext.tsx`, documented as existing only for `useFontScale()`'s use — every other consumer must
+keep using the throwing `useSettings()`, which correctly catches real usage-order bugs elsewhere.
+`useFontScale()` now falls back to the unscaled `'default'` font scale (multiplier 1) when no
+`SettingsProvider` is present, rather than crashing — font scale is a cosmetic preference, not a
+correctness-critical value, so degrading gracefully is the right trade-off here specifically. **General
+pattern worth remembering:** a provider that renders its own UI content (here, a toast card) as a
+*sibling* of `{children}` rather than nested inside it can silently escape a descendant provider's
+subtree, despite that descendant provider wrapping `{children}` everywhere else in the tree — anything
+that content renders (here, `<Text>` via the global Metro alias) sees the tree as if the descendant
+provider were never mounted. Worth checking for again any time a provider is deliberately reordered
+relative to another, if that provider renders any of its own JSX outside `{children}`.
+
+**2. "Download Penny CSV template" had stale, mismatched columns.** The export-side CSV header
+(`packages/core/src/core/export/exportCsv.shared.ts`) gained `Account`/`IOU Person`/`Shared To Group`
+columns on 2026-08-23, and the importer's own `FORMAT_COLUMNS.penny`/`FORMAT_SYNONYMS.penny` hints
+(`packages/core/src/core/import/importParsers.ts`) were updated at the same time — but the actual
+downloadable `PENNY_TEMPLATE` sample CSV (same file) was never updated and still only had the original 8
+columns, found via a real user report after comparing the downloaded template against a real export.
+Fixed: `PENNY_TEMPLATE` now has all 11 columns matching the real export header exactly, with realistic
+sample values.
+
+**3. New feature — Bank Import "Raw file preview" table.** `apps/mobile/src/features/bank-import/
+SetupStep.tsx` now shows a small preview table below the "Continue to review" button once a file's
+headers are known — the file's own literal header row plus its first 5 raw data rows, column-major and
+horizontally scrollable (plain RN `View`/`ScrollView`, no new shared table component). Each header cell
+matched by Penny's column-mapping guess gets a small green "→ Date" etc. tag under it, so a wrong guess is
+visually obvious against the real file content; every raw column shows, not just the 5 mapped ones (an
+unmapped column is itself useful — confirms nothing was silently dropped). `useBankImport.ts` exposes a new
+`rawPreviewRows` (`tokenizedRows.slice(1, 6)`) alongside the pre-existing `headers`. Own mockup:
+`docs/mockups/proposals/bank-import-raw-preview-v1.html`, approved as-is. See
+`docs/features/bank-import.md` for the user-facing writeup.
+
 ---
 
 ## Dependency graph (simplified)
