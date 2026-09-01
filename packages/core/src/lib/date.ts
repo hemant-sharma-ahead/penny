@@ -94,6 +94,15 @@ export function yearBounds(year: number): { start: number; end: number } {
   return { start: new Date(year, 0, 1).getTime(), end: new Date(year + 1, 0, 1).getTime() };
 }
 
+/** Start (inclusive, epoch 0) / end (exclusive, one day past `nowMs`) bounds for "all time" — the
+ *  lifetime-scoped counterpart of {@link monthBounds}/{@link yearBounds}, added 2026-08-16 for
+ *  Analytics' All Time view. `start: 0` deliberately means "no txn before this account existed" rather
+ *  than the true earliest transaction date, so `computeCashFlowSummary`'s "Initial" column reads as 0
+ *  for all time (matching that it's a lifetime figure, not a mid-history snapshot). */
+export function allTimeBounds(nowMs: number = Date.now()): { start: number; end: number } {
+  return { start: 0, end: nowMs + DAY_MS };
+}
+
 // ── Labels ───────────────────────────────────────────────────────────────────
 
 /** Relative day label for a date key: "Today" / "Yesterday" / "5 Jan 2026". */
@@ -111,6 +120,23 @@ export function monthLabel(m: string): string {
   return `${MONTHS[(parseInt(mo ?? '1', 10) - 1) % 12] ?? ''} ${y ?? ''}`.trim();
 }
 
+/**
+ * Month-scrub-bar chip label (item 43, docs/plans/real-device-testing-pass.md Phase 5). Always
+ * "Mon YYYY" (e.g. "Aug 2026", "Jul 2025") — item 13b (2026-08-29,
+ * `docs/mockups/proposals/punch-list-batch-v1.html` §1) deliberately reverses the prior v5
+ * mockup's decision to omit the year for the current calendar year: the scrub strip spans a
+ * full year+ of history, so a chip's format silently changing the moment a year boundary is
+ * crossed while scrolling read as inconsistent rather than economical ("Jan" sitting right next
+ * to "Dec 2025"). No longer needs a "now" reference at all, since the year is never conditionally
+ * omitted anymore.
+ */
+export function monthChipLabel(m: string): string {
+  const [y, mo] = m.split('-');
+  const monthName = MONTHS[(parseInt(mo ?? '1', 10) - 1) % 12] ?? '';
+  const year = parseInt(y ?? '0', 10);
+  return `${monthName} ${year}`;
+}
+
 export function formatDate(epochMs: number): string {
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(
     new Date(epochMs)
@@ -125,6 +151,14 @@ export function formatTime(epochMs: number): string {
   return new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).format(
     new Date(epochMs)
   );
+}
+
+/** "12 Aug 2026, 2:30 PM" — full date (with year) + time in one string. Neither `formatDate` (no time)
+ *  nor `formatDateShort` (no year, no time) is enough on its own for a record whose actual moment
+ *  matters and can plausibly span several years (e.g. an "all time" SMS scan) — using either alone
+ *  silently loses real information the source data (the original SMS) still carries. */
+export function formatDateTime(epochMs: number): string {
+  return `${formatDate(epochMs)}, ${formatTime(epochMs)}`;
 }
 
 /** Formats a month count as a compact duration, e.g. 27 → "2y 3m", 12 → "1y", 5 → "5m". */

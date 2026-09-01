@@ -59,19 +59,126 @@ The product direction is: _appealing, minimalistic, modern, inviting, user-frien
 
 Use these shared building blocks so a new screen feels familiar. Cohesion across screens is a feature.
 
-> **Keep shared controls in sync.** When you introduce or change a control that appears in more than one place (icon, colour, label, behaviour), update **every** instance — or flag it. Example: the privacy-mode iconography (eye-off = Safe · shield = Private · eye = Open, on `--color-safe/privacy/open`) lives in both the header switcher and the Settings "default mode" control; they must match.
+> **Keep shared controls in sync.** When you introduce or change a control that appears in more than one place (icon, colour, label, behaviour), update **every** instance — or flag it. Example: the privacy-mode iconography (eye-off = Safe · eye = Open, on `--color-safe`/`--color-open` — a third "shield = Private" mode was removed 2026-08-18, see §4) lives in the header `PrivacyModeSwitcher`. A Settings "default mode" control exists again (2026-08-29, opt-in 3-day default-to-Open — see `docs/PRIVACY.md`) but it's a different shape from the pre-2026-08-18 one it doesn't revive: a time-boxed countdown you arm, not a persistent 3-way default.
 
 - **Identity hero** — avatar (photo → initials fallback, with a camera affordance) + name + `@handle · Plan` + a status pill (e.g. "✓ Claimed" / "Not claimed yet"). Used on Settings and Edit Profile.
 - **Grouped cards + section labels** — an uppercase tertiary section label, then a `bg-surface` rounded card of **hairline-separated rows** (icon + label + trailing control/chevron); the first row in a card skips its own top divider so it doesn't double up with the card's outer border. `apps/mobile`'s Settings (redesigned 2026-08-01) is the reference implementation — one accent colour per **section**, not per row (`theme.warning`/`privacy`/`info`/`neutral`/`danger` for Frequent/Security/Appearance/Data/Danger), since these rows don't carry distinct app-wide meaning the way, say, income/expense colours do — see "Colour is wayfinding, not decoration" in §1.
 - **Display-only status pills** — a small glanceable chip (icon + label + current value, e.g. "Theme · Dark") with **no press action at all**. Used for an at-a-glance summary strip (Settings' Privacy/Theme/PIN row) where the real control is a short scroll below — deliberately not a shortcut/popup trigger, so it can't be mistaken for hidden navigation. If a screen needs the pill to _also_ be a shortcut, that's a different, more committed pattern (needs its own review) — don't casually add `onPress` to what's meant to read as a passive summary.
 - **In-field labels** — a small label _inside_ the field with the value beneath; contextual actions (Change / Claim / an age-band chip) sit on the label row. This is the concise default for forms — avoids a separate label line.
-- **Icon-tile selector** — a rounded icon **container** with the label **below / outside** it (never a caption crammed under a tiny icon). Two variants: (1) **toggle tiles** (Employment) — off state is outlined/muted, selected = filled with `--color-primary`; (2) **identity-colour tiles** (expense categories, accounts, payment modes) — always filled with the item's own colour (domain data, like intent-group colours — the documented exception to semantic-tokens-only), since many are visible at once and the colour itself carries meaning; "selected" is shown as a ring around the tile, not a fill change. A horizontally-scrollable row of these tiles (`QuickPickRow` in `CategoryPickerModal.tsx`) is the pattern for a **quick-pick shortcut** above a longer grouped list — used for "Frequent" (usage-ranked) and context-driven picks like "Travel picks" during an active Vacation event.
+- **Icon-tile selector** — a rounded icon **container** with the label **below / outside** it (never a caption crammed under a tiny icon). Two variants: (1) **toggle tiles** (Employment) — off state is outlined/muted, selected = filled with `--color-primary`; (2) **identity-colour tiles** (expense categories, accounts, payment modes) — always filled with the item's own colour (domain data, like intent-group colours — the documented exception to semantic-tokens-only), since many are visible at once and the colour itself carries meaning; "selected" is shown as a ring around the tile, not a fill change. A horizontally-scrollable row of these tiles (`QuickPickRow` in `CategoryPickerModal.tsx`, `AccountChips.tsx`, `PaymentModeChips.tsx`) is the pattern for a **quick-pick shortcut** above a longer grouped list — used for "Frequent" (usage-ranked) and context-driven picks like "Travel picks" during an active Vacation event, and (2026-08-27) for a small *fixed* set with no longer list at all — `IouCategoryChips.tsx`'s 4 real IOU categories in Add IOU/Settle Up, replacing what had drifted into a fourth, different "pick one of a few" tile shape (`OptionButton`'s wide label-beside-icon tile) in those two popups specifically.
 - **Live, visual controls** — show the effect, don't just name it: theme **swatches rendering the real palette**, an **"Aa" scale** at actual sizes, live "you're owed ₹X" math, an availability check while typing a handle. **Exception, made deliberately:** `apps/mobile`'s Settings Theme/Text Size (2026-08-01 follow-up) traded this away on purpose — a live-palette swatch grid and a real-size "Aa" grid were both mocked up and rejected as too busy for that card, replaced with a compact `Row` + icon-only/short-label `CompactSegmentedControl`. Don't treat that as license to drop live previews elsewhere; it was a considered tradeoff for one specific card, not a new default.
 - **Compact segmented control** — a small fixed-width segmented control (icon-only or short-label segments, filled `theme.primary` on the active one) that lives in a `Row`'s trailing slot instead of its own multi-line block — `apps/mobile`'s Settings Theme/Text Size rows. Use when a control's options are well-known/few enough that a live preview isn't pulling its weight (contrast with the "Live, visual controls" bullet above, which is still the default elsewhere).
 - **State-aware sections** — render the right state inline (claimed / unclaimed / editing) with inline edit + live validation, rather than routing to a separate screen.
 - **Fused borderless hero with full-bleed chart** — two logically distinct pieces of information (e.g. Home's Net worth + Retirement Corpus) merged into **one** visual unit instead of two stacked cards: no card background/border on either piece; the smaller/label piece's text sits directly over the chart's own naturally-empty corner (e.g. before the curve rises into view) rather than above it in its own row. The chart itself is **full-bleed** (`-mx-4` to cancel the screen's own horizontal padding, edge to edge) — not boxed. Corner glow blooms + a diagonal light-sheen streak (rotated, low-opacity `expo-linear-gradient` band) give it depth without a literal card background — the same layered-sheen technique a colour-identity mini-card would use for its own background (reach for that fuller card-background treatment instead of this borderless one when the item has a strong per-item identity colour and deserves its own card weight, e.g. a list of colour-coded accounts; reach for _this_ pattern when two aggregate figures belong together as one glanceable unit and neither should visually dominate as "the card"). Tapping the overlaid text opens its own action (e.g. a breakdown modal) via a **nested `Pressable`** — RN's touch-responder system gives the innermost `Pressable` the touch, so no explicit stopPropagation call is needed; tapping anywhere else on the unit opens a different action (e.g. a drill-down). Reference implementation: `apps/mobile/src/features/home/GlanceHeader.tsx` + `RetirementCorpusChart.tsx` (2026-08-03) — see `docs/mockups/proposals/home-networth-projection-v4.html` for the approved mockup and `docs/features/home.md`'s "Retirement Corpus" section for the full writeup.
+- **"Did You Know" tips — three tiers, never more than one at a time** (2026-08-16) — Penny's first
+  user-education pattern (no coach-mark/tooltip convention existed before this). **Contextual nudge**: a
+  small dismissible `Banner variant="info"` (`ti-bulb` icon), rendered exactly where a real, already-true
+  condition makes it relevant (e.g. 3+ transactions selected) — fires once, ever, per fact; dismissed or
+  acted upon both permanently suppress it. **Rotating/daily card**: same visual language (bulb icon,
+  "Did you know?" eyebrow, tap-to-cycle), placed in a low-stakes ambient spot (Analytics' bottom, Tax's
+  own screen) or, on Home specifically, a once-a-day sequential reveal at the very top of the screen
+  (Home is the most-visited screen, so the daily habit earns its prominent placement there — a
+  deliberate exception to "don't put ambient content above primary info"). **"Discover Penny" hub**: a
+  full, always-browsable, searchable catalogue (Settings sub-page) — the one place every tip lives
+  regardless of whether the other two tiers have shown it yet. Never stack more than one of these three
+  on screen at once. Reference implementation: `apps/mobile/src/components/shared/TipNudgeBanner.tsx` /
+  `DidYouKnowCard.tsx` / `DailyTipCard.tsx`, `apps/mobile/src/features/settings/DiscoverTipsPage.tsx` —
+  see `docs/features/did-you-know-tips.md` for the full design and `docs/mockups/proposals/did-you-know-tips-v1.html`
+  for the approved mockup.
 - **Branded busy/loading indicator** — Penny's coin medallion (the same circular gold-gradient element `PennyWordmark` uses, not the full square `PennyLogo` icon with its horizon/sky background, which reads oddly mid-rotation) instead of a generic platform spinner. `apps/mobile/src/components/ui/PennyLoader.tsx`: `size="sm"` (20px) rotates continuously — wired into `Button.tsx`'s `loading` prop at this fixed size regardless of the button's own `size`; `size="lg"` (72px) pulses/breathes in place, for a standalone full-area busy state (initial sync, PDF/CSV parsing, a Chip request). `size` doubles as the animation-style selector on purpose — no separate `variant` prop until a screen makes a real case for a third treatment (a partial-ring sweep was proposed and explicitly deferred; see `docs/mockups/proposals/branded-busy-indicator-v1.html`). Mobile-only — `apps/web-react` is frozen and keeps its existing generic spinner un-mirrored.
-- **Identity-colour gradient mini card** — a compact full-bleed card whose entire background is a dark gradient, with fixed white/translucent-white text and icon chips on top regardless of theme, plus a handful of "real card" sheen layers (corner glow, diagonal light streak, inset top highlight) so it reads as a physical card rather than a flat tinted rectangle — same reasoning as a Story share-card export. `apps/mobile`'s Accounts list is the reference implementation, now on **v2** (2026-08-03 follow-up, `docs/mockups/proposals/accounts-list-v1.html`'s "Direction D — Mini Cards v2"): the v1 pass coloured each card from the account's own free-pick `color` field, which is why same-typed accounts (two "Bank" accounts, say) rendered near-identically dull. v2 instead draws from a small curated set of dark jewel-tone gradient + bright-glow pairs (`~/lib/color.ts`'s `JEWEL_PALETTE`/`GREEN_PALETTE`), assigned **per account** via `accountCardPalette(id, isCashLike)` — a deterministic hash of the account's `id`, not its type or its `color` — so two same-typed accounts reliably land on different cards. The one hard rule: `cash`/`wallet` accounts always clamp into the green-only subset regardless of the hash, keeping "green = cash" a reliable cue. On top of the gradient: an inset top highlight, a diagonal light-sheen streak (`expo-linear-gradient` rotated -8°), and a second darker glow blob on the opposite corner from the main one — approximations of CSS inset-shadow/blur/repeating-gradient, none of which RN supports natively; a faint repeating micro-line texture from the mockup was judged not worth approximating (see `AccountList.tsx`'s inline comments) and was skipped. Reach for the base pattern (gradient card + sheen) when a list's items each carry a strong, meaningful identity colour and the item deserves more visual weight than a plain `bg-surface` row — not a default for every list. Reach for the per-item hash-assignment + hard-clamp technique specifically when the item's own colour/type would otherwise produce visually-indistinguishable neighbours.
+- **~~Identity-colour gradient mini card~~ — superseded 2026-08-19, kept below for history only.**
+  Was: a compact full-bleed card whose entire background was a dark gradient, with fixed
+  white/translucent-white text and icon chips on top regardless of theme, plus "real card" sheen
+  layers (corner glow, diagonal light streak, inset top highlight). `apps/mobile`'s Accounts list was
+  the reference implementation through **v2** (2026-08-03, `docs/mockups/proposals/accounts-list-v1.html`'s
+  "Direction D — Mini Cards v2": per-account gradient/glow drawn from a curated jewel-tone/green
+  palette via `accountCardPalette(id, isCashLike)`, a deterministic hash of the account's `id`, with
+  `cash`/`wallet` hard-clamped to the green subset). Reported on real devices as not following the
+  theme, wasting space, and still not showing real bank icons everywhere — replaced (7 mockup concepts
+  explored, `docs/mockups/proposals/account-list-redesign-v1.html` through `-v3.html`'s "✅ FINAL
+  DIRECTION") by the current pattern below. `accountCardPalette`/`JEWEL_PALETTE`/`GREEN_PALETTE` in
+  `~/lib/color.ts` and the gradient/sheen rendering in `AccountList.tsx` no longer exist — don't reuse
+  them as a reference for new code.
+- **Grouped flat list + tap-to-reveal actions** (current, 2026-08-19) — replaces the gradient mini card
+  above for the same Accounts list. Accounts are grouped into fixed sections (Bank Accounts / Cash &
+  Wallets / Credit Cards, a group skipped entirely if empty, never shown empty) inside one
+  `bg-surface border border-theme rounded-2xl` container per group, each account a plain divided row
+  (`border-t border-theme` between rows) — no gradient, no per-item hash-assigned colour, so it reads
+  correctly in both light and dark without any "on-gradient" fixed-color text exception. Each row's
+  balance carries a small `ti-dots-vertical` kebab that **tap-reveals** exactly the row's action icons
+  (Import XOR Reconcile + Edit + Delete) below it, independently per row — nothing is ever shown
+  pre-expanded, and revealing one row never collapses another. Whole-row tap (outside the kebab) still
+  opens the transactions-for-this-account modal, unchanged from before. Real per-bank logos (`BankLogo.tsx`
+  — HDFC/ICICI/Axis/HSBC so far, Simple Icons CC0 marks, never a fabricated lookalike) render inside the
+  existing icon badge in place of the generic type icon when `account.bankId` matches; every other bank
+  preset still falls back to the generic `Icon`/`account.color` combination. Reach for this
+  grouped-flat-list + tap-to-reveal pattern for any list whose rows carry 3+ possible actions that don't
+  all need to be visible at once — it keeps the resting row calm and dense without permanently hiding
+  the actions behind a second screen.
+- **RAG edge-stripe card** (2026-08-19) — a colored left-edge stripe on a card conveys a **magnitude-scaled
+  confidence gradient** (red / amber / green tiers, not a plain sign/binary split) at a glance, for a
+  figure whose sign alone understates how good/bad it is. Reference: `apps/mobile`'s IPO tab
+  (`IpoTab.tsx`'s `ragTier(value, percent)` — red if negative, amber if 0–8%, green if ≥8% — applied to
+  both GMP on open IPOs and the real listing-gain figure on listed ones), `Card.tsx`'s `style` prop
+  supports the stripe. Reach for this over a plain colored figure/pill when the metric's *degree* (not
+  just its direction) is the thing worth signalling at a glance across a whole list of cards.
+- **Collapsible "More fields" disclosure** (2026-08-23) — a bordered card with a tinted, chevron-header
+  `Pressable` ("More fields" + count/chevron, `ti-chevron-down`/`ti-chevron-up`) that expands onto a plain
+  `theme.surface` body; auto-expands on mount (rather than defaulting closed) whenever anything inside it
+  was already auto-filled, with an "N auto-matched" `Badge` in the header so a pre-filled value is never
+  hidden from view unseen. First used for `DuplicatesBucket.tsx`'s own per-category groups, reused as-is
+  for `MapColumnsStep.tsx`'s rarer Custom-import fields (Tags/Type/Bank name/Account type). Reach for this
+  over a plain always-visible field list when a screen has a required/commonly-used tier plus a longer
+  tail of rarer fields that would otherwise make the common case feel cluttered — the auto-expand-if-
+  populated rule is what keeps it from ever functioning as a way to quietly hide something the user
+  should see.
+- **Dimmed-but-tappable state, for "valid but currently empty"** (2026-08-29) — when an item in a
+  scrollable strip has no data yet but is still a real, selectable destination (not disabled), render
+  it at reduced opacity rather than hiding it, greying its text, or disabling `onPress`. Reference:
+  `MonthScrubBar.tsx`'s chips for months with no transactions (`opacity: 0.45`, fully tappable).
+  Reach for this over a genuinely disabled/`opacity`-only-on-press state whenever "empty" is a normal,
+  reachable condition rather than an error or a not-yet-available one.
+- **Boxed-neutral icon, for "promoted but not primary"** (2026-08-29) — when a screen has exactly one
+  true primary action (kept boxed in `theme.primary`) alongside several bare `ghost` icons that
+  deserve more visual weight without competing with it, box those in a shared neutral/secondary
+  treatment instead of primary. Reference: `AccountsPage.tsx`'s header icons (Merchant recognition,
+  Cash-withdrawal codes, Import History boxed-neutral; Add stays the one primary box) reusing
+  `AccountList.tsx`'s own revealed-row action-icon styling rather than inventing a second boxed style.
+- **Positive + tail-state captions alongside an existing negative-only badge** (2026-08-29) — when a
+  status indicator only ever fires on a problem (so "fine" and "never checked" look identical), add a
+  positive caption for the confirmed-good case rather than retrofitting the existing badge to cover
+  it — keep them visually and structurally separate (own color, own condition, mutually exclusive
+  with the badge) instead of merging into one system that was designed to be a closed, negative-only
+  set. Reference: `AccountList.tsx`'s green "Statement verified till {date}" / amber "N new
+  transactions since last verified statement" captions alongside the pre-existing warning-triangle
+  badge (`docs/features/bank-import.md`'s balance-sync section) — see also the `coverage.ts`
+  entry in `docs/ARCHITECTURE.md`'s decision log for why the underlying data stayed out of that
+  badge's own closed finding-kind enum.
+- **Dense 2-column grid form + single-select `Chip` pill** (2026-08-31) — for a form with many
+  short/medium fields where a full-width row per field would push the common case below the fold, pair
+  fields into 2-column rows ([Insurer | Annual premium], [Plan name | Policy number], [Start date | End
+  date], …) and reserve a full-width row only for something that genuinely needs it (a pill group, a
+  toggle + its expanded controls, a multi-line field). A **hero field** above the grid (the single most
+  important number on the form, e.g. Sum assured/Sum insured/IDV — label and quick round-number preset
+  pills adapting per type) gets its own prominence rather than being just another paired field. This
+  layout was a genuine second design pass, not a one-shot: the first shipped version (matching the
+  originally-approved mockup) put the payment-frequency control and Premium in one cramped shared row and
+  duration presets under their own separate label — the user tried it on-device, gave specific complaints,
+  and a follow-up mockup discussion (`docs/mockups/proposals/insurance-form-layout-options-v1.html`/
+  `v2.html`) explored 5 alternatives before landing on the current one; see the matching entry in
+  `docs/ARCHITECTURE.md`'s decision log for the full before/after. A single-select pill for this kind of
+  form (payment frequency, discount type) uses the new `apps/mobile/src/features/insurance/Chip.tsx`
+  (label/active/onPress) — **distinct from** `components/ui/DismissibleChip`, which always renders an "×"
+  for a removable tag and is never single-select; don't reach for `DismissibleChip` when what's needed is
+  a plain selectable pill. Reference implementation: `apps/mobile/src/features/insurance/PolicyForm.tsx`.
+- **Unified read-only `Banner` for a frozen/settled entity** (2026-08-23) — when an entity has more than
+  one distinct "why can't I edit this" reason (e.g. a group that's `closed` vs. one the user `left`), give
+  each its own copy but render both through the **same** `Banner` component/placement rather than one real
+  `Banner` for one state and a plain text line for another — a user landing on either state should get the
+  same visual weight and "this is deliberately frozen" language, not a stronger signal for one reason than
+  the other. Reference: `GroupDashboard.tsx`'s `closed`/`left` banners (`docs/features/groups.md`'s
+  "Leaving a group" section) — `closed`'s previous plain-text explanatory line was folded into a real
+  `Banner` specifically to close this inconsistency.
 
 ---
 
@@ -94,6 +201,12 @@ deliberate decision so the app reads as one consistent Light/Dark palette regard
 mode itself is unchanged (masking, the PIN-gated Open mode, `PrivacyModeSwitcher`'s icon) — it just no
 longer repaints the screen. See `packages/core/src/theme/privacyModeColors.ts`'s
 `getPrivacyModeColors()`.
+
+**Privacy Mode collapsed from three states to two** (2026-08-18) — real-device testing found the
+three-mode picker (Safe/Private/Open) plus Open mode's fixed-duration countdown badge overkill for
+what people actually used. `apps/mobile`'s `PrivacyModeSwitcher` is now a plain Safe/Open toggle with
+no countdown; `packages/core/src/theme/privacyModeColors.ts`'s 3-mode type is left untouched since
+`apps/web-react` (frozen) still legitimately constructs `'privacy'`.
 
 ---
 

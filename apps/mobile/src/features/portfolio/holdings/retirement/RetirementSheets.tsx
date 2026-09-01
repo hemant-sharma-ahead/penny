@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, useCallback, type ReactNode } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useSettings } from '~/context/SettingsContext';
@@ -12,16 +12,23 @@ import {
   AmountInput,
   Banner,
   ProgressBar,
-  StatBox
+  StatBox,
+  ConfirmDialog
 } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint, ink } from '~/lib/color';
-import { epochToDateInput } from '@/lib/formatters';
+import { epochToDateInput, formatCurrency } from '@/lib/formatters';
 import { LIFECYCLE_FUNDS } from '@/core/nps';
 import type { NpsLifecycleFund } from '@/core/nps';
-import { isBeforeFifth, ppfDepositsForFy, PPF_MAX_ANNUAL } from '@/core/portfolio/ppfCalculations';
+import {
+  isBeforeFifth,
+  ppfDepositsForFy,
+  PPF_MAX_ANNUAL,
+  earliestBlockingPpfFy
+} from '@/core/portfolio/ppfCalculations';
 import { getPpfRateTable, type PpfRateTable } from '@/core/portfolio/ppfInterestRates';
+import { INTEREST_AMOUNT_TOLERANCE, getPpfInterestRateForFy } from '@/core/portfolio/ppfInterestCalculator';
 import {
   EPF_EMPLOYER_EPF_PCT,
   EPS_PCT,
@@ -40,11 +47,13 @@ import {
   estimateGrossAndCtc,
   EPF_DEFAULT_BASIC_TO_GROSS_PCT
 } from '@/core/portfolio/epfCalculations';
-import { resolveAnyTxnOwner, epfHasPendingTransfer } from './epfEmployerScoping';
+import { resolveAnyTxnOwner, epfPendingTransferSuccessor, epfResolvedTransfer } from './epfEmployerScoping';
+import { EpfPendingTransferModal } from './EpfPendingTransferModal';
 import type { EpfMonthEntry } from '@/core/portfolio/epfCalculations';
 import { getEpfRateTable, type EpfRateTable } from '@/core/portfolio/epfInterestRates';
 import { getInterestRateForFy, type EpfInterestMonthTrace } from '@/core/portfolio/epfInterestCalculator';
 import { computeEpfInterestOnDemand, dateToFyStartYear, fyLabel, recordedInterestTotal } from './epfInterestOnDemand';
+import { computePpfInterestOnDemand, findMissingPpfInterestFys } from './ppfInterestOnDemand';
 import {
   findAllReviewFlags,
   checkWageDiscrepancy,
@@ -219,6 +228,7 @@ export function PpfTransactionSheet({
    *  usage elsewhere): delete is IMMEDIATE on press, no confirmation dialog. */
   onDelete?: (id: string) => void;
 }) {
+  const theme = useThemeColors();
   const [txType, setTxType] = useState<PpfTransactionType>(editing?.type ?? initialType ?? 'deposit');
   const [txDate, setTxDate] = useState(() => epochToDateInput(editing?.date ?? initialDate ?? Date.now()));
   const [txAmount, setTxAmount] = useState(editing ? String(editing.amount) : '');
@@ -229,15 +239,98 @@ export function PpfTransactionSheet({
   const beforeFifth = isBeforeFifth(dateMs);
   const showFifthHint = txType === 'deposit' && txDate !== '';
 
-  function handleSave() {
+  // Existing transactions on record — the basis both the gap-guard and the calc banner reason about.
+  // Plain per-render computation (no `useMemo`) — matches this sheet's own existing style
+  // (`beforeFifth`/`showFifthHint`/`typeConfig`/`canSave` below are all plain consts too), and this
+  // list is at most a few dozen entries so there's no real cost to recomputing it every render.
+  // `editing` itself is still IN this array (unchanged) until Save actually replaces it; that's fine
+  // for both: `findMissingPpfInterestFys` only looks at `interest`-type entries, and
+  // `computePpfInterestOnDemand` already excludes every `interest`-type entry for the target FY
+  // itself before recomputing (see that function's own doc comment) — so editing the very entry in
+  // question never feeds its own stale recorded value back into its own recalculation.
+  const existingTxns = holding.assetMeta?.ppfTransactions ?? [];
+
+  // ─── Gap-guard (2026-08-24, ppf-manual-entry-fy-guard-v1) ──────────────────────────────────────
+  // Mirrors the CSV-import fix's own ordering rule: a transaction dated after an earlier FY's still-
+  // missing interest is blocked until that FY's interest is actually recorded. See
+  // `earliestBlockingPpfFy`'s own doc comment (packages/core) for the exact rule — this sheet only
+  // calls it, never re-derives the decision itself.
+  const missingInterestFys = findMissingPpfInterestFys(existingTxns, holding.assetMeta?.ppfOpeningDate);
+  const blockingFy = txDate ? earliestBlockingPpfFy(missingInterestFys, dateMs) : null;
+
+  // ─── Calculation info banner (automatic, not opt-in — the one deliberate divergence from EPF's
+  // own opt-in "want me to calculate it for you?" precedent in `EpfTransactionSheet` below) ────────
+  const [rateTable, setRateTable] = useState<PpfRateTable | null>(null);
+  useEffect(() => {
+    getPpfRateTable()
+      .then(setRateTable)
+      .catch(() => {});
+  }, []);
+  const targetFyStartYear = txType === 'interest' && txDate ? dateToFyStartYear(dateMs) : null;
+  const calcResult =
+    targetFyStartYear === null || !rateTable
+      ? null
+      : computePpfInterestOnDemand(existingTxns, rateTable, targetFyStartYear);
+
+  // Real bug, found 2026-08-24: `handleAddMissingInterest` below (the NEW in-sheet gap-guard CTA)
+  // was the only place that ever actually set `txAmount` from a calculation — the card's own
+  // pre-existing FY-end nudge banner pills (`RetirementCard.tsx`) arrive here purely via
+  // `initialType`/`initialDate` props, which seed the type pill and date field correctly but never
+  // touched the amount, leaving it stuck at `''` even though the calc banner above was already
+  // showing the right figure (it reads straight off `calcResult`, independent of `txAmount`). Fires
+  // once, when the rate table finishes loading — `txAmount === ''` in the condition means it can
+  // never clobber a value the user already typed or that came from `editing`.
+  useEffect(() => {
+    // setState wrapped in a same-tick timeout, not called directly in the effect body — same
+    // react-hooks/set-state-in-effect fix `useLivePrice.ts` already documents/uses elsewhere in
+    // this feature, avoided here too rather than special-casing this one effect.
+    const t = setTimeout(() => {
+      if (!editing && initialType === 'interest' && initialDate != null && rateTable && txAmount === '') {
+        const fy = dateToFyStartYear(initialDate);
+        const result = computePpfInterestOnDemand(existingTxns, rateTable, fy);
+        if (result.rateFullyConfirmed) setTxAmount(String(result.interest));
+      }
+    }, 0);
+    return () => clearTimeout(t);
+    // Deliberately only re-checks when `rateTable` finishes loading; `editing`/`initialType`/
+    // `initialDate` are fixed for this sheet's lifetime, and re-running this on every `existingTxns`/
+    // `txAmount` change would fight a user's own edit back to empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rateTable]);
+
+  /** The FY-end nudge banner's own "+ Add FY X interest" pill, reused verbatim here for the gap-
+   *  guard's fix-it CTA (`ppf-manual-entry-fy-guard-v1.html` §2): switches this SAME open sheet to
+   *  the `interest` type, seeds the date to that FY's own 31 March (same convention
+   *  `RetirementCard.tsx`'s nudge banner already uses when IT opens this sheet), and pre-fills the
+   *  amount from `computePpfInterestOnDemand` when a confirmed rate is available — still editable,
+   *  never silently saved on the user's behalf. */
+  function handleAddMissingInterest(fy: number) {
+    setTxType('interest');
+    setTxDate(epochToDateInput(new Date(fy + 1, 2, 31).getTime()));
+    if (rateTable) {
+      const result = computePpfInterestOnDemand(existingTxns, rateTable, fy);
+      if (result.rateFullyConfirmed) setTxAmount(String(result.interest));
+    }
+  }
+
+  // Wrapped in `useCallback` (unlike this sheet's other plain handlers) — a plain nested function
+  // here trips the React Compiler's purity check on `Date.now()` as a false positive once this
+  // component's other new logic (the gap-guard/calc-banner conditionals above) gives the compiler
+  // enough to analyze; wrapping it removes the ambiguity. Same fix `RetirementCard.tsx`'s own
+  // `handleEmploymentConfirm` already uses for the identical false positive.
+  const handleSave = useCallback(() => {
     const amt = parseFloat(txAmount);
     if (isNaN(amt) || amt <= 0) return;
     setSaving(true);
+    // Recomputed from `txDate` here rather than closing over the outer `dateMs` — a `new Date(...)`
+    // intermediate isn't a dependency the compiler can prove stable, and this callback only needs
+    // `txDate` (a plain string) to derive its own copy.
+    const saveDateMs = txDate ? new Date(txDate).getTime() : 0;
     const existing = holding.assetMeta?.ppfTransactions ?? [];
     const txns = editing
       ? existing.map((t) => {
           if (t.id !== editing.id) return t;
-          const updatedTxn: PpfTransaction = { ...t, type: txType, date: dateMs, amount: amt };
+          const updatedTxn: PpfTransaction = { ...t, type: txType, date: saveDateMs, amount: amt };
           if (txNote.trim()) {
             updatedTxn.note = txNote.trim();
           } else {
@@ -250,7 +343,7 @@ export function PpfTransactionSheet({
           {
             id: crypto.randomUUID(),
             type: txType,
-            date: dateMs,
+            date: saveDateMs,
             amount: amt,
             ...(txNote.trim() && { note: txNote.trim() })
           }
@@ -263,7 +356,7 @@ export function PpfTransactionSheet({
     onSave(updated)
       .catch(() => {})
       .finally(() => setSaving(false));
-  }
+  }, [txAmount, editing, holding, txType, txDate, txNote, onSave]);
 
   function handleDelete() {
     if (editing && onDelete) onDelete(editing.id);
@@ -275,7 +368,129 @@ export function PpfTransactionSheet({
     withdrawal: { label: 'Withdrawal', color: '#f59e0b' }
   };
 
-  const canSave = !saving && !!txAmount && parseFloat(txAmount) > 0;
+  const canSave = !saving && !!txAmount && parseFloat(txAmount) > 0 && blockingFy === null;
+
+  /** Renders whichever of the calc banner's 4 states applies — purely a function of
+   *  (`targetFyStartYear`, `calcResult`, current `txAmount`), never a separately tracked "how did
+   *  this value get here" flag: an empty amount is always "informational" (nothing recorded yet to
+   *  compare against, whether that's because the type was just switched to Interest manually or
+   *  because the gap-guard CTA hasn't been tapped yet), and any non-empty amount — typed, pre-filled
+   *  by the CTA, or carried in from an existing transaction being edited — always goes through the
+   *  same matches/mismatch comparison. This is what makes the CTA's pre-fill (`handleAddMissingInterest`)
+   *  land on the "Matches" state for free, with no extra state machine. */
+  function renderCalcBanner() {
+    if (targetFyStartYear === null || !calcResult) return null;
+    const fy = targetFyStartYear;
+    const fyText = fyLabel(fy);
+    const incomplete = calcResult.basedOnIncompleteHistory;
+
+    if (!calcResult.rateFullyConfirmed) {
+      return (
+        <View
+          className="rounded-xl border p-2.5 flex-row gap-2"
+          style={{ backgroundColor: theme.surfaceSecondary, borderColor: theme.border }}
+        >
+          <Icon name="ti-info-circle" size={15} color={theme.textSecondary} />
+          <Text className="text-[10.5px] text-secondary flex-1 leading-relaxed">
+            Rate for <Text className="font-bold text-primary">{fyText}</Text> hasn&apos;t been declared by the
+            government yet — we&apos;ll never guess. Enter the amount manually once you know it, or check back after
+            it&apos;s ratified.
+          </Text>
+        </View>
+      );
+    }
+
+    const calculated = calcResult.interest;
+    const ratePct = getPpfInterestRateForFy(rateTable as PpfRateTable, fy);
+    const entered = parseFloat(txAmount);
+    const hasAmount = txAmount !== '' && !isNaN(entered) && entered > 0;
+
+    if (!hasAmount) {
+      return (
+        <View
+          className="rounded-xl border p-2.5 flex-row gap-2"
+          style={{ backgroundColor: theme.surfaceSecondary, borderColor: theme.border }}
+        >
+          <Icon name="ti-calculator" size={15} color={theme.textSecondary} />
+          <Text className="text-[10.5px] text-secondary flex-1 leading-relaxed">
+            {incomplete ? 'Our estimate, using' : 'Calculated using'} {fyText}
+            {ratePct !== null ? `'s ${ratePct}% rate` : ''} and your logged deposits:{' '}
+            <Text className="font-bold text-primary">₹{calculated.toLocaleString('en-IN')}</Text> — pre-filled below,
+            review before saving.
+            {incomplete ? ' Based only on what’s logged in Penny.' : ''}
+          </Text>
+        </View>
+      );
+    }
+
+    const mismatched = Math.abs(entered - calculated) > INTEREST_AMOUNT_TOLERANCE;
+    if (!mismatched) {
+      return (
+        <View
+          className="rounded-xl border p-2.5 flex-row gap-2"
+          style={{ backgroundColor: tint(theme.success, 12), borderColor: tint(theme.success, 30) }}
+        >
+          <Icon name="ti-circle-check" size={15} color={theme.success} />
+          <Text
+            className="text-[10.5px] flex-1 leading-relaxed"
+            style={{ color: ink(theme.success, theme.textPrimary) }}
+          >
+            <Text className="font-bold">
+              {incomplete ? 'Roughly matches our estimate of' : 'Matches the calculated'} ₹
+              {calculated.toLocaleString('en-IN')} interest
+            </Text>{' '}
+            — {fyText}
+            {ratePct !== null ? `'s ${ratePct}% rate` : ''} applied to your logged deposits
+            {incomplete ? ', based only on what’s logged in Penny.' : ' agrees with what you recorded.'}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View
+        className="rounded-xl border p-2.5 gap-1.5"
+        style={{ backgroundColor: tint(theme.warning, 12), borderColor: tint(theme.warning, 30) }}
+      >
+        <View className="flex-row gap-2">
+          <Icon name="ti-alert-triangle" size={15} color={theme.warning} />
+          <Text
+            className="text-[10.5px] flex-1 leading-relaxed"
+            style={{ color: ink(theme.warning, theme.textPrimary) }}
+          >
+            <Text className="font-bold">
+              Doesn&apos;t match {incomplete ? 'our estimate' : "Penny's recalculation"}
+            </Text>{' '}
+            — worth a quick check against your passbook before saving.
+          </Text>
+        </View>
+        <View className="flex-row gap-3.5 ml-6">
+          <View className="flex-1">
+            <Text
+              className="text-[8.5px] font-extrabold uppercase tracking-wide"
+              style={{ color: ink(theme.warning, theme.textPrimary), opacity: 0.8 }}
+            >
+              You entered
+            </Text>
+            <Text className="text-[13px] font-extrabold mt-0.5" style={{ color: theme.textPrimary }}>
+              ₹{entered.toLocaleString('en-IN')}
+            </Text>
+          </View>
+          <View className="flex-1">
+            <Text
+              className="text-[8.5px] font-extrabold uppercase tracking-wide"
+              style={{ color: ink(theme.warning, theme.textPrimary), opacity: 0.8 }}
+            >
+              We calculate
+            </Text>
+            <Text className="text-[13px] font-extrabold mt-0.5" style={{ color: theme.textPrimary }}>
+              ₹{calculated.toLocaleString('en-IN')}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <Modal onClose={onClose} title={editing ? 'Edit PPF transaction' : 'Add PPF transaction'} scrollable>
@@ -305,27 +520,103 @@ export function PpfTransactionSheet({
         )}
       </View>
 
-      <AmountInput label="Amount" placeholder="0" value={txAmount} onChange={setTxAmount} autoFocus />
+      {/* Gap-guard warning — reuses `RetirementCard.tsx`'s own FY-end nudge banner shell verbatim
+          (ppf-manual-entry-fy-guard-v1.html §1). Shown for ANY type dated after the earliest FY still
+          missing its own interest — never for one dated within/before that gap year itself. */}
+      {blockingFy !== null && (
+        <View
+          className="rounded-xl border p-2.5 gap-2"
+          style={{ backgroundColor: tint(theme.warning, 12), borderColor: tint(theme.warning, 30) }}
+        >
+          <View className="flex-row items-start gap-2">
+            <Icon name="ti-calendar-event" size={15} color={theme.warning} />
+            <Text
+              className="text-[11px] leading-relaxed flex-1"
+              style={{ color: ink(theme.warning, theme.textPrimary) }}
+            >
+              <Text className="font-bold" style={{ color: theme.textPrimary }}>
+                {fyLabel(blockingFy)}
+              </Text>{' '}
+              interest hasn&apos;t been recorded yet — entries dated after that year are on hold until it&apos;s added.
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => handleAddMissingInterest(blockingFy)}
+            className="self-start ml-6 flex-row items-center gap-1 px-3 py-1.5 rounded-full"
+            style={{ backgroundColor: theme.warning }}
+          >
+            <Icon name="ti-plus" size={11} color="#241a00" />
+            <Text className="text-[11px] font-extrabold" style={{ color: '#241a00' }}>
+              Add {fyLabel(blockingFy)} interest
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
-      <TextInput label="Note (optional)" placeholder="e.g. Annual lump sum" value={txNote} onChange={setTxNote} />
+      {/* Calculation info banner — automatic whenever the type pill is Interest and a valid date is
+          selected (fresh add, arriving via the gap-guard's CTA, or editing an existing interest
+          transaction — all three show it the same way). ppf-manual-entry-fy-guard-v1.html §3. */}
+      {txType === 'interest' && renderCalcBanner()}
+
+      <View style={blockingFy !== null ? { opacity: 0.45 } : undefined}>
+        {/* Real root cause of the "prefilled amount doesn't visually show" bug (2026-08-24): unlike
+         *  every other type, an interest row's amount is meant to arrive pre-calculated, not typed —
+         *  `autoFocus` here was grabbing focus at mount, and `AmountInput`'s own guard against
+         *  clobbering active typing treats "focused" as "don't resync the visible text", so the
+         *  correct calculated value landed in `txAmount` state (the calc banner/words-helper both
+         *  read it fine) but never reached the visible field until the user tapped away and back.
+         *  `EpfTransactionSheet`'s identical `autoFocus={!isInterest}` below is the exact existing
+         *  precedent for this. */}
+        <AmountInput
+          label="Amount"
+          placeholder="0"
+          value={txAmount}
+          onChange={setTxAmount}
+          autoFocus={txType !== 'interest'}
+        />
+      </View>
+
+      <View style={blockingFy !== null ? { opacity: 0.45 } : undefined}>
+        <TextInput label="Note (optional)" placeholder="e.g. Annual lump sum" value={txNote} onChange={setTxNote} />
+      </View>
 
       {editing && onDelete ? (
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Button variant="danger" size="lg" fullWidth onPress={handleDelete}>
-              Delete
-            </Button>
+        <View className="gap-1.5">
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Button variant="danger" size="lg" fullWidth onPress={handleDelete}>
+                Delete
+              </Button>
+            </View>
+            <View className="flex-1">
+              <Button variant="primary" size="lg" fullWidth onPress={handleSave} disabled={!canSave} loading={saving}>
+                {saving ? 'Saving…' : 'Update'}
+              </Button>
+            </View>
           </View>
-          <View className="flex-1">
-            <Button variant="primary" size="lg" fullWidth onPress={handleSave} disabled={!canSave} loading={saving}>
-              {saving ? 'Saving…' : 'Update'}
-            </Button>
-          </View>
+          {blockingFy !== null && (
+            <Text
+              className="text-center text-[10.5px] font-semibold"
+              style={{ color: ink(theme.warning, theme.textPrimary) }}
+            >
+              Add {fyLabel(blockingFy)}&apos;s interest first to continue
+            </Text>
+          )}
         </View>
       ) : (
-        <Button variant="primary" size="lg" fullWidth onPress={handleSave} disabled={!canSave} loading={saving}>
-          {saving ? 'Saving…' : 'Add transaction'}
-        </Button>
+        <View className="gap-1.5">
+          <Button variant="primary" size="lg" fullWidth onPress={handleSave} disabled={!canSave} loading={saving}>
+            {saving ? 'Saving…' : 'Add transaction'}
+          </Button>
+          {blockingFy !== null && (
+            <Text
+              className="text-center text-[10.5px] font-semibold"
+              style={{ color: ink(theme.warning, theme.textPrimary) }}
+            >
+              Add {fyLabel(blockingFy)}&apos;s interest first to continue
+            </Text>
+          )}
+        </View>
       )}
     </Modal>
   );
@@ -561,6 +852,12 @@ export function PpfAllTransactionsSheet({
                       : theme.warning
                     : PPF_TX_COLORS[tx.type];
                   const isFlagged = tx.type === 'interest' && flaggedTxnIds.has(tx.id);
+                  // The rate that actually applied to this row's FY, for context alongside the FY
+                  // label — `null` when the rate table hasn't loaded yet or that FY predates it.
+                  const ratePct =
+                    tx.type === 'interest' && rateTable
+                      ? getPpfInterestRateForFy(rateTable, dateToFyStartYear(tx.date))
+                      : null;
                   return (
                     <Pressable
                       key={tx.id}
@@ -592,6 +889,7 @@ export function PpfAllTransactionsSheet({
                           })}
                           {isDeposit && ` · ${before5 ? '≤5th' : '>5th'}`}
                           {tx.type === 'interest' && ` · ${fyLabel(dateToFyStartYear(tx.date))}`}
+                          {ratePct !== null && ` · ${ratePct}%`}
                           {tx.note && ` · ${tx.note}`}
                         </Text>
                       </View>
@@ -811,6 +1109,12 @@ export function EpfAllTransactionsSheet({
   // (no rate/month-by-month trace, just the employee/employer split), see `EPF_TX_LABELS` for the
   // shared per-type label/color already used for the row itself.
   const [selectedOtherTxn, setSelectedOtherTxn] = useState<EpfTransaction | null>(null);
+  // Delete for a transfer_in/withdrawal/advance row (2026-08-30) — real gap this fixes: there was
+  // previously no way to remove one at all, which became a real blocker once "It was transferred"
+  // (above) could create one that needs correcting — e.g. picking the wrong destination, or a later
+  // re-import bringing in the REAL transfer-in row that should replace a manually-recorded guess.
+  const [confirmDeleteOtherTxn, setConfirmDeleteOtherTxn] = useState(false);
+  const [deletingOtherTxn, setDeletingOtherTxn] = useState(false);
   const [correctingInterest, setCorrectingInterest] = useState(false);
   const [keepingRecorded, setKeepingRecorded] = useState(false);
   const [addingHike, setAddingHike] = useState(false);
@@ -879,12 +1183,44 @@ export function EpfAllTransactionsSheet({
     [employerFilter, allEmployers, allTransactions]
   );
 
-  // "Pending transfer" (2026-08-xx) — see `epfHasPendingTransfer`'s own doc comment for the heuristic
-  // and its limits. Tentative wording only; never asserted as a fact Penny can't actually confirm.
-  const pendingTransfer = useMemo(
-    () => (employerFilter ? epfHasPendingTransfer(employerFilter, allEmployers, allTransactions) : false),
+  // "Pending transfer" (2026-08-xx, made actionable 2026-08-30) — see
+  // `epfPendingTransferSuccessor`'s own doc comment for the heuristic and its limits. Tentative
+  // wording only; never asserted as a fact Penny can't actually confirm — the banner itself always
+  // asks rather than assumes.
+  // 2026-08-30 — the full resolution flow moved OUT to `EpfPendingTransferModal` (shared with the card
+  // tile's own identical pill via `useEpfPendingTransfer`); this sheet only needs the READ-ONLY pieces
+  // to show its own pill/confirmation line and to open that modal, not the mutation handlers.
+  const pendingTransferSuccessor = useMemo(
+    () => (employerFilter ? epfPendingTransferSuccessor(employerFilter, allEmployers, allTransactions) : null),
     [employerFilter, allEmployers, allTransactions]
   );
+  const resolvedTransfer = useMemo(
+    () => (employerFilter ? epfResolvedTransfer(employerFilter, allEmployers, allTransactions) : null),
+    [employerFilter, allEmployers, allTransactions]
+  );
+  const [showPendingTransferModal, setShowPendingTransferModal] = useState(false);
+
+  async function handleDeleteOtherTxn() {
+    if (!selectedOtherTxn || deletingOtherTxn) return;
+    setDeletingOtherTxn(true);
+    try {
+      const updated: Holding = {
+        ...holding,
+        assetMeta: {
+          ...holding.assetMeta,
+          epfTransactions: allTransactions.filter((t) => t.id !== selectedOtherTxn.id)
+        },
+        updatedAt: Date.now()
+      };
+      await onSave(updated);
+      setConfirmDeleteOtherTxn(false);
+      setSelectedOtherTxn(null);
+    } catch {
+      // Leave the confirm dialog open so the user can retry.
+    } finally {
+      setDeletingOtherTxn(false);
+    }
+  }
 
   async function handleSaveRatio() {
     if (!employerFilter || savingRatio) return;
@@ -915,6 +1251,7 @@ export function EpfAllTransactionsSheet({
     otherTxns: EpfTransaction[];
     totalEmployee: number;
     totalEmployerEpf: number;
+    totalEps: number;
   };
 
   const fyGroups = useMemo(() => {
@@ -929,7 +1266,8 @@ export function EpfAllTransactionsSheet({
             months: [],
             otherTxns: [],
             totalEmployee: 0,
-            totalEmployerEpf: 0
+            totalEmployerEpf: 0,
+            totalEps: 0
           });
         }
         const g = groups.get(m.fyLabel);
@@ -937,6 +1275,7 @@ export function EpfAllTransactionsSheet({
         g.months.push(m);
         g.totalEmployee += m.empAmount;
         g.totalEmployerEpf += m.eplrEpfAmount;
+        g.totalEps += m.epsAmount;
       }
     }
 
@@ -955,7 +1294,8 @@ export function EpfAllTransactionsSheet({
           months: [],
           otherTxns: [],
           totalEmployee: 0,
-          totalEmployerEpf: 0
+          totalEmployerEpf: 0,
+          totalEps: 0
         });
       }
       groups.get(fyLabel)?.otherTxns.push(tx);
@@ -1213,11 +1553,49 @@ export function EpfAllTransactionsSheet({
           </Pressable>
         )}
 
-        {pendingTransfer && employerFilter && (
-          <Banner variant="info" icon="ti-transfer">
-            Your PF balance from {employerFilter.companyName} may not have been transferred to your next employer yet —
-            Penny hasn't seen a transfer-in credit for it.
-          </Banner>
+        {/* 2026-08-30 — the full resolution flow (banner, 3 actions, "why transfer" guidance, confirm
+            step) moved OUT to its own dedicated `EpfPendingTransferModal`, shared with the card tile's
+            own identical pill (per direct feedback: this ledger sheet and the company-details popup
+            were each growing their own copy of the same fairly involved flow). Just a tappable pill
+            here, or a small resolved-confirmation line once answered. */}
+        {employerFilter && pendingTransferSuccessor && (
+          <Pressable
+            onPress={() => setShowPendingTransferModal(true)}
+            className="flex-row items-center gap-1.5 self-start px-2 py-1 rounded-full"
+            style={{ backgroundColor: tint(theme.info, 15) }}
+          >
+            <Icon name="ti-transfer" size={11} color={theme.info} />
+            <Text className="text-[10px] font-bold" style={{ color: theme.info }}>
+              Pending transfer
+            </Text>
+            <Icon name="ti-chevron-right" size={10} color={theme.info} />
+          </Pressable>
+        )}
+
+        {resolvedTransfer && (
+          <View
+            className="rounded-xl border p-3 flex-row items-start gap-2"
+            style={{ backgroundColor: tint(theme.success, 10), borderColor: tint(theme.success, 30) }}
+          >
+            <Icon name="ti-circle-check" size={16} color={theme.success} />
+            <Text className="text-xs leading-relaxed flex-1" style={{ color: ink(theme.success, theme.textPrimary) }}>
+              Transferred to <Text style={{ fontWeight: '700' }}>{resolvedTransfer.destination.companyName}</Text> on{' '}
+              {new Date(resolvedTransfer.transaction.date).toLocaleDateString('en-IN', {
+                month: 'short',
+                year: 'numeric'
+              })}
+              {!masked && ` — ${formatCurrency(resolvedTransfer.transaction.amount ?? 0)}`}.
+            </Text>
+          </View>
+        )}
+
+        {showPendingTransferModal && employerFilter && (
+          <EpfPendingTransferModal
+            holding={holding}
+            employer={employerFilter}
+            onSave={onSave}
+            onClose={() => setShowPendingTransferModal(false)}
+          />
         )}
 
         {joiningContradiction && (
@@ -1248,7 +1626,8 @@ export function EpfAllTransactionsSheet({
               {filter === 'all' && group.months.length > 0 && (
                 <Text className="text-[10px] text-tertiary tabular-nums">
                   {group.months.length} months
-                  {!masked && ` · ₹${(group.totalEmployee + group.totalEmployerEpf).toLocaleString('en-IN')}`}
+                  {!masked &&
+                    ` · ₹${(group.totalEmployee + group.totalEmployerEpf + group.totalEps).toLocaleString('en-IN')}`}
                 </Text>
               )}
             </View>
@@ -1291,6 +1670,19 @@ export function EpfAllTransactionsSheet({
                         <Text className="text-xs font-semibold" style={{ color: EPF_TX_COLORS[tx.type] }}>
                           {EPF_TX_LABELS[tx.type]}
                         </Text>
+                        {/* 2026-08-30 — a real passbook can label a transfer-in credit "INTEREST AMOUNT
+                            ONLY" (a separate interest catch-up, not the principal itself moving) —
+                            surfaced here so it's never mistaken for the main transfer at a glance,
+                            without needing its own transaction type (see `reconcileEpfBalanceEventAtDate`'s
+                            doc comment for why the underlying type stays `transfer_in`). */}
+                        {tx.type === 'transfer_in' && /interest/i.test(tx.sourceParticulars ?? '') && (
+                          <Text
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ backgroundColor: tint(theme.textTertiary, 15), color: theme.textTertiary }}
+                          >
+                            interest only
+                          </Text>
+                        )}
                         {ratePct !== null && (
                           <Text
                             className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
@@ -1359,10 +1751,17 @@ export function EpfAllTransactionsSheet({
                     {!masked ? (
                       <View className="items-end">
                         <Text className="text-xs font-semibold text-primary tabular-nums">
-                          ₹{(entry.empAmount + entry.eplrEpfAmount).toLocaleString('en-IN')}
+                          ₹{(entry.empAmount + entry.eplrEpfAmount + entry.epsAmount).toLocaleString('en-IN')}
                         </Text>
+                        {/* 2026-08-30 fix — real reported gap: this row's own total silently excluded
+                            EPS (the pension component), showing only the employee+employer-EPF sum
+                            even though EPS is a genuine part of what was actually contributed that
+                            month. Now shows all three, still broken down individually so the EPS
+                            portion (not withdrawable, per the card's own "EPS goes to pension fund"
+                            caption) stays visible, not hidden inside a single opaque total. */}
                         <Text className="text-[9px] text-tertiary tabular-nums">
-                          ₹{entry.empAmount.toLocaleString('en-IN')} + ₹{entry.eplrEpfAmount.toLocaleString('en-IN')}
+                          ₹{entry.empAmount.toLocaleString('en-IN')} + ₹{entry.eplrEpfAmount.toLocaleString('en-IN')} +
+                          ₹{entry.epsAmount.toLocaleString('en-IN')}
                         </Text>
                       </View>
                     ) : (
@@ -1640,9 +2039,22 @@ export function EpfAllTransactionsSheet({
                   source statement to pick up the real split.
                 </Text>
               )}
+              <Button variant="danger" size="sm" fullWidth onPress={() => setConfirmDeleteOtherTxn(true)}>
+                Delete
+              </Button>
             </Modal>
           );
         })()}
+
+      <ConfirmDialog
+        isOpen={confirmDeleteOtherTxn}
+        onClose={() => setConfirmDeleteOtherTxn(false)}
+        onConfirm={handleDeleteOtherTxn}
+        title="Delete this entry?"
+        message={`This removes the ${selectedOtherTxn ? EPF_TX_LABELS[selectedOtherTxn.type] : 'entry'} from your EPF ledger — it'll no longer count toward your total.`}
+        confirmLabel="Delete"
+        loading={deletingOtherTxn}
+      />
 
       {/* Estimated Gross/CTC formula popup (Fix 4) — always shows the exact calculation and lets the
           user override the Basic-to-Gross ratio if they know their real one; never asserts either
@@ -1988,16 +2400,24 @@ export function EpfSalaryHikeSheet({
   holding,
   empId,
   onSave,
-  onClose
+  onClose,
+  initialMonth,
+  initialBasic
 }: {
   holding: Holding;
   empId: string;
   onSave: (updated: Holding) => Promise<void>;
   onClose: () => void;
+  /** Prefills from the "hike detected" nudge (2026-08-30, `findUnrecordedEpfHikes`) — a suggestion the
+   *  user still reviews/can edit before saving, same "always reviewable, never silently trusted"
+   *  convention as every other prefilled suggestion in this feature. `undefined` for the normal manual
+   *  "+ Hike" entrypoint, which keeps today's blank defaults. */
+  initialMonth?: string;
+  initialBasic?: string;
 }) {
   const emp = (holding.assetMeta?.epfEmployers ?? []).find((e) => e.id === empId);
-  const [hikeMonth, setHikeMonth] = useState('');
-  const [hikeBasic, setHikeBasic] = useState('');
+  const [hikeMonth, setHikeMonth] = useState(initialMonth ?? '');
+  const [hikeBasic, setHikeBasic] = useState(initialBasic ?? '');
   const [saving, setSaving] = useState(false);
 
   const canSave =
@@ -2038,6 +2458,12 @@ export function EpfSalaryHikeSheet({
   return (
     <Modal onClose={onClose} title="Add Salary Hike">
       <Text className="text-xs text-tertiary -mt-2">{emp.companyName}</Text>
+
+      {initialMonth != null && (
+        <Text className="text-[10px] -mt-1" style={{ color: '#378add' }}>
+          Detected from your imported passbook — review before saving, edit if needed
+        </Text>
+      )}
 
       <TextInput
         label="Effective from (YYYY-MM)"

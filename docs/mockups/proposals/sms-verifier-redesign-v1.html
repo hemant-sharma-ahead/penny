@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SMS Parser Verifier — 3 redesign options</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #0b0f14; --surface: #161b22; --surface2: #1c2128; --surface3: #20262f; --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+        --border: #2d333b; --primary: #00a86b; --blue: #3b82f6; --danger: #ef4444; --amber: #f59e0b; --pink: #ec4899;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070a; color: #e6edf3; -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 30px 16px 4px; font-size: 22px; color: #fff; }
+      .sub { text-align: center; margin: 0 16px 14px; color: #9aa5b1; font-size: 14px; max-width: 900px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+      .topnav { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 16px 34px; }
+      .topnav a { font-size: 12px; font-weight: 700; color: #cfe9db; background: #0f2419; border: 1px solid #1c3d2a; padding: 7px 14px; border-radius: 999px; text-decoration: none; }
+      .topnav a:hover { background: #123524; }
+      .sectionband { border-top: 1px solid #1b222b; padding-top: 36px; margin-top: 10px; }
+      .sectiontitle { text-align: center; font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 4px; }
+      .sectiontitle .num { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #04140d; font-size: 12px; line-height: 22px; margin-right: 8px; }
+      .sectionsub { text-align: center; color: #9aa5b1; font-size: 12.5px; max-width: 780px; margin: 0 auto 18px; line-height: 1.65; }
+      .groundnote { max-width: 780px; margin: 0 auto 20px; background: #12181f; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; color: #9aa5b1; font-size: 11.5px; line-height: 1.6; }
+      .groundnote code { background: #1c2128; padding: 1px 5px; border-radius: 5px; font-size: 10.5px; color: #c3ccd6; }
+      .frame { max-width: 860px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.5); border: 1px solid #232a34; }
+      .recommend { max-width: 820px; margin: 16px auto 6px; background: #0f2419; border: 1px solid #1c3d2a; border-radius: 16px; padding: 18px 22px; color: #d7f5e6; font-size: 13.5px; line-height: 1.7; }
+      .recommend b { color: #7ee6b8; }
+      .legend { max-width: 820px; margin: 14px auto 60px; background: #0e141b; border: 1px solid #1e2733; border-radius: 16px; padding: 22px 26px; color: #c3ccd6; font-size: 13px; line-height: 1.7; }
+      .legend h2 { font-size: 14px; margin: 0 0 8px; color: #fff; }
+      .legend code { background: #1c2128; padding: 1px 6px; border-radius: 5px; font-size: 11.5px; }
+
+      /* ============ OPTION A — Command Center ============ */
+      .optA { display: flex; height: 560px; background: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+      .optA .side { width: 230px; flex-shrink: 0; background: #0a0e13; border-right: 1px solid #1d232c; padding: 18px 14px; }
+      .optA .ring-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
+      .optA .ring { width: 84px; height: 84px; border-radius: 50%; background: conic-gradient(var(--primary) 0% 100%, #1d232c 100% 100%); display: flex; align-items: center; justify-content: center; position: relative; }
+      .optA .ring::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: #0a0e13; }
+      .optA .ring span { position: relative; font-size: 15px; font-weight: 800; color: #fff; }
+      .optA .ring-lbl { font-size: 10px; color: #6b7684; margin-top: 6px; text-transform: uppercase; letter-spacing: .04em; }
+      .optA .searchbox { display: flex; align-items: center; gap: 6px; background: #151b23; border: 1px solid #232a34; border-radius: 8px; padding: 7px 10px; margin-bottom: 14px; }
+      .optA .searchbox input, .optA .searchbox .ph { border: none; background: none; outline: none; color: #8b949e; font-size: 11.5px; flex: 1; }
+      .optA .navlbl { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: #4a5361; margin: 4px 4px 8px; }
+      .optA .bankrow { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 7px; font-size: 12px; color: #b7c0cc; cursor: pointer; }
+      .optA .bankrow.active { background: #151b23; color: #fff; }
+      .optA .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+      .optA .bankrow .cnt { margin-left: auto; font-size: 10px; color: #5b6472; }
+      .optA .modeswitch { display: flex; gap: 6px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #1d232c; }
+      .optA .modebtn { flex: 1; text-align: center; font-size: 10.5px; font-weight: 700; padding: 8px 4px; border-radius: 8px; background: #151b23; color: #8b949e; cursor: pointer; }
+      .optA .modebtn.active { background: rgba(0,168,107,.15); color: #7ee6b8; }
+      .optA .main { flex: 1; padding: 20px 22px; overflow: auto; }
+      .optA .mainhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+      .optA .mainhead h3 { font-size: 14px; color: #fff; margin: 0; }
+      .optA .mainhead .breadcrumb { font-size: 10.5px; color: #5b6472; }
+      .optA .cardgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .optA .tcard { background: #131820; border: 1px solid #232a34; border-radius: 12px; padding: 12px; }
+      .optA .tcard .head { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+      .optA .tcard .head b { font-size: 11.5px; color: #fff; }
+      .optA .tcard .head .era { font-size: 9.5px; color: #6b7684; }
+      .optA .tcard .body { font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #8b949e; background: #0d1117; border-radius: 7px; padding: 8px 9px; line-height: 1.5; margin-bottom: 7px; }
+      .optA .pill { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; margin-left: auto; }
+      .optA .pill.pass { background: rgba(16,185,129,.15); color: #10b981; }
+      .optA .pill.warn { background: rgba(245,158,11,.15); color: #f59e0b; }
+      .optA .fields { display: flex; flex-wrap: wrap; gap: 5px; }
+      .optA .fchip { font-size: 9.5px; background: #1a2028; border: 1px solid #232a34; border-radius: 6px; padding: 3px 7px; color: #9ea8b5; }
+      .optA .fchip b { color: #d5dbe3; }
+      .optA .console { background: #0d1117; border: 1px solid #232a34; border-radius: 10px; padding: 0; overflow: hidden; }
+      .optA .console-top { display: flex; gap: 5px; padding: 8px 10px; background: #131820; border-bottom: 1px solid #232a34; }
+      .optA .console-top span { width: 9px; height: 9px; border-radius: 50%; }
+      .optA .console textarea { width: 100%; height: 130px; background: transparent; border: none; color: #b7c0cc; font-family: ui-monospace, Menlo, monospace; font-size: 11.5px; padding: 12px 14px; resize: none; outline: none; line-height: 1.7; }
+      .optA .runbtn { background: var(--primary); color: #04140d; font-weight: 800; font-size: 11.5px; padding: 8px 16px; border-radius: 8px; margin-top: 10px; display: inline-block; }
+
+      /* ============ OPTION B — Inbox ============ */
+      .optB { background: #efe9df; height: 560px; display: flex; flex-direction: column; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+      .optB .header { background: linear-gradient(135deg, #00a86b, #00c47e); padding: 16px 20px 14px; color: #fff; }
+      .optB .header .t { font-size: 15px; font-weight: 800; }
+      .optB .header .s { font-size: 11px; opacity: .9; margin-top: 2px; }
+      .optB .segwrap { display: flex; gap: 4px; background: rgba(255,255,255,.18); border-radius: 10px; padding: 3px; margin-top: 12px; }
+      .optB .seg { flex: 1; text-align: center; font-size: 11px; font-weight: 700; padding: 6px 0; border-radius: 8px; color: rgba(255,255,255,.8); }
+      .optB .seg.active { background: #fff; color: #00784f; }
+      .optB .feed { flex: 1; overflow: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+      .optB .msgblock { max-width: 480px; }
+      .optB .msgblock .from { font-size: 10px; color: #8a8378; margin-bottom: 3px; padding-left: 4px; }
+      .optB .bubble { background: #fff; border-radius: 14px 14px 14px 3px; padding: 10px 13px; font-size: 12.5px; color: #33302a; line-height: 1.55; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+      .optB .receipt { margin: 6px 0 0 14px; background: #fffaf0; border: 1px dashed #d8cfab; border-radius: 0 0 10px 10px; padding: 8px 12px; font-size: 11px; position: relative; }
+      .optB .receipt::before { content: ''; position: absolute; top: -7px; left: 16px; width: 12px; height: 12px; background: #fffaf0; border-left: 1px dashed #d8cfab; border-top: 1px dashed #d8cfab; transform: rotate(45deg); }
+      .optB .receipt .verdict { font-weight: 800; display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+      .optB .receipt .verdict.pass { color: #0f8a5f; }
+      .optB .receipt .verdict.warn { color: #b8790a; }
+      .optB .receipt .verdict.fail { color: #b23434; }
+      .optB .receipt .kv { display: flex; flex-wrap: wrap; gap: 4px 10px; color: #6b6455; }
+      .optB .receipt .kv b { color: #33302a; }
+      .optB .composer { background: #fff; border-top: 1px solid #ddd4c2; padding: 12px 16px 14px; }
+      .optB .composer .hint { font-size: 10px; color: #9a927f; margin-bottom: 8px; }
+      .optB .composer textarea { width: 100%; height: 62px; border: 1px solid #e0d8c5; border-radius: 18px; padding: 10px 16px; font-size: 12px; resize: none; outline: none; font-family: inherit; }
+      .optB .composer .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+      .optB .sendbtn { background: #00a86b; color: #fff; font-size: 11.5px; font-weight: 700; padding: 8px 18px; border-radius: 999px; }
+
+      /* ============ OPTION C — Data Table ============ */
+      .optC { background: #0d1117; height: 560px; display: flex; flex-direction: column; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .optC .topbar { padding: 14px 18px; border-bottom: 1px solid #1d232c; display: flex; align-items: center; gap: 18px; }
+      .optC .stat { font-size: 10.5px; color: #6b7684; }
+      .optC .stat b { color: #d5dbe3; font-size: 13px; display: block; font-family: -apple-system, sans-serif; }
+      .optC .progressbar { flex: 1; height: 6px; background: #1d232c; border-radius: 999px; overflow: hidden; }
+      .optC .progressbar .fill { width: 100%; height: 100%; background: var(--primary); }
+      .optC .toolbar { display: flex; gap: 8px; padding: 10px 18px; border-bottom: 1px solid #1d232c; }
+      .optC .toolbar input { flex: 1; background: #131820; border: 1px solid #232a34; border-radius: 7px; padding: 6px 10px; color: #b7c0cc; font-size: 11px; font-family: -apple-system, sans-serif; outline: none; }
+      .optC .toolbar .colbtn { font-size: 10px; color: #8b949e; background: #131820; border: 1px solid #232a34; border-radius: 7px; padding: 6px 10px; font-family: -apple-system, sans-serif; }
+      table.datatable { width: 100%; border-collapse: collapse; font-size: 11px; }
+      table.datatable th { text-align: left; font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; padding: 8px 14px; border-bottom: 1px solid #1d232c; font-family: -apple-system, sans-serif; font-weight: 700; }
+      table.datatable td { padding: 8px 14px; border-bottom: 1px solid #161b22; color: #b7c0cc; vertical-align: top; }
+      table.datatable tr:nth-child(even) td { background: #0f141a; }
+      table.datatable .bankcell { color: #fff; font-weight: 700; font-family: -apple-system, sans-serif; }
+      table.datatable .smscell { color: #7d8794; max-width: 320px; }
+      table.datatable .statuscell { white-space: nowrap; }
+      .optC .tag { font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 5px; }
+      .optC .tag.pass { background: rgba(16,185,129,.15); color: #10b981; }
+      .optC .tag.warn { background: rgba(245,158,11,.15); color: #f59e0b; }
+      .optC .tag.fail { background: rgba(239,68,68,.15); color: #ef4444; }
+      .optC .tablewrap { flex: 1; overflow: auto; }
+      .optC .inputrow { padding: 12px 18px; border-top: 1px solid #1d232c; display: flex; gap: 8px; align-items: flex-start; }
+      .optC .inputrow textarea { flex: 1; height: 44px; background: #131820; border: 1px solid #232a34; border-radius: 7px; padding: 8px 10px; color: #b7c0cc; font-size: 11px; resize: none; outline: none; }
+      .optC .runbtn2 { background: var(--primary); color: #04140d; font-weight: 800; font-size: 11px; padding: 10px 16px; border-radius: 7px; font-family: -apple-system, sans-serif; white-space: nowrap; }
+    </style>
+  </head>
+  <body>
+    <h1>SMS Parser Verifier — 3 redesign options</h1>
+    <p class="sub">Same tool, same functionality (Known bank templates + Test your own messages) —
+      three different visual/UX directions. All still a single standalone offline HTML file; only the
+      chrome changes. Real sample content throughout (HDFC/Axis/SBI/ICICI synthetic examples, same ones
+      already in the shipped tool).</p>
+    <div class="topnav">
+      <a href="#a">① Command Center — dark dashboard</a>
+      <a href="#b">② Inbox — phone-message style</a>
+      <a href="#c">③ Data Table — QA/spreadsheet style</a>
+    </div>
+
+    <!-- ================= OPTION A ================= -->
+    <div class="sectionband" id="a">
+      <div class="sectiontitle"><span class="num">1</span>Command Center — dark dashboard with a bank sidebar</div>
+      <div class="sectionsub">A persistent left rail (pass-rate ring, searchable bank list with per-bank status dots,
+        a mode switch at the bottom) + a main content area. Feels like an internal engineering dashboard — dense,
+        confident, browsable by bank without scrolling through everything.</div>
+      <div class="groundnote">Left rail lets you jump straight to "which banks have gaps" via colored dots (green =
+        all templates pass, amber = partial) instead of scanning a long flat list. The "Test your own" mode swaps the
+        main area for a terminal-styled paste console — reinforces "this is a real dev tool," which suits testers
+        comfortable pasting raw text.</div>
+      <div class="frame">
+        <div class="optA">
+          <div class="side">
+            <div class="ring-wrap">
+              <div class="ring"><span>20/20</span></div>
+              <div class="ring-lbl">Templates passing</div>
+            </div>
+            <div class="searchbox"><i class="ti ti-search" style="color:#5b6472;font-size:12px"></i><span class="ph">Filter banks…</span></div>
+            <div class="navlbl">Banks (12)</div>
+            <div class="bankrow active"><span class="dot" style="background:#10b981"></span>HDFC<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>ICICI<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>SBI<span class="cnt">3/3</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>Axis<span class="cnt">2/2</span></div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>Kotak<span class="cnt">2/2</span></div>
+            <div class="bankrow"><span class="dot" style="background:#f59e0b"></span>IndusInd<span class="cnt">1/1</span></div>
+            <div class="modeswitch">
+              <div class="modebtn active">Known templates</div>
+              <div class="modebtn">Test your own</div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="mainhead">
+              <div><div class="breadcrumb">Known templates</div><h3>HDFC — 3 templates</h3></div>
+            </div>
+            <div class="cardgrid">
+              <div class="tcard">
+                <div class="head"><b>HDFC</b><span class="era">current-era UPI debit</span><span class="pill pass">✓ Parsed</span></div>
+                <div class="body">VM-HDFCBK: HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).</div>
+                <div class="fields">
+                  <span class="fchip">amount <b>₹500</b></span>
+                  <span class="fchip">acct <b>••1234</b></span>
+                  <span class="fchip">ref <b>••••9012</b></span>
+                </div>
+              </div>
+              <div class="tcard">
+                <div class="head"><b>HDFC</b><span class="era">current-era UPI credit</span><span class="pill pass">✓ Parsed</span></div>
+                <div class="body">AD-HDFCBK: HDFC Bank: Rs.1,500.00 credited to a/c XX1234 on 15-Aug-26 by VPA sender@okhdfcbank...</div>
+                <div class="fields">
+                  <span class="fchip">amount <b>₹1,500</b></span>
+                  <span class="fchip">acct <b>••1234</b></span>
+                </div>
+              </div>
+              <div class="tcard">
+                <div class="head"><b>HDFC</b><span class="era">older era (~2012-16)</span><span class="pill pass">✓ Parsed</span></div>
+                <div class="body">HDFCBK: Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal: Rs.10000.00</div>
+                <div class="fields">
+                  <span class="fchip">amount <b>₹500</b></span>
+                  <span class="fchip">balance <b>₹10,000</b></span>
+                </div>
+              </div>
+              <div class="tcard" style="display:flex;align-items:center;justify-content:center;border-style:dashed;color:#5b6472;font-size:11px">
+                Click a bank on the left to browse its templates
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:18px">The "Test your own messages" mode, same shell:</div>
+      <div class="frame">
+        <div class="optA">
+          <div class="side">
+            <div class="ring-wrap"><div class="ring" style="background:conic-gradient(#3b82f6 0 100%, #1d232c 100% 100%)"><span>3</span></div><div class="ring-lbl">Messages this session</div></div>
+            <div class="navlbl">Recent results</div>
+            <div class="bankrow"><span class="dot" style="background:#10b981"></span>HDFC — parsed</div>
+            <div class="bankrow"><span class="dot" style="background:#ef4444"></span>Unknown — no match</div>
+            <div class="bankrow"><span class="dot" style="background:#f59e0b"></span>SBI — no template</div>
+            <div class="modeswitch">
+              <div class="modebtn">Known templates</div>
+              <div class="modebtn active">Test your own</div>
+            </div>
+          </div>
+          <div class="main">
+            <div class="mainhead"><div><div class="breadcrumb">Test your own</div><h3>Paste console</h3></div></div>
+            <div class="console">
+              <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+              <textarea>VM-HDFCBK
+HDFC Bank: Rs.500.00 debited from a/c XX1234...
+---
+VM-SBIINB
+Some new wording SBI hasn't used before...</textarea>
+            </div>
+            <div class="runbtn">▸ Parse all</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= OPTION B ================= -->
+    <div class="sectionband" id="b">
+      <div class="sectiontitle"><span class="num">2</span>Inbox — looks like the phone it's testing</div>
+      <div class="sectionsub">Every message (known sample or pasted) renders as a real phone-style message bubble,
+        with the parse result attached below it like a receipt/ticket stub. The most immediately recognizable option
+        for non-technical testers — "this is literally what's on my phone."</div>
+      <div class="groundnote">Friendliest option, light/warm palette (not Penny's product theme, deliberately — this
+        is a standalone tool, not an in-app screen). The receipt-stub visual makes the verdict feel like an
+        annotation on the message rather than a separate result row — reads less like a test report, more like
+        someone reviewing a text thread.</div>
+      <div class="frame">
+        <div class="optB">
+          <div class="header">
+            <div class="t">📩 SMS Parser Verifier</div>
+            <div class="s">Runs entirely on your phone/browser — nothing is ever sent anywhere.</div>
+            <div class="segwrap">
+              <div class="seg active">Known bank templates</div>
+              <div class="seg">Test your own messages</div>
+            </div>
+          </div>
+          <div class="feed">
+            <div class="msgblock">
+              <div class="from">VM-HDFCBK · HDFC, current-era UPI debit</div>
+              <div class="bubble">HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012). Not you? Call 18002586161</div>
+              <div class="receipt">
+                <div class="verdict pass"><i class="ti ti-circle-check"></i> Parsed correctly</div>
+                <div class="kv"><span><b>₹500</b></span><span>debit</span><span>acct ••1234</span><span>ref ••••9012</span></div>
+              </div>
+            </div>
+            <div class="msgblock">
+              <div class="from">VM-AXISBK · Axis, current-era UPI credit</div>
+              <div class="bubble">Axis Bank: INR 900.00 credited to A/c no. XX3456 on 15-08-2026 towards UPI/P2A/123456789013/Jane Roe. Avl bal: INR 25900.00</div>
+              <div class="receipt">
+                <div class="verdict pass"><i class="ti ti-circle-check"></i> Parsed correctly</div>
+                <div class="kv"><span><b>₹900</b></span><span>credit</span><span>from Jane Roe</span><span>bal ₹25,900</span></div>
+              </div>
+            </div>
+            <div class="msgblock">
+              <div class="from">VM-SBIINB · SBI, unrecognized wording</div>
+              <div class="bubble">SBI: Your account will be credited with cashback of Rs.50 within 3 working days for your recent transaction.</div>
+              <div class="receipt">
+                <div class="verdict warn"><i class="ti ti-alert-triangle"></i> Recognized bank, no template fits this</div>
+                <div class="kv">This is the gap to report back ›</div>
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="hint">First line = sender (e.g. VM-HDFCBK), rest = message. Separate multiple with ---</div>
+            <textarea placeholder="Paste a message here…"></textarea>
+            <div class="row"><div class="sendbtn">Parse ▸</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= OPTION C ================= -->
+    <div class="sectionband" id="c">
+      <div class="sectiontitle"><span class="num">3</span>Data Table — dense QA/spreadsheet style</div>
+      <div class="sectionsub">A real sortable/filterable table, monospace throughout — built for scanning 20+ rows
+        fast rather than reading one card at a time. Reads like a CI test-results report. Best for a power-user
+        tester who wants to plough through a long real SMS export in one sitting.</div>
+      <div class="groundnote">Top bar shows aggregate pass-rate as a slim progress bar, not a big ring — keeps
+        vertical space for the table. Same table shape reused for pasted-message results (rows append live as you
+        parse), so "known templates" and "your own results" feel like the same tool, not two different UIs bolted
+        together.</div>
+      <div class="frame">
+        <div class="optC">
+          <div class="topbar">
+            <div class="stat"><b>12</b>banks</div>
+            <div class="stat"><b>20</b>templates</div>
+            <div class="progressbar"><div class="fill"></div></div>
+            <div class="stat" style="text-align:right"><b>20/20</b>passing</div>
+          </div>
+          <div class="toolbar">
+            <input placeholder="Filter by bank, era, or status…" />
+            <div class="colbtn">Columns ▾</div>
+            <div class="colbtn">Export CSV</div>
+          </div>
+          <div class="tablewrap">
+            <table class="datatable">
+              <thead>
+                <tr><th>Bank</th><th>Era / type</th><th>Sample message</th><th>Status</th><th>Fields</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="bankcell">HDFC</td>
+                  <td>current · debit</td>
+                  <td class="smscell">HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl…</td>
+                  <td class="statuscell"><span class="tag pass">PASS</span></td>
+                  <td>₹500 · ••1234</td>
+                </tr>
+                <tr>
+                  <td class="bankcell">HDFC</td>
+                  <td>current · credit</td>
+                  <td class="smscell">HDFC Bank: Rs.1,500.00 credited to a/c XX1234 on 15-Aug-26 by VPA sender@okhdfcbank…</td>
+                  <td class="statuscell"><span class="tag pass">PASS</span></td>
+                  <td>₹1,500 · ••1234</td>
+                </tr>
+                <tr>
+                  <td class="bankcell">HDFC</td>
+                  <td>older (~2012-16)</td>
+                  <td class="smscell">Rs.500.00 debited from A/c No. XX1234 on 15/08/26. Info: ATM WDL. Avl Bal…</td>
+                  <td class="statuscell"><span class="tag pass">PASS</span></td>
+                  <td>₹500 · bal ₹10,000</td>
+                </tr>
+                <tr>
+                  <td class="bankcell">ICICI</td>
+                  <td>current · debit</td>
+                  <td class="smscell">ICICI Bank Acct XX789 debited with Rs 2,500.00 on 15-Aug-26; Merchant Store credited…</td>
+                  <td class="statuscell"><span class="tag pass">PASS</span></td>
+                  <td>₹2,500 · ••789</td>
+                </tr>
+                <tr>
+                  <td class="bankcell">SBI</td>
+                  <td>current · debit</td>
+                  <td class="smscell">A/C X4567 debited by 500.0 on date 15Aug26 trf to Merchant Name Refno 123456789012 -SBI</td>
+                  <td class="statuscell"><span class="tag pass">PASS</span></td>
+                  <td>₹500 · ••4567</td>
+                </tr>
+                <tr>
+                  <td class="bankcell">SBI</td>
+                  <td>— pasted —</td>
+                  <td class="smscell">SBI: Your account will be credited with cashback of Rs.50 within 3 working days…</td>
+                  <td class="statuscell"><span class="tag warn">NO TEMPLATE</span></td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td class="bankcell">—</td>
+                  <td>— pasted —</td>
+                  <td class="smscell">Hey, are we still on for dinner tonight?</td>
+                  <td class="statuscell"><span class="tag fail">UNRECOGNIZED</span></td>
+                  <td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="inputrow">
+            <textarea placeholder="Paste sender + message to add a row… (first line = sender, --- between messages)"></textarea>
+            <div class="runbtn2">Parse ▸</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>My take:</b> Option A (Command Center) is the strongest general-purpose choice — it scales best once the
+      library grows past 12 banks (the sidebar stays scannable; a card grid or table alone gets long), and its dark/
+      dev-tool feel matches what this actually is. But your testers are the real audience, and they're not
+      developers — if most of them are less technical, <b>Option B (Inbox)</b> is worth serious consideration purely
+      for how instantly recognizable it is: no explanation needed, it just looks like their own messages. Option C is
+      the right call only if you expect someone to paste a genuinely large batch (50+ messages) in one sitting and
+      wants to scan/sort/export it like a spreadsheet.
+    </div>
+
+    <div class="legend">
+      <h2>Summary</h2>
+      <ul>
+        <li><b>① Command Center</b> — dark sidebar dashboard, pass-rate ring, per-bank status dots, terminal-styled
+          paste console. Best general-purpose/scales-with-growth option.</li>
+        <li><b>② Inbox</b> — phone-message bubbles + receipt-stub verdicts, warm/light, messaging-app composer.
+          Best for non-technical testers — zero learning curve.</li>
+        <li><b>③ Data Table</b> — dense sortable/filterable table, CI-report feel, CSV export. Best for power users
+          batch-testing large real message dumps.</li>
+      </ul>
+      <p>All three keep the exact same functionality already shipped (known-template reference view, paste-your-own
+        with the same 4 outcome types, redacted/unredacted copy) — this is purely a visual/layout redesign of
+        <code>tools/sms-parser-verifier/entry.ts</code> + <code>index.template.html</code>, no parsing-logic changes.</p>
+    </div>
+  </body>
+</html>

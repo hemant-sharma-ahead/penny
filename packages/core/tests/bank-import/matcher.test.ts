@@ -283,6 +283,38 @@ describe('matchStatementRows — two-tier matching (docs/plans/bank-balance-sync
     expect(result.unmatched).toHaveLength(0);
   });
 
+  // Skipped, not deleted (2026-08-28) — documents a known, still-open bug (see `findProvenanceMatch`'s
+  // own doc comment in matcher.ts for the full writeup) rather than silently losing it. The fix this
+  // test asserts was implemented and reverted the same day after an unresolved-ambiguous real-device
+  // crash; re-enable once that's bisected and the fix re-lands.
+  it.skip('re-import idempotency holds even when TWO rows share identical date/amount/narration (e.g. two same-day cash withdrawals of the same amount) — each resolves to its OWN prior link, not both to the first', () => {
+    // Regression, found 2026-08-28 on a real device: two prior import records with identical
+    // accountId/date/amount/normalizedKey, each linked to a different (already-checkpointed) expense.
+    // Before the fix, a plain `.find()` returned the SAME record for both rows, so only the first row
+    // matched — the second fell through to Tier 2, which excludes checkpointed expenses, landing in
+    // "unmatched" even though its real counterpart was sitting right there, unclaimed.
+    const expenseA = expense({ id: 'e-a', date: BASE, amount: 450, statementBalance: 130_000 });
+    const expenseB = expense({ id: 'e-b', date: BASE, amount: 450, statementBalance: 129_550 });
+    const recordA = provenanceRecord({ id: 'rec-a', linkedTxnId: 'e-a' });
+    const recordB = provenanceRecord({ id: 'rec-b', linkedTxnId: 'e-b' });
+    const rowA = row();
+    const rowB = row();
+
+    const result = matchStatementRows(
+      [rowA, rowB],
+      ACCOUNT,
+      [expenseA, expenseB],
+      RECONCILIATION_DESCRIPTION,
+      [recordA, recordB],
+      []
+    );
+
+    expect(result.matched).toHaveLength(2);
+    expect(result.matched.map((m) => m.expense.id).sort()).toEqual(['e-a', 'e-b']);
+    expect(result.possible).toHaveLength(0);
+    expect(result.unmatched).toHaveLength(0);
+  });
+
   it('Tier 1 provenance lookup requires an exact date+amount+normalized-narration match — a merely similar row still falls through to Tier 2', () => {
     const alreadyLinked = expense({ id: 'e1', date: BASE, amount: 450, statementBalance: 130_000 });
     // Provenance recorded for a DIFFERENT amount — should not spuriously match this new row via Tier 1.

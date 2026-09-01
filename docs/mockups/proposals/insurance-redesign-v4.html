@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insurance — Add/Edit form + Tracked Insurance card redesign (v4 — final, supersedes v1/v2/v3)</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6; --open: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 24px 120px; background: #05070a; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0; color: #fff; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 960px; line-height: 1.65; margin-bottom: 14px; }
+  .intro b { color: #e6edf3; }
+  .intro code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
+  .superseded { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:#93a9ff; background:rgba(77,122,255,.12); border:1px solid rgba(77,122,255,.35); border-radius:999px; padding:4px 11px; margin-bottom:12px; }
+  .final { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:#6ee7b7; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.35); border-radius:999px; padding:4px 11px; margin: 0 0 12px 8px; }
+
+  nav.anchors {
+    position: sticky; top: 0; z-index: 30; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: #05070a; padding: 10px 0 14px; margin-bottom: 6px; border-bottom: 1px solid #1c2128;
+  }
+  nav.anchors a {
+    font-size: 12px; font-weight: 700; color: #c9d1d9; text-decoration: none; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid #2d333b; background: #161b22;
+  }
+
+  .toolbar {
+    position: sticky; top: 46px; z-index: 29; display: flex; align-items: center; gap: 10px; margin: 0 0 22px;
+    background: #05070a; padding-bottom: 8px;
+  }
+  .toolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid #2d333b; background: #161b22; color: #e6edf3; cursor: pointer;
+  }
+  .toolbar button.active { background: var(--primary); border-color: var(--primary); color: #04140d; }
+  .toolbar .hint { font-size: 11.5px; color: #6e7681; }
+
+  section { margin-top: 56px; padding-top: 6px; scroll-margin-top: 100px; }
+  .section-label {
+    display: inline-flex; align-items:center; gap:8px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: #6e7681; border: 1px solid #2d333b; border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .desc { max-width: 860px; font-size: 12.5px; color: #8b949e; line-height: 1.65; margin: 6px 0 16px; }
+  .desc b { color: #e6edf3; }
+  .desc code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+
+  .finding {
+    max-width: 900px; margin: 10px 0 18px; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+  .finding.q .tag { color: #93a9ff; border-color: rgba(77,122,255,.4); background: rgba(77,122,255,.1); }
+  .finding.done .tag { color: #6ee7b7; border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.1); }
+
+  .row { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: #6e7681; text-align:center; }
+  .col-label.new { color: var(--primary); }
+  .col-cap { max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center; }
+  .col-cap b { color: #9aa4b0; }
+
+  /* Real device frame — 300x650 ≈ scaled 390x844 */
+  .phone {
+    width: 300px; height: 650px; border-radius: 34px; border: 9px solid #111827; overflow: hidden;
+    position: relative; display: flex; flex-direction: column; box-shadow: 0 16px 34px rgba(0,0,0,0.45); flex-shrink: 0;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .screen[data-theme="light"] {
+    background: #f8fafc; --surface: #ffffff; --surface2: #eff6ff; --surface3: #e2ecfb; --border: #c7d8f0;
+    --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+  }
+  .screen[data-theme="dark"] {
+    background: #0b0f14; --surface: #161b22; --surface2: #1c2128; --surface3: #20262f; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; background: inherit;
+  }
+  .backchev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 17px; }
+  .header-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .header-sub { font-size: 9.5px; color: var(--text3); margin-top: 1px; }
+  .header-icons { display: flex; gap: 8px; align-items:center; }
+
+  .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .card-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+
+  .banner { border-radius: 12px; padding: 10px 11px; display: flex; gap: 8px; }
+  .banner.warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); }
+  .banner .ic { font-size: 14px; flex-shrink: 0; margin-top: 1px; color: var(--warning); }
+  .banner .txt { flex: 1; min-width:0; font-size: 10.5px; color: var(--text2); line-height: 1.5; }
+
+  .btn { text-align: center; font-size: 11.5px; font-weight: 700; padding: 10px 8px; border-radius: 11px; cursor: pointer; line-height: 1.3; }
+  .btn.primary { background: var(--primary); color: #04140d; }
+  .btn.secondary { background: var(--surface3); border: 1px solid var(--border); color: var(--text); }
+  .btn.danger { background: rgba(239,68,68,.14); color: var(--danger); }
+  .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn.full { width: 100%; }
+  .fab { position:absolute; right:14px; bottom:20px; width:48px; height:48px; border-radius:24px; background:var(--primary);
+    display:flex; align-items:center; justify-content:center; color:#04140d; font-size:20px; font-weight:800; box-shadow:0 8px 18px rgba(0,168,107,.4); }
+
+  /* ---------------- Modal shell ---------------- */
+  .modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; padding: 26px 10px 40px; z-index: 5; }
+  .modal-card { width:100%; max-height:100%; background:var(--surface); border:1px solid var(--border); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; }
+  .modal-head { display:flex; align-items:center; gap:8px; padding:12px 12px 8px; flex-shrink:0; }
+  .modal-title { font-size:13px; font-weight:700; color:var(--text); flex:1; }
+  .modal-body { padding: 4px 12px 14px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+  .xbtn { width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:14px; flex-shrink:0; cursor:pointer; }
+  .modal-foot { display:flex; gap:8px; padding: 8px 12px 12px; flex-shrink:0; }
+  .modal-foot .btn { flex:1; }
+
+  /* ---------------- Form field primitives ---------------- */
+  .field-label { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 5px; display:flex; gap:4px; align-items:baseline; justify-content:space-between; }
+  .field-label .req { color: var(--danger); }
+  .field-label .opt { font-weight: 400; color: var(--text3); }
+  .field-hint { font-size: 9px; color: var(--text3); margin-top: 3px; line-height: 1.5; }
+  .input-box { width:100%; border-radius:10px; border:1px solid var(--border); background:var(--surface2); padding:9px 10px; font-size:11.5px; color:var(--text); }
+  .input-box.ph { color: var(--text3); }
+  .input-box.trigger { display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .input-box.trigger .chv { color: var(--text3); font-size:12px; }
+  textarea.input-box { min-height: 44px; resize: none; font-family: inherit; }
+  .row2 { display:flex; gap:8px; }
+  .row2 > div { flex:1; }
+  .field-block { display:flex; flex-direction:column; }
+
+  /* Type selector — mirrors OptionButton `compact` tiles, 4-up wrap */
+  .type-grid { display:flex; flex-wrap:wrap; gap:6px; }
+  .type-tile { width: 23%; display:flex; flex-direction:column; align-items:center; gap:3px; border-radius:11px; border:2px solid var(--border);
+    background: var(--surface2); padding:7px 4px; cursor:pointer; }
+  .type-tile .ic { font-size:15px; }
+  .type-tile .lb { font-size:9px; font-weight:600; color:var(--text2); text-align:center; line-height:1.2; }
+  .type-tile.active { border-color: var(--tile-color, var(--primary)); background: var(--tile-tint, rgba(0,168,107,.1)); }
+  .type-tile.active .lb { color: var(--tile-color, var(--primary)); font-weight:700; }
+
+  /* Segmented control */
+  .seg { display:flex; background:var(--surface2); border-radius:11px; padding:3px; gap:2px; }
+  .seg .s { flex:1; text-align:center; font-size:9.5px; font-weight:700; padding:7px 2px; border-radius:9px; color:var(--text2); cursor:pointer; line-height:1.25; }
+  .seg .s.active { background: var(--primary); color:#04140d; }
+
+  /* Chip row (duration presets, NCB slabs, family members, suggestions) */
+  .chiprow { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { padding:6px 10px; border-radius:9px; border:1px solid var(--border); background:var(--surface2); font-size:10px; font-weight:700; color:var(--text2); cursor:pointer; }
+  .chip.active { background: var(--primary); border-color: var(--primary); color:#04140d; }
+  .chip.ghost-add { border-style:dashed; color: var(--text3); }
+  .uptag { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color: var(--text3); margin-bottom:5px; }
+
+  /* Toggle switch row */
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding: 2px 0; }
+  .toggle-row .tl { font-size:11px; font-weight:600; color:var(--text); }
+  .toggle-row .ts { font-size:9.5px; color:var(--text3); margin-top:1px; }
+  .switch { width:34px; height:19px; border-radius:99px; background:var(--border); position:relative; cursor:pointer; flex-shrink:0; }
+  .switch.on { background: var(--primary); }
+  .switch .knob { position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#fff; transition:left .15s; }
+  .switch.on .knob { left:17px; }
+
+  .preview-line { background: rgba(0,168,107,.1); border:1px solid rgba(0,168,107,.3); border-radius:10px; padding:8px 10px; font-size:10px; color: var(--text2); line-height:1.6; }
+  .preview-line b { color: var(--primary); }
+  .preview-line.info { background: rgba(59,130,246,.1); border-color: rgba(59,130,246,.3); }
+  .preview-line.info b { color: var(--info); }
+  .preview-line.ok { background: rgba(16,185,129,.14); border-color: rgba(16,185,129,.4); }
+  .preview-line.ok b { color: var(--success); }
+
+  .divider-label { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color: var(--text3); margin: 2px 0 -4px; display:flex; align-items:center; gap:6px; }
+  .divider-label::after { content:''; flex:1; height:1px; background: var(--border); }
+  .type-fields-block { display:none; flex-direction:column; gap:11px; border-top:1px dashed var(--border); padding-top:11px; }
+  .type-fields-block.active { display:flex; }
+  .duration-presets { display:none; }
+  .duration-presets.active { display:flex; }
+  .cond-block { display:none; flex-direction:column; gap:9px; }
+  .cond-block.show { display:flex; }
+
+  .stepper { display:flex; align-items:center; gap:8px; }
+  .stepper .sb { width:28px; height:28px; border-radius:8px; background:var(--surface2); border:1px solid var(--border); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; cursor:pointer; }
+  .stepper .sv { flex:1; text-align:center; font-size:12px; font-weight:700; color:var(--text); }
+
+  /* Insurer modal option row */
+  .insurer-row { display:flex; align-items:center; gap:8px; padding:9px 2px; border-bottom: 1px solid var(--border); font-size:11px; color:var(--text); cursor:pointer; }
+  .insurer-row:last-child { border-bottom:none; }
+  .insurer-row .rd { width:15px; height:15px; border-radius:50%; border:1.5px solid var(--border); flex-shrink:0; }
+  .insurer-row.sel .rd { border-color: var(--primary); background: var(--primary); position:relative; }
+  .insurer-row.sel { color: var(--primary); font-weight:700; }
+  .insurer-row.other { border-top: 1px dashed var(--border); margin-top:2px; padding-top:11px; color: var(--text2); font-style:italic; }
+  .insurer-caption { font-size:9px; color: var(--text3); margin-top:4px; }
+  .other-reveal { display:none; margin-top:6px; }
+  .other-reveal.active { display:block; }
+  .other-reveal-note { display:flex; align-items:center; gap:6px; font-size:9.5px; color: var(--text3); margin-top:4px; }
+  .other-reveal-note a { color: var(--primary); font-weight:700; text-decoration:none; }
+
+  /* Typeahead dropdown (matches PersonTypeahead.tsx's real visual language) */
+  .typeahead-wrap { position:relative; }
+  .typeahead-drop { position:absolute; left:0; right:0; top:calc(100% + 4px); background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; z-index:20; box-shadow:0 6px 16px rgba(0,0,0,.3); display:none; }
+  .typeahead-drop.open { display:block; }
+  .typeahead-drop .trow { padding:8px 10px; font-size:11px; color:var(--text); border-bottom:1px solid var(--border); cursor:pointer; }
+  .typeahead-drop .trow:last-child { border-bottom:none; }
+  .typeahead-drop .trow b { color: var(--primary); }
+  .typeahead-drop .trow.create { display:flex; align-items:center; gap:6px; color: var(--text2); font-style: normal; }
+
+  /* Payment history + mark-as-paid choice panel (v3/v4) */
+  .pay-history { display:flex; flex-direction:column; }
+  .pay-row { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--border); font-size:9.5px; color:var(--text2); border-radius:6px; }
+  .pay-row:first-child { border-top:none; }
+  .pay-row .pdate { color:var(--text); font-weight:700; flex-shrink:0; }
+  .pay-row .ptag { flex:1; min-width:0; color:var(--text3); font-size:8.5px; }
+  .pay-row .pamt { font-weight:800; color:var(--text); flex-shrink:0; }
+  .pay-row.flash { background: rgba(16,185,129,.32); animation: flashfade 1.5s ease forwards; padding:6px 6px; }
+  @keyframes flashfade { from { background: rgba(16,185,129,.38); } to { background: transparent; } }
+  .pay-linktag { display:inline-block; margin-left:5px; font-size:8px; font-weight:800; padding:1px 6px; border-radius:999px; background:rgba(59,130,246,.16); color:#3b82f6; white-space:nowrap; }
+
+  .pay-choice { display:none; flex-direction:column; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:10px; }
+  .pay-choice-head { font-size:9.5px; font-weight:700; color:var(--text2); margin-bottom:2px; line-height:1.5; }
+  .pay-choice-btn { border-radius:9px; padding:9px 10px; font-size:10.5px; font-weight:700; text-align:center; cursor:pointer; background:var(--surface3); border:1px solid var(--border); color:var(--text); }
+  .exp-preview { display:flex; flex-direction:column; gap:5px; background:var(--surface3); border-radius:9px; padding:8px 10px; }
+  .exp-row { display:flex; justify-content:space-between; font-size:10px; color:var(--text2); }
+  .exp-row b { color:var(--text); }
+  .cat-badge { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:700; color:#3b82f6; background:rgba(59,130,246,.14); padding:2px 7px; border-radius:99px; }
+  .exp-pick-row { display:flex; justify-content:space-between; align-items:center; background:var(--surface3); border:1px solid var(--border); border-radius:9px; padding:8px 10px; font-size:10px; color:var(--text2); cursor:pointer; }
+  .exp-pick-row b { color:var(--text); font-weight:800; }
+
+  /* ---------------- Policy card (redesigned) ---------------- */
+  .pcard { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:9px; }
+  .pcard-top { display:flex; align-items:center; gap:9px; }
+  .picon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .pinfo { flex:1; min-width:0; }
+  .pname { font-size:12.5px; font-weight:700; color: var(--text); }
+  .pmeta { display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; }
+  .ptype-badge { font-size:8.5px; font-weight:800; padding:2px 7px; border-radius:99px; color:#fff; }
+  .pnum { font-size:9px; color: var(--text3); }
+  .pchev { font-size:14px; color: var(--text3); }
+
+  .pstats { display:flex; align-items:stretch; gap:0; }
+  .pstat { flex:1; padding: 0 8px; }
+  .pstat:first-child { padding-left:0; }
+  .pstat + .pstat { border-left: 1px solid var(--border); }
+  .pstat .sl { font-size:8.5px; color: var(--text3); text-transform:uppercase; letter-spacing:.02em; }
+  .pstat .sv { font-size:11.5px; font-weight:800; color: var(--text); margin-top:2px; }
+  .pstat .sv.sm { font-size:10px; }
+
+  .pprogress-wrap { display:flex; align-items:center; gap:7px; }
+  .pprogress { flex:1; height:5px; border-radius:99px; background: var(--surface2); overflow:hidden; }
+  .pprogress .fill { height:100%; background: var(--primary); border-radius:99px; }
+  .pprogress-txt { font-size:9px; color: var(--text3); white-space:nowrap; font-weight:700; }
+  .pline { display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:var(--text3); }
+  .pline b { color: var(--text2); font-weight:700; }
+
+  .pnote { font-size:9.5px; color: var(--text2); background: var(--surface2); border-radius:8px; padding:5px 8px; display:flex; align-items:center; gap:5px; }
+  .pnote.warn { background: rgba(245,158,11,.14); color: #d99a2b; }
+  .pnote.danger { background: rgba(239,68,68,.14); color: #ef4444; }
+  .pnote.ok { background: rgba(16,185,129,.14); color: #10b981; }
+
+  .pfoot { display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border); }
+  .pfoot .pf-left { font-size:9.5px; color: var(--text3); }
+  .duebadge { font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:8px; }
+  .duebadge.ok { background: rgba(16,185,129,.14); color: var(--success); }
+  .duebadge.warn { background: rgba(245,158,11,.18); color: var(--warning); }
+  .duebadge.danger { background: rgba(239,68,68,.16); color: var(--danger); }
+
+  .state-switcher { display:flex; flex-wrap:wrap; gap:4px; margin: -2px 0 4px; }
+  .state-btn { font-size:8.5px; font-weight:700; padding:5px 8px; border-radius:7px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); cursor:pointer; }
+  .state-btn.active { background: var(--primary); border-color:var(--primary); color:#04140d; }
+
+  .note {
+    max-width: 940px; margin-top: 14px; border: 1px dashed #2d333b; border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: #8b949e; line-height: 1.65;
+  }
+  .note b { color: #e6edf3; }
+  .note code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+
+  .decisions { max-width: 900px; }
+  .decisions h3 { font-size: 13px; color: #fff; margin: 22px 0 8px; }
+  .decisions ul { margin: 0 0 4px; padding-left: 20px; }
+  .decisions li { font-size: 12.5px; color: #c9d1d9; line-height: 1.75; margin-bottom: 6px; }
+  .decisions li b { color: #fff; }
+  .decisions .qtag { display:inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #93a9ff; border: 1px solid rgba(77,122,255,.4); background: rgba(77,122,255,.1); border-radius: 999px; padding: 1px 7px; margin-right: 7px; vertical-align: 1px; }
+  .decisions .dtag { display:inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #6ee7b7; border: 1px solid rgba(16,185,129,.4); background: rgba(16,185,129,.1); border-radius: 999px; padding: 1px 7px; margin-right: 7px; vertical-align: 1px; }
+
+  /* Section ③ — regulatory timeline + reference tables (page-level, not phone-scoped) */
+  .timeline-card { max-width: 900px; background:#0d1117; border:1px solid #21262d; border-radius:14px; padding:20px 22px; margin: 8px 0 22px; }
+  .timeline-track { position:relative; height:10px; border-radius:99px; background:#1c2128; margin: 34px 10px 30px; }
+  .timeline-seg { position:absolute; top:0; height:10px; border-radius:99px; }
+  .timeline-seg.grace { left:22%; width:20%; background: rgba(245,158,11,.55); }
+  .timeline-seg.revival { left:42%; width:52%; background: transparent; border:1.5px dashed #ef4444; top:-1px; height:12px; }
+  .timeline-dot { position:absolute; top:-4px; width:18px; height:18px; border-radius:50%; background:#161b22; border:2.5px solid; transform:translateX(-50%); }
+  .timeline-dot.start { left:2%; border-color:#6e7681; }
+  .timeline-dot.due { left:22%; border-color:#4d7aff; }
+  .timeline-dot.graceend { left:42%; border-color:#f0b060; }
+  .timeline-dot.revivalend { left:94%; border-color:#ef4444; }
+  .timeline-lbl { position:absolute; font-size:10px; font-weight:700; color:#c9d1d9; white-space:nowrap; top:-30px; }
+  .timeline-lbl .sub { display:block; font-size:9px; font-weight:400; color:#6e7681; margin-top:1px; }
+  .timeline-lbl.start { left:2%; transform:translateX(-8%); }
+  .timeline-lbl.due { left:22%; transform:translateX(-14%); }
+  .timeline-lbl.graceend { left:42%; transform:translateX(-20%); top:24px; }
+  .timeline-lbl.revivalend { left:94%; transform:translateX(-70%); top:24px; }
+
+  .ref-tables { display:flex; gap:24px; flex-wrap:wrap; max-width: 900px; }
+  table.ref-table { border-collapse:collapse; font-size:12px; }
+  .ref-table th, .ref-table td { border:1px solid #2d333b; padding:7px 12px; text-align:left; }
+  .ref-table th { background:#161b22; color:#e6edf3; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; }
+  .ref-table td { color:#c9d1d9; }
+  .ref-table td b { color:#fff; }
+  .src-note { max-width:900px; font-size:11px; color:#6e7681; line-height:1.7; margin-top:4px; }
+  .src-note a { color:#93a9ff; }
+
+  /* Section ④ — worked example (page-level) */
+  .worked-card { max-width: 620px; background:#0d1117; border:1px solid #21262d; border-radius:16px; padding:16px 18px; margin: 8px 0 20px; }
+  .worked-head { font-size:12px; font-weight:800; color:#fff; margin-bottom:10px; }
+  .worked-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid #21262d; font-size:11.5px; }
+  .worked-row:first-of-type { border-top:none; }
+  .worked-row .wd { color:#e6edf3; font-weight:700; }
+  .worked-row .wt { color:#6e7681; font-size:10px; }
+  .worked-row .wa { color:#fff; font-weight:800; }
+  .worked-row.y2 .wa { color:#93a9ff; }
+  .worked-divider { text-align:center; font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#f0b060; padding:8px 0; border-top:1px dashed #2d333b; margin-top:4px; }
+
+  /* Section ⑦ — Reminders bell reconstruction (page-level chrome around a phone) */
+  .bellwrap { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .bell-ic { position:relative; width:34px; height:34px; border-radius:10px; background:#161b22; border:1px solid #2d333b; display:flex; align-items:center; justify-content:center; font-size:16px; color:#8b949e; }
+  .bell-badge { position:absolute; top:-4px; right:-4px; min-width:16px; height:16px; border-radius:99px; background:#ef4444; color:#fff; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 3px; }
+  .rem-section-lbl { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; margin: 4px 0 6px; }
+  .rem-row { border:1px solid var(--border); background:var(--surface2); border-radius:12px; padding:10px; display:flex; flex-direction:column; gap:7px; margin-bottom:8px; }
+  .rem-top { display:flex; align-items:center; gap:9px; }
+  .rem-badge { width:30px; height:30px; border-radius:9px; background:rgba(16,185,129,.12); color:#10b981; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .rem-info { flex:1; min-width:0; }
+  .rem-label { font-size:11px; font-weight:600; color:var(--text); }
+  .rem-due { font-size:9.5px; color:var(--text3); margin-top:1px; }
+  .rem-amt { font-size:11px; font-weight:700; color:var(--text); }
+  .rem-grace-note { font-size:9px; color:var(--warning); background:rgba(245,158,11,.12); border-radius:7px; padding:4px 7px; }
+  .rem-actions { display:flex; gap:6px; }
+  .rem-btn { flex:0 0 auto; font-size:9.5px; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer; }
+  .rem-btn.primary { background:var(--primary); color:#04140d; }
+  .rem-btn.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+</style>
+</head>
+<body>
+
+<span class="superseded">↻ v4 — supersedes insurance-redesign-v1/v2/v3.html</span><span class="final">✓ final round</span>
+<h1>Insurance — redesigned Add/Edit form + Tracked Insurance card (v4, final)</h1>
+<p class="intro">
+  Same ground truth as v1–v3. <b>New in v4 (the one design addition this round):</b> "Mark as paid" (§②/§④)
+  now offers an <b>optional</b> follow-up — log a new expense, link an existing one, or skip — instead of
+  silently doing nothing to the ledger. Sourced from the real category list
+  (<code>packages/core/src/core/db/defaultCategories.ts</code>'s <code>cat-insurance-premium</code> /
+  "Insurance Premium"), not an invented category. The other two open questions from v3 (modal-loading %,
+  reminder volume) were decided <b>as-is, no mockup change</b> — see §⑧. <b>Mockup only — no app code
+  touched.</b>
+</p>
+
+<nav class="anchors">
+  <a href="#current">① Current (today)</a>
+  <a href="#form">② Add/Edit form</a>
+  <a href="#duedate">③ Due date, grace &amp; revival</a>
+  <a href="#markpaid">④ Mark as paid, discount &amp; expense-linking</a>
+  <a href="#insurer">⑤ Insurer + suggestions</a>
+  <a href="#cards">⑥ Tracked Insurance card</a>
+  <a href="#reminders">⑦ Reminders integration</a>
+  <a href="#decisions">⑧ Decisions &amp; open questions</a>
+</nav>
+
+<div class="toolbar">
+  <button id="btn-light" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" class="active" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← affects every phone frame on this page at once</span>
+</div>
+
+<!-- ======================================================================= -->
+<!-- SECTION 1 — CURRENT (TODAY)                                             -->
+<!-- ======================================================================= -->
+<section id="current">
+  <div class="section-label">① Current</div>
+  <h2>The real Insurance screen + Add/Edit form, as they exist today</h2>
+  <p class="desc">Unchanged from v1–v3 — kept here for comparison.</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Insurance screen — today</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div style="text-align:center;">
+              <div class="header-title">Insurance</div>
+              <div class="header-sub">3 policies · ₹34,700/yr</div>
+            </div>
+            <div class="header-icons"><span style="font-size:13px;color:var(--text2);">◐</span><span style="font-size:14px;color:var(--text2);">🔔</span></div>
+          </div>
+          <div class="body">
+            <div class="banner warning">
+              <span class="ic">⚠</span>
+              <span class="txt">1 policy renews within 30 days. Review and renew to avoid a coverage gap.</span>
+            </div>
+            <div class="card">
+              <div style="display:flex; align-items:center; gap:9px;">
+                <span style="font-size:15px;">☂️</span>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:12.5px; font-weight:700; color:var(--text);">HDFC Life</div>
+                  <div style="display:flex; gap:5px; margin-top:3px;">
+                    <span style="font-size:8.5px; font-weight:800; background:#ef4444; color:#fff; padding:2px 7px; border-radius:99px;">Term</span>
+                    <span style="font-size:9px; color:var(--text3);">P-88213</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; gap:12px; margin-top:2px;">
+                <div><div style="font-size:9px;color:var(--text3);">Coverage</div><div style="font-size:11px;font-weight:700;color:var(--text);">₹1,00,00,000</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div><div style="font-size:9px;color:var(--text3);">Premium / yr</div><div style="font-size:11px;font-weight:700;color:var(--text);">₹14,200</div></div>
+              </div>
+              <div style="display:flex; justify-content:flex-end;"><span class="duebadge warn">18d left</span></div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:2px;">Coverage summary</div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text2); padding:2px 0;"><span>Term cover</span><b style="color:var(--text);">₹1,00,00,000</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text); padding-top:6px; margin-top:2px; border-top:1px solid var(--border); font-weight:700;"><span>Total annual premium</span><b>₹34,700</b></div>
+            </div>
+          </div>
+          <div class="fab">+</div>
+        </div>
+      </div>
+      <div class="col-cap">No mark-as-paid, no ledger interaction, no reminder beyond the one 30-day renewal banner.</div>
+    </div>
+
+    <div class="col">
+      <div class="col-label">Add/Edit policy form — today</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="header-row"><div style="width:22px;"></div><div class="header-title">Insurance</div><div style="width:22px;"></div></div>
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:16px 8px 24px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head"><div class="modal-title">Add policy</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="field-block">
+                  <div class="field-label">Policy type</div>
+                  <div class="type-grid">
+                    <div class="type-tile active" style="--tile-color:#ef4444; --tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                    <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                    <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                    <div class="type-tile"><span class="ic">🏠</span><span class="lb">Home</span></div>
+                    <div class="type-tile"><span class="ic">✈️</span><span class="lb">Travel</span></div>
+                    <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+                    <div class="type-tile"><span class="ic">🛡</span><span class="lb">Other</span></div>
+                  </div>
+                </div>
+                <div class="field-block"><div class="field-label">Insurer / Company</div><div class="input-box">e.g. LIC, HDFC ERGO, Star Health</div></div>
+                <div class="row2">
+                  <div class="field-block"><div class="field-label">Coverage amount</div><div class="input-box ph">e.g. 10000000</div></div>
+                  <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box ph">e.g. 12000</div></div>
+                </div>
+                <div class="field-block"><div class="field-label">Renewal / expiry date</div><div class="input-box trigger">31 Aug 2027 <span class="chv">📅</span></div></div>
+              </div>
+              <div class="modal-foot"><div class="btn primary">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">No start date/duration, no frequency, no due-date schedule, no discount, no ULIP flag.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 2 — ADD/EDIT FORM (PROPOSED, INTERACTIVE)                       -->
+<!-- ======================================================================= -->
+<section id="form">
+  <div class="section-label">② Proposed</div>
+  <h2>Add/Edit Insurance — one form, fields adapt to the selected type</h2>
+  <p class="desc">
+    <b>Tap a type tile — the form updates live.</b> New in v4: tap <b>"Mark as paid"</b> in the "Premium
+    payment schedule" block below and you'll get three equally-weighted follow-up choices — log a new
+    expense, link an existing one, or skip — right where the button was, before the payment finalizes.
+  </p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Add/Edit Insurance — interactive</div>
+      <div class="phone" style="height:860px;">
+        <div class="screen" data-theme="dark" id="form-screen">
+          <div class="header-row"><div style="width:22px;"></div><div class="header-title" id="form-title">Add policy · Term</div><div style="width:22px;"></div></div>
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head">
+                <div class="modal-title">Add insurance</div>
+                <div class="xbtn">✕</div>
+              </div>
+              <div class="modal-body">
+
+                <div class="field-block">
+                  <div class="field-label">Insurance type</div>
+                  <div class="type-grid" id="type-grid">
+                    <div class="type-tile" data-type="term" onclick="selectType('term')" style="--tile-color:#ef4444; --tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                    <div class="type-tile" data-type="life" onclick="selectType('life')" style="--tile-color:#8b5cf6; --tile-tint:rgba(139,92,246,.1);"><span class="ic">❤️</span><span class="lb">Life / ULIP</span></div>
+                    <div class="type-tile" data-type="health" onclick="selectType('health')" style="--tile-color:#10b981; --tile-tint:rgba(16,185,129,.1);"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                    <div class="type-tile" data-type="vehicle" onclick="selectType('vehicle')" style="--tile-color:#f59e0b; --tile-tint:rgba(245,158,11,.1);"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                    <div class="type-tile" data-type="home" onclick="selectType('home')" style="--tile-color:#6366f1; --tile-tint:rgba(99,102,241,.1);"><span class="ic">🏠</span><span class="lb">Home</span></div>
+                    <div class="type-tile" data-type="travel" onclick="selectType('travel')" style="--tile-color:#0ea5e9; --tile-tint:rgba(14,165,233,.1);"><span class="ic">✈️</span><span class="lb">Travel</span></div>
+                    <div class="type-tile" data-type="other" onclick="selectType('other')" style="--tile-color:#6b7280; --tile-tint:rgba(107,114,128,.12);"><span class="ic">🛡</span><span class="lb">Other</span></div>
+                  </div>
+                </div>
+
+                <div class="divider-label">Universal — every type</div>
+                <div class="field-block"><div class="field-label">Policy / plan name</div><div class="input-box" id="policy-name-input">iSelect Smart360 Term Plan</div></div>
+                <div class="field-block">
+                  <div class="field-label">Insurer / Company</div>
+                  <div class="input-box trigger" id="insurer-trigger" onclick="openInsurerModal()">
+                    <span id="insurer-trigger-text" class="ph-text" style="color:var(--text3);">Select insurer…</span>
+                    <span class="chv">▾</span>
+                  </div>
+                  <div class="insurer-caption" id="insurer-caption">Showing 11 life insurers, scoped for Term</div>
+                  <div class="other-reveal" id="other-reveal">
+                    <div class="uptag">Used before — tap to reuse</div>
+                    <div class="chiprow" style="margin-bottom:7px;">
+                      <div class="chip" onclick="fillOther('Universal Sompo General')">Universal Sompo General</div>
+                      <div class="chip" onclick="fillOther('Shriram General')">Shriram General</div>
+                    </div>
+                    <div class="typeahead-wrap">
+                      <div class="input-box" id="other-input" onclick="toggleTypeahead()">Universal Sompo General</div>
+                      <div class="typeahead-drop" id="other-typeahead">
+                        <div class="trow" onclick="fillOther('Universal Sompo General')"><b>Universal</b> Sompo General</div>
+                        <div class="trow create">➕ Save "Universal Sompo General" as new</div>
+                      </div>
+                    </div>
+                    <div class="other-reveal-note">Not in the list — remembered locally for next time. <a onclick="openInsurerModal()">Pick from list instead</a></div>
+                  </div>
+                </div>
+                <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+                <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 2026 <span class="chv">📅</span></div></div>
+
+                <div class="field-block">
+                  <div class="field-label">Policy duration <span id="duration-label-note" class="opt"></span></div>
+                  <div class="chiprow duration-presets active" data-duration="term" id="dur-term">
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectDuration(this,10)">10Y</div>
+                    <div class="chip active" onclick="selectDuration(this,15)">15Y</div>
+                    <div class="chip" onclick="selectDuration(this,20)">20Y</div>
+                    <div class="chip" onclick="selectAgeDuration(this,60)">Till 60</div>
+                    <div class="chip" onclick="selectAgeDuration(this,65)">Till 65</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="life" id="dur-life">
+                    <div class="chip" onclick="selectDuration(this,10)">10Y</div>
+                    <div class="chip active" onclick="selectDuration(this,15)">15Y</div>
+                    <div class="chip" onclick="selectDuration(this,20)">20Y</div>
+                    <div class="chip" onclick="selectAgeDuration(this,70)">Till 70</div>
+                    <div class="chip" onclick="selectAgeDuration(this,99)">Whole life</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="health" id="dur-health">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,2)">2Y</div>
+                    <div class="chip" onclick="selectDuration(this,3)">3Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="vehicle" id="dur-vehicle">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,2)">2Y</div>
+                    <div class="chip" onclick="selectDuration(this,3)">3Y (OD)</div>
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="home" id="dur-home">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectDuration(this,10)">10Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="travel" id="dur-travel">
+                    <div class="chip" onclick="selectDaysDuration(this,7)">1 week</div>
+                    <div class="chip active" onclick="selectDaysDuration(this,14)">2 weeks</div>
+                    <div class="chip" onclick="selectDaysDuration(this,30)">1 month</div>
+                    <div class="chip" onclick="selectDuration(this,1)">Annual (multi-trip)</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="other" id="dur-other">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,3)">3Y</div>
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                </div>
+
+                <div class="field-block">
+                  <div class="field-label">End date <span class="opt" id="end-date-mode">(auto — from duration)</span></div>
+                  <div class="input-box trigger" id="end-date-trigger" onclick="makeEndDateCustom()">31 Aug 2041 <span class="chv">📅</span></div>
+                </div>
+
+                <div class="row2">
+                  <div class="field-block"><div class="field-label">Annual premium <span class="opt">(before any discount)</span></div><div class="input-box" id="premium-input">₹12,000</div></div>
+                  <div class="field-block">
+                    <div class="field-label">Payment frequency</div>
+                    <div class="seg" id="freq-seg" style="padding:2px; gap:1px;">
+                      <div class="s" onclick="selectFreq(this,'M')">M</div>
+                      <div class="s" onclick="selectFreq(this,'Q')">Q</div>
+                      <div class="s" onclick="selectFreq(this,'H')">H</div>
+                      <div class="s active" onclick="selectFreq(this,'A')">A</div>
+                      <div class="s" onclick="selectFreq(this,'S')">Single</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="field-hint" id="per-installment-base" style="margin-top:-6px;">= ₹12,000 per year · M=Monthly · Q=Quarterly · H=Half-yearly · A=Annual · Single=one-time</div>
+
+                <div class="toggle-row">
+                  <div><div class="tl">Apply first-year discount</div><div class="ts">Insurer discount on year-1 premium only</div></div>
+                  <div class="switch on" id="discount-switch" onclick="toggleDiscount()"><div class="knob"></div></div>
+                </div>
+                <div id="discount-body" style="display:flex; flex-direction:column; gap:9px;">
+                  <div class="seg" style="max-width:160px;">
+                    <div class="s active" onclick="selectDiscountType(this,'pct')">% off</div>
+                    <div class="s" onclick="selectDiscountType(this,'flat')">₹ flat off</div>
+                  </div>
+                  <div class="row2">
+                    <div class="field-block"><div class="field-label">Discount value</div><div class="chiprow"><div class="chip active" onclick="selectDiscountValue(this,10)">10%</div><div class="chip" onclick="selectDiscountValue(this,15)">15%</div><div class="chip" onclick="selectDiscountValue(this,20)">20%</div></div></div>
+                  </div>
+                  <div class="preview-line" id="discount-preview"></div>
+                </div>
+
+                <!-- ============ Premium payment schedule + Mark as paid → optional expense-linking (NEW in v4) ============ -->
+                <div class="cond-block show" id="due-schedule-block">
+                  <div class="divider-label">Premium payment schedule</div>
+                  <div class="field-block">
+                    <div class="field-label">Next premium due <span class="opt" id="next-due-mode">(auto)</span></div>
+                    <div class="input-box trigger" id="next-due-trigger" onclick="makeNextDueCustom()">31 Aug 2027 <span class="chv">📅</span></div>
+                    <div class="field-hint" id="grace-caption"></div>
+                  </div>
+                  <div class="preview-line ok" id="next-installment-preview"></div>
+
+                  <div class="row2" id="mark-paid-btn-row" style="align-items:center;">
+                    <div style="flex:1;"></div>
+                    <div class="btn primary" style="flex:0 0 auto; padding:9px 16px;" onclick="markAsPaid()">✓ Mark as paid</div>
+                  </div>
+
+                  <!-- Step 1: three equal-weight choices -->
+                  <div class="pay-choice" id="pay-choice">
+                    <div class="pay-choice-head" id="pay-choice-head-text"></div>
+                    <div class="pay-choice-btn" onclick="choiceLogExpense()">🧾 Log a new expense</div>
+                    <div class="pay-choice-btn" onclick="choiceLinkExpense()">🔗 Link an existing expense</div>
+                    <div class="pay-choice-btn" onclick="choiceSkip()">Skip — just track the payment</div>
+                  </div>
+
+                  <!-- Step 2a: log-new-expense preview -->
+                  <div class="pay-choice" id="log-expense-panel">
+                    <div class="pay-choice-head">New expense — pre-filled from this payment</div>
+                    <div class="exp-preview">
+                      <div class="exp-row"><span>Description</span><b id="log-expense-desc">iSelect Smart360 Term Plan premium</b></div>
+                      <div class="exp-row"><span>Amount</span><b id="log-expense-amt">₹900</b></div>
+                      <div class="exp-row"><span>Category</span><span class="cat-badge">🛡 Insurance Premium</span></div>
+                    </div>
+                    <div class="pay-choice-btn" style="background:var(--primary); color:#04140d; border-color:var(--primary);" onclick="confirmLogExpense()">✓ Confirm &amp; save expense</div>
+                    <div class="pay-choice-btn" onclick="backToChoices()">← Back</div>
+                  </div>
+
+                  <!-- Step 2b: link-existing-expense picker -->
+                  <div class="pay-choice" id="link-expense-panel">
+                    <div class="pay-choice-head">3 recent expenses near this amount</div>
+                    <div class="exp-pick-row" onclick="confirmLinkExpense('UPI-AutoPay HDFCLIFE · 30 Aug')">UPI-AutoPay HDFCLIFE · 30 Aug <b>₹900</b></div>
+                    <div class="exp-pick-row" onclick="confirmLinkExpense('NEFT to HDFC Life · 29 Aug')">NEFT to HDFC Life · 29 Aug <b>₹880</b></div>
+                    <div class="exp-pick-row" onclick="confirmLinkExpense('Cheque #4521 · 28 Aug')">Cheque #4521 · 28 Aug <b>₹900</b></div>
+                    <div class="pay-choice-btn" onclick="backToChoices()">← Back</div>
+                  </div>
+
+                  <div id="paid-flash" class="preview-line ok" style="display:none;"></div>
+
+                  <div class="field-block">
+                    <div class="field-label" style="margin-bottom:2px;">Payment history</div>
+                    <div id="payment-history" class="pay-history"></div>
+                    <div class="field-hint" id="history-toggle" style="cursor:pointer; color:var(--primary); font-weight:700; display:none;" onclick="toggleHistoryExpand()"></div>
+                  </div>
+                </div>
+
+                <!-- ============ TYPE-SPECIFIC BLOCKS ============ -->
+                <div class="type-fields-block active" id="fields-term">
+                  <div class="divider-label">Term-specific</div>
+                  <div class="field-block"><div class="field-label">Sum assured</div><div class="input-box ph">e.g. 10000000</div></div>
+                  <div class="field-block">
+                    <div class="field-label">Premium payment term</div>
+                    <div class="seg"><div class="s active">Regular (full term)</div><div class="s">Limited pay</div></div>
+                  </div>
+                  <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-life">
+                  <div class="divider-label">Life / Endowment / ULIP-specific</div>
+                  <div class="field-block"><div class="field-label">Sum assured</div><div class="input-box ph">e.g. 2500000</div></div>
+                  <div class="field-block"><div class="field-label">Expected maturity benefit <span class="opt">(optional)</span></div><div class="input-box ph">e.g. 4500000</div></div>
+                  <div class="field-block">
+                    <div class="toggle-row">
+                      <div><div class="tl">Market-linked (ULIP)?</div><div class="ts">Only used to pick the correct revival-window wording if this ever lapses</div></div>
+                      <div class="switch" id="ulip-switch" onclick="toggleULIP()"><div class="knob"></div></div>
+                    </div>
+                    <div class="field-hint" id="ulip-preview">Non-linked (Endowment / Whole Life) — if lapsed, revivable within <b style="color:var(--text2);">5 years</b> of the first missed premium.</div>
+                  </div>
+                  <div class="field-block">
+                    <div class="field-label">Premium payment term</div>
+                    <div class="seg"><div class="s active">Regular (full term)</div><div class="s">Limited pay</div></div>
+                  </div>
+                  <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-health">
+                  <div class="divider-label">Health-specific</div>
+                  <div class="field-block"><div class="field-label">Sum insured</div><div class="input-box ph">e.g. 1000000</div></div>
+                  <div class="field-block"><div class="field-label">Members covered</div>
+                    <div class="chiprow"><div class="chip active">Self</div><div class="chip active">Spouse</div><div class="chip active">Child 1</div><div class="chip ghost-add">+ Add</div></div>
+                  </div>
+                </div>
+
+                <div class="type-fields-block" id="fields-vehicle">
+                  <div class="divider-label">Vehicle-specific</div>
+                  <div class="field-block"><div class="field-label">Registration number</div><div class="input-box ph">e.g. KA03AB1234</div></div>
+                  <div class="row2">
+                    <div class="field-block"><div class="field-label">IDV</div><div class="input-box ph">e.g. 580000</div></div>
+                    <div class="field-block"><div class="field-label">NCB</div><div class="chiprow"><div class="chip active">20%</div><div class="chip">35%</div></div></div>
+                  </div>
+                </div>
+
+                <div class="type-fields-block" id="fields-home">
+                  <div class="divider-label">Home-specific</div>
+                  <div class="field-block"><div class="field-label">Structure value insured</div><div class="input-box ph">e.g. 6000000</div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-travel">
+                  <div class="divider-label">Travel-specific</div>
+                  <div class="field-block"><div class="field-label">Destination(s)</div><div class="input-box ph">e.g. Thailand, Singapore</div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-other">
+                  <div class="divider-label">Other</div>
+                  <div class="field-block"><div class="field-label">What does this cover? <span class="opt">(optional)</span></div><textarea class="input-box" placeholder="e.g. Pet insurance for Bruno"></textarea></div>
+                </div>
+
+                <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater, includes dental</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width:400px; align-items:flex-start; padding-top:40px;">
+      <div class="col-label new" style="text-align:left;">What's new here vs v3</div>
+      <ul style="font-size:11.5px; color:#9aa4b0; line-height:1.9; padding-left:18px; margin:6px 0 0;">
+        <li>Tapping <b style="color:#e6edf3;">"Mark as paid"</b> no longer finalizes immediately — it swaps the button for <b style="color:#e6edf3;">three equal-weight choices</b>: Log a new expense / Link an existing expense / Skip. None is visually favored — the whole point is it's optional.</li>
+        <li><b style="color:#e6edf3;">Log a new expense</b> shows a pre-filled preview (description = policy name + "premium", amount = the exact discount-aware installment amount, category = the real <code>cat-insurance-premium</code> "Insurance Premium" category) before a separate confirm tap — nothing saves silently.</li>
+        <li><b style="color:#e6edf3;">Link an existing expense</b> shows 3 plausible recent expenses near this amount/date as tappable rows — a lightweight picker, not a full search screen, per scope.</li>
+        <li><b style="color:#e6edf3;">Skip</b> is exactly v3's original behavior — one tap, no ledger interaction, no penalty for choosing it.</li>
+        <li>The Payment history list now tags each row with what happened: <span class="pay-linktag">+ logged as expense</span> / <span class="pay-linktag">🔗 linked to …</span> / no tag at all for skipped ones. Try all three from the panel above and watch new tagged rows appear at the top.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 3 — PREMIUM DUE DATE, GRACE PERIOD & REVIVAL                    -->
+<!-- ======================================================================= -->
+<section id="duedate">
+  <div class="section-label">③ Researched</div>
+  <h2>Premium payment mechanics — due dates, grace period, revival window</h2>
+  <p class="desc">Unchanged from v2/v3 — verified via WebSearch (GoDigit, Axis Max Life, Kotak Life, PayBima for grace periods; IRDAI's June 2024 Master Circular, corroborated by Ditto Insurance and OneAssure, for revival windows).</p>
+
+  <div class="timeline-card">
+    <div class="timeline-track">
+      <div class="timeline-seg grace"></div>
+      <div class="timeline-seg revival"></div>
+      <div class="timeline-dot start"></div>
+      <div class="timeline-dot due"></div>
+      <div class="timeline-dot graceend"></div>
+      <div class="timeline-dot revivalend"></div>
+      <div class="timeline-lbl start">Policy start<span class="sub">premium 1 paid</span></div>
+      <div class="timeline-lbl due">Premium due<span class="sub">next cycle</span></div>
+      <div class="timeline-lbl graceend">Grace period ends<span class="sub">15d (Monthly) / 30d (else)</span></div>
+      <div class="timeline-lbl revivalend">Revival window ends<span class="sub">5yr non-linked / 3yr ULIP</span></div>
+    </div>
+  </div>
+
+  <div class="ref-tables">
+    <table class="ref-table">
+      <tr><th>Payment mode</th><th>Grace period</th></tr>
+      <tr><td>Monthly</td><td><b>15 days</b> after due date</td></tr>
+      <tr><td>Quarterly / Half-yearly / Annual</td><td><b>30 days</b> after due date</td></tr>
+      <tr><td>Single premium</td><td>N/A — no recurring due date</td></tr>
+    </table>
+    <table class="ref-table">
+      <tr><th>Policy category</th><th>Revival window</th></tr>
+      <tr><td>Non-linked (Term, Endowment, Whole Life)</td><td><b>5 years</b> from first unpaid premium</td></tr>
+      <tr><td>Unit-linked (ULIP)</td><td><b>3 years</b> from first unpaid premium</td></tr>
+    </table>
+  </div>
+
+  <p class="src-note">
+    Sources: <a href="https://www.godigit.com/life-insurance/term-insurance/features/grace-period-for-term-insurance-premium-payment">GoDigit</a>,
+    <a href="https://www.axismaxlife.com/blog/life-insurance/what-is-insurance-grace-period">Axis Max Life</a>,
+    <a href="https://www.kotaklife.com/term-insurance/term-insurance-grace-period">Kotak Life</a>,
+    <a href="https://www.paybima.com/blog/term-insurance/everything-you-should-know-about-the-term-insurance-grace-period">PayBima</a>,
+    <a href="https://www.oquilia.com/news/irdai-life-insurance-products-master-circular-surrender">Oquilia (IRDAI Master Circular summary)</a>,
+    <a href="https://joinditto.in/articles/life-insurance/how-to-revive-a-lapsed-term-insurance-policy/">Ditto Insurance</a>.
+  </p>
+
+  <div class="finding done">
+    <span class="tag">decided (v3)</span>
+    The Life type's "Market-linked (ULIP)?" boolean (§②) resolves which revival window (3 vs 5 years) applies
+    — unchanged in v4.
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 4 — MARK AS PAID, DISCOUNT & EXPENSE-LINKING                    -->
+<!-- ======================================================================= -->
+<section id="markpaid">
+  <div class="section-label">④ Updated in v4</div>
+  <h2>Mark as paid — per-installment discount, now with optional expense-linking</h2>
+  <p class="desc">
+    The per-installment math from v3 is unchanged: <b>₹12,000 annual premium, 10% first-year discount,
+    Monthly frequency → ₹900/mo Year 1, ₹1,000/mo Year 2+</b>. <b>New in v4:</b> after the amount is
+    determined, "Mark as paid" no longer silently records a payment-history row — it offers the optional
+    3-way choice below. <b>Try it live in §②'s interactive form above.</b>
+  </p>
+
+  <div class="worked-card">
+    <div class="worked-head">Worked example — Term, ₹12,000/yr, 10% first-year discount, Monthly</div>
+    <div class="worked-row"><span class="wd">Full (undiscounted) installment</span><span class="wt">₹12,000 ÷ 12</span><span class="wa">₹1,000/mo</span></div>
+    <div class="worked-row"><span class="wd">Year 1 installment (10% off)</span><span class="wt">₹10,800 ÷ 12</span><span class="wa">₹900/mo</span></div>
+    <div class="worked-row"><span class="wd">01 Aug 2026 — Installment 5, tapped "Mark as paid"</span><span class="wt">Year 1</span><span class="wa">₹900</span></div>
+    <div class="worked-divider">→ optional follow-up, not automatic</div>
+    <div class="worked-row"><span class="wd">Option A — Log a new expense</span><span class="wt">Desc: "iSelect Smart360 Term Plan premium" · Cat: Insurance Premium</span><span class="wa">₹900</span></div>
+    <div class="worked-row"><span class="wd">Option B — Link "UPI-AutoPay HDFCLIFE · 30 Aug"</span><span class="wt">Already in the ledger from bank import</span><span class="wa">₹900</span></div>
+    <div class="worked-row"><span class="wd">Option C — Skip, just track</span><span class="wt">No ledger change at all</span><span class="wa">₹900</span></div>
+  </div>
+
+  <div class="finding done">
+    <span class="tag">decided (v4)</span>
+    <b>"Mark as paid" → optional expense-linking.</b> Per the user's exact framing — "it should log a real
+    expense or ask the user to link up an existing expense entry, should not be mandatory though" — the
+    three choices (Log new / Link existing / Skip) are given <b>equal visual weight</b>, deliberately: none
+    is styled as the "recommended" path, so nothing nudges toward creating a duplicate ledger entry for
+    someone who already tracks this payment another way (bank import, SMS tracking). The category used for
+    "Log a new expense" is the real default category
+    <code>cat-insurance-premium</code> / "Insurance Premium" (<code>ti-shield</code>, <code>#3b82f6</code>)
+    from <code>packages/core/src/core/db/defaultCategories.ts</code> — not invented. "Link an existing
+    expense" is intentionally a short list of plausible nearby expenses in this mockup, not a full search UI
+    — a real implementation would query recent <code>Expense</code> rows by date-proximity to the due date
+    and amount-proximity to the installment, which is a reasonable v1 heuristic but not designed further
+    here.
+  </div>
+
+  <div class="finding">
+    <span class="tag">micro-interaction</span>
+    The choice panel appears exactly where the "Mark as paid" button was (button hides, panel shows in its
+    place) — never a full-screen modal, per the instruction to keep this lightweight given it's an optional
+    enhancement on an already-quick action. Picking "Log a new expense" or "Link an existing expense" reveals
+    one more short sub-step (a pre-filled preview to confirm, or a 3-row picker) with a "← Back" escape to
+    the 3 original choices; picking "Skip" finalizes immediately, identically to v3. Whichever path is taken,
+    the same confirmation flash + rolling-forward-by-one-interval + payment-history-row behavior from v3
+    fires at the end — only the row's tag differs.
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 5 — INSURER DROPDOWN + "NOT IN LIST" + SUGGESTIONS              -->
+<!-- ======================================================================= -->
+<section id="insurer">
+  <div class="section-label">⑤ Proposed</div>
+  <h2>Insurer / Company — scoped, researched dropdown + explicit "Other" handling</h2>
+  <p class="desc">Unchanged from v2/v3 — kept here for reference.</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Term / Life insurer list</div>
+      <div class="phone" style="height:480px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; align-items:flex-end; padding-bottom:60px;">
+            <div class="modal-card">
+              <div class="modal-head"><div class="modal-title">Insurer / Company</div><div class="xbtn">✕</div></div>
+              <div class="modal-body" style="max-height:340px;">
+                <div class="insurer-row sel"><span class="rd"></span>LIC (Life Insurance Corporation)</div>
+                <div class="insurer-row"><span class="rd"></span>HDFC Life</div>
+                <div class="insurer-row"><span class="rd"></span>ICICI Prudential Life</div>
+                <div class="insurer-row"><span class="rd"></span>SBI Life</div>
+                <div class="insurer-row"><span class="rd"></span>Axis Max Life</div>
+                <div class="insurer-row"><span class="rd"></span>Tata AIA Life</div>
+                <div class="insurer-row"><span class="rd"></span>Bajaj Allianz Life</div>
+                <div class="insurer-row other"><span class="rd"></span>Other — not in this list</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">11 real life insurers (7 shown).</div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">"Other" — remembered as a local suggestion</div>
+      <div class="phone" style="height:480px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:40px 10px;">
+            <div class="modal-card">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="field-block">
+                  <div class="field-label">Insurer / Company</div>
+                  <div class="input-box trigger" style="border-color:var(--primary);"><span>Other</span><span class="chv" style="color:var(--primary);">✓</span></div>
+                  <div class="other-reveal active">
+                    <div class="uptag">Used before — tap to reuse</div>
+                    <div class="chiprow" style="margin-bottom:8px;">
+                      <div class="chip">Universal Sompo General</div>
+                      <div class="chip">Shriram General</div>
+                    </div>
+                    <div class="typeahead-wrap">
+                      <div class="input-box">Uni</div>
+                      <div class="typeahead-drop open">
+                        <div class="trow"><b>Uni</b>versal Sompo General</div>
+                        <div class="trow create">➕ Save "Uni" as new</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Same visual language as the app's real <code>PersonTypeahead.tsx</code>.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 6 — TRACKED INSURANCE CARD (REDESIGNED)                         -->
+<!-- ======================================================================= -->
+<section id="cards">
+  <div class="section-label">⑥ Proposed</div>
+  <h2>Tracked Insurance card — type-aware hero stats + due-date states</h2>
+  <p class="desc">Unchanged from v2/v3 — kept here for reference.</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Insurance screen — redesigned cards</div>
+      <div class="phone" style="height:700px;">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div style="text-align:center;"><div class="header-title">Insurance</div><div class="header-sub">3 policies · ₹42,700/yr</div></div>
+            <div class="header-icons"><span style="font-size:13px;color:var(--text2);">◐</span><span style="font-size:14px;color:var(--text2);">🔔</span></div>
+          </div>
+          <div class="body">
+            <div class="state-switcher">
+              <div class="state-btn active" onclick="switchDueState(this,'onTrack')">On track</div>
+              <div class="state-btn" onclick="switchDueState(this,'dueSoon')">Due soon</div>
+              <div class="state-btn" onclick="switchDueState(this,'grace')">Grace period</div>
+              <div class="state-btn" onclick="switchDueState(this,'lapsed')">Lapsed</div>
+              <div class="state-btn" onclick="switchDueState(this,'paidUp')">Paid up</div>
+            </div>
+            <div class="pcard">
+              <div class="pcard-top">
+                <div class="picon" style="background:rgba(239,68,68,.14); color:#ef4444;">☂️</div>
+                <div class="pinfo">
+                  <div class="pname">iSelect Smart360 Term Plan</div>
+                  <div class="pmeta"><span class="ptype-badge" style="background:#ef4444;">Term</span><span class="pnum">HDFC Life · Monthly</span></div>
+                </div>
+                <div class="pchev">›</div>
+              </div>
+              <div class="pstats">
+                <div class="pstat"><div class="sl">Sum assured</div><div class="sv">₹1.0Cr</div></div>
+                <div class="pstat"><div class="sl">Premium</div><div class="sv sm">₹1,000/mo</div></div>
+                <div class="pstat"><div class="sl">Nominee</div><div class="sv sm">Spouse</div></div>
+              </div>
+              <div class="pprogress-wrap"><div class="pprogress"><div class="fill" style="width:33%;"></div></div><div class="pprogress-txt">Paying: 5 of 15 yrs</div></div>
+              <div class="pline"><span>Cover duration</span><b>15 yrs total · till 2041</b></div>
+              <div id="term-status-caption" style="display:none;"></div>
+              <div class="pfoot"><span class="pf-left" id="term-pf-left">Next due 30 Sep 2026</span><span class="duebadge ok" id="term-duebadge">30d</span></div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:2px;">Coverage summary</div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text2); padding:2px 0;"><span>Term cover</span><b style="color:var(--text);">₹1,00,00,000</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text); padding-top:6px; margin-top:2px; border-top:1px solid var(--border); font-weight:700;"><span>Total annual premium</span><b>₹42,700</b></div>
+            </div>
+          </div>
+          <div class="fab">+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 7 — REMINDERS INTEGRATION                                       -->
+<!-- ======================================================================= -->
+<section id="reminders">
+  <div class="section-label">⑦ Unchanged from v3</div>
+  <h2>Reminders integration — inside the real RemindersBell, not a new component</h2>
+  <p class="desc">Unchanged from v3 — reconstructed from the real <code>RemindersBell.tsx</code>. "Mark as paid" tapped here would open the same §④ optional-linking choice, not a fourth interaction.</p>
+
+  <div class="bellwrap">
+    <div class="bell-ic">🔔<span class="bell-badge">3</span></div>
+    <span style="font-size:11px; color:#8b949e;">Header bell — 3 urgent/upcoming items</span>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Reminders modal — 3 Term/Life scenarios</div>
+      <div class="phone" style="height:620px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:40px 10px;">
+            <div class="modal-card">
+              <div class="modal-head"><div class="modal-title">Reminders</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div>
+                  <div class="rem-section-lbl" style="color:var(--danger);">Overdue</div>
+                  <div class="rem-row">
+                    <div class="rem-top">
+                      <div class="rem-badge">🛡</div>
+                      <div class="rem-info"><div class="rem-label">SBI Life Term — Premium due</div><div class="rem-due">Overdue · 16 Sep</div></div>
+                      <div class="rem-amt">₹1,200</div>
+                    </div>
+                    <div class="rem-grace-note">⚠ Grace period: 9 days left before lapse</div>
+                    <div class="rem-actions"><div class="rem-btn primary">Mark as paid</div><div class="rem-btn ghost">Snooze</div><div class="rem-btn ghost">Done</div></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="rem-section-lbl" style="color:var(--warning);">Due today</div>
+                  <div class="rem-row">
+                    <div class="rem-top">
+                      <div class="rem-badge">🛡</div>
+                      <div class="rem-info"><div class="rem-label">Axis Max Life Term — Premium due</div><div class="rem-due">Today</div></div>
+                      <div class="rem-amt">₹1,000</div>
+                    </div>
+                    <div class="rem-actions"><div class="rem-btn primary">Mark as paid</div><div class="rem-btn ghost">Snooze</div><div class="rem-btn ghost">Done</div></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="rem-section-lbl" style="color:var(--info);">Coming up</div>
+                  <div class="rem-row">
+                    <div class="rem-top">
+                      <div class="rem-badge">🛡</div>
+                      <div class="rem-info"><div class="rem-label">HDFC Life Term — Premium due</div><div class="rem-due">in 3 days</div></div>
+                      <div class="rem-amt">₹900</div>
+                    </div>
+                    <div class="rem-actions"><div class="rem-btn primary">Mark as paid</div><div class="rem-btn ghost">Snooze</div><div class="rem-btn ghost">Done</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Same real shell as today's reminders — Term/Life premiums are just another row.</div>
+    </div>
+
+    <div class="col" style="max-width:420px; align-items:flex-start; padding-top:40px;">
+      <div class="finding q">
+        <span class="tag">implementation dependency (unchanged)</span>
+        <code>forecaster.ts</code>'s insurance block still needs to emit one event per payment-frequency
+        occurrence (not one flat annual event) using the §④ discounted per-installment amount, and
+        <code>buildReminders()</code>/<code>RemindersBell.tsx</code> need a new <code>mark_paid</code> action
+        — unchanged from v3, not solved here.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 8 — DESIGN DECISIONS & OPEN QUESTIONS                           -->
+<!-- ======================================================================= -->
+<section id="decisions">
+  <div class="section-label">⑧ Final round — for you to confirm</div>
+  <h2>Design decisions made, and open questions</h2>
+
+  <div class="decisions">
+    <h3>Decided this round (v4 — final)</h3>
+    <ul>
+      <li><span class="dtag">decided</span><b>Modal loading %</b> — keep the simple even-division (annual ÷ frequency) math from v3; no new field added. Real insurers' small monthly/quarterly surcharge (confirmed via WebSearch in v3, ~3–5%/yr) stays a documented simplification, not modeled.</li>
+      <li><span class="dtag">decided</span><b>Reminder volume</b> — up to 12 reminder occurrences/year for a monthly-pay Term policy is fine as-is; Snooze/Done (already in <code>RemindersBell.tsx</code>) are considered sufficient, no separate throttling designed.</li>
+      <li><span class="dtag">decided</span><b>"Mark as paid" → optional expense-linking</b> — three equal-weight choices (Log new / Link existing / Skip) appear inline where the button was tapped. Full rationale and the real category source (<code>cat-insurance-premium</code>) in §④.</li>
+    </ul>
+
+    <h3>Decided in earlier rounds (v1–v3, unchanged)</h3>
+    <ul>
+      <li>Nominee(s) and "Premium payment term" are Term/Life-only, hidden for Single premium. First-year discount is a one-time year-1 modifier. Duration presets and insurer lists are type-scoped. Vehicle insurance fields stay unlinked from Real Assets' own Vehicle-holding fields. Switching type silently resets the insurer. Age-based duration chips read the saved profile DOB locally. A custom "Other" insurer is remembered as a local suggestion. Life's ULIP toggle picks the correct 3-yr/5-yr revival window. Reminders integration reuses <code>RemindersBell.tsx</code> exactly, with a new "Mark as paid" action.</li>
+    </ul>
+
+    <h3>Open questions</h3>
+    <ul>
+      <li><span class="qtag">confirm</span>Should "Link an existing expense" restrict its candidate list to expenses tagged with the Insurance Premium category, or show any recent expense near the amount/date regardless of category (a payment made before this feature existed likely wasn't categorized as Insurance Premium at all)? Not designed further — the mockup's 3-row example is illustrative only, per scope.</li>
+      <li><span class="qtag">confirm</span>If a payment is later un-marked or corrected, should a linked/logged expense be automatically unlinked/deleted, or does that require its own explicit undo flow? Out of scope for this mockup, flagging as the natural next question once "Mark as paid" ships.</li>
+    </ul>
+  </div>
+</section>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+
+  var INSURERS = { term: 11, life: 11, health: 8, vehicle: 11, home: 11, travel: 11, other: 0 };
+  var LABELS = { term: 'Term', life: 'Life / ULIP', health: 'Health', vehicle: 'Vehicle', home: 'Home', travel: 'Travel', other: 'Other' };
+  var LIST_KIND = { term: 'life insurers', life: 'life insurers', health: 'health insurers', vehicle: 'general insurers', home: 'general insurers', travel: 'general insurers', other: 'insurers' };
+  var DUE_SCHEDULE_TYPES = { term: true, life: true };
+  var FREQ_LABEL = { M: 'month', Q: 'quarter', H: 'half-year', A: 'year' };
+  var FREQ_PER_YEAR = { M: 12, Q: 4, H: 2, A: 1 };
+  var currentType = 'term';
+  var currentFreq = 'A';
+  var isULIP = false;
+
+  var paymentHistory = [
+    { date: '01 May 2026', amt: 900, tag: 'Installment 2 · Year 1 (10% off)', linkTag: null },
+    { date: '01 Jun 2026', amt: 900, tag: 'Installment 3 · Year 1 (10% off)', linkTag: '🔗 linked to UPI-AutoPay HDFCLIFE' },
+    { date: '01 Jul 2026', amt: 900, tag: 'Installment 4 · Year 1 (10% off)', linkTag: '+ logged as expense' },
+    { date: '01 Aug 2026', amt: 900, tag: 'Installment 5 · Year 1 (10% off)', linkTag: null }
+  ];
+  var historyExpanded = false;
+  var nextDueDate = new Date(2026, 8, 1); // 01 Sep 2026
+  var installmentNum = 6;
+  var pendingPayment = null;
+
+  function selectType(type) {
+    currentType = type;
+    document.querySelectorAll('#type-grid .type-tile').forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-type') === type); });
+    document.querySelectorAll('.type-fields-block').forEach(function (b) { b.classList.remove('active'); });
+    var block = document.getElementById('fields-' + type);
+    if (block) block.classList.add('active');
+    document.querySelectorAll('.duration-presets').forEach(function (b) { b.classList.remove('active'); });
+    var dur = document.getElementById('dur-' + type);
+    if (dur) dur.classList.add('active');
+    document.getElementById('form-title').textContent = 'Add policy · ' + LABELS[type];
+    var n = INSURERS[type] || 0;
+    document.getElementById('insurer-caption').textContent = type === 'other' ? 'Showing the combined insurer list (all categories)' : 'Showing ' + n + ' ' + LIST_KIND[type] + ', scoped for ' + LABELS[type];
+    document.getElementById('insurer-trigger-text').textContent = 'Select insurer…';
+    document.getElementById('insurer-trigger-text').style.color = 'var(--text3)';
+    document.getElementById('other-reveal').classList.remove('active');
+    updateDueScheduleVisibility();
+  }
+
+  function openInsurerModal() { alert('Opens the centered insurer picker — see section ⑤ for the full scoped-list + suggestion states.'); }
+  function fillOther(name) { document.getElementById('other-input').textContent = name; document.getElementById('other-typeahead').classList.remove('open'); }
+  function toggleTypeahead() { document.getElementById('other-typeahead').classList.toggle('open'); }
+
+  function toggleULIP() {
+    isULIP = !isULIP;
+    var sw = document.getElementById('ulip-switch');
+    sw.classList.toggle('on', isULIP);
+    document.getElementById('ulip-preview').innerHTML = isULIP
+      ? 'Unit-linked (ULIP) — if lapsed, revivable within <b style="color:var(--warning);">3 years</b> of the first missed premium.'
+      : 'Non-linked (Endowment / Whole Life) — if lapsed, revivable within <b style="color:var(--text2);">5 years</b> of the first missed premium.';
+  }
+
+  function selectDuration(chipEl, years) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    chipEl.classList.add('active');
+    document.getElementById('end-date-mode').textContent = '(auto — from duration)';
+    var d = new Date(2026, 7, 31);
+    d.setFullYear(d.getFullYear() + years);
+    document.getElementById('end-date-trigger').innerHTML = formatD(d) + ' <span class="chv">📅</span>';
+  }
+  function selectDaysDuration(chipEl, days) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    chipEl.classList.add('active');
+    document.getElementById('end-date-mode').textContent = '(auto — from duration)';
+    var d = new Date(2026, 7, 31);
+    d.setDate(d.getDate() + days);
+    document.getElementById('end-date-trigger').innerHTML = formatD(d) + ' <span class="chv">📅</span>';
+  }
+  function selectAgeDuration(chipEl, age) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    chipEl.classList.add('active');
+    document.getElementById('end-date-mode').textContent = '(auto — from your saved DOB: 14 Mar 1990)';
+    document.getElementById('end-date-trigger').innerHTML = '14 Mar ' + (1990 + age) + ' <span class="chv">📅</span>';
+  }
+  function selectCustomDuration(chipEl) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    document.getElementById('end-date-mode').textContent = '(custom)';
+  }
+  function makeEndDateCustom() {
+    document.querySelectorAll('.duration-presets.active .chip').forEach(function (c) { c.classList.remove('active'); });
+    document.getElementById('end-date-mode').textContent = '(custom)';
+  }
+  function makeNextDueCustom() { document.getElementById('next-due-mode').textContent = '(custom — your real auto-debit date)'; }
+  function formatD(d) {
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  function annualPremiumValue() {
+    var t = document.getElementById('premium-input').textContent.replace(/[₹,\s]/g, '');
+    return parseFloat(t) || 0;
+  }
+  function discountActive() { return document.getElementById('discount-switch').classList.contains('on'); }
+  function discountPct() {
+    var active = document.querySelector('#discount-body .chip.active');
+    return active ? parseInt(active.textContent, 10) : 0;
+  }
+  function fullInstallment() { return Math.round(annualPremiumValue() / (FREQ_PER_YEAR[currentFreq] || 1)); }
+  function discountedInstallment() { return Math.round(annualPremiumValue() * (1 - discountPct() / 100) / (FREQ_PER_YEAR[currentFreq] || 1)); }
+
+  function updateDueScheduleVisibility() {
+    var show = !!DUE_SCHEDULE_TYPES[currentType] && currentFreq !== 'S';
+    document.getElementById('due-schedule-block').classList.toggle('show', show);
+
+    var months = { M: 1, Q: 3, H: 6, A: 12 }[currentFreq] || 12;
+    var graceDays = currentFreq === 'M' ? 15 : 30;
+    var d = new Date(2026, 7, 31);
+    d.setMonth(d.getMonth() + months);
+    document.getElementById('next-due-trigger').innerHTML = formatD(d) + ' <span class="chv">📅</span>';
+    var freqLabel = { M: 'Monthly', Q: 'Quarterly', H: 'Half-yearly', A: 'Annual' }[currentFreq] || 'Annual';
+    document.getElementById('grace-caption').innerHTML = 'Grace period: <b style="color:var(--warning);">' + graceDays + ' days</b> after due date (IRDAI Master Circular, ' + freqLabel + ' mode) — coverage continues if paid within this window.';
+
+    updatePerInstallmentDisplays();
+  }
+
+  function updatePerInstallmentDisplays() {
+    var unit = FREQ_LABEL[currentFreq] || 'year';
+    var full = fullInstallment();
+    var annual = annualPremiumValue();
+
+    document.getElementById('per-installment-base').textContent =
+      '= ₹' + full.toLocaleString('en-IN') + ' per ' + unit + ' · M=Monthly · Q=Quarterly · H=Half-yearly · A=Annual · Single=one-time';
+
+    var discountPreview = document.getElementById('discount-preview');
+    if (discountActive() && currentFreq !== 'S') {
+      var pct = discountPct();
+      var disc = discountedInstallment();
+      var year1Annual = Math.round(annual * (1 - pct / 100));
+      discountPreview.innerHTML = 'Year 1: <b>₹' + year1Annual.toLocaleString('en-IN') + '/yr</b> → <b>₹' + disc.toLocaleString('en-IN') + '/' + unit + '</b> (' + pct + '% off) · Year 2 onward: <b>₹' + annual.toLocaleString('en-IN') + '/yr</b> → <b>₹' + full.toLocaleString('en-IN') + '/' + unit + '</b>';
+    } else if (discountActive()) {
+      discountPreview.innerHTML = 'Single premium — the whole ' + discountPct() + '% discount applies once, to the one lump-sum payment.';
+    } else {
+      discountPreview.innerHTML = 'No discount applied — every installment is <b>₹' + full.toLocaleString('en-IN') + '/' + unit + '</b>.';
+    }
+
+    var nextPreview = document.getElementById('next-installment-preview');
+    if (nextPreview) {
+      var isYear1 = installmentNum <= (FREQ_PER_YEAR[currentFreq] || 1);
+      var amt = discountActive() && isYear1 ? discountedInstallment() : full;
+      nextPreview.innerHTML = 'Next installment due (' + (isYear1 ? 'Year 1' : 'Year 2+') + (discountActive() && isYear1 ? ', discounted' : '') + '): <b>₹' + amt.toLocaleString('en-IN') + '</b>';
+    }
+  }
+
+  function selectFreq(el, code) {
+    currentFreq = code;
+    el.parentElement.querySelectorAll('.s').forEach(function (s) { s.classList.remove('active'); });
+    el.classList.add('active');
+    updateDueScheduleVisibility();
+  }
+
+  function toggleDiscount() {
+    var sw = document.getElementById('discount-switch');
+    var on = !sw.classList.contains('on');
+    sw.classList.toggle('on', on);
+    document.getElementById('discount-body').style.display = on ? 'flex' : 'none';
+    updatePerInstallmentDisplays();
+  }
+  function selectDiscountType(el) {
+    el.parentElement.querySelectorAll('.s').forEach(function (s) { s.classList.remove('active'); });
+    el.classList.add('active');
+    updatePerInstallmentDisplays();
+  }
+  function selectDiscountValue(el) {
+    el.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    el.classList.add('active');
+    updatePerInstallmentDisplays();
+  }
+
+  function renderHistory() {
+    var wrap = document.getElementById('payment-history');
+    var visible = historyExpanded ? paymentHistory : paymentHistory.slice(0, 3);
+    wrap.innerHTML = visible.map(function (p) {
+      var linkBadge = p.linkTag ? '<span class="pay-linktag">' + p.linkTag + '</span>' : '';
+      return '<div class="pay-row' + (p.flash ? ' flash' : '') + '"><span class="pdate">' + p.date + '</span><span class="ptag">' + p.tag + linkBadge + '</span><span class="pamt">₹' + p.amt.toLocaleString('en-IN') + '</span></div>';
+    }).join('');
+    var toggle = document.getElementById('history-toggle');
+    var hidden = paymentHistory.length - visible.length;
+    if (!historyExpanded && hidden > 0) { toggle.style.display = 'block'; toggle.textContent = 'Show ' + hidden + ' more'; }
+    else if (historyExpanded && paymentHistory.length > 3) { toggle.style.display = 'block'; toggle.textContent = 'Show less'; }
+    else { toggle.style.display = 'none'; }
+  }
+  function toggleHistoryExpand() { historyExpanded = !historyExpanded; renderHistory(); }
+
+  // -------- v4: Mark as paid → optional 3-way choice, before finalizing --------
+  function showStep(id) {
+    ['mark-paid-btn-row', 'pay-choice', 'log-expense-panel', 'link-expense-panel'].forEach(function (p) {
+      document.getElementById(p).style.display = (p === id) ? (p === 'mark-paid-btn-row' ? 'flex' : 'flex') : 'none';
+    });
+  }
+
+  function markAsPaid() {
+    var dateStr = formatD(nextDueDate);
+    var isYear1 = installmentNum <= (FREQ_PER_YEAR[currentFreq] || 1);
+    var amt = discountActive() && isYear1 ? discountedInstallment() : fullInstallment();
+    var tag = 'Installment ' + installmentNum + ' · ' + (isYear1 ? 'Year 1' : 'Year 2+') + (discountActive() && isYear1 ? ' (' + discountPct() + '% off)' : '');
+    pendingPayment = { date: dateStr, amt: amt, tag: tag };
+
+    document.getElementById('pay-choice-head-text').textContent = 'Payment marked for ' + dateStr + ' · ₹' + amt.toLocaleString('en-IN') + '. Anything else?';
+    document.getElementById('log-expense-desc').textContent = document.getElementById('policy-name-input').textContent.trim() + ' premium';
+    document.getElementById('log-expense-amt').textContent = '₹' + amt.toLocaleString('en-IN');
+
+    showStep('pay-choice');
+  }
+  function backToChoices() { showStep('pay-choice'); }
+  function choiceLogExpense() { showStep('log-expense-panel'); }
+  function choiceLinkExpense() { showStep('link-expense-panel'); }
+  function choiceSkip() { finalizePayment(null); }
+  function confirmLogExpense() { finalizePayment('+ logged as expense'); }
+  function confirmLinkExpense(label) { finalizePayment('🔗 linked to ' + label); }
+
+  function finalizePayment(linkTag) {
+    if (!pendingPayment) return;
+    paymentHistory.unshift({ date: pendingPayment.date, amt: pendingPayment.amt, tag: pendingPayment.tag, linkTag: linkTag, flash: true });
+    installmentNum++;
+    renderHistory();
+
+    var months = { M: 1, Q: 3, H: 6, A: 12 }[currentFreq] || 12;
+    nextDueDate.setMonth(nextDueDate.getMonth() + months);
+    document.getElementById('next-due-trigger').innerHTML = formatD(nextDueDate) + ' <span class="chv">📅</span>';
+    document.getElementById('next-due-mode').textContent = '(auto)';
+
+    var flash = document.getElementById('paid-flash');
+    flash.style.display = 'block';
+    flash.innerHTML = '✓ Marked <b>₹' + pendingPayment.amt.toLocaleString('en-IN') + '</b> paid for ' + pendingPayment.date + (linkTag ? ' · ' + linkTag : '') + '. Next due: <b>' + formatD(nextDueDate) + '</b>.';
+    updatePerInstallmentDisplays();
+    showStep('mark-paid-btn-row');
+    pendingPayment = null;
+
+    setTimeout(function () {
+      flash.style.display = 'none';
+      paymentHistory[0].flash = false;
+      renderHistory();
+    }, 1800);
+  }
+
+  // -------- §6 Term card due-date state switcher (unchanged from v2/v3) --------
+  var DUE_STATES = {
+    onTrack: { left: 'Next due 30 Sep 2026', badge: 'ok', badgeText: '30d', caption: null },
+    dueSoon: { left: 'Next due 30 Sep 2026', badge: 'warn', badgeText: '5d', caption: null },
+    grace: { left: 'Missed 30 Sep · in grace', badge: 'danger', badgeText: 'Grace: 9d left', caption: { cls: 'warn', text: '⚠ Pay by 15 Oct to avoid lapse — 15-day grace period (Monthly mode, IRDAI).' } },
+    lapsed: { left: 'Lapsed since 15 Oct 2026', badge: 'danger', badgeText: 'Lapsed', caption: { cls: 'danger', text: '⛔ Policy lapsed. Revive by 15 Oct 2031 (5-yr window, non-linked) — original sum assured intact if revived.' } },
+    paidUp: { left: 'Fully paid · covered till 2041', badge: 'ok', badgeText: 'Paid up', caption: { cls: 'ok', text: '✓ 10 of 10 years of premiums paid — no more dues. Cover continues automatically till 2041.' } }
+  };
+  function switchDueState(el, state) {
+    el.parentElement.querySelectorAll('.state-btn').forEach(function (b) { b.classList.remove('active'); });
+    el.classList.add('active');
+    var s = DUE_STATES[state];
+    document.getElementById('term-pf-left').textContent = s.left;
+    var badge = document.getElementById('term-duebadge');
+    badge.className = 'duebadge ' + s.badge;
+    badge.textContent = s.badgeText;
+    var cap = document.getElementById('term-status-caption');
+    if (s.caption) { cap.className = 'pnote ' + s.caption.cls; cap.textContent = s.caption.text; cap.style.display = 'flex'; }
+    else { cap.style.display = 'none'; }
+  }
+
+  // Init
+  renderHistory();
+  updateDueScheduleVisibility();
+  showStep('mark-paid-btn-row');
+</script>
+
+</body>
+</html>

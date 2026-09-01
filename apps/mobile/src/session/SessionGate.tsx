@@ -16,6 +16,41 @@ import { recordActivity, startSessionWatcher, stopSessionWatcher } from '@/core/
 import { notifyAuthShouldRecheck } from '~/navigation/authRecheckBus';
 import { navigationRef } from '~/navigation/navigationRef';
 
+/** Fires every cross-hook staleness broadcast the app has, once, right after a successful unlock that
+ *  followed a destructive restore (`backupManager.ts`'s `pendingFullRefresh` flag) — see that file's
+ *  doc comment on `consumePendingFullRefresh` for why this can't fire any earlier. A restore replaces
+ *  effectively everything, so every bus gets fired rather than picking a subset.
+ *
+ *  Deliberately `require()`'d inline rather than statically imported at the top of this file: this is
+ *  one of the very first components on the app's boot path (it wraps the entire post-onboarding tree),
+ *  and a real 2026-08-21 on-device boot crash (`TypeError: Cannot read property 'create' of undefined`,
+ *  every single launch, before any UI ever rendered) traced to adding a static top-level import from
+ *  here into `backupManager.ts` — pulling its whole crypto/db import chain forward into this file's own
+ *  module-evaluation order. Deferring the require to actual call time (well after boot, only once a
+ *  user has actually unlocked) avoids that ordering problem entirely.
+ *
+ *  Returns `true` if a restore had actually happened (and the broadcasts were fired), so the caller can
+ *  also bump `contentEpoch` — see that state's own doc comment for why both exist (this broadcasts to
+ *  currently-listening hooks; the epoch bump is the guaranteed fallback for hooks/screens that weren't
+ *  listening at this exact moment). */
+function refreshAfterUnlockIfRestored(): boolean {
+  const { consumePendingFullRefresh } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@/core/backup/backupManager') as typeof import('@/core/backup/backupManager');
+  if (!consumePendingFullRefresh()) return false;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { notifyTxnChanged } = require('@/hooks/useTxnRefresh') as typeof import('@/hooks/useTxnRefresh');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const dataRefresh = require('@/hooks/useDataRefresh') as typeof import('@/hooks/useDataRefresh');
+  notifyTxnChanged();
+  dataRefresh.notifyAccountsChanged();
+  dataRefresh.notifyCategoriesChanged();
+  dataRefresh.notifyTagsChanged();
+  dataRefresh.notifyGoalsChanged();
+  dataRefresh.notifyBankImportsChanged();
+  return true;
+}
+
 interface Props {
   children: ReactNode;
   showRotationBanner?: boolean;
@@ -58,6 +93,16 @@ function formatCountdown(ms: number): string {
  * already uses to flip `AuthGuard` back to onboarding once the security record is gone.
  */
 export function SessionGate({ children, showRotationBanner = false }: Props) {
+  // 2026-08-21, real-device testing feedback: after a restore, the Accounts screen and the expense
+  // form's account picker kept showing pre-restore data (or missing a restored account entirely) even
+  // after unlocking again — only a full app close+reopen showed it correctly. The broadcast-based fix
+  // above (`refreshAfterUnlockIfRestored`) only reaches screens whose listener happens to already be
+  // registered at the exact moment it fires — a screen that isn't currently mounted (never visited this
+  // session, or kept mounted with stale state from before the lock by React Navigation's tab-persistence)
+  // simply misses it. Bumping this key on the wrapper around `children` forces React to fully discard and
+  // remount the ENTIRE post-unlock subtree — the one guarantee that doesn't depend on which screens
+  // happen to be listening to which bus, matching what a true app restart already reliably does.
+  const [contentEpoch, setContentEpoch] = useState(0);
   const theme = useThemeColors();
   const [locked, setLocked] = useState(!keystore.isUnlocked());
   const [rotationDismissed, setRotationDismissed] = useState(false);
@@ -137,6 +182,11 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
 
   useEffect(() => {
     startSessionWatcher(() => setLocked(true));
+    // Immediate reaction to ANY lock, from anywhere (see `keystore.ts`'s `onLock` doc comment) — the
+    // watcher above is still needed for the inactivity-timeout case (genuinely time-based, nothing else
+    // to hook), but a lock triggered elsewhere (a restore, most concretely) shouldn't have to wait for
+    // that poll to catch up.
+    const unsubscribeLock = keystore.onLock(() => setLocked(true));
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
       if (next !== 'background') return;
       void loadLockOnBackground().then((enabled) => {
@@ -147,6 +197,7 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
     });
     return () => {
       stopSessionWatcher();
+      unsubscribeLock();
       sub.remove();
     };
   }, []);
@@ -159,6 +210,7 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
     if (result === 'ok') {
       setLocked(false);
       setAttemptsUsed(0);
+      if (refreshAfterUnlockIfRestored()) setContentEpoch((e) => e + 1);
     } else if (result === 'wiped') {
       notifyAuthShouldRecheck();
     } else if (result === 'locked_out') {
@@ -187,6 +239,7 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
     setPassphraseInput('');
     if (result === 'ok') {
       setLocked(false);
+      if (refreshAfterUnlockIfRestored()) setContentEpoch((e) => e + 1);
       if (navigationRef.isReady()) {
         navigationRef.navigate('MainTabs', {
           screen: 'Home',
@@ -365,6 +418,7 @@ export function SessionGate({ children, showRotationBanner = false }: Props) {
 
   return (
     <View
+      key={contentEpoch}
       style={{ flex: 1 }}
       onStartShouldSetResponderCapture={() => {
         recordActivity();

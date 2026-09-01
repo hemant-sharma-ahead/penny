@@ -3,8 +3,7 @@
 Merged from three previously separate, overlapping docs (`ROADMAP.md`, `MILESTONES.md`,
 `WHATS_NEXT.md`) into one file with three clearly labeled parts, so there's one place to
 check "what's shipped," "what's decided/in progress," and "what's a future idea" instead of
-three files that had started drifting apart. Current per-module mobile-parity status lives
-in [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md), not here.
+three files that had started drifting apart.
 
 - **[Part 1 — Shipped](#part-1--shipped)**: complete milestone history, M0 through present.
 - **[Part 2 — Decided / In Progress](#part-2--decided--in-progress)**: phase scope +
@@ -215,12 +214,22 @@ Drive v3 REST, mirroring the web provider) and a real native on-device daily flo
 (`localBackup.native.ts`, `expo-file-system`'s persistent storage — previously a no-op, since OPFS
 doesn't exist on RN). Also fixed a real restore bug: a stale PIN lockout carried over from the backup's
 source device could block the (correct) original PIN after restore — `importBackup()` now resets
-`pinAttempts`/`lockedUntil`/etc. while leaving the key-wrapping material untouched. **Blocked on a user
-action:** native Google Drive backup can't be tested end-to-end until the Google Cloud Console setup is
-done (Android OAuth client keyed to this app's package + SHA-1, plus a Web OAuth client — full steps in
-`docs/features/backup.md`'s "Enabling Google Drive backup"); `app.json`'s `extra.googleWebClientId` and
-`apps/web-react`'s `VITE_GOOGLE_CLIENT_ID` both still need real values. Until then Drive stays disabled
-(honestly, not faked) on every platform.
+`pinAttempts`/`lockedUntil`/etc. while leaving the key-wrapping material untouched. **Update (2026-08-16):**
+the Google Cloud Console setup is now done for `apps/mobile` (Android) — real Web + Android OAuth clients,
+`app.json`'s `extra.googleWebClientId` set, and the Expo-scaffolded `com.anonymous.penny` package renamed
+to `com.hesh.penny` (done now since it hadn't been published to Play Store yet — a rename after that would
+be permanent-package-loss territory). Full steps + the package-rename gotchas in `docs/features/backup.md`'s
+"Enabling Google Drive backup". Still open: the actual sign-in flow needs a manual on-device confirmation;
+iOS is deliberately deferred (no Xcode set up yet); `apps/web-react`'s `VITE_GOOGLE_CLIENT_ID` remains
+unset (that app is frozen).
+
+**"Did You Know" tips shipped (2026-08-16):** a whole-app sweep found a large amount of genuinely useful,
+non-obvious capability with no way to surface it — three delivery tiers now do: contextual nudges (earned
+by real behavior, fire once ever), Home's daily tip card (top of screen, one new curated tip a day, stops
+once all have been shown) + Analytics'/Tax's own ambient rotating card, and a "Discover Penny" hub
+(Settings) showing the full catalogue. See [`docs/features/did-you-know-tips.md`](features/did-you-know-tips.md)
+for the full design and `docs/ARCHITECTURE.md`'s matching decision-log entry. Mobile-only —
+`apps/web-react` is frozen.
 
 **Track E — Groups & Household OS · E1: worker + group crypto + client wiring (2026-07-01):** the third
 per-user backend (`workers/groups/` — `penny-groups`), mirroring the Track C template. **Model B /
@@ -413,6 +422,73 @@ For the mobile migration's own tech-stack rationale and porting lessons, see
 [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) — its narrative progress log has been
 distilled into a migration playbook there rather than duplicated here.
 
+**Real-device-testing pass, Phases 1–3 (2026-08-18) — `apps/mobile` + `packages/core` + `workers/groups`
+only** (`apps/web-react` is frozen, so it does not get any of this; see
+[`docs/plans/real-device-testing-pass.md`](plans/real-device-testing-pass.md) for the full punch list):
+
+- **Phase 1 — quick fixes:** Privacy mode collapsed from three states to two (Safe/Open, no Open-mode
+  timer — see `docs/PRIVACY.md`); Google Drive restore's "undefined" error now a real message
+  (`getAccessToken()` wrapped); a new `foreign_blob` backup status with reworded copy + a "Restore with
+  my passphrase" CTA (see `docs/features/backup.md`); toast no longer blocks app interactivity
+  (`apps/mobile/src/lib/modalStack.ts`); transaction date restored in multi-select mode; Expenses top
+  icon bar + Analytics section order reordered; Financial Health prefills take-home from actual income
+  data; bulk "remove tag" added (symmetric to bulk-add).
+- **Phase 2 — moderate fixes:** tag case normalized everywhere (manual entry, bulk actions, CSV/bank
+  import, Analytics) plus a one-time idempotent repair pass (`normalizeHashtagCase.ts`, mirrors
+  `repairCategoryIcons()`/`reconcileDefaultCategories()`); tag filtering added to the transactions Filter
+  modal; duplicate-person-on-repeat-name-entry bug fixed by consolidating three independent
+  `getOrCreatePerson` implementations into one `packages/core` `personResolver.ts`; person-name
+  type-ahead suggestions while logging a lend/borrow; a real delete/archive confirmation for an IOU
+  person with history (`RemovePersonDialog.tsx`) — fixed a real cascade-delete bug where purging a
+  person used to delete their linked `Expense` rows too; bulk-add existing transactions into a person's
+  IOU ledger (`BulkAddToIouModal.tsx`); switching a transaction's type (expense ⟷ income) after save;
+  cash-negative-balance warnings added to every IOU form; Analytics' "Set Aside" section rebuilt to
+  match "Daily Routine"'s expand/collapse; Subscriptions' "seen N times" now opens the shared
+  `EntityTransactionsModal` with a transaction count.
+- **Phase 3 — Groups (Track E) redesign:** see "Groups (Track E) redesign — Phase 3 of the real-
+  device-testing pass" below and [`docs/features/iou.md`](../features/iou.md) /
+  [`docs/features/groups.md`](../features/groups.md) for the full detail.
+- Also found and fixed a real bug in `packages/core/src/core/db/seedDemoData.ts`: the Student persona's
+  simulated Cash account actually went to −₹920 on a seeded date (an unscaled "wobble" term breaking
+  proportionally at low expense scale) — fixed, with a new regression test covering all 5
+  employment-type personas (`packages/core/tests/db/seedCash.test.ts`).
+- Three cross-feature shared-component extractions in this pass (`PersonTypeahead.tsx`,
+  `WizardProgress.tsx`, `useServerActionError.ts` — see `docs/ARCHITECTURE.md`'s matching decision-log
+  entry) reinforce the existing "no cross-feature imports" rule: a component two features both need
+  belongs in `components/shared`/`hooks/`, never one feature importing from another's folder.
+
+### Groups (Track E) redesign — Phase 3 of the real-device-testing pass (2026-08-18)
+
+Extends the Track E feature set (see above) with a batch of gaps found via real-device testing —
+detailed in `docs/plans/real-device-testing-pass.md`'s Phase 3 and now the authoritative behavior (the
+original Track E plan docs' data model/event-type lists are superseded by `docs/SCHEMA.md`):
+
+- **Orphaned shared transactions, fixed:** deleting a personal `Expense` now emits `expense_delete` to
+  every group it was shared to (`notifyExpenseDeletedToGroups`) — previously the event schema supported
+  the tombstone but no caller ever emitted one.
+- **Real bug fixed in `groupFeed()`:** an edited shared expense used to render as two separate feed rows
+  instead of collapsing to one — now deduped by `expenseId`, latest edit wins, same feed position.
+- **New `expense_flag`/`expense_flag_clear` event types** — "flag as not needed" on someone else's
+  shared expense, balance-inert, folded via `groupFlags()`.
+- **New `settlement_void` event type** — reversible write-off/undo-write-off marking
+  (`voidSettlement()`); `SettlementPayload` gained optional `id`/`kind`.
+- **Static (accountless) members** — `GroupMember.accountless` + reserved `upgradedToUserId` (mirrors
+  the existing `linkedPersonId`/`linkedMemberId` reservation pattern); `addStaticMember()` +
+  `syncGroupMembers()` materializes `member_joined` events cross-device.
+- **Personal ledger → Group promotion** — `PromoteToGroupWizard.tsx`: creates a Group, adds the person
+  as a placeholder/static member, seeds it from ledger history (full or opening-balance only, user's
+  choice), generates an invite, then archives (never deletes) the superseded personal `Person`
+  (`promotedToGroupId`).
+- **Delete-when-empty for the creator** — new `DELETE /group/:id` (creator-only, only when zero
+  non-deleted shared-expense events) — `deleteGroup()` in `groupsStore.ts`/`groupsClient.ts`/
+  `groupsService.ts`.
+- **Server-side last-admin/owner protection** — `wouldLeaveGroupAdminless()` in `workers/groups/src/lib/
+membership.ts` blocks a leave/remove/`set_role` that would leave zero admins (HTTP 409 `last_admin`),
+  unless the actor is the group's sole remaining member.
+- **Settled/closed groups already lock out edits** — `GroupDashboard.tsx`'s existing `canAct` gate
+  (`group.status === 'active'`) covers the "once settled, keep history but make it immutable" ask with
+  no new code needed.
+
 ---
 
 # Part 2 — Decided / In Progress
@@ -434,14 +510,14 @@ decisions made for each phase, so they don't need to be re-derived in future ses
 
 ## Phase boundaries
 
-| Phase                                | Scope                                                                                                                                     | Status                                                                                                                                                     |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 1 (M0–M15)                     | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                                |
-| Pre-Phase 1.5                        | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                                |
-| Phase 1.5                            | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅, E ✅ deployed; **Track F** 🚧 F1–F3 ✅, F4 next). Remaining: Track E live verification + F4 + Stage F |
-| Mobile migration (React Native/Expo) | Port `apps/web-react` to `apps/mobile`, folded in from the original "Phase 2 mobile apps" sketch since it's now active, not future        | 🚧 In progress — see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) + [`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md)                           |
-| Phase 2                              | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, desktop layout                                                         | ⏳ Future                                                                                                                                                  |
-| Phase 3                              | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                                  |
+| Phase                                | Scope                                                                                                                                     | Status                                                                                                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 1 (M0–M15)                     | Full financial life tracking, zero paid APIs, zero backend, local-first encrypted                                                         | ✅ Complete                                                                                                                                                                  |
+| Pre-Phase 1.5                        | Documentation overhaul, component extraction, onboarding v2, category overhaul, activity log, expense power features, tax-in-context      | ✅ Complete                                                                                                                                                                  |
+| Phase 1.5                            | Groups & Household OS — shared expenses, family vaults, joint goals, household net worth ([plan](plans/phase-1.5-groups-household-os.md)) | 🚧 In progress (Tracks 1 ✅, A ✅, B ✅, C ✅, D ✅, E ✅ deployed; **Track F** 🚧 F1–F3 ✅, F4 next). Remaining: Track E live verification + F4 + Stage F                   |
+| Mobile migration (React Native/Expo) | Port `apps/web-react` to `apps/mobile`, folded in from the original "Phase 2 mobile apps" sketch since it's now active, not future        | ✅ Complete — `apps/web-react` retired and deleted 2026-08-29 (frozen since 2026-07-31, fully superseded); see [`docs/plans/mobile-migration.md`](plans/mobile-migration.md) |
+| Phase 2                              | Chip real AI, AI auto-categorisation, export PDF/HTML, cloud sync, desktop layout                                                         | ⏳ Future                                                                                                                                                                    |
+| Phase 3                              | Regional languages, crypto/Web3, international equities, advanced AI advisor                                                              | ⏳ Future                                                                                                                                                                    |
 
 ## Pre-Phase 1.5 — Track 2: Identity, Account & Security
 
@@ -731,11 +807,11 @@ Each group has its own **Group Key** (AES-256), completely independent of person
 ### Mobile apps (iOS + Android) — 🚧 in progress, this is the active `feat/rn-migration` branch
 
 Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
-[`docs/plans/mobile-migration.md`](plans/mobile-migration.md). Current per-module parity status:
-[`docs/MOBILE_PARITY.md`](MOBILE_PARITY.md). Superseded from this section's original sketch:
+[`docs/plans/mobile-migration.md`](plans/mobile-migration.md). Superseded from this section's
+original sketch:
 
 - **Expo (managed workflow)**, not bare React Native CLI, not Capacitor — a single codebase targets iOS,
-  Android, and eventually web via `react-native-web`.
+  Android, and (via `expo start --web`/`react-native-web`) a web preview mode.
 - **NativeWind** for styling (not plain RN StyleSheet as originally sketched here) — reuses the same
   semantic token names already in `docs/DESIGN_GUIDELINES.md`, lowering the risk of visual drift
   between platforms.
@@ -743,11 +819,13 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
   with near-zero changes.
 - Storage/crypto adapters: `@op-engineering/op-sqlite` (behind `EncryptedRepository<T>`'s existing
   interface) and `react-native-quick-crypto` (polyfills `crypto.subtle`).
-- **Long-term vision**: once mobile is fully verified at parity, evaluate rendering web via
-  `apps/mobile`'s `react-native-web` build and retiring `apps/web-react` as a separate Vite/DOM
-  codebase entirely — one codebase for every platform, the same principle Cashew (a mature
-  cross-platform budgeting app looked at for structural inspiration) achieves via Flutter's single
-  rendering engine. Not started; a real future decision point, not a current plan.
+- **"Long-term vision" resolved 2026-08-29**: this section used to frame "retire `apps/web-react`
+  once mobile reaches parity" as a future, not-yet-decided step evaluated _against_ unifying it into
+  `apps/mobile`'s `react-native-web` build. That evaluation didn't end up mattering — `apps/web-react`
+  was frozen long enough (since 2026-07-31) with zero remaining active users/purpose that it was
+  simply retired and deleted outright, with no unification needed (there's only ever been one app to
+  maintain going forward). `apps/mobile`'s existing `.web.ts` platform-suffix variants (Google Drive
+  auth, etc.) already cover the "does it work via `expo start --web`" need on their own.
 
 ### Other Phase 2 items
 
@@ -761,12 +839,20 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
   banners, "calculate it for me," tappable interest rows with rate + recalculation breakdown) is
   wired up and live on the EPF card. `apps/web-react` is frozen, so this has no web equivalent — a
   deliberate, permanent divergence, not a pending parity gap. PDF export (presentation-only, not
-  re-importable) remains phase 2, not yet scoped.
+  re-importable) remains phase 2, not yet scoped. **2026-08-30 correction**: "shipped" above held for
+  the feature's UI/logic, but PDF parsing itself was actually broken for any real (larger,
+  non-Latin-font) passbook on-device the whole time — a genuine Hermes `structuredClone` bug, not
+  caught by the original spike's small synthetic test file. Now fixed — see
+  `docs/features/portfolio/retirement.md`'s "Real-device bug found and fixed" note.
 - Export: wealth snapshot PDF + tax summary PDF
 - Desktop layout (≥768px breakpoint, sidebar nav)
 - Push notifications (EMI reminders, insurance renewals, goal milestones)
 - Watchlist (stocks + MFs with price alerts)
-- **Persistent storage on native (Capacitor) builds** — Penny never calls `navigator.storage.persist()`, so a WebView's IndexedDB (which holds the encrypted vault) is "best-effort" and could be evicted by the OS under storage pressure. Before shipping native apps, request persistence on boot and verify it's granted on real devices. Verification steps in [ANDROID_EMULATOR.md → Storage durability on device](ANDROID_EMULATOR.md#storage-durability-on-device-phase-2-to-do).
+- ~~Persistent storage on native (Capacitor) builds~~ — **moot**: this was a concern specific to
+  the abandoned Capacitor+WebView approach (a WebView's IndexedDB is "best-effort," evictable
+  under OS storage pressure, unless `navigator.storage.persist()` is called). `apps/mobile`'s real
+  storage (`@op-engineering/op-sqlite`, a native SQLite file in the app's own private storage) was
+  never subject to that WebView-specific eviction policy in the first place.
 
 ## Phase 3
 
@@ -778,19 +864,19 @@ Full plan (locked decisions, tracks, tech-stack rationale, migration playbook):
 
 ## Deferred from Phase 1 (awaiting Phase 2+)
 
-| Feature                            | Originally planned    | Moving to                                                                                           |
-| ---------------------------------- | --------------------- | --------------------------------------------------------------------------------------------------- |
-| CAS PDF import                     | M11 step 70           | Phase 2                                                                                             |
-| Watchlist                          | M11 step 71           | Phase 2                                                                                             |
-| Export PDF/HTML                    | M8 step 47 (CSV done) | Phase 2                                                                                             |
-| Chip mock chat UI                  | M8 step 44            | Phase 2                                                                                             |
-| Desktop layout                     | M8 step 48            | Phase 2                                                                                             |
-| Real Chip AI                       | All of Phase 1        | Phase 2                                                                                             |
-| SMS transaction parsing            | BRD v4                | Phase 2                                                                                             |
-| Credit score via bureau aggregator | BRD v4                | Phase 2                                                                                             |
-| Biometric auth                     | TSD v1.0              | Phase 2 (native app) — WebAuthn-PRF on PWA too patchy; envelope crypto leaves a wrapping slot ready |
-| Cloud backup                       | Phase 1.5/2           | **Pulled into Phase 1** (Track 2) — user-owned Google Drive                                         |
-| Change passphrase / PIN            | "planned"             | **Pulled into Phase 1** (Track 2) — trivial under envelope crypto                                   |
+| Feature                            | Originally planned    | Moving to                                                                                                                                                                                                      |
+| ---------------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CAS PDF import                     | M11 step 70           | Phase 2                                                                                                                                                                                                        |
+| Watchlist                          | M11 step 71           | Phase 2                                                                                                                                                                                                        |
+| Export PDF/HTML                    | M8 step 47 (CSV done) | Phase 2                                                                                                                                                                                                        |
+| Chip mock chat UI                  | M8 step 44            | Phase 2                                                                                                                                                                                                        |
+| Desktop layout                     | M8 step 48            | Phase 2                                                                                                                                                                                                        |
+| Real Chip AI                       | All of Phase 1        | Phase 2                                                                                                                                                                                                        |
+| SMS transaction parsing            | BRD v4                | Phase 2 — built 2026-08-15 (core, mobile UI, native Android capture layer), pending real-device verification before rollout; see [`docs/plans/sms-transaction-tracking.md`](plans/sms-transaction-tracking.md) |
+| Credit score via bureau aggregator | BRD v4                | Phase 2                                                                                                                                                                                                        |
+| Biometric auth                     | TSD v1.0              | Phase 2 (native app) — WebAuthn-PRF on PWA too patchy; envelope crypto leaves a wrapping slot ready                                                                                                            |
+| Cloud backup                       | Phase 1.5/2           | **Pulled into Phase 1** (Track 2) — user-owned Google Drive                                                                                                                                                    |
+| Change passphrase / PIN            | "planned"             | **Pulled into Phase 1** (Track 2) — trivial under envelope crypto                                                                                                                                              |
 
 ## Open decisions
 
@@ -829,12 +915,17 @@ first.** (The chrome consolidation and Penny Blue removal from that same discuss
 since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes" entry and
 `docs/DESIGN_GUIDELINES.md` §4.)
 
-- **Open mode timer** — still open, not decided.
-- **Privacy mode switching itself** — the ambient mode-driven screen tinting (Safe/
-  Private/Open repainting the background) was removed 2026-07-31 (see
-  `docs/DESIGN_GUIDELINES.md` §4), but the mode _itself_ (masking, PIN-gated Open mode,
-  the switcher) is untouched. Whether privacy mode should be removed as a feature
-  entirely is still open.
+- ~~**Open mode timer**~~ — **resolved 2026-08-18**: removed. Open mode no longer has a
+  visible countdown or fixed-duration auto-expiry — it persists until the user switches
+  back manually or the app backgrounds (`AppState` safety net). See the real-device-testing
+  entry below.
+- ~~**Privacy mode switching itself**~~ — **partially resolved 2026-08-18**: the middle
+  `'privacy'` mode (mask every amount regardless of sensitivity) was removed outright —
+  `PrivacyMode` is now `'safe' | 'open'` on `apps/mobile`. The ambient mode-driven screen
+  tinting (Safe/Private/Open repainting the background) had already been removed
+  2026-07-31 (see `docs/DESIGN_GUIDELINES.md` §4). What remains of the original question —
+  whether Safe/Open masking should be removed as a feature _entirely_ — is still open, but
+  narrower than before.
 - **Settings' "Modules" visibility-toggle section** — still open; tied to the Portfolio
   redesign below (once Home's News/Calculators tiles are removed, this section may no
   longer be needed).
@@ -870,25 +961,32 @@ since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes
   link itself has since shipped, see `docs/features/goals.md`) — not a frequent action, so
   don't over-index the design on it. Goal suggestions should surface on Home too, not just
   in Goals.
-- **Groups & IOU** — a way to mark a personal-ledger/group amount as "never coming back"
-  (write-off); promoting a personal ledger to a full group; adding _static_
-  (non-app, un-invitable) members to a group; warn/highlight if an expense or IOU entry
-  would push a cash account negative (likely a forgotten cash-income entry or wrong
-  account/payment-mode pick), including in the demo/simulated data; once a group is fully
-  settled, keep historical records visible but make them **immutable** (no further edits
-  post-settlement).
+- ~~**Groups & IOU**~~ — **shipped 2026-08-18** (real-device-testing-pass Phase 3 — see
+  Part 1's "Groups (Track E) redesign" entry and [`docs/features/iou.md`](../features/iou.md)):
+  write-off/undo-write-off (`settlement_void`), promoting a personal ledger to a full group
+  (`PromoteToGroupWizard.tsx`), static/accountless members, cash-negative warnings in every
+  IOU form (+ a seed-data regression test), and settled/closed groups already disable every
+  edit/flag/delete action (`GroupDashboard.tsx`'s `canAct` gate).
 - **Future features (roadmap awareness only, not urgent):** CIBIL score; importing stocks
   via Account Aggregator, mutual funds via MFCentral (PAN + phone); automatic Google Drive
-  backup via the Drive API; Financial Health popup auto-picking the latest monthly
-  take-home from expenses/income (summed if multiple sources), staying user-editable;
-  auto-categorizing stocks/mutual funds by performance (the way INDmoney/Dezerv/
-  PowerUpMoney do); whether/how Penny could do AI-driven market research privately,
+  backup via the Drive API; auto-categorizing stocks/mutual funds by performance (the way
+  INDmoney/Dezerv/PowerUpMoney do); whether/how Penny could do AI-driven market research privately,
   on-device; a pre-onboarding (and pricing-page-reusable) screen explaining what's free
-  vs. server-dependent/paid; Android SMS-based auto transaction tracking (enable/disable
-  toggle, scan historically vs. going-forward only — see "SMS transaction parsing" above,
-  same privacy concern applies).
+  vs. server-dependent/paid. (Android SMS-based auto transaction tracking, formerly listed
+  here, moved out to a real status line above — it's built, not just an idea; see "SMS
+  transaction parsing" above and [`docs/features/sms-tracking.md`](../features/sms-tracking.md).)
 - **Known bug, not yet fixed:** the Penny app icon is not actually set as the app's real
   icon.
+- **SMS tracking optimization** — flagged (not scoped) during the 2026-08-18 real-device-testing
+  pass; logged so it isn't lost. See `docs/plans/real-device-testing-pass.md`'s Backlog section and
+  [`docs/features/sms-tracking.md`](../features/sms-tracking.md).
+- **3 punch-list items explicitly deferred pending the user's own go-ahead** (allowing a transaction
+  to switch to/from Transfer; fixing duplicate statement-record linking, already written and
+  unit-tested but reverted after an unresolved crash correlation; scroll-linked month highlighting)
+  — see `docs/plans/real-device-testing-pass.md`'s Backlog section, 10th-batch source items 2/11/14.
+- **App-wide auto-refresh / stale-data audit, mobile gesture survey, new-user/progressive home
+  experience** — real-device-testing-pass Phases 4–6, not started; see
+  `docs/plans/real-device-testing-pass.md`.
 
 ## Phase 2 ideas (AI + Cloud)
 
@@ -932,7 +1030,6 @@ since shipped — see `docs/ARCHITECTURE.md`'s "Chrome consolidation, two passes
   transfer (and vice versa) via the normal edit flow, not just during bank-import review (where this
   already works, 2026-08-05 — `ExpenseForm`'s statementPreset mode). Deferred 2026-08-05 pending a
   separate scoping discussion (app-wide edit-form behavior, not specific to bank import).
-- **SMS transaction parsing** — Auto-detect expenses from bank SMS alerts. Privacy concern: requires READ_SMS permission.
 - **"Import with Chip" conversational review** — Instead of (or as a toggle alongside) the tile-based review screen, let Chip ask about only the genuinely ambiguous items (an unresolved category, a suspected transfer pair) via quick-reply chips + free text, silently auto-applying high-confidence matches, with a "Show full review" escape hatch back to the tile view at any point. Explored as a concept sketch in `docs/mockups/proposals/import-wizard-redesign-v3.html`'s "out of the box" section. Open question flagged there: risk of hiding decisions from the user by auto-applying matches — needs a confidence-threshold and an always-visible audit trail (e.g. "12 rows auto-matched, tap to review") before this could ship, not just a chat UI.
 
 ### Export improvements

@@ -9,7 +9,7 @@ import {
   netWorthSnapshotsRepo,
   personsRepo
 } from '@/core/db/repositories';
-import type { Holding, Liability } from '@/core/db/types';
+import type { BankPresetId, Holding, Liability } from '@/core/db/types';
 import { calcLiquidFunds, computeBalance } from '@/core/accounts/balanceCalculator';
 import { CHECKPOINT_ELIGIBLE, computeAccountVerificationStatus } from '@/core/bank-import/accountVerification';
 import { signedAmount } from '@/core/iou/ledger';
@@ -24,6 +24,9 @@ export interface AccountBalance {
   balance: number;
   color: string;
   icon: string;
+  /** Real per-bank logo resolution (item 44, `~/components/shared/BankLogo.tsx`) — absent on the vast
+   *  majority of accounts (field barely used today), in which case rendering is identical to before. */
+  bankId?: BankPresetId;
   hideInSafeMode?: boolean;
   /** Read-only mirror of the Accounts screen's own "Unverified" badge (2026-08-10) — every day-to-day
    *  visibility argument for this feature applies to Home at least as much as the Accounts screen itself.
@@ -141,6 +144,7 @@ async function loadSummary(): Promise<HomeSummary> {
         balance: computeBalance(acc.id, acc.openingBalance, expenses),
         color: acc.color,
         icon: acc.icon,
+        ...(acc.bankId !== undefined ? { bankId: acc.bankId } : {}),
         needsAttention,
         ...(acc.hideInSafeMode !== undefined ? { hideInSafeMode: acc.hideInSafeMode } : {})
       };
@@ -240,5 +244,5 @@ export function useHome() {
     [summary]
   );
 
-  return { summary, assetGroups, totalAssets, totalLiabilities };
+  return { summary, assetGroups, totalAssets, totalLiabilities, reload };
 }

@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getItem, setItem, removeItem, getJSON, setJSON } from '~/lib/storage';
-import { type PersistedPrivacyMode } from './PrivacyContext';
 
 /**
  * RN port of apps/web-react/src/context/SettingsContext.tsx. Ported in full (not just the
@@ -43,9 +42,21 @@ const DEFAULT_SAFE_MODE_VISIBILITY: SafeModeVisibility = {
 };
 
 const SAFE_MODE_VISIBILITY_KEY = 'penny_settings_safe_mode_visibility';
+/** SMS Tracking master on/off toggle (docs/plans/sms-transaction-tracking.md §7) — sibling of
+ *  `SAFE_MODE_VISIBILITY_KEY` above: a simple AsyncStorage-backed preference, NOT an
+ *  `EncryptedRepository` field, per the plan's explicit call-out that this is a device-local UI
+ *  preference (like every other simple feature toggle in Settings), not durable domain data. Default
+ *  off — same privacy-first precedent as Safe Mode. */
+const SMS_TRACKING_ENABLED_KEY = 'penny_settings_sms_tracking_enabled';
+/** "Default to Open mode" (punch-list item 12) armed-until epoch-ms, or absent when never armed/expired.
+ *  Device-local UI preference like every other key here — NOT `EncryptedRepository` data. Read/written
+ *  as a raw numeric string (not JSON) to match `CASHFLOW_BUFFER_KEY`'s sibling numeric-preference
+ *  convention below, rather than `SAFE_MODE_VISIBILITY_KEY`'s JSON-object convention (there's only ever
+ *  one scalar value to persist, not a record). See `PrivacyContext.tsx` for how this suppresses its
+ *  AppState background-revert-to-Safe effect while armed, and `@penny/core/lib/defaultOpenMode` for the
+ *  shared "is it still armed"/countdown-label helpers both that file and `SettingsPage.tsx` use. */
+const DEFAULT_OPEN_ARMED_UNTIL_KEY = 'penny_settings_default_open_armed_until';
 const FONT_SCALE_KEY = 'penny_settings_font_scale';
-export const DEFAULT_PRIVACY_KEY = 'penny_settings_default_privacy';
-const OPEN_MODE_DURATION_KEY = 'penny_settings_open_mode_duration';
 const LOCK_ON_BACKGROUND_KEY = 'penny_settings_lock_on_background';
 const CASHFLOW_BUFFER_KEY = 'penny_settings_cashflow_buffer';
 const TAX_GROSS_INCOME_KEY = 'penny_settings_tax_gross_income';
@@ -79,38 +90,31 @@ async function loadSafeModeVisibility(): Promise<SafeModeVisibility> {
   return { ...DEFAULT_SAFE_MODE_VISIBILITY, ...(raw ?? {}) };
 }
 
+async function loadSmsTrackingEnabled(): Promise<boolean> {
+  return (await getItem(SMS_TRACKING_ENABLED_KEY)) === '1';
+}
+
+async function loadDefaultOpenArmedUntil(): Promise<number | null> {
+  const raw = await getItem(DEFAULT_OPEN_ARMED_UNTIL_KEY);
+  if (raw === null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 async function loadFontScale(): Promise<FontScale> {
   const raw = await getItem(FONT_SCALE_KEY);
   if (raw === 'small' || raw === 'default' || raw === 'large' || raw === 'xl') return raw;
   return 'default';
 }
 
-/** Open can never be a persisted default — it's only ever a temporary elevation (see PrivacyContext).
- *  A legacy stored value of 'open' (from before this rule existed) silently coerces to 'safe'. */
-export async function loadDefaultPrivacyMode(): Promise<PersistedPrivacyMode> {
-  const raw = await getItem(DEFAULT_PRIVACY_KEY);
-  if (raw === 'safe' || raw === 'privacy') return raw;
-  return 'safe';
-}
-
-/** Allowed Open-mode auto-revert durations, in minutes. */
-export const OPEN_MODE_DURATIONS = [1, 5, 10, 15, 30] as const;
-export type OpenModeDuration = (typeof OPEN_MODE_DURATIONS)[number];
-const DEFAULT_OPEN_MODE_DURATION: OpenModeDuration = 1;
-
-/** Read directly (no React) — used by PrivacyContext's auto-revert timer. */
-export async function loadOpenModeDurationMinutes(): Promise<OpenModeDuration> {
-  const raw = Number(await getItem(OPEN_MODE_DURATION_KEY));
-  return (OPEN_MODE_DURATIONS as readonly number[]).includes(raw)
-    ? (raw as OpenModeDuration)
-    : DEFAULT_OPEN_MODE_DURATION;
-}
-
 interface SettingsContextValue {
   safeModeVisibility: SafeModeVisibility;
+  /** SMS Tracking master on/off (docs/plans/sms-transaction-tracking.md §7) — default off. */
+  smsTrackingEnabled: boolean;
+  /** "Default to Open mode" (punch-list item 12) — epoch-ms the current 3-day arming expires at, or
+   *  `null` when never armed, manually reverted, or already expired-and-reconciled. */
+  defaultOpenArmedUntil: number | null;
   fontScale: FontScale;
-  defaultPrivacyMode: PersistedPrivacyMode;
-  openModeDurationMinutes: OpenModeDuration;
   lockOnBackground: boolean;
   cashflowBuffer: number;
   /** Manual annual gross income for the tax footprint; null = derive from income transactions. */
@@ -122,9 +126,10 @@ interface SettingsContextValue {
   /** Manual annual statutory levies (professional tax + LWF); null = default (~₹2,400). */
   taxStatutoryOverride: number | null;
   setSafeModeVisibility: (key: keyof SafeModeVisibility, visible: boolean) => void;
+  setSmsTrackingEnabled: (value: boolean) => void;
+  /** Arms (a future epoch-ms) or clears (`null`) the "Default to Open mode" window. */
+  setDefaultOpenArmedUntil: (value: number | null) => void;
   setFontScale: (scale: FontScale) => void;
-  setDefaultPrivacyMode: (mode: PersistedPrivacyMode) => void;
-  setOpenModeDurationMinutes: (minutes: OpenModeDuration) => void;
   setLockOnBackground: (value: boolean) => void;
   setCashflowBuffer: (value: number) => void;
   setTaxGrossIncomeOverride: (value: number | null) => void;
@@ -137,10 +142,9 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [safeModeVisibility, setSafeModeVisibilityState] = useState<SafeModeVisibility>(DEFAULT_SAFE_MODE_VISIBILITY);
+  const [smsTrackingEnabled, setSmsTrackingEnabledState] = useState(false);
+  const [defaultOpenArmedUntil, setDefaultOpenArmedUntilState] = useState<number | null>(null);
   const [fontScale, setFontScaleState] = useState<FontScale>('default');
-  const [defaultPrivacyMode, setDefaultPrivacyModeState] = useState<PersistedPrivacyMode>('safe');
-  const [openModeDurationMinutes, setOpenModeDurationMinutesState] =
-    useState<OpenModeDuration>(DEFAULT_OPEN_MODE_DURATION);
   const [lockOnBackground, setLockOnBackgroundState] = useState(false);
   const [cashflowBuffer, setCashflowBufferState] = useState(DEFAULT_CASHFLOW_BUFFER);
   const [taxGrossIncomeOverride, setTaxGrossIncomeOverrideState] = useState<number | null>(null);
@@ -152,9 +156,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     Promise.all([
       loadSafeModeVisibility(),
+      loadSmsTrackingEnabled(),
+      loadDefaultOpenArmedUntil(),
       loadFontScale(),
-      loadDefaultPrivacyMode(),
-      loadOpenModeDurationMinutes(),
       loadLockOnBackground(),
       loadCashflowBuffer(),
       loadOptionalAmount(TAX_GROSS_INCOME_KEY),
@@ -164,9 +168,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     ]).then(
       ([
         loadedSafeMode,
+        loadedSmsTrackingEnabled,
+        loadedDefaultOpenArmedUntil,
         loadedFontScale,
-        loadedDefaultPrivacy,
-        loadedOpenModeDuration,
         loadedLockOnBackground,
         loadedCashflowBuffer,
         loadedTaxGross,
@@ -176,9 +180,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       ]) => {
         if (cancelled) return;
         setSafeModeVisibilityState(loadedSafeMode);
+        setSmsTrackingEnabledState(loadedSmsTrackingEnabled);
+        setDefaultOpenArmedUntilState(loadedDefaultOpenArmedUntil);
         setFontScaleState(loadedFontScale);
-        setDefaultPrivacyModeState(loadedDefaultPrivacy);
-        setOpenModeDurationMinutesState(loadedOpenModeDuration);
         setLockOnBackgroundState(loadedLockOnBackground);
         setCashflowBufferState(loadedCashflowBuffer);
         setTaxGrossIncomeOverrideState(loadedTaxGross);
@@ -200,19 +204,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setSmsTrackingEnabled = useCallback((value: boolean) => {
+    void setItem(SMS_TRACKING_ENABLED_KEY, value ? '1' : '0');
+    setSmsTrackingEnabledState(value);
+  }, []);
+
+  const setDefaultOpenArmedUntil = useCallback((value: number | null) => {
+    if (value === null || !Number.isFinite(value) || value <= 0) {
+      void removeItem(DEFAULT_OPEN_ARMED_UNTIL_KEY);
+      setDefaultOpenArmedUntilState(null);
+    } else {
+      void setItem(DEFAULT_OPEN_ARMED_UNTIL_KEY, String(value));
+      setDefaultOpenArmedUntilState(value);
+    }
+  }, []);
+
   const setFontScale = useCallback((scale: FontScale) => {
     void setItem(FONT_SCALE_KEY, scale);
     setFontScaleState(scale);
-  }, []);
-
-  const setDefaultPrivacyMode = useCallback((m: PersistedPrivacyMode) => {
-    void setItem(DEFAULT_PRIVACY_KEY, m);
-    setDefaultPrivacyModeState(m);
-  }, []);
-
-  const setOpenModeDurationMinutes = useCallback((minutes: OpenModeDuration) => {
-    void setItem(OPEN_MODE_DURATION_KEY, String(minutes));
-    setOpenModeDurationMinutesState(minutes);
   }, []);
 
   const setLockOnBackground = useCallback((value: boolean) => {
@@ -273,9 +282,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       safeModeVisibility,
+      smsTrackingEnabled,
+      defaultOpenArmedUntil,
       fontScale,
-      defaultPrivacyMode,
-      openModeDurationMinutes,
       lockOnBackground,
       cashflowBuffer,
       taxGrossIncomeOverride,
@@ -283,9 +292,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxEpfOverride,
       taxStatutoryOverride,
       setSafeModeVisibility,
+      setSmsTrackingEnabled,
+      setDefaultOpenArmedUntil,
       setFontScale,
-      setDefaultPrivacyMode,
-      setOpenModeDurationMinutes,
       setLockOnBackground,
       setCashflowBuffer,
       setTaxGrossIncomeOverride,
@@ -295,9 +304,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }),
     [
       safeModeVisibility,
+      smsTrackingEnabled,
+      defaultOpenArmedUntil,
       fontScale,
-      defaultPrivacyMode,
-      openModeDurationMinutes,
       lockOnBackground,
       cashflowBuffer,
       taxGrossIncomeOverride,
@@ -305,9 +314,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       taxEpfOverride,
       taxStatutoryOverride,
       setSafeModeVisibility,
+      setSmsTrackingEnabled,
+      setDefaultOpenArmedUntil,
       setFontScale,
-      setDefaultPrivacyMode,
-      setOpenModeDurationMinutes,
       setLockOnBackground,
       setCashflowBuffer,
       setTaxGrossIncomeOverride,
@@ -318,6 +327,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+}
+
+/** Non-throwing sibling of `useSettings()` — `null` outside `SettingsProvider` instead of throwing.
+ *  Exists ONLY for `~/theme/fontScale.ts`'s `useFontScale()`: `App.tsx` deliberately renders
+ *  `ToastProvider` ABOVE `SettingsProvider` (2026-08-29, so `PrivacyContext` can call `useToast()`) —
+ *  but `ToastProvider`'s OWN toast card is rendered as a SIBLING of `{children}` in its return value,
+ *  not nested inside it, so that card sits outside `SettingsProvider`'s subtree despite `SettingsProvider`
+ *  being a descendant of `ToastProvider` everywhere else. Every `<Text>` in this app is silently aliased
+ *  to `AppText.tsx` (`metro.config.js`'s Metro-alias shim), which calls `useFontScale()` unconditionally
+ *  — so the toast card's own `<Text>` elements crashed the whole app with `useSettings must be used
+ *  within SettingsProvider` the moment any toast fired (2026-09-01, real-device report: reproduced by
+ *  Google Drive's "Back up now" and every portfolio-holding delete, both of which call `showToast`).
+ *  Font scale is a cosmetic display preference, not a correctness-critical value — degrading to the
+ *  unscaled default outside `SettingsProvider` is the right trade-off; nothing else should use this
+ *  instead of `useSettings()`, which must keep throwing for every other real usage-order bug. */
+export function useSettingsOptional(): SettingsContextValue | null {
+  return useContext(SettingsContext);
 }
 
 export function useSettings(): SettingsContextValue {

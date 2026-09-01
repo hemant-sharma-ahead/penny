@@ -55,7 +55,7 @@ Each encrypted record is independently encrypted with the Master Key:
 - Auth tag: 128-bit (GCM default), ensures integrity
 - Stored format: `{ iv: Uint8Array, ciphertext: Uint8Array }`
 
-Only the fields listed in the `EncryptedRepository` configuration are encrypted. Non-sensitive fields (like `id`, index fields) remain plaintext for Dexie query performance.
+Each record is encrypted as a single whole (`JSON.stringify()`'d, then AES-GCM'd as one blob) — not field-by-field. Only `id` stays plaintext, for every table except one: `expenses` also keeps `date`/`accountId`/`toAccountId`/`categoryId`/`type` as plaintext, indexed columns (added 2026-08-28, Tier 2 performance fix) — a deliberate trade-off for the one table with real row-count pressure, since without a queryable field SQLite/Dexie can only ever "hand back every row," meaning even a single-month read cost scales with total transaction count instead of what's actually asked for. Everything else on an expense — amount, description, category name (looked up via the separately-encrypted `categoryId` reference), hashtags, notes — stays fully encrypted inside the ciphertext blob, same as every other table's every field besides `id`.
 
 ### PIN lockout
 
@@ -222,7 +222,7 @@ liabilities
 
 insurance_policies
   id: string (UUID)
-  *type: 'term_life' | 'whole_life' | 'endowment' | 'ulip' | 'health' | 'vehicle' | 'property' | 'travel' | 'other'
+  *type: 'term' | 'life' | 'health' | 'vehicle' | 'home' | 'travel' | 'other' (renamed/collapsed 2026-08-31 — see docs/SCHEMA.md; this block otherwise predates the same redesign and is illustrative only, not the canonical field list)
   *name: string
   *insurer?: string
   *policyNumber?: string
@@ -348,8 +348,13 @@ assetClass: 'epf'
                                   // 2026-08: gained currentEmploymentConfirmed (only set once the
                                   // user explicitly confirms "still employed" post-import) and
                                   // confirmedFys (FYs with a real import, even a contribution-free
-                                  // one — see docs/plans/epf-passbook-import.md §10.6/§10.7)
-  epfTransactions?: EpfTransaction[]  // 2026-08-07: gained epfWages/epsWages/sourceParticulars/sourceRef
+                                  // one — see docs/plans/epf-passbook-import.md §10.6/§10.7);
+                                  // 2026-08-30: gained pendingTransferDismissed/dismissedHikeMonths
+                                  // (dismissal flags for the pending-transfer banner and the "hike
+                                  // detected" nudge — see §10.14)
+  epfTransactions?: EpfTransaction[]  // 2026-08-07: gained epfWages/epsWages/sourceParticulars/sourceRef;
+                                  // 2026-08-30: gained transferredFromEmployerId (which old employer a
+                                  // transfer_in credit resolves — see §10.14)
   epfHikeGroups?: EpfHikeGroup[]
   // See docs/features/portfolio/retirement.md and docs/plans/epf-passbook-import.md for the full
   // field list and the passbook-PDF-import feature these fields support.
@@ -455,7 +460,7 @@ The function reads from multiple stores: holdings, expenses, goals, accounts, li
   assetClasses: string[]          // ["equity", "mf", "epf", "fd"]
   goalCount: number
   liabilityCount: number
-  insurancePolicies: string[]     // ["term_life", "health"]
+  insurancePolicies: string[]     // ["term", "health"]
   healthScore: number             // 0–100
   ageBand?: string                // "29–34"
   employmentType?: string         // "salaried"

@@ -3,6 +3,7 @@ import {
   detectTransferPairs,
   detectSelfAccountMovementPairs,
   isLikelySelfAccountMovement,
+  isLikelyCashWithdrawal,
   transferPairKey
 } from '@/core/import/importTransferPairing';
 import type { ParsedRow } from '@/core/import/importParsers';
@@ -181,6 +182,24 @@ describe('isLikelySelfAccountMovement', () => {
 
   it('does not flag genuine spending categories', () => {
     expect(isLikelySelfAccountMovement('Groceries')).toBe(false);
+  });
+});
+
+describe('isLikelyCashWithdrawal', () => {
+  it('flags only the cash/ATM withdrawal subset, not the broader self-account-movement list', () => {
+    expect(isLikelyCashWithdrawal('Cash Withdrawal')).toBe(true);
+    expect(isLikelyCashWithdrawal('ATM Withdrawal')).toBe(true);
+    expect(isLikelyCashWithdrawal('Cash Wdl')).toBe(true);
+  });
+
+  it('does not flag wallet top-up or credit-card-bill phrasing (isLikelySelfAccountMovement does)', () => {
+    expect(isLikelyCashWithdrawal('Wallet Recharge')).toBe(false);
+    expect(isLikelyCashWithdrawal('Credit Card Bill Payment')).toBe(false);
+    expect(isLikelyCashWithdrawal('CC Payment')).toBe(false);
+  });
+
+  it('does not flag genuine spending categories', () => {
+    expect(isLikelyCashWithdrawal('Groceries')).toBe(false);
   });
 });
 

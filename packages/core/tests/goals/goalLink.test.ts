@@ -72,6 +72,22 @@ describe('reconcileGoalLink', () => {
     expect(toPut[0]?.id).toBe('a');
     expect(toDelete).toEqual(['b']);
   });
+
+  // Regression for the same 2026-08-26 duplicate-entry bug found and fixed in the IOU-side
+  // `reconcileExpenseLink` (see its own matching test) — a transaction whose goal link was created
+  // manually (`useGoals.ts`'s contribution flow, `origin: 'manual'`) used to be invisible here too.
+  it('finds and updates an existing manual-origin contribution instead of creating a duplicate', () => {
+    const manual = seeded({ id: 'manual-1', origin: 'manual', linkedTxnId: 'exp-1', amount: 500, createdAt: 111 });
+    const { toPut, toDelete } = reconcileGoalLink('exp-1', [manual], intent, NOW);
+    expect(toDelete).toHaveLength(0);
+    expect(toPut).toHaveLength(1);
+    expect(toPut[0]?.id).toBe('manual-1');
+    expect(toPut[0]?.createdAt).toBe(111);
+    expect(toPut[0]?.amount).toBe(1200);
+    // Origin preserved, not forced to 'expense' — `GoalDetailView.tsx`'s `editable = c.origin ===
+    // 'manual'` check must keep working after an expense-side edit touches this contribution too.
+    expect(toPut[0]?.origin).toBe('manual');
+  });
 });
 
 // ── Reverse direction: goal contribution → linked account transaction ───────────────────────

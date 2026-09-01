@@ -5,7 +5,6 @@ import { exitDemoMode, initialize, isWeakPin, wipeAllData } from '@/core/crypto/
 import { EncryptedRepository } from '@/core/db/repository';
 import { db } from '@/core/db/schema';
 import { accountsRepo } from '@/core/db/repositories';
-import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
 import { claimAccount } from '@/core/identity/claim';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
 import type { Account, Profile } from '@/core/db/types';
@@ -84,20 +83,13 @@ export function SetupCredentialsScreen() {
       updatedAt: now
     });
 
+    // `acc` is already the full `AccountInput` shape `AccountFormModal` collected on the Add Accounts
+    // screen (color/icon/includeInNetWorth/bankId/last4 included) — only `id`/`isArchived`/timestamps
+    // are still generated here, since a drafted account's fabricated `id` (`AddAccountsScreen.tsx`'s
+    // `fakeSaveAccount`) was only ever a stand-in for the duplicate-name check, never meant to be the
+    // real persisted id.
     for (const acc of draft.accountsToCreate ?? []) {
-      const meta = ACCOUNT_TYPE_META[acc.type];
-      const account: Account = {
-        id: crypto.randomUUID(),
-        name: acc.name,
-        type: acc.type,
-        openingBalance: acc.openingBalance,
-        color: meta.color,
-        icon: meta.icon,
-        includeInNetWorth: acc.type !== 'credit_card',
-        isArchived: false,
-        createdAt: now,
-        updatedAt: now
-      };
+      const account: Account = { id: crypto.randomUUID(), ...acc, isArchived: false, createdAt: now, updatedAt: now };
       await accountsRepo.put(account);
     }
 

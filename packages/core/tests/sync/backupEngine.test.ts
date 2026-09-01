@@ -35,6 +35,7 @@ import { initialize } from '@/core/crypto/securityManager';
 import { syncCursorRepo } from '@/core/db/repositories';
 import { QuotaExceededError } from '@/core/sync/providers/types';
 import { getBackupState, runNow, setTarget } from '@/core/sync/backupEngine';
+import { setAutoBackupEnabled } from '@/core/sync/backupPrefs';
 
 const PASS = 'correct horse battery staple';
 const PIN = '123456';
@@ -101,5 +102,65 @@ describe('backupEngine.runNow', () => {
     await runNow();
     expect(h.provider.remoteTag).not.toHaveBeenCalled();
     expect(h.provider.push).not.toHaveBeenCalled();
+  });
+
+  // Backup & Restore redesign (docs/mockups/proposals/backup-restore-redesign-v1.html) — the Drive
+  // row's auto-backup on/off toggle. Code-review finding, 2026-08-21: this new gating had zero test
+  // coverage; the `manual` param is the only thing that should ever bypass it.
+  it('cloud: a non-manual run skips the automatic push when auto-backup is disabled, but still pulls', async () => {
+    localStorage.setItem('penny_backup_target', 'google-drive');
+    setAutoBackupEnabled(false);
+    await runNow(); // manual defaults to false — the engine's own periodic/debounced trigger shape
+    expect(h.provider.pull).toHaveBeenCalled();
+    expect(h.provider.push).not.toHaveBeenCalled();
+  });
+
+  it('cloud: a manual run ("Back up now") pushes even when auto-backup is disabled', async () => {
+    localStorage.setItem('penny_backup_target', 'google-drive');
+    setAutoBackupEnabled(false);
+    await runNow(true);
+    expect(h.provider.push).toHaveBeenCalled();
+  });
+
+  // Item 10 (real-device report, 2026-08-29): the Drive card sometimes showed "Not backed up yet"
+  // for a real, already-completed backup — `state.lastBackupAt` was only ever written deep inside
+  // the "something is due" branches, so a no-op run (nothing due, matching the previous test's exact
+  // setup) never synced it with what the persisted cursor actually says, even when the cursor moved
+  // on independently in between two calls.
+  it('hydrates in-memory lastBackupAt from the persisted cursor even on a no-op run', async () => {
+    const t1 = Date.now();
+    await syncCursorRepo.put({
+      id: 'personal-blob',
+      scope: 'personal-blob',
+      remoteTag: 'r1',
+      lastBackupAt: t1,
+      pushedAt: t1,
+      createdAt: t1,
+      updatedAt: t1
+    });
+    localStorage.setItem('penny_backup_target', 'google-drive');
+
+    await runNow();
+    expect(h.provider.push).not.toHaveBeenCalled();
+    expect(getBackupState().lastBackupAt).toBe(t1);
+
+    // Something else advances the persisted cursor's lastBackupAt directly (e.g. a different
+    // process/session) without this session's in-memory state knowing about it yet — remoteTag and
+    // pushedAt stay put, so this run is still a genuine no-op (no push/pull), the exact shape that
+    // used to leave `state.lastBackupAt` stuck on the old value.
+    const t2 = t1 + 1000;
+    await syncCursorRepo.put({
+      id: 'personal-blob',
+      scope: 'personal-blob',
+      remoteTag: 'r1',
+      lastBackupAt: t2,
+      pushedAt: t1,
+      createdAt: t1,
+      updatedAt: t2
+    });
+
+    await runNow();
+    expect(h.provider.push).not.toHaveBeenCalled();
+    expect(getBackupState().lastBackupAt).toBe(t2);
   });
 });

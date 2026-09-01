@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insurance — Add/Edit form + Tracked Insurance card redesign (v1)</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6; --open: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 24px 120px; background: #05070a; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0; color: #fff; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 960px; line-height: 1.65; margin-bottom: 14px; }
+  .intro b { color: #e6edf3; }
+  .intro code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11.5px; }
+
+  nav.anchors {
+    position: sticky; top: 0; z-index: 30; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: #05070a; padding: 10px 0 14px; margin-bottom: 6px; border-bottom: 1px solid #1c2128;
+  }
+  nav.anchors a {
+    font-size: 12px; font-weight: 700; color: #c9d1d9; text-decoration: none; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid #2d333b; background: #161b22;
+  }
+
+  .toolbar {
+    position: sticky; top: 46px; z-index: 29; display: flex; align-items: center; gap: 10px; margin: 0 0 22px;
+    background: #05070a; padding-bottom: 8px;
+  }
+  .toolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid #2d333b; background: #161b22; color: #e6edf3; cursor: pointer;
+  }
+  .toolbar button.active { background: var(--primary); border-color: var(--primary); color: #04140d; }
+  .toolbar .hint { font-size: 11.5px; color: #6e7681; }
+
+  section { margin-top: 56px; padding-top: 6px; scroll-margin-top: 100px; }
+  .section-label {
+    display: inline-flex; align-items:center; gap:8px; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: #6e7681; border: 1px solid #2d333b; border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .desc { max-width: 860px; font-size: 12.5px; color: #8b949e; line-height: 1.65; margin: 6px 0 16px; }
+  .desc b { color: #e6edf3; }
+  .desc code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+
+  .finding {
+    max-width: 900px; margin: 10px 0 18px; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+  .finding.q .tag { color: #93a9ff; border-color: rgba(77,122,255,.4); background: rgba(77,122,255,.1); }
+
+  .row { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: #6e7681; text-align:center; }
+  .col-label.new { color: var(--primary); }
+  .col-cap { max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center; }
+  .col-cap b { color: #9aa4b0; }
+
+  /* Real device frame — 300x650 ≈ scaled 390x844 */
+  .phone {
+    width: 300px; height: 650px; border-radius: 34px; border: 9px solid #111827; overflow: hidden;
+    position: relative; display: flex; flex-direction: column; box-shadow: 0 16px 34px rgba(0,0,0,0.45); flex-shrink: 0;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .screen[data-theme="light"] {
+    background: #f8fafc; --surface: #ffffff; --surface2: #eff6ff; --surface3: #e2ecfb; --border: #c7d8f0;
+    --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+  }
+  .screen[data-theme="dark"] {
+    background: #0b0f14; --surface: #161b22; --surface2: #1c2128; --surface3: #20262f; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; background: inherit;
+  }
+  .backchev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 17px; }
+  .header-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .header-sub { font-size: 9.5px; color: var(--text3); margin-top: 1px; }
+  .header-icons { display: flex; gap: 8px; align-items:center; }
+
+  .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .card-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+
+  .banner { border-radius: 12px; padding: 10px 11px; display: flex; gap: 8px; }
+  .banner.warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); }
+  .banner .ic { font-size: 14px; flex-shrink: 0; margin-top: 1px; color: var(--warning); }
+  .banner .txt { flex: 1; min-width:0; font-size: 10.5px; color: var(--text2); line-height: 1.5; }
+
+  .btn { text-align: center; font-size: 11.5px; font-weight: 700; padding: 10px 8px; border-radius: 11px; cursor: pointer; line-height: 1.3; }
+  .btn.primary { background: var(--primary); color: #04140d; }
+  .btn.danger { background: rgba(239,68,68,.14); color: var(--danger); }
+  .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn.full { width: 100%; }
+  .fab { position:absolute; right:14px; bottom:20px; width:48px; height:48px; border-radius:24px; background:var(--primary);
+    display:flex; align-items:center; justify-content:center; color:#04140d; font-size:20px; font-weight:800; box-shadow:0 8px 18px rgba(0,168,107,.4); }
+
+  /* ---------------- Modal shell ---------------- */
+  .modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; padding: 26px 10px 40px; z-index: 5; }
+  .modal-card { width:100%; max-height:100%; background:var(--surface); border:1px solid var(--border); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; }
+  .modal-head { display:flex; align-items:center; gap:8px; padding:12px 12px 8px; flex-shrink:0; }
+  .modal-title { font-size:13px; font-weight:700; color:var(--text); flex:1; }
+  .modal-body { padding: 4px 12px 14px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; }
+  .xbtn { width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:14px; flex-shrink:0; cursor:pointer; }
+  .modal-foot { display:flex; gap:8px; padding: 8px 12px 12px; flex-shrink:0; }
+  .modal-foot .btn { flex:1; }
+
+  /* ---------------- Form field primitives ---------------- */
+  .field-label { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 5px; display:flex; gap:4px; align-items:baseline; justify-content:space-between; }
+  .field-label .req { color: var(--danger); }
+  .field-label .opt { font-weight: 400; color: var(--text3); }
+  .field-hint { font-size: 9px; color: var(--text3); margin-top: 3px; line-height: 1.5; }
+  .input-box { width:100%; border-radius:10px; border:1px solid var(--border); background:var(--surface2); padding:9px 10px; font-size:11.5px; color:var(--text); }
+  .input-box.ph { color: var(--text3); }
+  .input-box.trigger { display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .input-box.trigger .chv { color: var(--text3); font-size:12px; }
+  textarea.input-box { min-height: 44px; resize: none; font-family: inherit; }
+  .row2 { display:flex; gap:8px; }
+  .row2 > div { flex:1; }
+  .field-block { display:flex; flex-direction:column; }
+
+  /* Type selector — mirrors OptionButton `compact` tiles, 4-up wrap */
+  .type-grid { display:flex; flex-wrap:wrap; gap:6px; }
+  .type-tile { width: 23%; display:flex; flex-direction:column; align-items:center; gap:3px; border-radius:11px; border:2px solid var(--border);
+    background: var(--surface2); padding:7px 4px; cursor:pointer; }
+  .type-tile .ic { font-size:15px; }
+  .type-tile .lb { font-size:9px; font-weight:600; color:var(--text2); text-align:center; line-height:1.2; }
+  .type-tile.active { border-color: var(--tile-color, var(--primary)); background: var(--tile-tint, rgba(0,168,107,.1)); }
+  .type-tile.active .lb { color: var(--tile-color, var(--primary)); font-weight:700; }
+
+  /* Segmented control */
+  .seg { display:flex; background:var(--surface2); border-radius:11px; padding:3px; gap:2px; }
+  .seg .s { flex:1; text-align:center; font-size:9.5px; font-weight:700; padding:7px 2px; border-radius:9px; color:var(--text2); cursor:pointer; line-height:1.25; }
+  .seg .s.active { background: var(--primary); color:#04140d; }
+
+  /* Chip row (duration presets, NCB slabs, family members) */
+  .chiprow { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { padding:6px 10px; border-radius:9px; border:1px solid var(--border); background:var(--surface2); font-size:10px; font-weight:700; color:var(--text2); cursor:pointer; }
+  .chip.active { background: var(--primary); border-color: var(--primary); color:#04140d; }
+  .chip.ghost-add { border-style:dashed; color: var(--text3); }
+
+  /* Toggle switch row */
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding: 2px 0; }
+  .toggle-row .tl { font-size:11px; font-weight:600; color:var(--text); }
+  .toggle-row .ts { font-size:9.5px; color:var(--text3); margin-top:1px; }
+  .switch { width:34px; height:19px; border-radius:99px; background:var(--border); position:relative; cursor:pointer; flex-shrink:0; }
+  .switch.on { background: var(--primary); }
+  .switch .knob { position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#fff; transition:left .15s; }
+  .switch.on .knob { left:17px; }
+
+  .preview-line { background: rgba(0,168,107,.1); border:1px solid rgba(0,168,107,.3); border-radius:10px; padding:8px 10px; font-size:10px; color: var(--text2); line-height:1.6; }
+  .preview-line b { color: var(--primary); }
+
+  .divider-label { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color: var(--text3); margin: 2px 0 -4px; display:flex; align-items:center; gap:6px; }
+  .divider-label::after { content:''; flex:1; height:1px; background: var(--border); }
+  .type-fields-block { display:none; flex-direction:column; gap:11px; border-top:1px dashed var(--border); padding-top:11px; }
+  .type-fields-block.active { display:flex; }
+  .duration-presets { display:none; }
+  .duration-presets.active { display:flex; }
+
+  .stepper { display:flex; align-items:center; gap:8px; }
+  .stepper .sb { width:28px; height:28px; border-radius:8px; background:var(--surface2); border:1px solid var(--border); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; cursor:pointer; }
+  .stepper .sv { flex:1; text-align:center; font-size:12px; font-weight:700; color:var(--text); }
+
+  /* Insurer modal option row */
+  .insurer-row { display:flex; align-items:center; gap:8px; padding:9px 2px; border-bottom: 1px solid var(--border); font-size:11px; color:var(--text); cursor:pointer; }
+  .insurer-row:last-child { border-bottom:none; }
+  .insurer-row .rd { width:15px; height:15px; border-radius:50%; border:1.5px solid var(--border); flex-shrink:0; }
+  .insurer-row.sel .rd { border-color: var(--primary); background: var(--primary); position:relative; }
+  .insurer-row.sel { color: var(--primary); font-weight:700; }
+  .insurer-row.other { border-top: 1px dashed var(--border); margin-top:2px; padding-top:11px; color: var(--text2); font-style:italic; }
+  .insurer-caption { font-size:9px; color: var(--text3); margin-top:4px; }
+  .other-reveal { display:none; margin-top:6px; }
+  .other-reveal.active { display:block; }
+  .other-reveal-note { display:flex; align-items:center; gap:6px; font-size:9.5px; color: var(--text3); margin-top:4px; }
+  .other-reveal-note a { color: var(--primary); font-weight:700; text-decoration:none; }
+
+  /* ---------------- Policy card (redesigned) ---------------- */
+  .pcard { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:9px; }
+  .pcard-top { display:flex; align-items:center; gap:9px; }
+  .picon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .pinfo { flex:1; min-width:0; }
+  .pname { font-size:12.5px; font-weight:700; color: var(--text); }
+  .pmeta { display:flex; align-items:center; gap:6px; margin-top:3px; flex-wrap:wrap; }
+  .ptype-badge { font-size:8.5px; font-weight:800; padding:2px 7px; border-radius:99px; color:#fff; }
+  .pnum { font-size:9px; color: var(--text3); }
+  .pchev { font-size:14px; color: var(--text3); }
+
+  .pstats { display:flex; align-items:stretch; gap:0; }
+  .pstat { flex:1; padding: 0 8px; }
+  .pstat:first-child { padding-left:0; }
+  .pstat + .pstat { border-left: 1px solid var(--border); }
+  .pstat .sl { font-size:8.5px; color: var(--text3); text-transform:uppercase; letter-spacing:.02em; }
+  .pstat .sv { font-size:11.5px; font-weight:800; color: var(--text); margin-top:2px; }
+  .pstat .sv.sm { font-size:10px; }
+
+  .pprogress-wrap { display:flex; align-items:center; gap:7px; }
+  .pprogress { flex:1; height:5px; border-radius:99px; background: var(--surface2); overflow:hidden; }
+  .pprogress .fill { height:100%; background: var(--primary); border-radius:99px; }
+  .pprogress-txt { font-size:9px; color: var(--text3); white-space:nowrap; font-weight:700; }
+
+  .pmembers { display:flex; gap:-4px; }
+  .pmember { width:20px; height:20px; border-radius:50%; background: var(--surface3); border:1.5px solid var(--surface); display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:800; color: var(--text2); margin-left:-6px; }
+  .pmember:first-child { margin-left:0; }
+
+  .pnote { font-size:9.5px; color: var(--text2); background: var(--surface2); border-radius:8px; padding:5px 8px; display:flex; align-items:center; gap:5px; }
+
+  .pfoot { display:flex; align-items:center; justify-content:space-between; padding-top:8px; border-top:1px solid var(--border); }
+  .pfoot .pf-left { font-size:9.5px; color: var(--text3); }
+  .duebadge { font-size:9.5px; font-weight:700; padding:3px 8px; border-radius:8px; }
+  .duebadge.ok { background: rgba(16,185,129,.14); color: var(--success); }
+  .duebadge.warn { background: rgba(245,158,11,.18); color: var(--warning); }
+  .duebadge.danger { background: rgba(239,68,68,.16); color: var(--danger); }
+
+  .mini-gallery { display:flex; flex-direction:column; gap:7px; }
+  .mini-row { display:flex; align-items:center; gap:8px; background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:8px 10px; }
+  .mini-row .picon { width:26px; height:26px; border-radius:8px; font-size:12px; }
+  .mini-row .mname { font-size:11px; font-weight:700; color:var(--text); }
+  .mini-row .msub { font-size:9px; color:var(--text3); margin-top:1px; }
+  .mini-row .mval { margin-left:auto; text-align:right; }
+  .mini-row .mval .mv1 { font-size:10.5px; font-weight:800; color:var(--text); }
+  .mini-row .mval .mv2 { font-size:8.5px; color:var(--text3); }
+
+  .note {
+    max-width: 940px; margin-top: 14px; border: 1px dashed #2d333b; border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: #8b949e; line-height: 1.65;
+  }
+  .note b { color: #e6edf3; }
+  .note code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+
+  .decisions { max-width: 900px; }
+  .decisions h3 { font-size: 13px; color: #fff; margin: 22px 0 8px; }
+  .decisions ul { margin: 0 0 4px; padding-left: 20px; }
+  .decisions li { font-size: 12.5px; color: #c9d1d9; line-height: 1.75; margin-bottom: 6px; }
+  .decisions li b { color: #fff; }
+  .decisions .qtag { display:inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #93a9ff; border: 1px solid rgba(77,122,255,.4); background: rgba(77,122,255,.1); border-radius: 999px; padding: 1px 7px; margin-right: 7px; vertical-align: 1px; }
+</style>
+</head>
+<body>
+
+<h1>Insurance — redesigned Add/Edit form + Tracked Insurance card (v1)</h1>
+<p class="intro">
+  Grounded in the real current code: <code>apps/mobile/src/features/insurance/{InsurancePage,PolicyForm,PolicyCard,CoverageSummary,useInsurance}.tsx</code>,
+  <code>packages/core/src/core/insurance/meta.ts</code>, and the <code>InsurancePolicy</code> type in
+  <code>packages/core/src/core/db/types/index.ts</code>. Today's model is flat and type-agnostic (type, insurer,
+  policyNumber, coverageAmount, annualPremium, renewalDate, nominees, notes) — no start date, no duration, no
+  payment frequency, no first-year discount, and no type-specific fields at all. This mockup redesigns the
+  Add/Edit form to be type-conditional and the Tracked Insurance card to surface each type's most relevant
+  numbers. The Home-screen "Track insurance" prompt not clearing once a policy exists is a separate, already-
+  flagged code bug — out of scope here. <b>Mockup only — no app code touched.</b>
+</p>
+
+<nav class="anchors">
+  <a href="#current">① Current (today)</a>
+  <a href="#form">② Add/Edit form — type-conditional</a>
+  <a href="#insurer">③ Insurer dropdown + "Not in list"</a>
+  <a href="#cards">④ Tracked Insurance card — redesigned</a>
+  <a href="#decisions">⑤ Design decisions &amp; open questions</a>
+</nav>
+
+<div class="toolbar">
+  <button id="btn-light" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" class="active" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← affects every phone frame on this page at once</span>
+</div>
+
+<!-- ======================================================================= -->
+<!-- SECTION 1 — CURRENT (TODAY)                                             -->
+<!-- ======================================================================= -->
+<section id="current">
+  <div class="section-label">① Current</div>
+  <h2>The real Insurance screen + Add/Edit form, as they exist today</h2>
+  <p class="desc">
+    Faithful reconstruction of <code>InsurancePage.tsx</code> + <code>PolicyCard.tsx</code> +
+    <code>CoverageSummary.tsx</code> (left) and <code>PolicyForm.tsx</code> (right) — same 7 policy-type tiles,
+    same fields, same renewal banner, same coverage-summary footer.
+  </p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Insurance screen — today</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div style="text-align:center;">
+              <div class="header-title">Insurance</div>
+              <div class="header-sub">3 policies · ₹34,700/yr</div>
+            </div>
+            <div class="header-icons"><span style="font-size:13px;color:var(--text2);">◐</span><span style="font-size:14px;color:var(--text2);">🔔</span></div>
+          </div>
+          <div class="body">
+            <div class="banner warning">
+              <span class="ic">⚠</span>
+              <span class="txt">1 policy renews within 30 days. Review and renew to avoid a coverage gap.</span>
+            </div>
+
+            <div class="card">
+              <div style="display:flex; align-items:center; gap:9px;">
+                <span style="font-size:15px;">☂️</span>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:12.5px; font-weight:700; color:var(--text);">HDFC Life</div>
+                  <div style="display:flex; gap:5px; margin-top:3px;">
+                    <span style="font-size:8.5px; font-weight:800; background:#ef4444; color:#fff; padding:2px 7px; border-radius:99px;">Term</span>
+                    <span style="font-size:9px; color:var(--text3);">P-88213</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; gap:12px; margin-top:2px;">
+                <div><div style="font-size:9px;color:var(--text3);">Coverage</div><div style="font-size:11px;font-weight:700;color:var(--text);">₹1,00,00,000</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div><div style="font-size:9px;color:var(--text3);">Premium / yr</div><div style="font-size:11px;font-weight:700;color:var(--text);">₹14,200</div></div>
+              </div>
+              <div style="display:flex; justify-content:flex-end;"><span class="duebadge warn">18d left</span></div>
+            </div>
+
+            <div class="card">
+              <div style="display:flex; align-items:center; gap:9px;">
+                <span style="font-size:15px;">🏥</span>
+                <div style="flex:1; min-width:0;">
+                  <div style="font-size:12.5px; font-weight:700; color:var(--text);">Star Health</div>
+                  <div style="display:flex; gap:5px; margin-top:3px;">
+                    <span style="font-size:8.5px; font-weight:800; background:#10b981; color:#fff; padding:2px 7px; border-radius:99px;">Health</span>
+                    <span style="font-size:9px; color:var(--text3);">SH-44210</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; gap:12px; margin-top:2px;">
+                <div><div style="font-size:9px;color:var(--text3);">Coverage</div><div style="font-size:11px;font-weight:700;color:var(--text);">₹10,00,000</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div><div style="font-size:9px;color:var(--text3);">Premium / yr</div><div style="font-size:11px;font-weight:700;color:var(--text);">₹18,500</div></div>
+              </div>
+              <div style="display:flex; justify-content:flex-end;"><span class="duebadge ok">142d left</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title" style="margin-bottom:2px;">Coverage summary</div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text2); padding:2px 0;"><span>Term cover</span><b style="color:var(--text);">₹1,00,00,000</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text2); padding:2px 0;"><span>Health cover</span><b style="color:var(--text);">₹10,00,000</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text); padding-top:6px; margin-top:2px; border-top:1px solid var(--border); font-weight:700;"><span>Total annual premium</span><b>₹34,700</b></div>
+            </div>
+          </div>
+          <div class="fab">+</div>
+        </div>
+      </div>
+      <div class="col-cap">Flat cards: insurer name, one type badge, coverage + premium only. No dates other than renewal, no per-type detail.</div>
+    </div>
+
+    <div class="col">
+      <div class="col-label">Add/Edit policy form — today</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="header-row"><div style="width:22px;"></div><div class="header-title">Insurance</div><div style="width:22px;"></div></div>
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:16px 8px 24px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head">
+                <div class="modal-title">Add policy</div>
+                <div class="xbtn">✕</div>
+              </div>
+              <div class="modal-body">
+                <div class="field-block">
+                  <div class="field-label">Policy type</div>
+                  <div class="type-grid">
+                    <div class="type-tile active" style="--tile-color:#ef4444; --tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                    <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                    <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                    <div class="type-tile"><span class="ic">🏠</span><span class="lb">Home</span></div>
+                    <div class="type-tile"><span class="ic">✈️</span><span class="lb">Travel</span></div>
+                    <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+                    <div class="type-tile"><span class="ic">🛡</span><span class="lb">Other</span></div>
+                  </div>
+                </div>
+                <div class="field-block"><div class="field-label">Insurer / Company</div><div class="input-box">e.g. LIC, HDFC ERGO, Star Health</div><div class="field-hint">Free-text — no dropdown, no scoping by type today.</div></div>
+                <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+                <div class="row2">
+                  <div class="field-block"><div class="field-label">Coverage amount</div><div class="input-box ph">e.g. 10000000</div></div>
+                  <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box ph">e.g. 12000</div></div>
+                </div>
+                <div class="field-block"><div class="field-label">Renewal / expiry date</div><div class="input-box trigger">31 Aug 2027 <span class="chv">📅</span></div></div>
+                <div class="field-block"><div class="field-label">Nominees <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater, includes dental</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn primary">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Same 9 fields regardless of type — no start date/duration, no payment frequency, no discount, and "renewal date" is really being asked to stand in for a full policy lifecycle.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 2 — ADD/EDIT FORM (PROPOSED, INTERACTIVE)                       -->
+<!-- ======================================================================= -->
+<section id="form">
+  <div class="section-label">② Proposed</div>
+  <h2>Add/Edit Insurance — one form, fields adapt to the selected type</h2>
+  <p class="desc">
+    <b>Tap a type tile below — the whole form updates live</b> (duration presets, type-specific field block,
+    whether "Premium payment term" applies). Universal fields (name, insurer, dates, premium, frequency,
+    first-year discount) never move; only the type tile row, the duration-preset chips, and the block below
+    "Notes" change. Try Term → Health → Vehicle to see the three variants the brief called out by name.
+  </p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Add/Edit Insurance — interactive</div>
+      <div class="phone" style="height:700px;">
+        <div class="screen" data-theme="dark" id="form-screen">
+          <div class="header-row"><div style="width:22px;"></div><div class="header-title" id="form-title">Add policy · Term</div><div style="width:22px;"></div></div>
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head">
+                <div class="modal-title">Add insurance</div>
+                <div class="xbtn">✕</div>
+              </div>
+              <div class="modal-body">
+
+                <!-- Type selector -->
+                <div class="field-block">
+                  <div class="field-label">Insurance type</div>
+                  <div class="type-grid" id="type-grid">
+                    <div class="type-tile" data-type="term" onclick="selectType('term')" style="--tile-color:#ef4444; --tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                    <div class="type-tile" data-type="life" onclick="selectType('life')" style="--tile-color:#8b5cf6; --tile-tint:rgba(139,92,246,.1);"><span class="ic">❤️</span><span class="lb">Life / ULIP</span></div>
+                    <div class="type-tile" data-type="health" onclick="selectType('health')" style="--tile-color:#10b981; --tile-tint:rgba(16,185,129,.1);"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                    <div class="type-tile" data-type="vehicle" onclick="selectType('vehicle')" style="--tile-color:#f59e0b; --tile-tint:rgba(245,158,11,.1);"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                    <div class="type-tile" data-type="home" onclick="selectType('home')" style="--tile-color:#6366f1; --tile-tint:rgba(99,102,241,.1);"><span class="ic">🏠</span><span class="lb">Home</span></div>
+                    <div class="type-tile" data-type="travel" onclick="selectType('travel')" style="--tile-color:#0ea5e9; --tile-tint:rgba(14,165,233,.1);"><span class="ic">✈️</span><span class="lb">Travel</span></div>
+                    <div class="type-tile" data-type="other" onclick="selectType('other')" style="--tile-color:#6b7280; --tile-tint:rgba(107,114,128,.12);"><span class="ic">🛡</span><span class="lb">Other</span></div>
+                  </div>
+                </div>
+
+                <div class="divider-label">Universal — every type</div>
+
+                <div class="field-block"><div class="field-label">Policy / plan name</div><div class="input-box ph" id="plan-name-ph">e.g. iSelect Smart360 Term Plan</div></div>
+
+                <div class="field-block">
+                  <div class="field-label">Insurer / Company</div>
+                  <div class="input-box trigger" id="insurer-trigger" onclick="openInsurerModal()">
+                    <span id="insurer-trigger-text" class="ph-text" style="color:var(--text3);">Select insurer…</span>
+                    <span class="chv">▾</span>
+                  </div>
+                  <div class="insurer-caption" id="insurer-caption">Showing 11 life insurers, scoped for Term</div>
+                  <div class="other-reveal" id="other-reveal">
+                    <div class="input-box ph">e.g. Universal Sompo General</div>
+                    <div class="other-reveal-note">Not in the list — typed manually. <a onclick="openInsurerModal()">Pick from list instead</a></div>
+                  </div>
+                </div>
+
+                <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+
+                <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 2026 <span class="chv">📅</span></div></div>
+
+                <div class="field-block">
+                  <div class="field-label">Policy duration <span id="duration-label-note" class="opt"></span></div>
+                  <div class="chiprow duration-presets active" data-duration="term" id="dur-term">
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectDuration(this,10)">10Y</div>
+                    <div class="chip active" onclick="selectDuration(this,15)">15Y</div>
+                    <div class="chip" onclick="selectDuration(this,20)">20Y</div>
+                    <div class="chip" onclick="selectAgeDuration(this,60)">Till 60</div>
+                    <div class="chip" onclick="selectAgeDuration(this,65)">Till 65</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="life" id="dur-life">
+                    <div class="chip" onclick="selectDuration(this,10)">10Y</div>
+                    <div class="chip active" onclick="selectDuration(this,15)">15Y</div>
+                    <div class="chip" onclick="selectDuration(this,20)">20Y</div>
+                    <div class="chip" onclick="selectAgeDuration(this,70)">Till 70</div>
+                    <div class="chip" onclick="selectAgeDuration(this,99)">Whole life</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="health" id="dur-health">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,2)">2Y</div>
+                    <div class="chip" onclick="selectDuration(this,3)">3Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="vehicle" id="dur-vehicle">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,2)">2Y</div>
+                    <div class="chip" onclick="selectDuration(this,3)">3Y (OD)</div>
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="home" id="dur-home">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectDuration(this,10)">10Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="travel" id="dur-travel">
+                    <div class="chip" onclick="selectDaysDuration(this,7)">1 week</div>
+                    <div class="chip active" onclick="selectDaysDuration(this,14)">2 weeks</div>
+                    <div class="chip" onclick="selectDaysDuration(this,30)">1 month</div>
+                    <div class="chip" onclick="selectDuration(this,1)">Annual (multi-trip)</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                  <div class="chiprow duration-presets" data-duration="other" id="dur-other">
+                    <div class="chip active" onclick="selectDuration(this,1)">1Y</div>
+                    <div class="chip" onclick="selectDuration(this,3)">3Y</div>
+                    <div class="chip" onclick="selectDuration(this,5)">5Y</div>
+                    <div class="chip" onclick="selectCustomDuration(this)">Custom</div>
+                  </div>
+                </div>
+
+                <div class="field-block">
+                  <div class="field-label">End date <span class="opt" id="end-date-mode">(auto — from duration)</span></div>
+                  <div class="input-box trigger" id="end-date-trigger" onclick="makeEndDateCustom()">31 Aug 2041 <span class="chv">📅</span></div>
+                </div>
+
+                <div class="row2">
+                  <div class="field-block"><div class="field-label">Premium amount</div><div class="input-box" id="premium-input">₹14,200</div></div>
+                  <div class="field-block">
+                    <div class="field-label">Payment frequency</div>
+                    <div class="seg" id="freq-seg" style="padding:2px; gap:1px;">
+                      <div class="s" onclick="selectFreq(this,'M')">M</div>
+                      <div class="s" onclick="selectFreq(this,'Q')">Q</div>
+                      <div class="s" onclick="selectFreq(this,'H')">H</div>
+                      <div class="s active" onclick="selectFreq(this,'A')">A</div>
+                      <div class="s" onclick="selectFreq(this,'S')">Single</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="field-hint" style="margin-top:-6px;">M=Monthly · Q=Quarterly · H=Half-yearly · A=Annual · Single=one-time lump sum</div>
+
+                <div class="toggle-row">
+                  <div><div class="tl">Apply first-year discount</div><div class="ts">Insurer discount on year-1 premium only</div></div>
+                  <div class="switch on" id="discount-switch" onclick="toggleDiscount()"><div class="knob"></div></div>
+                </div>
+                <div id="discount-body" style="display:flex; flex-direction:column; gap:9px;">
+                  <div class="seg" style="max-width:160px;">
+                    <div class="s active" onclick="selectDiscountType(this,'pct')">% off</div>
+                    <div class="s" onclick="selectDiscountType(this,'flat')">₹ flat off</div>
+                  </div>
+                  <div class="row2">
+                    <div class="field-block"><div class="field-label">Discount value</div><div class="chiprow"><div class="chip active" onclick="selectDiscountValue(this,10)">10%</div><div class="chip" onclick="selectDiscountValue(this,15)">15%</div><div class="chip" onclick="selectDiscountValue(this,20)">20%</div></div></div>
+                  </div>
+                  <div class="preview-line" id="discount-preview">
+                    Year 1 premium: <b>₹12,780</b> (10% off ₹14,200) · Year 2 onward: <b>₹14,200</b>/yr
+                  </div>
+                </div>
+
+                <!-- ============ TYPE-SPECIFIC BLOCKS ============ -->
+                <div class="type-fields-block active" id="fields-term">
+                  <div class="divider-label">Term-specific</div>
+                  <div class="field-block"><div class="field-label">Sum assured</div><div class="input-box ph">e.g. 10000000</div></div>
+                  <div class="field-block">
+                    <div class="field-label">Premium payment term</div>
+                    <div class="seg" id="ppt-seg-term"><div class="s active" onclick="selectPPT(this)">Regular (full term)</div><div class="s" onclick="selectPPT(this)">Limited pay</div></div>
+                    <div class="field-hint">"Limited pay" reveals a years input (e.g. pay for 5 or 10 years, stay covered for 15–20).</div>
+                  </div>
+                  <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-life">
+                  <div class="divider-label">Life / Endowment / ULIP-specific</div>
+                  <div class="field-block"><div class="field-label">Sum assured</div><div class="input-box ph">e.g. 2500000</div></div>
+                  <div class="field-block"><div class="field-label">Expected maturity benefit <span class="opt">(optional)</span></div><div class="input-box ph">e.g. 4500000</div><div class="field-hint">Non-guaranteed for ULIP — as per the policy's benefit illustration.</div></div>
+                  <div class="field-block">
+                    <div class="field-label">Premium payment term</div>
+                    <div class="seg"><div class="s active" onclick="selectPPT(this)">Regular (full term)</div><div class="s" onclick="selectPPT(this)">Limited pay</div></div>
+                  </div>
+                  <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-health">
+                  <div class="divider-label">Health-specific</div>
+                  <div class="field-block"><div class="field-label">Sum insured</div><div class="input-box ph">e.g. 1000000</div></div>
+                  <div class="field-block">
+                    <div class="field-label">Policy type</div>
+                    <div class="seg"><div class="s active">Family floater</div><div class="s">Individual</div></div>
+                  </div>
+                  <div class="field-block">
+                    <div class="field-label">Members covered</div>
+                    <div class="chiprow">
+                      <div class="chip active">Self</div><div class="chip active">Spouse</div><div class="chip active">Child 1</div><div class="chip">Child 2</div><div class="chip">Parent</div>
+                      <div class="chip ghost-add">+ Add</div>
+                    </div>
+                    <div class="field-hint">3 members covered</div>
+                  </div>
+                  <div class="field-block"><div class="field-label">Co-pay <span class="opt">(%, optional)</span></div><div class="input-box ph">e.g. 10</div></div>
+                  <div class="field-block"><div class="field-label">Pre-existing conditions / notes <span class="opt">(optional)</span></div><textarea class="input-box" placeholder="e.g. Diabetes — 2yr waiting period applies"></textarea></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-vehicle">
+                  <div class="divider-label">Vehicle-specific</div>
+                  <div class="field-block"><div class="field-label">Registration number</div><div class="input-box ph">e.g. KA03AB1234</div></div>
+                  <div class="row2">
+                    <div class="field-block"><div class="field-label">IDV <span class="opt">(Insured Declared Value)</span></div><div class="input-box ph">e.g. 580000</div></div>
+                    <div class="field-block"><div class="field-label">NCB <span class="opt">(No Claim Bonus)</span></div>
+                      <div class="chiprow"><div class="chip">0%</div><div class="chip active">20%</div><div class="chip">25%</div><div class="chip">35%</div><div class="chip">45%</div><div class="chip">50%</div></div>
+                    </div>
+                  </div>
+                  <div class="field-block"><div class="field-label">Vehicle type</div><div class="seg"><div class="s active">Car</div><div class="s">Two-wheeler</div><div class="s">Commercial</div></div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-home">
+                  <div class="divider-label">Home-specific</div>
+                  <div class="field-block"><div class="field-label">Structure value insured</div><div class="input-box ph">e.g. 6000000</div></div>
+                  <div class="field-block"><div class="field-label">Contents value insured <span class="opt">(optional)</span></div><div class="input-box ph">e.g. 800000</div></div>
+                  <div class="field-block"><div class="field-label">Property type</div><div class="seg"><div class="s active">Owned</div><div class="s">Rented (contents only)</div></div></div>
+                </div>
+
+                <div class="type-fields-block" id="fields-travel">
+                  <div class="divider-label">Travel-specific</div>
+                  <div class="field-block"><div class="field-label">Destination(s)</div><div class="input-box ph">e.g. Thailand, Singapore</div></div>
+                  <div class="field-block"><div class="field-label">Trip type</div><div class="seg"><div class="s active">Single trip</div><div class="s">Multi-trip annual</div></div></div>
+                  <div class="field-block"><div class="field-label">Number of travelers</div>
+                    <div class="stepper"><div class="sb">–</div><div class="sv">2</div><div class="sb">+</div></div>
+                  </div>
+                  <div class="field-hint">Start/end date above = trip start/end for this type.</div>
+                </div>
+
+                <div class="type-fields-block" id="fields-other">
+                  <div class="divider-label">Other</div>
+                  <div class="field-block"><div class="field-label">What does this cover? <span class="opt">(optional)</span></div><textarea class="input-box" placeholder="e.g. Pet insurance for Bruno, covers vet visits up to ₹50,000/yr"></textarea></div>
+                </div>
+
+                <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater, includes dental</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width:380px; align-items:flex-start; padding-top:40px;">
+      <div class="col-label new" style="text-align:left;">What's happening when you tap a tile</div>
+      <ul style="font-size:11.5px; color:#9aa4b0; line-height:1.9; padding-left:18px; margin:6px 0 0;">
+        <li><b style="color:#e6edf3;">Universal block</b> (name → first-year discount) never moves — same fields, same order, for every type.</li>
+        <li><b style="color:#e6edf3;">Duration presets</b> swap per type: Term/Life get year + "till age" chips; Health/Vehicle/Home get shorter renewal-cycle chips; Travel gets day-length chips for a single trip.</li>
+        <li>Picking a chip <b style="color:#e6edf3;">auto-fills End date</b> from Start date + duration. Tapping End date directly flips the label to "(custom)" and un-selects the chips — either direction works, matching how <code>DateInput</code> already behaves elsewhere.</li>
+        <li><b style="color:#e6edf3;">Insurer list re-scopes</b> to the selected type (see caption under the field) — see §③ for the full picker + "Other" states.</li>
+        <li><b style="color:#e6edf3;">Premium payment term</b> only appears for Term/Life, and only when frequency ≠ Single — a lump-sum policy has no "years to pay" concept.</li>
+        <li><b style="color:#e6edf3;">First-year discount</b> is a real toggle: off by default, and its preview line does the year-1-vs-renewal math live so the interaction is unambiguous.</li>
+        <li>The type-specific block right after the discount is the only part of the form each type fully owns — try Health (family members + co-pay) vs Vehicle (reg. no. + IDV + NCB) vs Term (sum assured + nominee).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 3 — INSURER DROPDOWN + "NOT IN LIST"                            -->
+<!-- ======================================================================= -->
+<section id="insurer">
+  <div class="section-label">③ Proposed</div>
+  <h2>Insurer / Company — scoped, researched dropdown + explicit "Other" handling</h2>
+  <p class="desc">
+    Real, researched Indian insurers (WebSearch, current as of Aug 2026), split by category — life insurers
+    for Term/Life, standalone health insurers (+ health arms of general insurers) for Health, and general
+    insurers for Vehicle/Home/Travel. Every list ends with an <b>Other</b> row in its own dashed-border style,
+    distinct from the real options above it.
+  </p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Term / Life insurer list</div>
+      <div class="phone" style="height:520px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; align-items:flex-end; padding-bottom:60px;">
+            <div class="modal-card">
+              <div class="modal-head"><div class="modal-title">Insurer / Company</div><div class="xbtn">✕</div></div>
+              <div class="modal-body" style="max-height:380px;">
+                <div class="insurer-row sel"><span class="rd"></span>LIC (Life Insurance Corporation)</div>
+                <div class="insurer-row"><span class="rd"></span>HDFC Life</div>
+                <div class="insurer-row"><span class="rd"></span>ICICI Prudential Life</div>
+                <div class="insurer-row"><span class="rd"></span>SBI Life</div>
+                <div class="insurer-row"><span class="rd"></span>Axis Max Life</div>
+                <div class="insurer-row"><span class="rd"></span>Tata AIA Life</div>
+                <div class="insurer-row"><span class="rd"></span>Bajaj Allianz Life</div>
+                <div class="insurer-row"><span class="rd"></span>Aditya Birla Sun Life</div>
+                <div class="insurer-row"><span class="rd"></span>Kotak Mahindra Life</div>
+                <div class="insurer-row"><span class="rd"></span>PNB MetLife</div>
+                <div class="insurer-row"><span class="rd"></span>Canara HSBC Life</div>
+                <div class="insurer-row other"><span class="rd"></span>Other — not in this list</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">11 real life insurers. LIC pre-selected here as example.</div>
+    </div>
+
+    <div class="col">
+      <div class="col-label">Health insurer list</div>
+      <div class="phone" style="height:520px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; align-items:flex-end; padding-bottom:60px;">
+            <div class="modal-card">
+              <div class="modal-head"><div class="modal-title">Insurer / Company</div><div class="xbtn">✕</div></div>
+              <div class="modal-body" style="max-height:380px;">
+                <div class="insurer-row sel"><span class="rd"></span>Star Health &amp; Allied Insurance</div>
+                <div class="insurer-row"><span class="rd"></span>Niva Bupa Health Insurance</div>
+                <div class="insurer-row"><span class="rd"></span>Care Health Insurance</div>
+                <div class="insurer-row"><span class="rd"></span>Aditya Birla Health Insurance</div>
+                <div class="insurer-row"><span class="rd"></span>ManipalCigna Health Insurance</div>
+                <div class="insurer-row"><span class="rd"></span>HDFC ERGO General (Health)</div>
+                <div class="insurer-row"><span class="rd"></span>ICICI Lombard General (Health)</div>
+                <div class="insurer-row"><span class="rd"></span>Bajaj Allianz General (Health)</div>
+                <div class="insurer-row other"><span class="rd"></span>Other — not in this list</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">7 IRDAI-registered standalone health insurers + 3 general insurers with a major health arm.</div>
+    </div>
+
+    <div class="col">
+      <div class="col-label">Vehicle / Home / Travel insurer list</div>
+      <div class="phone" style="height:520px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; align-items:flex-end; padding-bottom:60px;">
+            <div class="modal-card">
+              <div class="modal-head"><div class="modal-title">Insurer / Company</div><div class="xbtn">✕</div></div>
+              <div class="modal-body" style="max-height:380px;">
+                <div class="insurer-row"><span class="rd"></span>ICICI Lombard General</div>
+                <div class="insurer-row sel"><span class="rd"></span>HDFC ERGO General</div>
+                <div class="insurer-row"><span class="rd"></span>Bajaj Allianz General</div>
+                <div class="insurer-row"><span class="rd"></span>Tata AIG General</div>
+                <div class="insurer-row"><span class="rd"></span>New India Assurance</div>
+                <div class="insurer-row"><span class="rd"></span>SBI General</div>
+                <div class="insurer-row"><span class="rd"></span>Go Digit General</div>
+                <div class="insurer-row"><span class="rd"></span>Reliance General</div>
+                <div class="insurer-row"><span class="rd"></span>Acko General</div>
+                <div class="insurer-row"><span class="rd"></span>Cholamandalam MS General</div>
+                <div class="insurer-row other"><span class="rd"></span>Other — not in this list</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Same general-insurer list reused for Vehicle, Home, and Travel — all three are general-insurance products in India.</div>
+    </div>
+
+    <div class="col">
+      <div class="col-label new">"Other" selected — reveal state</div>
+      <div class="phone" style="height:520px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:60px 10px;">
+            <div class="modal-card">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="field-block">
+                  <div class="field-label">Insurer / Company</div>
+                  <div class="input-box trigger" style="border-color:var(--primary);"><span>Other</span><span class="chv" style="color:var(--primary);">✓</span></div>
+                  <div class="other-reveal active">
+                    <div class="input-box">Universal Sompo General</div>
+                    <div class="other-reveal-note">Not in the list — typed manually. <a>Pick from list instead</a></div>
+                  </div>
+                </div>
+                <div class="field-block"><div class="field-label">Policy / plan name</div><div class="input-box">Two-wheeler Comprehensive</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Selecting "Other" closes the list, marks the trigger with a check, and reveals a free-text field right beneath it — never a silent blank field with no acknowledgement of why.</div>
+    </div>
+  </div>
+
+  <div class="finding q">
+    <span class="tag">judgment call</span>
+    Switching the <b>type</b> tile after an insurer is already chosen resets the insurer selection back to
+    empty (rather than silently keeping, e.g., "Star Health" selected under Vehicle) — the caption under the
+    field always states which list is currently active, so this reset is visible, not surprising. Flagged in
+    §⑤ as a decision worth confirming.
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 4 — TRACKED INSURANCE CARD (REDESIGNED)                         -->
+<!-- ======================================================================= -->
+<section id="cards">
+  <div class="section-label">④ Proposed</div>
+  <h2>Tracked Insurance card — type-aware hero stats</h2>
+  <p class="desc">
+    Same list screen, renewal banner and coverage summary kept exactly as they are today (out of scope this
+    round) — only the policy card itself changes. Each card keeps the same shell (icon + name + type badge +
+    due badge) but its middle stat row is now built from that type's own richer data. Tapping a card still
+    opens the same rich Add/Edit form pre-filled with its data — no new detail-popup pattern invented, since
+    today's code has none to extend (card tap → <code>onEdit</code> → <code>PolicyForm</code>, unchanged).
+  </p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Insurance screen — redesigned cards</div>
+      <div class="phone" style="height:700px;">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div>
+            <div style="text-align:center;">
+              <div class="header-title">Insurance</div>
+              <div class="header-sub">6 policies · ₹1,18,700/yr</div>
+            </div>
+            <div class="header-icons"><span style="font-size:13px;color:var(--text2);">◐</span><span style="font-size:14px;color:var(--text2);">🔔</span></div>
+          </div>
+          <div class="body">
+            <div class="banner warning"><span class="ic">⚠</span><span class="txt">1 policy renews within 30 days. Review and renew to avoid a coverage gap.</span></div>
+
+            <!-- TERM card -->
+            <div class="pcard">
+              <div class="pcard-top">
+                <div class="picon" style="background:rgba(239,68,68,.14); color:#ef4444;">☂️</div>
+                <div class="pinfo">
+                  <div class="pname">iSelect Smart360 Term Plan</div>
+                  <div class="pmeta"><span class="ptype-badge" style="background:#ef4444;">Term</span><span class="pnum">HDFC Life · P-88213</span></div>
+                </div>
+                <div class="pchev">›</div>
+              </div>
+              <div class="pstats">
+                <div class="pstat"><div class="sl">Sum assured</div><div class="sv">₹1.0Cr</div></div>
+                <div class="pstat"><div class="sl">Premium</div><div class="sv sm">₹14,200/yr</div></div>
+                <div class="pstat"><div class="sl">Nominee</div><div class="sv sm">Spouse</div></div>
+              </div>
+              <div class="pprogress-wrap">
+                <div class="pprogress"><div class="fill" style="width:33%;"></div></div>
+                <div class="pprogress-txt">5 of 15 yrs paid</div>
+              </div>
+              <div class="pfoot"><span class="pf-left">Cover till 2041</span><span class="duebadge warn">18d left</span></div>
+            </div>
+
+            <!-- HEALTH card -->
+            <div class="pcard">
+              <div class="pcard-top">
+                <div class="picon" style="background:rgba(16,185,129,.14); color:#10b981;">🏥</div>
+                <div class="pinfo">
+                  <div class="pname">Family Health Optima</div>
+                  <div class="pmeta"><span class="ptype-badge" style="background:#10b981;">Health</span><span class="pnum">Star Health · SH-44210</span></div>
+                </div>
+                <div class="pchev">›</div>
+              </div>
+              <div class="pstats">
+                <div class="pstat"><div class="sl">Sum insured</div><div class="sv">₹10L</div></div>
+                <div class="pstat">
+                  <div class="sl">Members</div>
+                  <div class="pmembers" style="margin-top:3px;"><div class="pmember">S</div><div class="pmember">W</div><div class="pmember">C</div></div>
+                </div>
+                <div class="pstat"><div class="sl">Co-pay</div><div class="sv sm">10%</div></div>
+              </div>
+              <div class="pfoot"><span class="pf-left">Family floater · 3 covered</span><span class="duebadge ok">142d left</span></div>
+            </div>
+
+            <!-- VEHICLE card -->
+            <div class="pcard">
+              <div class="pcard-top">
+                <div class="picon" style="background:rgba(245,158,11,.14); color:#f59e0b;">🚗</div>
+                <div class="pinfo">
+                  <div class="pname">Comprehensive — Swift VXI</div>
+                  <div class="pmeta"><span class="ptype-badge" style="background:#f59e0b;">Vehicle</span><span class="pnum">HDFC ERGO · KA03AB1234</span></div>
+                </div>
+                <div class="pchev">›</div>
+              </div>
+              <div class="pstats">
+                <div class="pstat"><div class="sl">IDV</div><div class="sv sm">₹5,80,000</div></div>
+                <div class="pstat"><div class="sl">NCB</div><div class="sv">20%</div></div>
+                <div class="pstat"><div class="sl">Premium</div><div class="sv sm">₹9,800/yr</div></div>
+              </div>
+              <div class="pfoot"><span class="pf-left">Reg. KA03AB1234</span><span class="duebadge danger">Expired</span></div>
+            </div>
+
+            <div class="divider-label" style="margin: 2px 4px;">Same shell, other types</div>
+
+            <div class="mini-gallery">
+              <div class="mini-row">
+                <div class="picon" style="background:rgba(139,92,246,.14); color:#8b5cf6;">❤️</div>
+                <div><div class="mname">LIC Jeevan Anand</div><div class="msub">Life · LIC</div></div>
+                <div class="mval"><div class="mv1">₹25L</div><div class="mv2">sum assured</div></div>
+              </div>
+              <div class="mini-row">
+                <div class="picon" style="background:rgba(99,102,241,.14); color:#6366f1;">🏠</div>
+                <div><div class="mname">Griha Suraksha</div><div class="msub">Home · Tata AIG</div></div>
+                <div class="mval"><div class="mv1">₹60L</div><div class="mv2">structure value</div></div>
+              </div>
+              <div class="mini-row">
+                <div class="picon" style="background:rgba(14,165,233,.14); color:#0ea5e9;">✈️</div>
+                <div><div class="mname">Thailand Trip Cover</div><div class="msub">Travel · Go Digit</div></div>
+                <div class="mval"><div class="mv1">2 travelers</div><div class="mv2">14 days</div></div>
+              </div>
+              <div class="mini-row">
+                <div class="picon" style="background:rgba(107,114,128,.16); color:#6b7280;">🛡</div>
+                <div><div class="mname">Bruno's Pet Cover</div><div class="msub">Other · Bajaj Allianz</div></div>
+                <div class="mval"><div class="mv1">₹2,200/yr</div><div class="mv2">premium</div></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title" style="margin-bottom:2px;">Coverage summary</div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text2); padding:2px 0;"><span>Term cover</span><b style="color:var(--text);">₹1,00,00,000</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text2); padding:2px 0;"><span>Life cover</span><b style="color:var(--text);">₹25,00,000</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text2); padding:2px 0;"><span>Health cover</span><b style="color:var(--text);">₹10,00,000</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text); padding-top:6px; margin-top:2px; border-top:1px solid var(--border); font-weight:700;"><span>Total annual premium</span><b>₹1,18,700</b></div>
+            </div>
+          </div>
+          <div class="fab">+</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col" style="max-width:400px; align-items:flex-start; padding-top:40px;">
+      <div class="col-label new" style="text-align:left;">Why these hero stats per type</div>
+      <ul style="font-size:11.5px; color:#9aa4b0; line-height:1.9; padding-left:18px; margin:6px 0 0;">
+        <li><b style="color:#e6edf3;">Term</b> — sum assured (the number that matters for adequacy), premium, and nominee, plus a progress bar for "years of premium paid" when Limited Pay is set (falls back to just showing "Cover till {year}" when Regular pay/Single premium, so it never renders a meaningless 0-length bar).</li>
+        <li><b style="color:#e6edf3;">Health</b> — sum insured, small avatar-initial stack for members covered (glanceable "who's on this" without reading names), and co-pay so an out-of-pocket clause isn't buried in Notes.</li>
+        <li><b style="color:#e6edf3;">Vehicle</b> — IDV and NCB together (the two numbers that actually change your payout/renewal quote), registration number moved into the footer since it's an identifier, not a comparison stat.</li>
+        <li>Life/Home/Travel/Other reuse the identical shell at a more compact density — proves the pattern generalizes without needing 7 bespoke layouts.</li>
+        <li>Renewal <code>DueDateBadge</code> and the amber "renews soon" <code>Banner</code> are untouched — same component, same thresholds as today.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 5 — DESIGN DECISIONS & OPEN QUESTIONS                           -->
+<!-- ======================================================================= -->
+<section id="decisions">
+  <div class="section-label">⑤ For you to weigh in on</div>
+  <h2>Design decisions made, and open questions</h2>
+
+  <div class="decisions">
+    <h3>Decisions made (flagging, not asking permission for)</h3>
+    <ul>
+      <li><b>Nominee(s) moved from a universal field to Term/Life-only.</b> Today it's a generic optional field on every type; in practice only death-benefit products (Term, Life/Endowment/ULIP) have a nominee. Health uses "members covered" instead, and Vehicle/Home/Travel/Other don't have one at all.</li>
+      <li><b>"Premium payment term" is a new concept, distinct from policy duration.</b> A Term plan can run 20 years but only require 5 or 10 years of paying (Limited Pay) — this directly answers the "annual payment for 5 years… or lump sum" scenario from the brief. It only shows for Term/Life, and disappears entirely when frequency = Single premium (there's no "years to pay" once it's a one-time payment).</li>
+      <li><b>First-year discount is modeled as a toggle, not a permanent premium override.</b> The stored <code>annualPremium</code> stays the ongoing/renewal figure; the discount is a one-time year-1 modifier (% or flat ₹) shown as a live "Year 1: ₹X · Year 2 onward: ₹Y" preview, so the two numbers never get confused in the data model.</li>
+      <li><b>Duration presets are type-specific</b> (Term/Life get multi-year + "till age" chips; Health/Vehicle/Home get shorter renewal-cycle chips; Travel gets day-length chips) rather than one generic set, because a 15-year chip is meaningless for a 2-week travel policy.</li>
+      <li><b>Health "members covered" is a multi-select chip picker</b>, not a comma-separated free-text field — gives a live count and reuses the same chip-selection interaction pattern already used for duration/NCB elsewhere in this same form, rather than inventing a third input style.</li>
+      <li><b>Vehicle/Home/Travel share one general-insurer dropdown list</b> rather than three near-identical lists, since these are the same category of insurer (general insurance) in India — reduces list-maintenance burden without losing scoping accuracy (Life/Term and Health still get their own distinct lists).</li>
+      <li><b>The Tracked Insurance card keeps today's "tap card → open Add/Edit form pre-filled" interaction</b> as its detail view, rather than introducing a separate read-only detail modal — there's no existing detail-popup pattern on this screen to extend, and the richer form now carries enough information density to double as one.</li>
+    </ul>
+
+    <h3>Open questions</h3>
+    <ul>
+      <li><span class="qtag">confirm</span>Switching the type tile after an insurer is already selected <b>resets</b> the insurer field rather than keeping a now-mismatched selection. Is a silent reset (with the caption updating to show the new scope) the right call, or should it prompt first?</li>
+      <li><span class="qtag">confirm</span>The "Till 60 / Till 65 / Till 70" age-based duration chips (Term/Life) need the user's date of birth to compute a real end date. Penny already stores DOB in Profile — is reading it locally for this non-AI, on-device calculation acceptable, or should these chips be dropped in favor of year-only presets?</li>
+      <li><span class="qtag">flag</span>Vehicle insurance fields here (registration number, IDV, NCB) overlap in spirit with the existing <b>Real Assets → Vehicle holding</b>'s own lightweight insurance-date fields (<code>vehicleInsurancePolicyNo</code> etc. in <code>packages/core/src/core/db/types/index.ts</code>). They're not fully duplicate today — the Vehicle holding only tracks a policy number + compliance dates for its own card, not premium/IDV/NCB — but a user with both a tracked Vehicle asset and a tracked Vehicle insurance policy could end up maintaining the registration number and policy number in two places that can drift. Not resolving this in this mockup (different screens, different original scope) — flagging it now given this project's own documented history with exactly this kind of duplicated-capability drift (Backup &amp; Restore, 2026-07-27), so it's a deliberate "not now" rather than an unnoticed gap.</li>
+      <li><span class="qtag">confirm</span>Should a typed "Other" insurer value be remembered and offered as a suggestion the next time that type's dropdown opens (a growing local autocomplete), or always stay a one-off free-text entry with no memory?</li>
+      <li><span class="qtag">flag</span><code>CoverageSummary.tsx</code> (the "Term cover / Health cover / Total annual premium" footer card) is intentionally left unchanged in this round — it still only sums Term/Life/Health coverage amounts. It could be extended once richer per-type data exists (e.g. showing total Vehicle IDV or total Home structure value), but that's a separate, smaller follow-up, not bundled in here.</li>
+      <li><span class="qtag">confirm</span>Health's co-pay is modeled as a single flat %. Some real policies have tiered/room-rent-linked co-pay clauses that don't reduce to one number — is a free-text notes field (already present) an acceptable place for that nuance, or does it need its own structured field?</li>
+    </ul>
+  </div>
+</section>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+
+  var INSURERS = {
+    term: 11, life: 11, health: 8, vehicle: 11, home: 11, travel: 11, other: 0
+  };
+  var LABELS = {
+    term: 'Term', life: 'Life / ULIP', health: 'Health', vehicle: 'Vehicle', home: 'Home', travel: 'Travel', other: 'Other'
+  };
+  var LIST_KIND = {
+    term: 'life insurers', life: 'life insurers', health: 'health insurers',
+    vehicle: 'general insurers', home: 'general insurers', travel: 'general insurers', other: 'insurers'
+  };
+
+  function selectType(type) {
+    document.querySelectorAll('#type-grid .type-tile').forEach(function (t) {
+      t.classList.toggle('active', t.getAttribute('data-type') === type);
+    });
+    document.querySelectorAll('.type-fields-block').forEach(function (b) { b.classList.remove('active'); });
+    var block = document.getElementById('fields-' + type);
+    if (block) block.classList.add('active');
+
+    document.querySelectorAll('.duration-presets').forEach(function (b) { b.classList.remove('active'); });
+    var dur = document.getElementById('dur-' + type);
+    if (dur) dur.classList.add('active');
+
+    document.getElementById('form-title').textContent = 'Add policy · ' + LABELS[type];
+
+    var n = INSURERS[type] || 0;
+    document.getElementById('insurer-caption').textContent = type === 'other'
+      ? 'Showing the combined insurer list (all categories)'
+      : 'Showing ' + n + ' ' + LIST_KIND[type] + ', scoped for ' + LABELS[type];
+
+    // Reset insurer selection on type change — flagged as a judgment call in §5
+    document.getElementById('insurer-trigger-text').textContent = 'Select insurer…';
+    document.getElementById('insurer-trigger-text').style.color = 'var(--text3)';
+    document.getElementById('other-reveal').classList.remove('active');
+  }
+
+  function openInsurerModal() {
+    // In the real form this opens the shared centered `Modal` seen in §③ — collapsed here to keep
+    // this interactive frame on one screen; §③ shows the three scoped list states in full.
+    alert('Opens the centered insurer picker — see section ③ below for the full scoped-list states.');
+  }
+
+  function selectDuration(chipEl, years) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    chipEl.classList.add('active');
+    document.getElementById('end-date-mode').textContent = '(auto — from duration)';
+    var d = new Date(2026, 7, 31);
+    d.setFullYear(d.getFullYear() + years);
+    document.getElementById('end-date-trigger').innerHTML = formatD(d) + ' <span class="chv">📅</span>';
+  }
+  function selectDaysDuration(chipEl, days) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    chipEl.classList.add('active');
+    document.getElementById('end-date-mode').textContent = '(auto — from duration)';
+    var d = new Date(2026, 7, 31);
+    d.setDate(d.getDate() + days);
+    document.getElementById('end-date-trigger').innerHTML = formatD(d) + ' <span class="chv">📅</span>';
+  }
+  function selectAgeDuration(chipEl) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    chipEl.classList.add('active');
+    document.getElementById('end-date-mode').textContent = '(auto — from your saved DOB, see §5)';
+    document.getElementById('end-date-trigger').innerHTML = 'Computed from DOB <span class="chv">📅</span>';
+  }
+  function selectCustomDuration(chipEl) {
+    chipEl.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    document.getElementById('end-date-mode').textContent = '(custom)';
+  }
+  function makeEndDateCustom() {
+    document.querySelectorAll('.duration-presets.active .chip').forEach(function (c) { c.classList.remove('active'); });
+    document.getElementById('end-date-mode').textContent = '(custom)';
+  }
+  function formatD(d) {
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  }
+
+  function selectFreq(el, code) {
+    el.parentElement.querySelectorAll('.s').forEach(function (s) { s.classList.remove('active'); });
+    el.classList.add('active');
+    var pptBlocks = document.querySelectorAll('[id^="fields-term"] .seg, [id^="fields-life"] .seg');
+    var hide = code === 'S';
+    document.querySelectorAll('.type-fields-block .field-block').forEach(function () {});
+    // Hide/show the Premium payment term field specifically when Single is picked
+    document.querySelectorAll('#fields-term .field-block, #fields-life .field-block').forEach(function (fb) {
+      var lbl = fb.querySelector('.field-label');
+      if (lbl && lbl.textContent.indexOf('Premium payment term') === 0) {
+        fb.style.display = hide ? 'none' : 'flex';
+      }
+    });
+  }
+
+  function selectPPT(el) {
+    el.parentElement.querySelectorAll('.s').forEach(function (s) { s.classList.remove('active'); });
+    el.classList.add('active');
+  }
+
+  function toggleDiscount() {
+    var sw = document.getElementById('discount-switch');
+    var on = !sw.classList.contains('on');
+    sw.classList.toggle('on', on);
+    document.getElementById('discount-body').style.display = on ? 'flex' : 'none';
+  }
+
+  function selectDiscountType(el) {
+    el.parentElement.querySelectorAll('.s').forEach(function (s) { s.classList.remove('active'); });
+    el.classList.add('active');
+  }
+  function selectDiscountValue(el, pct) {
+    el.parentElement.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('active'); });
+    el.classList.add('active');
+    var premium = 14200;
+    var year1 = Math.round(premium * (1 - pct / 100));
+    document.getElementById('discount-preview').innerHTML =
+      'Year 1 premium: <b>₹' + year1.toLocaleString('en-IN') + '</b> (' + pct + '% off ₹' + premium.toLocaleString('en-IN') + ') · Year 2 onward: <b>₹' + premium.toLocaleString('en-IN') + '</b>/yr';
+  }
+</script>
+
+</body>
+</html>

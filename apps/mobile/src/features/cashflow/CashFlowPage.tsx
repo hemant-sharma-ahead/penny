@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Pressable, Text } from 'react-native';
+import { View, Pressable, Text, RefreshControl } from 'react-native';
 import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Circle } from 'react-native-svg';
@@ -17,6 +17,7 @@ import { useIncomeSuggestions } from './useIncomeSuggestions';
 import { CashFlowMonthHeader, CashFlowEventCard } from './CashFlowTimeline';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 const HORIZON_LABEL: Record<string, string> = {
   month: 'this month',
@@ -115,6 +116,10 @@ export function CashFlowPage() {
   } = useCashFlow();
   const { suggestions, confirm, dismiss } = useIncomeSuggestions(nowMs, reload);
   const incomeSuggestion = suggestions[0];
+  // `reload` is `useForecast`'s own re-fetch-and-recompute (re-reads accounts/liabilities/subscriptions/
+  // etc. and reprojects the balance) — a real refresh, not a no-op, so pull-to-refresh here reuses it
+  // as-is rather than inventing a separate dummy recompute.
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   const [showBuffer, setShowBuffer] = useState(false);
   const [bufferDraft, setBufferDraft] = useState(String(cashflowBuffer));
@@ -349,6 +354,7 @@ export function CashFlowPage() {
         getItemType={getItemType}
         renderItem={renderRow}
         ListHeaderComponent={header}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
         ListFooterComponent={
           <Text className="text-xs text-center leading-relaxed text-tertiary mt-4">
             Projected from your accounts, loans, subscriptions, renewals, and recurring income & expenses. Actual

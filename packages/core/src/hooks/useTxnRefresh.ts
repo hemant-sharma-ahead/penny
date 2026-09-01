@@ -3,9 +3,17 @@ import { TXN_CHANGED_EVENT } from './useTxnRefresh.constants';
 
 export { TXN_CHANGED_EVENT };
 
-/** Broadcast that transactions changed so balance/forecast views in other hooks reload. */
+let flushScheduled = false;
+
+/** Broadcast that transactions changed so balance/forecast views in other hooks reload. Coalesced onto
+ *  a microtask — see `useTxnRefresh.native.ts`'s matching doc comment for why. */
 export function notifyTxnChanged(): void {
-  window.dispatchEvent(new Event(TXN_CHANGED_EVENT));
+  if (flushScheduled) return;
+  flushScheduled = true;
+  queueMicrotask(() => {
+    flushScheduled = false;
+    window.dispatchEvent(new Event(TXN_CHANGED_EVENT));
+  });
 }
 
 /**

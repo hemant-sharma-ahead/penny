@@ -1,18 +1,23 @@
-import { useMemo } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, ScrollView, Pressable, Text } from 'react-native';
 import { Button } from '~/components/ui';
+import { Icon } from '~/components/Icon';
+import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Account, AccountType } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
 import type {
   AccountResolutionOrSkip,
   AccountActionOrSkip,
-  CardAccountMergeSuggestion
+  CardAccountMergeSuggestion,
+  CardAccountMergeAmbiguity
 } from '@/core/import/importAccountResolution';
 import type { RowTriage } from './useImport';
 import { AccountsSection } from './review/AccountsSection';
-import { BucketCard } from './review/BucketCard';
-import { useBucketExpansion } from './review/useBucketExpansion';
+import { BucketCard } from '~/components/shared/BucketCard';
+import { useBucketExpansion } from '~/hooks/useBucketExpansion';
+import { AccountFormModal } from '~/components/shared/AccountFormModal';
+import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 
 interface AccountsStageProps {
   accountResolutions: AccountResolutionOrSkip[];
@@ -26,6 +31,8 @@ interface AccountsStageProps {
   parsedRows: ParsedRow[];
   rowTriage: RowTriage[];
   cardMergeSuggestions: CardAccountMergeSuggestion[];
+  /** Ambiguous card→account merges (2026-08-23, item 70) — see `AccountsSection.tsx`'s own doc comment. */
+  cardMergeAmbiguities: CardAccountMergeAmbiguity[];
   onAcceptCardMerge: (cardSourceName: string, targetSourceName: string, paymentMode: string) => void;
   onDismissCardMerge: (cardSourceName: string) => void;
   /** Accepted card→account merges, keyed by card sourceName → target sourceName (code-review fix) —
@@ -38,11 +45,21 @@ interface AccountsStageProps {
   onAcknowledgeAccount: (sourceName: string) => void;
   accountsResolved: boolean;
   confirmedAccountCount: number;
+  /** Creates a real `Account` immediately (2026-08-20, item 41 flow redesign) — backs the "+ Create
+   *  Account" button below and `AccountsSection.tsx`'s same-file merge-accept action. See
+   *  `useImport.ts`'s `createAccount` doc comment. */
+  createAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
   onNext: () => void;
 }
 
 type AccountBucketKey = 'needsReview' | 'ready' | 'skipped';
 
+/** 2026-08-20, item 41 flow redesign — Confirm is now a REQUIRED explicit tap for every row regardless
+ *  of kind, including a confident 'existing' auto-match (previously only an untouched 'create' guess
+ *  needed a confirm step; 'existing'/'skip' were decided the moment a plausible suggestion existed). The
+ *  per-row "New account" kind was dropped entirely, so a `'create'` kind can now only ever mean "no real
+ *  account picked yet" — never confirmable, always Needs Review until the user picks a real account from
+ *  the paired card's dropdown (or creates one). */
 function bucketForAccount(
   r: AccountResolutionOrSkip,
   touchedSourceNames: Set<string>,
@@ -52,8 +69,8 @@ function bucketForAccount(
   // A merged card fully tracks its target (see `cardMergeTargets`' own doc comment) — always decided,
   // regardless of whether IT was individually touched.
   if (cardMergeTargets.has(r.sourceName)) return 'ready';
-  if (r.suggestion.kind === 'create' && !touchedSourceNames.has(r.sourceName)) return 'needsReview';
-  return 'ready';
+  if (r.suggestion.kind === 'existing' && touchedSourceNames.has(r.sourceName)) return 'ready';
+  return 'needsReview';
 }
 
 /**
@@ -71,8 +88,12 @@ function bucketForAccount(
  * see its own `onlyRenderSourceNames` doc comment) and is rendered once per bucket, each time scoped
  * down to just that bucket's own source names via that prop.
  *
- * "Continue" is gated on `accountsResolved` (a 'skip' resolution counts as immediately decided, same as
- * 'existing' — manual-testing gap #1).
+ * "Continue" is gated on `anyAccountReady` — at least one account resolved (a 'skip' resolution counts
+ * as immediately decided, same as 'existing' — manual-testing gap #1) — not on `accountsResolved`
+ * (every account resolved), which was found to be wrong via real user testing 2026-08-15: unlike
+ * Categories (no gate) and Transactions (blocks only when nothing at all is ready), Accounts had been
+ * the sole "block until 100%" stage, with no argued rationale for the asymmetry and a write path that
+ * already tolerates a mix of ready/not-ready accounts regardless.
  */
 export function AccountsStage({
   accountResolutions,
@@ -86,6 +107,7 @@ export function AccountsStage({
   parsedRows,
   rowTriage,
   cardMergeSuggestions,
+  cardMergeAmbiguities,
   onAcceptCardMerge,
   onDismissCardMerge,
   cardMergeTargets,
@@ -94,10 +116,26 @@ export function AccountsStage({
   onAcknowledgeAccount,
   accountsResolved,
   confirmedAccountCount,
+  createAccount,
   onNext
 }: AccountsStageProps) {
   const theme = useThemeColors();
   const sourceAccountCount = accountResolutions.length;
+
+  // "+ Create Account" (2026-08-20, item 41 flow redesign) — opens the real `AccountFormModal`, the
+  // exact same modal used everywhere else in the app to add an account. Mirrors `ExpenseForm.tsx`'s
+  // identical inline "+ Add account" pattern; `createAccount` already appends to `useImport.ts`'s own
+  // `accounts` state on save, so the new account is immediately available as a match candidate for any
+  // row below with no extra plumbing here.
+  const [accountFormSaving, setAccountFormSaving] = useState(false);
+  const accountForm = useAccountForm(async (data, editing) => {
+    setAccountFormSaving(true);
+    try {
+      return await createAccount(data, editing);
+    } finally {
+      setAccountFormSaving(false);
+    }
+  }, accounts);
 
   const buckets = useMemo(() => {
     const needsReview: string[] = [];
@@ -124,6 +162,15 @@ export function AccountsStage({
           : null;
   const { isExpanded, toggle } = useBucketExpansion<AccountBucketKey>(defaultExpandedBucket);
 
+  /** "Continue" gate — loosened 2026-08-15 (real user report: blocking on `accountsResolved`, i.e.
+   *  requiring EVERY account resolved, was wrong; Categories has no gate at all and Transactions only
+   *  blocks when NOTHING is ready — Accounts was the sole "block until 100%" outlier, and the
+   *  commit/write path already fully tolerates a mix of ready/not-ready accounts via
+   *  `notReadyAccountSourceNames` — see `useImport.ts`'s `commitAndImport` doc comment). Only blocks
+   *  when there is truly nothing to proceed with; a `noAccountColumn` file always has exactly one
+   *  "account" so ready-or-not there collapses to the same check `accountsResolved` already does. */
+  const anyAccountReady = noAccountColumn ? accountsResolved : buckets.ready.size > 0;
+
   function renderSection(sourceNames: Set<string>) {
     return (
       <AccountsSection
@@ -138,6 +185,7 @@ export function AccountsStage({
         parsedRows={parsedRows}
         rowTriage={rowTriage}
         cardMergeSuggestions={cardMergeSuggestions}
+        cardMergeAmbiguities={cardMergeAmbiguities}
         onAcceptCardMerge={onAcceptCardMerge}
         onDismissCardMerge={onDismissCardMerge}
         cardMergeTargets={cardMergeTargets}
@@ -145,6 +193,7 @@ export function AccountsStage({
         touchedSourceNames={accountTouchedSourceNames}
         onAcknowledgeAccount={onAcknowledgeAccount}
         onlyRenderSourceNames={sourceNames}
+        createAccount={createAccount}
       />
     );
   }
@@ -163,6 +212,27 @@ export function AccountsStage({
       </View>
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 12, paddingBottom: 16, gap: 12 }}>
+        {/* "+ Create Account" (2026-08-20, item 41 flow redesign, docs/mockups/proposals/
+         *  fourth-batch-redesigns-v5.html §2) — sits above the bucket cards, opens the real
+         *  `AccountFormModal`; a newly-created account is immediately selectable from any row's dropdown
+         *  below. Shown regardless of `noAccountColumn` — useful there too, before picking/creating the
+         *  single whole-file account via that branch's own toggle. */}
+        <Pressable
+          onPress={accountForm.openAdd}
+          className="flex-row items-center justify-center gap-1.5 rounded-xl py-2.5"
+          style={{
+            borderWidth: 1.5,
+            borderStyle: 'dashed',
+            borderColor: tint(theme.success, 50),
+            backgroundColor: tint(theme.success, 8)
+          }}
+        >
+          <Icon name="ti-square-plus" size={14} color={theme.success} />
+          <Text className="text-[11.5px] font-extrabold" style={{ color: theme.success }}>
+            Create Account
+          </Text>
+        </Pressable>
+
         {noAccountColumn ? (
           renderSection(new Set())
         ) : (
@@ -207,14 +277,18 @@ export function AccountsStage({
 
         {!accountsResolved && (
           <Text className="text-center text-[10.5px] text-tertiary" style={{ marginTop: -4 }}>
-            Resolve every account above to continue
+            {anyAccountReady
+              ? 'You can continue now — any account still needing a decision will have its transactions skipped for later'
+              : 'Resolve at least one account above to continue'}
           </Text>
         )}
 
-        <Button variant="primary" disabled={!accountsResolved} onPress={onNext}>
+        <Button variant="primary" disabled={!anyAccountReady} onPress={onNext}>
           Continue
         </Button>
       </ScrollView>
+
+      {accountForm.showForm && <AccountFormModal form={accountForm} saving={accountFormSaving} />}
     </View>
   );
 }

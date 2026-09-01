@@ -10,14 +10,18 @@ import type {
   GroupMember,
   GroupType,
   Hashtag,
+  LedgerKind,
   MerchantMemory,
   PaymentMode,
   Person,
+  TransactionSource,
   TransactionType
 } from '@/core/db/types';
 import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ExpenseGoalIntent } from '@/core/goals/goalLink';
+import { kindForIouCategory } from '@/core/iou/ledger';
 import type { ActiveEvent } from '~/context/EventModeContext';
+import { useToast } from '~/context/ToastContext';
 import { accountsRepo, groupMembersRepo, profileRepo } from '@/core/db/repositories';
 import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 import { getRiskColor } from '@/core/goals/meta';
@@ -34,7 +38,8 @@ import {
   AmountInput,
   Banner,
   SelectInput,
-  Toggle
+  Toggle,
+  ConfirmDialog
 } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -44,11 +49,12 @@ import { CategoryPickerModal } from '~/features/expenses/categories/CategoryPick
 import type { CategoryManager } from '~/features/expenses/categories/types';
 import { AccountFormModal } from './AccountFormModal';
 import { ExtraCircle } from './ExtraCircle';
+import { PersonTypeahead } from './PersonTypeahead';
 import { useAccountForm, type AccountInput } from '~/hooks/useAccountForm';
 import { AccountChips } from './AccountChips';
 import { PaymentModeChips } from './PaymentModeChips';
-import { couplePaymentToAccount } from './paymentModes';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { couplePaymentToAccount, defaultPaymentModeForAccount } from './paymentModes';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { usePaymentModes } from '~/hooks/usePaymentModes';
 import { tint } from '~/lib/color';
 
@@ -81,6 +87,18 @@ interface Props {
   onSeedGoal?: (expenseId: string, intent: ExpenseGoalIntent | null) => Promise<void>;
   /** When editing: the existing expense-seeded goal link for this transaction. */
   linkedGoal?: { goalId: string; goalName: string } | null | undefined;
+  /** When editing (and not a Transfer, and not `goalPreset`/`statementPreset`): enables the type
+   *  `SegmentedControl` restricted to Expense ⟷ Income (item 6, docs/plans/real-device-testing-pass.md
+   *  Phase 2 — Transfer is excluded from edit-mode switching entirely, it structurally needs two
+   *  accounts, so a Transfer being edited keeps today's static-title behavior no matter what this prop
+   *  says). When set to a non-empty string, the switch is blocked instead — both segments render dimmed
+   *  and a `Banner` shows this exact explanatory sentence (e.g. "this transaction is linked to Raj's IOU
+   *  ledger. Remove the link first if you need to switch it."). The caller (`TransactionsSlice.tsx`)
+   *  computes this from whether the transaction has an IOU ledger link (any `ledger_entries` row with a
+   *  matching `linkedTxnId`, not just expense-seeded ones), is shared to a Group (`shareWith.length > 0`),
+   *  or backs a Goal contribution — checking all three since any one of them makes an in-place type
+   *  switch unsafe (the linked record would silently disagree with the transaction's new type). */
+  typeSwitchBlockReason?: string | null;
   /** When editing: this transaction was resolved from a bank-statement import — shows a small audit-
    *  trail caption ("Matched from bank statement: `<raw narration>`, `<date>`"), mirroring the
    *  `goalPreset` caption below (docs/plans/bank-statement-import.md §10a's purpose #1). Read-only —
@@ -195,6 +213,13 @@ export interface StatementPresetInput {
   paymentModeCandidate?: Pick<PaymentMode, 'id' | 'label' | 'icon' | 'color'>;
   descriptionSuggestion?: string;
   categorySuggestion?: string;
+  /** Overrides the `TransactionSource` this form saves as — defaults to `'bank_sync'` when omitted
+   *  (every pre-existing caller is Bank Statement Import, which never set this). Added so SMS
+   *  Tracking's "New Pending" tile (docs/plans/sms-transaction-tracking.md §7) can reuse this exact
+   *  same preset-mode form for its own commit-to-Expense step, passing `'sms'` instead — same reasoning
+   *  as `paymentModeCandidate` above (a second, then third, consumer needing one more preset field
+   *  rather than forking the whole form). */
+  source?: TransactionSource;
 }
 
 const TYPE_META: Record<TransactionType, { label: string; color: string; icon: string }> = {
@@ -230,6 +255,7 @@ export function ExpenseForm({
   goals,
   onSeedGoal,
   linkedGoal,
+  typeSwitchBlockReason,
   linkedBankStatementLines,
   saveAccount,
   searchMerchant,
@@ -242,6 +268,7 @@ export function ExpenseForm({
   onClose
 }: Props) {
   const theme = useThemeColors();
+  const { showToast } = useToast();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   // Editing seeds from the record; a new entry may seed from a duplicate/template prefill.
   const seed = editing ?? prefill ?? null;
@@ -349,23 +376,36 @@ export function ExpenseForm({
   const [showTags, setShowTags] = useState(initialTags.length > 0);
   const [showReceipt, setShowReceipt] = useState(!!editing?.receiptDataUrl);
 
-  // Optional IOU link (new expense/income only): an expense can be "lent to" someone (they owe you),
-  // an income can be "borrowed from" someone (you owe them). The transaction itself is the money
-  // movement; this seeds the matching IOU ledger entry. Direction follows the transaction type.
-  // `showIouPanel` is a pure UI disclosure toggle (mirrors `showTags`/`showReceipt`) — collapsing it
-  // does not clear `iouPerson`, so the ExtraCircle below stays highlighted whenever a person is filled
-  // in, even while the panel itself is collapsed.
-  const [showIouPanel, setShowIouPanel] = useState(!!linkedIou);
+  // IOU link (new expense/income only): an expense can be "lent to" someone (they owe you), an income
+  // can be "borrowed from" someone (you owe them) — or, for the 2 settlement categories, a repayment
+  // of existing debt rather than a new one. The transaction itself is the money movement; this seeds
+  // the matching IOU ledger entry.
+  // 2026-08-26 (explicit user decision, following the split-vs-Groups discussion): the panel is no
+  // longer a free-standing toggle a person could open for ANY category — IOU exists to track a real,
+  // full-amount debt, and shared/partial costs under an unrelated category belong to "Share with a
+  // group" instead (already category-independent, untouched by this change). So visibility is now
+  // driven purely by `iouMandatory` below; there's nothing left to manually open/close.
   const [iouPerson, setIouPerson] = useState(linkedIou?.personName ?? '');
-  const iouKind: 'lent' | 'borrowed' = type === 'income' ? 'borrowed' : 'lent';
-  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-06, explicit user decision) —
-  // picking one of these categories makes the person mandatory, not just a manual toggle someone might
-  // never open before an otherwise-silent validation failure on Save. `iouPanelOpen` (used for
-  // rendering + the toggle's disabled state) is `showIouPanel` OR'd with this; the underlying manual
-  // toggle state itself is untouched, so switching away from a mandatory category reverts to whatever
-  // it was before, same as any other optional panel.
+  // Lending / Borrowed Money / Collected Money / Return Borrowed (2026-08-06) — picking one of these
+  // categories makes the person mandatory.
   const iouMandatory = IOU_MANDATORY_CATEGORY_IDS.has(categoryId);
-  const iouPanelOpen = showIouPanel || iouMandatory;
+  // `kind`/`settleDirection` come from the real category, via the one shared mapping
+  // (`kindForIouCategory`, `core/iou/ledger.ts`) — NOT from the transaction's type alone. Deriving
+  // from type only (`type === 'income' ? 'borrowed' : 'lent'`) was the bug found 2026-08-26: it
+  // mislabeled a "Return Borrowed"-categorized expense as a brand-new "lent" entry instead of a
+  // settlement, since it never looked at which of the 4 categories was actually picked. The legacy
+  // (non-mandatory but still-linked) case below has no real IOU category to read, so it keeps the old
+  // type-only guess — the best available signal for data that predates these 4 categories mattering.
+  const { kind: iouKind, settleDirection: iouSettleDirection } = iouMandatory
+    ? kindForIouCategory(categoryId)
+    : { kind: (type === 'income' ? 'borrowed' : 'lent') as LedgerKind, settleDirection: undefined };
+  // Legacy escape hatch: a transaction saved *before* this gating change can have a real
+  // `linkedIou` (a person tagged under a non-IOU category, from when that was still allowed) — if the
+  // panel only rendered for `iouMandatory`, editing that transaction and saving would silently drop the
+  // existing link the moment its category isn't one of the 4, since the person field would never be on
+  // screen to preserve it. Keeping the panel visible (but not mandatory) whenever a link already exists
+  // avoids that silent data loss; the person is only ever *required* when `iouMandatory`.
+  const iouPanelOpen = iouMandatory || !!linkedIou;
   // See `StatementPresetInput`'s doc comment ("Direction swap for a credit row marked Transfer") —
   // true only when a credit statement row (money arriving into the locked account) has been switched
   // to Transfer, in which case the locked account plays the *destination* role, not the source.
@@ -424,6 +464,89 @@ export function ExpenseForm({
 
   const initEditing = useRef(editing);
 
+  // Discard-changes confirmation (item 29, docs/plans/real-device-testing-pass.md Phase 4) — the X
+  // button, backdrop tap, and Android hardware back all used to call `onClose` unconditionally with no
+  // check for unsaved edits. `formReady` flips true once the mount-time account fetch (and its
+  // new-entry auto-select of the first account/payment-mode, see the effect below) has actually
+  // resolved — the snapshot is captured only after that settles, specifically so that automatic default
+  // doesn't itself register as a "change" and produce a false discard prompt the instant the form opens.
+  const [formReady, setFormReady] = useState(false);
+  const initialSnapshotRef = useRef<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  // Delete confirmation (real-device-testing-pass, item 1) — the Delete button used to call
+  // `onDelete` immediately on press, Undo-toast only; every other destructive action in this app
+  // (bulk delete, discard-changes above) confirms first, so this one-off was the odd one out. Fixed
+  // here, not per-caller, since `ExpenseForm` has 6 independent callers that all get this for free.
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  /** Plain-value fingerprint of everything this form actually lets the user edit — deliberately omits
+   *  pure UI disclosure toggles (`showTags`/`showReceipt`/`showGoalPanel`) and the
+   *  group-member participant selection (`shareParticipants`), which populates from its own async
+   *  members fetch on a similar timer to the account default above and isn't itself a field the user
+   *  directly edits before this snapshot settles. */
+  function currentSnapshot() {
+    return JSON.stringify({
+      type,
+      accountId,
+      toAccountId,
+      amount,
+      date,
+      time,
+      categoryId,
+      paymentMode,
+      description,
+      tagInput,
+      isRecurring,
+      intervalDays,
+      receipt: receipt ?? '',
+      shareEnabled,
+      shareGroupId,
+      iouPerson,
+      selectedGoalId: selectedGoalId ?? ''
+    });
+  }
+
+  useEffect(() => {
+    if (formReady && initialSnapshotRef.current === null) {
+      initialSnapshotRef.current = currentSnapshot();
+    }
+    // currentSnapshot() intentionally isn't in this effect's own dependency list (it closes over every
+    // field below, which is exactly what should re-trigger it) — the guard above ensures it only ever
+    // actually assigns once per mount, the moment `formReady` first turns true.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formReady,
+    type,
+    accountId,
+    toAccountId,
+    amount,
+    date,
+    time,
+    categoryId,
+    paymentMode,
+    description,
+    tagInput,
+    isRecurring,
+    intervalDays,
+    receipt,
+    shareEnabled,
+    shareGroupId,
+    iouPerson,
+    selectedGoalId
+  ]);
+
+  /** Intercepts all three close paths (X button, `Modal`'s backdrop tap, Android hardware back via
+   *  `Modal`'s `onRequestClose` — both of the latter two are wired through `Modal`'s single `onClose`
+   *  prop) — shows a Discard/Cancel confirmation when the form is dirty instead of closing immediately. */
+  function requestClose() {
+    if (initialSnapshotRef.current !== null && initialSnapshotRef.current !== currentSnapshot()) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  }
+
   // Scroll-to-focus refs for validation errors on conditionally-required panels — see `focusPanel()`.
   const scrollRef = useRef<ScrollView>(null);
   const descriptionRef = useRef<RNTextInput>(null);
@@ -435,15 +558,23 @@ export function ExpenseForm({
 
   useEffect(() => {
     accountsRepo.getAll().then((accs) => {
-      const active = accs.filter((a) => !a.isArchived);
+      // Closed accounts (2026-08-27) are hidden from every picker that assigns a NEW/edited
+      // transaction — same treatment `!isArchived` already got, just a separate, distinct flag (see
+      // `Account.isClosed`'s own doc comment for why the two aren't merged).
+      const active = accs.filter((a) => !a.isArchived && !a.isClosed);
       setAccounts(active);
       if (!initEditing.current && active.length > 0) {
-        const first = active[0];
+        // The user's chosen default account (2026-08-27) wins when set; falls back to the previous
+        // "whichever account is first" behavior otherwise — same fallback, just no longer the only
+        // option. Payment mode follows the SAME account via `defaultPaymentModeForAccount`
+        // (cash→cash, credit card→card, bank/wallet→UPI) instead of the old cash-only special case.
+        const first = active.find((a) => a.isDefault) ?? active[0];
         if (first) {
           setAccountId(first.id);
-          if (first.type === 'cash') setPaymentMode('cash');
+          setPaymentMode(defaultPaymentModeForAccount(first));
         }
       }
+      setFormReady(true);
     });
   }, []);
 
@@ -519,6 +650,13 @@ export function ExpenseForm({
     } else if (mem.paymentMode) {
       setPaymentMode(couplePaymentToAccount(selectedAccount, mem.paymentMode));
     }
+    // Pre-fills the most recent matching amount too (2026-08-22) — same "comes from the most recent
+    // matching txn" convention as category/account/payment mode above. Still a plain editable
+    // `AmountInput` afterward, not locked — the user can change it same as any other field.
+    if (mem.amount != null) {
+      setAmount(String(mem.amount));
+      if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
+    }
     setMemPicked(true);
     setErrors((e) => ({ ...e, desc: false, cat: false }));
   }
@@ -591,7 +729,9 @@ export function ExpenseForm({
       cat: type !== 'transfer' && !categoryId,
       // Each of these is required only while its own toggle is on — off entirely, they're skipped.
       tags: type !== 'transfer' && showTags && activeTags.length === 0,
-      iouPerson: showIouSection && iouPanelOpen && !iouPerson.trim(),
+      // Only truly required for a mandatory category — the legacy-link case above shows the panel
+      // without forcing the field, so clearing it (to remove a stale link) doesn't hit a validation wall.
+      iouPerson: showIouSection && iouMandatory && !iouPerson.trim(),
       goal: showGoalSection && showGoalPanel && !selectedGoalId,
       shareGroup: showShareSection && shareEnabled && !shareGroupId,
       repeatInterval: isRecurring && !intervalDays.trim()
@@ -657,7 +797,7 @@ export function ExpenseForm({
         : editing?.shareWith
           ? { shareWith: editing.shareWith }
           : {}),
-      source: editing?.source ?? (statementPreset ? 'bank_sync' : 'manual'),
+      source: editing?.source ?? statementPreset?.source ?? (statementPreset ? 'bank_sync' : 'manual'),
       createdAt: editing?.createdAt ?? now,
       updatedAt: now
     };
@@ -667,11 +807,22 @@ export function ExpenseForm({
         ? shareGroupId
         : null;
     const shareParticipantIds = shareParticipants.size > 0 ? [...shareParticipants] : undefined;
-    // Saved whenever the field is filled, regardless of whether its panel is currently collapsed —
-    // same as tags (parsed from `tagInput` above without checking `showTags`).
+    // Gated on `iouPanelOpen` (mandatory category OR a pre-existing legacy link), not just whether
+    // `iouPerson` happens to hold a value — a category that never made the panel mandatory in the first
+    // place, and has no existing link either, must never seed an IOU entry, no matter what's sitting in
+    // that state variable (e.g. left over from a category the user briefly picked, then changed away
+    // from — `iouPerson` itself is intentionally not cleared on category change, same as `iouPanelOpen`
+    // recomputing live off the current category is what actually decides whether it still applies).
     const iouIntent: ExpenseSeedIntent | null =
-      showIouSection && iouPerson.trim()
-        ? { personName: iouPerson.trim(), kind: iouKind, amount: amt, date: base.date, description: base.description }
+      showIouSection && iouPanelOpen && iouPerson.trim()
+        ? {
+            personName: iouPerson.trim(),
+            kind: iouKind,
+            ...(iouSettleDirection ? { settleDirection: iouSettleDirection } : {}),
+            amount: amt,
+            date: base.date,
+            description: base.description
+          }
         : null;
     const goalIntent: ExpenseGoalIntent | null =
       showGoalSection && selectedGoalId ? { goalId: selectedGoalId, amount: amt, date: base.date } : null;
@@ -736,7 +887,7 @@ export function ExpenseForm({
   return (
     <>
       <Modal
-        onClose={onClose}
+        onClose={requestClose}
         scrollable
         scrollRef={scrollRef}
         onShow={() => descriptionRef.current?.focus()}
@@ -744,7 +895,7 @@ export function ExpenseForm({
           <View className="gap-2.5">
             <View className="flex-row gap-3">
               {editing && (
-                <Button variant="danger" onPress={() => editing && onDelete(editing.id).catch(() => {})}>
+                <Button variant="danger" onPress={() => setShowDeleteConfirm(true)}>
                   Delete
                 </Button>
               )}
@@ -783,7 +934,37 @@ export function ExpenseForm({
             [statementPreset.type, 'transfer'] rather than the full 3-way switch. */}
         <View className="flex-row items-center gap-2">
           {editing ? (
-            <Text className="text-base font-semibold text-primary flex-1">{titleText}</Text>
+            // Transfer stays static-title always (structurally needs two accounts — never offered as a
+            // switch target). `goalPreset`/`statementPreset` editing (goal-contribution edit, bank-import
+            // lone-wolf edit) also keeps the static title — both already have their own fixed type
+            // semantics unrelated to this Expense⟷Income toggle. Otherwise (item 6): a real 2-option
+            // toggle, dimmed + blocked with an explanatory `Banner` below when `typeSwitchBlockReason` is set.
+            editing.type === 'transfer' || goalPreset || statementPreset ? (
+              <Text className="text-base font-semibold text-primary flex-1">{titleText}</Text>
+            ) : (
+              <View className="flex-1">
+                <SegmentedControl
+                  options={[
+                    {
+                      value: 'expense' as const,
+                      label: 'Expense',
+                      icon: 'ti-arrow-down-circle',
+                      color: '#ef4444',
+                      disabled: !!typeSwitchBlockReason
+                    },
+                    {
+                      value: 'income' as const,
+                      label: 'Income',
+                      icon: 'ti-arrow-up-circle',
+                      color: '#10b981',
+                      disabled: !!typeSwitchBlockReason
+                    }
+                  ]}
+                  value={type}
+                  onChange={handleTypeChange}
+                />
+              </View>
+            )
           ) : statementPreset ? (
             <View className="flex-1">
               <SegmentedControl
@@ -818,13 +999,23 @@ export function ExpenseForm({
             </View>
           )}
           <Pressable
-            onPress={onClose}
+            onPress={requestClose}
             accessibilityLabel="Close"
             className="w-8 h-8 items-center justify-center rounded-lg"
           >
             <Icon name="ti-x" size={18} color={theme.textTertiary} />
           </Pressable>
         </View>
+
+        {/* Blocked-switch explanation (item 6) — shown whenever the caller determined this transaction's
+            type can't safely be switched (IOU-linked / shared-to-group / goal-linked), mirroring this
+            file's own audit-trail/payment-mode-mismatch `Banner` convention above, just one level up
+            (type, not a field). */}
+        {editing && editing.type !== 'transfer' && !goalPreset && !statementPreset && typeSwitchBlockReason && (
+          <Banner variant="info" icon="ti-info-circle">
+            Type can&apos;t be changed — {typeSwitchBlockReason}
+          </Banner>
+        )}
 
         {statementPreset?.suggestionNote && type === 'transfer' && (
           <View className="flex-row items-center gap-1.5 -mt-1.5">
@@ -842,44 +1033,6 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* Audit trail (docs/plans/bank-statement-import.md §10a's purpose #1) — read-only, editing
-            only (a brand-new entry has no import link yet). Was a cropped single-line icon+text row
-            (found via user report 2026-08-06: long narrations got cut off, and it didn't follow the
-            app's info/warning/success Banner convention at all) — now a proper `Banner`, full text
-            wrapping, no truncation. The payment-mode mismatch note directly below it (also 2026-08-06)
-            re-derives every render off the live `paymentMode` state, so fixing it via "Paid via" below
-            removes this warning immediately — no separate dismiss/acknowledge action needed. */}
-        {editing && linkedBankStatementLines && linkedBankStatementLines.length > 0 && (
-          <View className="gap-2">
-            <Banner variant="info" icon="ti-building-bank">
-              {linkedBankStatementLines.length === 1 ? (
-                <>
-                  Matched from bank statement: &ldquo;{linkedBankStatementLines[0]?.rawNarration}&rdquo;,{' '}
-                  {formatDate(linkedBankStatementLines[0]?.date ?? 0)}
-                </>
-              ) : (
-                // A cross-account transfer absorbed via `linkAsCrossAccountTransfer` (found + fixed
-                // 2026-08-09) — carries one linked statement line per side, not just one; showing only
-                // the first was the exact on-device bug report ("only showed the statement for HDFC").
-                <>
-                  Matched from both sides of this transfer:
-                  {linkedBankStatementLines.map((line, i) => (
-                    <Text key={i}>
-                      {'\n'}&ldquo;{line.rawNarration}&rdquo;, {formatDate(line.date)}
-                    </Text>
-                  ))}
-                </>
-              )}
-            </Banner>
-            {paymentModeMismatch && impliedPaymentMode && (
-              <Banner variant="warning">
-                Statement suggests {impliedPaymentMode.label} · recorded as{' '}
-                {paymentModeLabelById.get(paymentMode) ?? paymentMode}. Update &ldquo;Paid via&rdquo; below to fix.
-              </Banner>
-            )}
-          </View>
-        )}
-
         {/* Category + Amount, combined — the amount hero moved beside the category picker instead of
             sitting centered above it with empty space either side (found via on-device review: shifting
             amount right frees up real estate on the left worth using, not leaving blank). Transfer has
@@ -891,51 +1044,61 @@ export function ExpenseForm({
             reuses the real form's own layout instead of a separate compact "locked fields" list, per
             explicit user feedback that the statement-preset form "should look like the expense popup". */}
         {type !== 'transfer' ? (
-          <View className="flex-row items-center gap-2.5 mb-1">
-            <Pressable
-              onPress={() => !goalPreset && setShowCategoryPicker(true)}
-              disabled={!!goalPreset}
-              className="items-start gap-1.5 rounded-2xl border px-3 py-3"
-              style={{
-                width: 108,
-                borderColor: errors.cat ? theme.danger : selectedCat ? selectedCat.color : theme.border,
-                borderStyle: selectedCat ? 'solid' : 'dashed',
-                backgroundColor: theme.surfaceSecondary
-              }}
-            >
-              <View
-                className="w-8 h-8 rounded-lg items-center justify-center"
-                style={{ backgroundColor: selectedCat ? tint(selectedCat.color, 15) : theme.surfaceTertiary }}
+          <View className="mb-1">
+            <View className="flex-row items-center gap-2.5">
+              <Pressable
+                onPress={() => !goalPreset && setShowCategoryPicker(true)}
+                disabled={!!goalPreset}
+                className="items-start gap-1.5 rounded-2xl border px-3 py-3"
+                style={{
+                  width: 108,
+                  borderColor: errors.cat ? theme.danger : selectedCat ? selectedCat.color : theme.border,
+                  borderStyle: selectedCat ? 'solid' : 'dashed',
+                  backgroundColor: theme.surfaceSecondary
+                }}
               >
-                <Icon
-                  name={selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}
-                  size={16}
-                  color={selectedCat ? selectedCat.color : theme.textTertiary}
+                <View
+                  className="w-8 h-8 rounded-lg items-center justify-center"
+                  style={{ backgroundColor: selectedCat ? tint(selectedCat.color, 15) : theme.surfaceTertiary }}
+                >
+                  <Icon
+                    name={selectedCat ? selectedCat.icon : 'ti-layout-grid-add'}
+                    size={16}
+                    color={selectedCat ? selectedCat.color : theme.textTertiary}
+                  />
+                </View>
+                <Text
+                  className="text-xs font-medium"
+                  numberOfLines={1}
+                  style={{ color: selectedCat ? theme.textPrimary : theme.textTertiary }}
+                >
+                  {selectedCat?.name ?? 'Select category'}
+                </Text>
+              </Pressable>
+
+              <View style={{ flex: 1 }}>
+                <AmountInput
+                  hero
+                  heroAlign="right"
+                  accentColor={accent}
+                  value={amount}
+                  onChange={(v) => {
+                    setAmount(v);
+                    if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
+                  }}
+                  error={errors.amount ? 'Enter an amount' : undefined}
+                  disabled={!!statementPreset}
                 />
               </View>
-              <Text
-                className="text-xs font-medium"
-                numberOfLines={1}
-                style={{ color: selectedCat ? theme.textPrimary : theme.textTertiary }}
-              >
-                {selectedCat?.name ?? 'Select category'}
-              </Text>
-            </Pressable>
-
-            <View style={{ flex: 1 }}>
-              <AmountInput
-                hero
-                heroAlign="right"
-                accentColor={accent}
-                value={amount}
-                onChange={(v) => {
-                  setAmount(v);
-                  if (errors.amount) setErrors((e) => ({ ...e, amount: false }));
-                }}
-                error={errors.amount ? 'Enter an amount' : undefined}
-                disabled={!!statementPreset}
-              />
             </View>
+            {/* Category-cleared caption (item 6) — categories are type-scoped, so switching Expense⟷Income
+                in edit mode clears the category and lands on the tile's own pre-existing dashed-border
+                empty state above; this just names why. Derived, not stored — naturally disappears once a
+                new category is picked (`categoryId` becomes truthy again) or the type is switched back to
+                what it was originally (`editing.type`). */}
+            {editing && editing.type !== 'transfer' && type !== editing.type && !categoryId && (
+              <Text className="text-[11px] text-tertiary italic mt-1">Category cleared — pick one for {typeLabel}</Text>
+            )}
           </View>
         ) : (
           <AmountInput
@@ -989,9 +1152,14 @@ export function ExpenseForm({
                         {[cat?.name, acct?.name, mem.paymentMode?.toUpperCase()].filter(Boolean).join(' · ')}
                       </Text>
                     </View>
-                    <Text className="text-[11px] font-semibold" style={{ color: theme.primary }}>
-                      Use
-                    </Text>
+                    {/* Most recent matching amount (2026-08-22) — shown so the tap's effect (also
+                        pre-filling the amount, see `applyMemory`) isn't a surprise; the whole row has
+                        always been the tap target (see `Pressable` above), this is display only. */}
+                    {mem.amount != null && (
+                      <Text className="text-[11px] font-semibold" style={{ color: theme.primary }}>
+                        {formatCurrency(mem.amount)}
+                      </Text>
+                    )}
                   </Pressable>
                 );
               })}
@@ -1074,29 +1242,54 @@ export function ExpenseForm({
           )}
         </View>
 
-        {/* Paid via */}
-        {type !== 'transfer' && (
-          <View>
-            <Text className="text-xs font-medium text-secondary mb-1">
-              Paid via
-              {statementPreset && (
-                <Text className="text-xs font-medium" style={{ color: theme.primary }}>
-                  {' '}
-                  · guessed from statement
-                </Text>
-              )}
-            </Text>
-            <PaymentModeChips
-              value={paymentMode}
-              onChange={setPaymentMode}
-              selectedAccount={selectedAccount}
-              pendingCandidate={statementPreset?.paymentModeCandidate}
-            />
-          </View>
-        )}
+        {/* Paid via — also shown for transfers (item 7, 2026-08-29): a transfer still moves via a real
+            rail (NEFT/UPI/cheque/cash), so there's no reason to hide the same picker used for
+            expense/income. Reuses `PaymentModeChips` as-is (same component/props); positioned right
+            after the From/To account rows above, per the approved mockup. */}
+        <View>
+          <Text className="text-xs font-medium text-secondary mb-1">
+            Paid via
+            {statementPreset && (
+              <Text className="text-xs font-medium" style={{ color: theme.primary }}>
+                {' '}
+                · guessed from statement
+              </Text>
+            )}
+          </Text>
+          <PaymentModeChips
+            value={paymentMode}
+            onChange={setPaymentMode}
+            selectedAccount={selectedAccount}
+            pendingCandidate={statementPreset?.paymentModeCandidate}
+          />
+        </View>
 
         {/* Secondary actions — circular icon bar */}
         <View className="flex-row justify-center gap-2 pt-1">
+          {showIouSection && (
+            // No longer a toggle (2026-08-26 — see this file's own `iouPanelOpen`/`iouMandatory` doc
+            // comment above): always rendered so the row's set of circles stays visually stable, and
+            // still tappable, but tapping it while inactive can't open anything anymore — instead it
+            // explains why via the shared toast (`TrackingHeatmap.tsx`'s "touch has no hover" precedent
+            // for exactly this — a brief explanatory tap-response standing in for a tooltip). A no-op
+            // while already active (nothing to explain).
+            <ExtraCircle
+              icon="ti-users"
+              label={iouKind === 'lent' ? 'Lent' : iouKind === 'borrowed' ? 'Borrowed' : 'Settled'}
+              active={iouPanelOpen}
+              locked={!iouPanelOpen}
+              accent={accent}
+              onPress={() => {
+                if (iouPanelOpen) return;
+                showToast({
+                  message:
+                    type === 'income'
+                      ? 'Only enabled for Borrowed Money / Collected Money categories.'
+                      : 'Only enabled for Lending / Return Borrowed categories.'
+                });
+              }}
+            />
+          )}
           {type !== 'transfer' && (
             <ExtraCircle
               icon="ti-hash"
@@ -1122,16 +1315,6 @@ export function ExpenseForm({
               active={showGoalPanel || !!selectedGoalId}
               accent={accent}
               onPress={() => setShowGoalPanel((v) => !v)}
-            />
-          )}
-          {showIouSection && (
-            <ExtraCircle
-              icon="ti-users"
-              label={iouKind === 'lent' ? 'Lent' : 'Borrowed'}
-              active={iouPanelOpen || iouPerson.trim().length > 0}
-              disabled={iouMandatory}
-              accent={accent}
-              onPress={() => setShowIouPanel((v) => !v)}
             />
           )}
           <ExtraCircle
@@ -1353,9 +1536,20 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* Lent / Borrowed panel — auto-opens (and can't be collapsed, see the `ExtraCircle` above)
-            whenever `iouMandatory`, since Lending/Borrowed Money/Collected Money/Return Borrowed exist
-            specifically to record a money movement with a person (2026-08-06). */}
+        {/* Lent / Borrowed panel — auto-opens whenever `iouMandatory` (no manual toggle anymore, see
+            this file's own `iouPanelOpen`/`iouMandatory` doc comment above), since Lending/Borrowed
+            Money/Collected Money/Return Borrowed exist specifically to record a money movement with a
+            person (2026-08-06). Also opens (non-mandatory) for a pre-existing legacy link so it doesn't
+            silently vanish on the next save.
+            Person field (2026-08-18, item 12): now `PersonTypeahead` — the same type-ahead-dropdown
+            pattern `PersonPicker.tsx` (the standalone IOU add-flow) uses, instead of a plain `TextInput`
+            plus an always-visible row of plain-pill matches. The dropdown now only appears while the
+            field is focused/typing (gated on internal `focused` state, not on `iouPerson` being
+            non-empty), matches are live-filtered, and a "Create '<name>'" row shows when nothing exact
+            matches — see `docs/mockups/proposals/iou-quick-fixes-v1.html` §2. Doesn't call
+            `getOrCreatePerson` itself — selecting or typing here only sets `iouPerson`; the actual
+            resolve-or-create still happens later, in `seedIouFromExpense` (`useExpenses.ts`), once the
+            expense itself saves — unchanged architecture, purely a selection-UI change. */}
         {showIouSection && iouPanelOpen && (
           <View
             ref={iouPanelRef}
@@ -1365,49 +1559,39 @@ export function ExpenseForm({
               backgroundColor: theme.surfaceTertiary
             }}
           >
-            <TextInput
-              value={iouPerson}
-              onChange={(v) => {
+            <PersonTypeahead
+              persons={iouPersons ?? []}
+              query={iouPerson}
+              onQueryChange={(v) => {
                 setIouPerson(v);
                 if (errors.iouPerson) setErrors((e) => ({ ...e, iouPerson: false }));
               }}
+              onSelect={(p) => {
+                setIouPerson(p.name);
+                if (errors.iouPerson) setErrors((e) => ({ ...e, iouPerson: false }));
+              }}
               placeholder="Person's name"
-              error={
-                errors.iouPerson
-                  ? iouMandatory
-                    ? 'Enter who this is with — required for this category'
-                    : 'Enter who this is with — you turned this on'
-                  : undefined
-              }
+              error={errors.iouPerson}
             />
-            {!errors.iouPerson && (
+            {errors.iouPerson ? (
+              // Only ever fires when `iouMandatory` — the legacy (non-mandatory) case never requires
+              // the field, see `nextErrors.iouPerson`'s own comment.
+              <Text className="text-xs" style={{ color: theme.danger }}>
+                Enter who this is with — required for this category
+              </Text>
+            ) : (
               <Text className="text-xs text-tertiary">
-                {iouKind === 'lent'
-                  ? "Adds a they-owe-you entry to this person's ledger."
-                  : "Adds a you-owe-them entry to this person's ledger."}
+                {iouMandatory
+                  ? iouKind === 'lent'
+                    ? "Adds a they-owe-you entry to this person's ledger."
+                    : iouKind === 'borrowed'
+                      ? "Adds a you-owe-them entry to this person's ledger."
+                      : iouSettleDirection === 'they_paid_you'
+                        ? 'Records that they paid you back — reduces what they owe you.'
+                        : 'Records that you paid them back — reduces what you owe them.'
+                  : 'This category no longer keeps a person linked by default — clear the name to remove the existing IOU link, or leave it to keep it.'}
               </Text>
             )}
-            {/* RN has no `<datalist>` — web's native browser autocomplete only surfaces options that
-             *  match what's typed, invisible until then; this filters the same way (case-insensitive,
-             *  hidden while empty) instead of always showing every known person. */}
-            {iouPerson.trim().length > 0 &&
-              (() => {
-                const q = iouPerson.trim().toLowerCase();
-                const matches = (iouPersons ?? [])
-                  .filter((p) => !p.isArchived && p.name.toLowerCase().includes(q) && p.name.toLowerCase() !== q)
-                  .slice(0, 6);
-                return (
-                  matches.length > 0 && (
-                    <View className="flex-row flex-wrap gap-1">
-                      {matches.map((p) => (
-                        <Button key={p.id} variant="secondary" size="sm" onPress={() => setIouPerson(p.name)}>
-                          {p.name}
-                        </Button>
-                      ))}
-                    </View>
-                  )
-                );
-              })()}
           </View>
         )}
 
@@ -1539,9 +1723,48 @@ export function ExpenseForm({
           </View>
         )}
 
-        {/* History (editing) */}
+        {/* History (editing), plus the audit trail directly above it (item 3 — moved down from just
+            below the header 2026-08-29, so opening the popup lands on editable fields immediately
+            instead of a read-only banner; docs/plans/bank-statement-import.md §10a's purpose #1).
+            Was a cropped single-line icon+text row (found via user report 2026-08-06: long narrations
+            got cut off, and it didn't follow the app's info/warning/success Banner convention at all)
+            — now a proper `Banner`, full text wrapping, no truncation. The payment-mode mismatch note
+            directly below it (also 2026-08-06) re-derives every render off the live `paymentMode`
+            state, so fixing it via "Paid via" above removes this warning immediately — no separate
+            dismiss/acknowledge action needed. Both banners are pure content/logic carried over as-is
+            — only their position moved. */}
         {editing && (
-          <View className="border-t border-theme pt-3">
+          <View className="border-t border-theme pt-3 gap-2">
+            {linkedBankStatementLines && linkedBankStatementLines.length > 0 && (
+              <View className="gap-2">
+                <Banner variant="info" icon="ti-building-bank">
+                  {linkedBankStatementLines.length === 1 ? (
+                    <>
+                      Matched from bank statement: &ldquo;{linkedBankStatementLines[0]?.rawNarration}&rdquo;,{' '}
+                      {formatDate(linkedBankStatementLines[0]?.date ?? 0)}
+                    </>
+                  ) : (
+                    // A cross-account transfer absorbed via `linkAsCrossAccountTransfer` (found + fixed
+                    // 2026-08-09) — carries one linked statement line per side, not just one; showing only
+                    // the first was the exact on-device bug report ("only showed the statement for HDFC").
+                    <>
+                      Matched from both sides of this transfer:
+                      {linkedBankStatementLines.map((line, i) => (
+                        <Text key={i}>
+                          {'\n'}&ldquo;{line.rawNarration}&rdquo;, {formatDate(line.date)}
+                        </Text>
+                      ))}
+                    </>
+                  )}
+                </Banner>
+                {paymentModeMismatch && impliedPaymentMode && (
+                  <Banner variant="warning">
+                    Statement suggests {impliedPaymentMode.label} · recorded as{' '}
+                    {paymentModeLabelById.get(paymentMode) ?? paymentMode}. Update &ldquo;Paid via&rdquo; above to fix.
+                  </Banner>
+                )}
+              </View>
+            )}
             <ItemHistory entityId={editing.id} />
           </View>
         )}
@@ -1587,6 +1810,45 @@ export function ExpenseForm({
           one; RN's Modal already supports this (see components/ui/Modal.tsx's doc comment), so no new
           pattern was needed. */}
       {accountForm.showForm && <AccountFormModal form={accountForm} saving={accountFormSaving} />}
+
+      {/* Discard-changes confirmation (item 29) — a third Modal stacked on top, same pattern as the
+          receipt viewer/AccountFormModal above; `ConfirmDialog` itself no-ops (`return null`) while
+          closed. */}
+      <ConfirmDialog
+        isOpen={showDiscardConfirm}
+        onClose={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          onClose();
+        }}
+        title="Discard changes?"
+        message="You have unsaved changes. Discard them?"
+        confirmLabel="Discard"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+      />
+
+      {/* Delete confirmation (item 1) — same stacked-Modal pattern as discard above. */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          if (!editing) return;
+          setDeleting(true);
+          onDelete(editing.id)
+            .catch(() => {})
+            .finally(() => {
+              setDeleting(false);
+              setShowDeleteConfirm(false);
+            });
+        }}
+        title="Delete transaction?"
+        message="You can undo right after."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        confirmVariant="danger"
+        loading={deleting}
+      />
     </>
   );
 }

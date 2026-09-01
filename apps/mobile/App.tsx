@@ -17,9 +17,15 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <SettingsProvider>
-            <PrivacyProvider>
-              <ToastProvider>
+          {/* ToastProvider moved above Settings/Privacy (2026-08-29, punch-list item 12) so
+              `PrivacyContext.tsx` can call `useToast()` directly for its one-time "Open default expired"
+              toast — it previously sat between Privacy and EventMode, which put it out of reach of its
+              own ancestors. Every existing `useToast()` call site further down the tree (inside
+              `RootNavigator`) is unaffected: it's still nested inside all of these regardless of the
+              providers' relative order among themselves. */}
+          <ToastProvider>
+            <SettingsProvider>
+              <PrivacyProvider>
                 <EventModeProvider>
                   <OnboardingDraftProvider>
                     {/* App-wide safety net (2026-08-13) — see ErrorBoundary.tsx's own doc comment for the
@@ -31,9 +37,9 @@ export default function App() {
                     <StatusBar style="auto" />
                   </OnboardingDraftProvider>
                 </EventModeProvider>
-              </ToastProvider>
-            </PrivacyProvider>
-          </SettingsProvider>
+              </PrivacyProvider>
+            </SettingsProvider>
+          </ToastProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

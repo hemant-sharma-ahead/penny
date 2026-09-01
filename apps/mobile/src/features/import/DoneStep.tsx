@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text } from 'react-native';
-import { Button, Banner } from '~/components/ui';
+import { Button, Banner, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -20,8 +20,10 @@ interface DoneStepProps {
   stillUnresolvedCount: number;
   /** Rows excluded because their whole SOURCE ACCOUNT was skipped in the Accounts stage (2026-08-14,
    *  manual-testing gap #1) — a distinct reason from `discardedCount`/`stillUnresolvedCount`, so it gets
-   *  its own dedicated line rather than being folded into either. */
-  accountSkippedCount: number;
+   *  its own dedicated line rather than being folded into either. Broken down PER ACCOUNT (2026-08-23,
+   *  item 74 — was one opaque combined number before this fix) so the loss is legible, e.g. "142
+   *  transactions skipped — Freecharge (89), Paytm (53)" instead of a bare "142 skipped". */
+  accountSkipped: { accountName: string; count: number }[];
   /** True when this run was ended early via the Import Progress screen's Cancel confirm (2026-08-14,
    *  redesign §14 item 8), rather than running to completion. Distinct from `hasFailures` below (an
    *  actual per-row write error) — cancelling is a deliberate, successful user action, so it gets its
@@ -55,7 +57,7 @@ export function DoneStep({
   retrying,
   discardedCount,
   stillUnresolvedCount,
-  accountSkippedCount,
+  accountSkipped,
   cancelled = false,
   cancelledRemainingCount = 0,
   importError = null,
@@ -65,6 +67,11 @@ export function DoneStep({
 }: DoneStepProps) {
   const theme = useThemeColors();
   const [undoing, setUndoing] = useState(false);
+  // Found 2026-08-27, real-user report: this fired immediately on tap, with no confirmation — a
+  // single mis-tap right after a large successful import could silently remove all of it. Same
+  // `ConfirmDialog` pattern already used for other destructive-but-easy-to-fat-finger actions
+  // elsewhere (e.g. person delete/archive).
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
 
   if (undone) {
     return (
@@ -79,6 +86,9 @@ export function DoneStep({
   }
 
   const hasFailures = failed.length > 0;
+  // Item 74 (2026-08-23) — the plain total this line still needs, derived from the per-account
+  // breakdown rather than carried as its own separate number, so the two can never drift apart.
+  const accountSkippedCount = accountSkipped.reduce((sum, a) => sum + a.count, 0);
   // A stopped-early run (`cancelled`) gets its own distinct icon/tint/title, taking priority over the
   // hasFailures framing — cancelling is a deliberate, successful user action (nothing failed), so it
   // shares `hasFailures`' warning-amber (not danger-red) tint but its own copy and icon
@@ -132,10 +142,13 @@ export function DoneStep({
           <Text className="text-xs text-tertiary mt-2 text-center">{discardedCount} discarded</Text>
         )}
         {/* Dedicated line (2026-08-14, manual-testing gap #1) — a skipped account is a distinct reason
-         *  from discarded/still-unresolved, so it's never folded into that same sentence. */}
+         *  from discarded/still-unresolved, so it's never folded into that same sentence. Broken down PER
+         *  ACCOUNT (2026-08-23, item 74) — e.g. "142 transactions skipped — Freecharge (89), Paytm (53)"
+         *  instead of one opaque combined number, so the loss is legible. */}
         {accountSkippedCount > 0 && (
           <Text className="text-xs text-tertiary mt-1 text-center">
-            {accountSkippedCount} transaction{accountSkippedCount !== 1 ? 's' : ''} excluded — account skipped
+            {accountSkippedCount} transaction{accountSkippedCount !== 1 ? 's' : ''} skipped —{' '}
+            {accountSkipped.map((a) => `${a.accountName} (${a.count})`).join(', ')}
           </Text>
         )}
       </View>
@@ -166,20 +179,25 @@ export function DoneStep({
           Go to Expenses
         </Button>
         {activityLogId && succeededCount > 0 && (
-          <Button
-            variant="ghost"
-            fullWidth
-            loading={undoing}
-            onPress={async () => {
-              setUndoing(true);
-              await onUndo();
-              setUndoing(false);
-            }}
-          >
+          <Button variant="ghost" fullWidth loading={undoing} onPress={() => setShowUndoConfirm(true)}>
             Undo this import
           </Button>
         )}
       </View>
+
+      <ConfirmDialog
+        isOpen={showUndoConfirm}
+        onClose={() => setShowUndoConfirm(false)}
+        onConfirm={() => {
+          setShowUndoConfirm(false);
+          setUndoing(true);
+          void onUndo().finally(() => setUndoing(false));
+        }}
+        title="Undo this import?"
+        message={`This removes all ${succeededCount} transaction${succeededCount !== 1 ? 's' : ''} this import just added. This can't be undone again.`}
+        confirmLabel="Undo import"
+        confirmVariant="danger"
+      />
     </View>
   );
 }

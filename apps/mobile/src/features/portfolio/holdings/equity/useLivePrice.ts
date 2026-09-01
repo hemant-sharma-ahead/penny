@@ -5,9 +5,21 @@ import { fetchStockQuote } from '@/core/portfolio/stockApiClient';
 
 // Live price/quote for MF (NAV, 300ms debounce) and stock (Yahoo Finance,
 // 700ms debounce). Returns the price plus stock display name and an
-// "attempted" flag used to show a not-found hint. Setters are exposed so the
-// MF/stock field sections can clear state from their "Clear" buttons.
-// All state updates run inside the timeout to satisfy react-hooks/set-state-in-effect.
+// "attempted" flag used to show a not-found hint. `setFetchedPrice` is
+// exposed so MfFields' "Clear" button can reset state outside this hook's
+// own lifecycle. All state updates run inside the timeout to satisfy
+// react-hooks/set-state-in-effect.
+//
+// The stock branch's found/not-found/fetching display state (fetchedPrice,
+// fetchedName, stockFetchAttempted) is deliberately only ever reset from
+// *inside* the 700ms timeout callback below, never synchronously as the
+// caller's raw keystrokes come in — StockFields.tsx used to clear these
+// eagerly on every onChangeText, which made the "found stock" display
+// flicker/reset on every character even though the actual network fetch was
+// already correctly debounced. Resetting only when the timeout itself fires
+// means the previous result stays visible while the user is still typing,
+// and disappears exactly once, at the same moment a real new fetch attempt
+// begins (found + fixed 2026-08-24).
 export function useLivePrice(assetClass: AssetClass, schemeCode: string, symbol: string) {
   const [fetchedPrice, setFetchedPrice] = useState<number | null>(null);
   const [priceFetching, setPriceFetching] = useState(false);
@@ -50,7 +62,11 @@ export function useLivePrice(assetClass: AssetClass, schemeCode: string, symbol:
         return () => clearTimeout(t);
       }
       const t = setTimeout(async () => {
+        // Clear the previous symbol's result right here, not in the caller's onChangeText —
+        // see the comment above this hook for why that distinction is the actual bug fix.
         setStockFetchAttempted(false);
+        setFetchedPrice(null);
+        setFetchedName('');
         setPriceFetching(true);
         try {
           const quote = await fetchStockQuote(sym);

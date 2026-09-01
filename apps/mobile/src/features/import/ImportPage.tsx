@@ -7,23 +7,25 @@ import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 import { useToast } from '~/context/ToastContext';
 import { ErrorBoundary } from '~/components/shared/ErrorBoundary';
+import { WizardProgress } from '~/components/shared/WizardProgress';
 import type { ExpensesStackParamList } from '~/navigation/ExpensesStack';
 import { useImport } from './useImport';
 import { UploadStep } from './UploadStep';
 import { MapColumnsStep } from './MapColumnsStep';
 import { AccountsStage } from './AccountsStage';
-import { CategoriesStage } from './CategoriesStage';
 import { TransactionsStage } from './TransactionsStage';
 import { ImportProgressStep } from './ImportProgressStep';
-import { WizardProgress } from './WizardProgress';
 
 /**
  * RN port of apps/web-react/src/features/import/ImportPage.tsx, rebuilt for the 2026-08-14 CSV-import
- * redesign's full 6-stage flow (docs/plans/csv-expense-import-redesign.md §3):
- * Upload → MapColumns → Accounts → Categories → Transactions → Done. Every piece of actual import logic
- * (parsing, resolution, transfer-pairing, carry-forward handling, the DB writer) lives in packages/core
- * and is shared with `useImport.ts`; this file owns only step orchestration + the cross-stage
- * `WizardProgress` chrome (§3.1).
+ * redesign's stage flow (docs/plans/csv-expense-import-redesign.md §3), as amended 2026-08-20 by item
+ * 41's flow redesign (real-device testing pass): Upload → MapColumns → Accounts → Transactions → Done.
+ * (A separate Categories stage used to sit between Accounts and Transactions — removed 2026-08-20, since
+ * `TransactionsStage.tsx`'s `CategoryTile` already smart-pre-resolves each group with its own override
+ * entry point, making a forced separate confirmation stage before it redundant.) Every piece of actual
+ * import logic (parsing, resolution, transfer-pairing, carry-forward handling, the DB writer) lives in
+ * packages/core and is shared with `useImport.ts`; this file owns only step orchestration + the
+ * cross-stage `WizardProgress` chrome (§3.1).
  *
  * Web's back button either navigates to Expenses (upload/done steps, which have no earlier wizard step
  * to fall back into) or steps back one wizard stage — the global header's back-chevron
@@ -60,8 +62,7 @@ export function ImportPage() {
     upload: null,
     mapColumns: 'upload',
     accounts: imp.format === 'custom' ? 'mapColumns' : 'upload',
-    categories: 'accounts',
-    transactions: 'categories',
+    transactions: 'accounts',
     done: null
   };
   const target = backTarget[imp.step];
@@ -98,13 +99,14 @@ export function ImportPage() {
     return () => sub.remove();
   }, [isImporting]);
 
-  // Cross-stage wizard chrome (§3.1) — 5 segments for a known format (MapColumns skipped), 6 for
+  // Cross-stage wizard chrome (§3.1) — 4 segments for a known format (MapColumns skipped), 5 for
   // Custom (MapColumns included), same conditional MapColumns skip ImportPage already has today.
+  // (Categories is no longer a separate stage — removed 2026-08-20, item 41 flow redesign.)
   const stepSequence = useMemo<(typeof imp.step)[]>(
     () =>
       imp.format === 'custom'
-        ? ['upload', 'mapColumns', 'accounts', 'categories', 'transactions', 'done']
-        : ['upload', 'accounts', 'categories', 'transactions', 'done'],
+        ? ['upload', 'mapColumns', 'accounts', 'transactions', 'done']
+        : ['upload', 'accounts', 'transactions', 'done'],
     [imp.format]
   );
   const stepIndex = stepSequence.indexOf(imp.step);
@@ -113,7 +115,6 @@ export function ImportPage() {
     upload: 'Upload',
     mapColumns: 'Map columns',
     accounts: 'Accounts',
-    categories: 'Categories',
     transactions: 'Transactions',
     done: 'Done'
   };
@@ -121,7 +122,6 @@ export function ImportPage() {
     upload: undefined,
     mapColumns: undefined,
     accounts: `${imp.accountResolutions.length || 1} source account${imp.accountResolutions.length === 1 ? '' : 's'}`,
-    categories: `${imp.categoryRowGroups.length} categories`,
     transactions: `${imp.totalRowsRead} rows`,
     done: undefined
   };
@@ -160,6 +160,7 @@ export function ImportPage() {
               parsedRows={imp.parsedRows}
               rowTriage={imp.rowTriage}
               cardMergeSuggestions={imp.cardMergeSuggestions}
+              cardMergeAmbiguities={imp.cardMergeAmbiguities}
               onAcceptCardMerge={imp.acceptCardAccountMerge}
               onDismissCardMerge={imp.dismissCardAccountMerge}
               cardMergeTargets={imp.cardMergeTargets}
@@ -168,23 +169,7 @@ export function ImportPage() {
               onAcknowledgeAccount={imp.acknowledgeAccountResolution}
               accountsResolved={imp.accountsResolved}
               confirmedAccountCount={imp.confirmedAccountCount}
-              onNext={() => imp.setStep('categories')}
-            />
-          ) : imp.step === 'categories' ? (
-            <CategoriesStage
-              rowGroups={imp.transactionsRowGroups}
-              categories={imp.categories}
-              accounts={imp.accounts}
-              excludeAccountId={excludeAccountId}
-              txnCountByCategory={imp.txnCountByCategory}
-              categoryTagsByKey={imp.categoryTagsByKey}
-              rememberedSuggestions={imp.rememberedSuggestions}
-              decidedCount={imp.categoriesDecidedCount}
-              allDecided={imp.categoriesAllDecided}
-              onUpdate={imp.updateCategoryDecision}
-              onTagChange={imp.setCategoryTagForKey}
-              onAcknowledge={imp.acknowledgeCategoryDecision}
-              onMoveToResidual={imp.moveCounterpartyGroupToResidual}
+              createAccount={imp.createAccount}
               onNext={() => imp.setStep('transactions')}
             />
           ) : imp.step === 'transactions' ? (
@@ -197,11 +182,20 @@ export function ImportPage() {
               carryForwardExcludedRows={imp.carryForwardExcludedRows}
               transferPairs={imp.transferPairs}
               onUnpairTransfer={imp.unpairTransfer}
+              cashWithdrawalSuggestions={imp.cashWithdrawalSuggestions}
+              cashWithdrawalTargets={imp.cashWithdrawalTargets}
+              onAcceptCashWithdrawalTransfer={imp.acceptCashWithdrawalTransfer}
+              onDismissCashWithdrawalSuggestion={imp.dismissCashWithdrawalSuggestion}
+              onUndoCashWithdrawalTransfer={imp.undoCashWithdrawalTransfer}
+              createAccount={imp.createAccount}
               rowGroups={imp.transactionsRowGroups}
               grouping={imp.transactionsGrouping}
+              preview={imp.preview}
+              expenseById={imp.expenseById}
               categories={imp.categories}
               accounts={imp.accounts}
               persons={imp.persons}
+              hashtags={imp.hashtags}
               excludeAccountId={excludeAccountId}
               txnCountByCategory={imp.txnCountByCategory}
               categoryTagsByKey={imp.categoryTagsByKey}
@@ -224,6 +218,7 @@ export function ImportPage() {
               onMoveRowsToCategory={imp.moveRowsToCategory}
               onTagRows={imp.tagRows}
               onNotADuplicate={imp.unflagDuplicate}
+              onCreateCategory={imp.createCategory}
               onImport={imp.enterImportProgress}
             />
           ) : imp.step === 'done' ? (
@@ -241,7 +236,7 @@ export function ImportPage() {
               retrying={retrying}
               discardedCount={imp.doneSummary.discardedCount}
               stillUnresolvedCount={imp.doneSummary.stillUnresolvedCount}
-              accountSkippedCount={imp.doneSummary.accountSkippedCount}
+              accountSkipped={imp.doneSummary.accountSkipped}
               cancelled={imp.importCancelled}
               cancelledRemainingCount={imp.cancelledRemainingCount}
               importError={imp.importError}

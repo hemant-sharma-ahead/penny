@@ -38,4 +38,18 @@ yarn-error.*
 
 # generated native folders
 /ios
-/android
+/android/*
+# Exception: the debug keystore is committed deliberately (2026-08-16) so its SHA-1 fingerprint stays
+# stable across machines/rebuilds — Google Sign-In (Drive backup) is registered against this exact
+# fingerprint in Google Cloud Console, and a clean `expo prebuild` regenerating a fresh, unregistered
+# keystore would silently break sign-in with no obvious "keystore changed" error. This is the DEBUG
+# keystore only (never signs anything meant for real distribution) — a release keystore must never be
+# committed the same way.
+!/android/app/
+/android/app/*
+!/android/app/debug.keystore
+
+# Gradle build output for local Expo modules (modules/*/android is source, checked in — only its own
+# build/ output is generated, mirroring the top-level /android ignore above)
+modules/*/android/build/
+modules/*/android/.cxx/

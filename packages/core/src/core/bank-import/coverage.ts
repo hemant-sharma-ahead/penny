@@ -118,3 +118,51 @@ export function findStandingCoverageGaps(
   const linkedIds = new Set(importRecords.map((r) => r.linkedTxnId));
   return expenses.filter((e) => !linkedIds.has(e.id) && union.some((r) => e.date >= r.start && e.date <= r.end));
 }
+
+/**
+ * The account's own "statement verified till" date (mobile punch-list item 4) — the latest `end` across
+ * an account's covered statement ranges' union, or `undefined` if the account has never had a statement
+ * imported at all (an empty `coveredRanges` array). A one-line formula, but shared here (rather than
+ * left duplicated inline) so `AccountDetailModal.tsx`'s verification banner and `AccountList.tsx`'s
+ * list-tile caption always derive the exact same value from the exact same source of truth.
+ */
+export function computeVerifiedThroughDate(coveredRanges: DateRange[]): number | undefined {
+  return coveredRanges.length === 0 ? undefined : Math.max(...coveredRanges.map((r) => r.end));
+}
+
+/**
+ * The "unverified tail" sweep (mobile punch-list item 4b) — a NEW, SEPARATE signal from
+ * `findStandingCoverageGaps` above, not a variant of it. That function only ever looks INSIDE the
+ * union of an account's covered statement ranges (a transaction dated within a period the account
+ * claims is fully explained, but with no statement row backing it). This function looks at the exact
+ * opposite span: transactions dated AFTER the covered union's own end — i.e. new activity recorded
+ * since the last statement was ever imported, which the closed-loop sweep above has no way to see at
+ * all (there's no "covered range" for it to fall inside of). An account can be otherwise perfectly
+ * clean (no checkpoint-mismatch, no anchor-disagreement, no standing-gap) and still have this: it just
+ * means the user hasn't imported a fresher statement since transacting more.
+ *
+ * Deliberately NOT folded into `accountVerification.ts`'s `VerificationFindingKind` one-badge system —
+ * see that file's own doc comment: it's a closed, 3-kind negative-finding enum with its own priority
+ * ordering and existing test coverage, and this is a non-negative, independent signal ("you have newer
+ * activity to verify", not "something here is wrong") shown ALONGSIDE that badge system as a third tile
+ * state, never merged into it.
+ *
+ * Same conventions as `findStandingCoverageGaps`: a pure helper, no `accountId` parameter — every input
+ * array is assumed already pre-scoped by the caller to the one account being checked. Uses the exact
+ * same "not in `importRecords`'s `linkedTxnId` set" test for what counts as unexplained.
+ *
+ * @param coveredRanges the account's own `Account.coveredStatementRanges` (any object with a
+ *   `start`/`end` — `ImportBatchSummary`'s extra fields are ignored).
+ * @param expenses the account's own `Expense[]`, pre-scoped by the caller.
+ * @param importRecords the account's own `BankStatementImportRecord[]`, pre-scoped by the caller.
+ */
+export function findUnverifiedTailExpenses(
+  coveredRanges: DateRange[],
+  expenses: Expense[],
+  importRecords: BankStatementImportRecord[]
+): Expense[] {
+  const verifiedThroughDate = computeVerifiedThroughDate(coveredRanges);
+  if (verifiedThroughDate === undefined) return [];
+  const linkedIds = new Set(importRecords.map((r) => r.linkedTxnId));
+  return expenses.filter((e) => !linkedIds.has(e.id) && e.date > verifiedThroughDate);
+}

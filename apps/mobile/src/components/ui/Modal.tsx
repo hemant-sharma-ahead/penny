@@ -1,7 +1,8 @@
-import type { ReactNode, RefObject } from 'react';
+import { useEffect, type ReactNode, type RefObject } from 'react';
 import { Modal as RNModal, View, Pressable, ScrollView, Text } from 'react-native';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { registerModalOpen, unregisterModalOpen } from '~/lib/modalStack';
 
 interface ModalProps {
   onClose: () => void;
@@ -42,6 +43,15 @@ export function Modal({
   const theme = useThemeColors();
   const body = <View className="px-5 pt-5 pb-5 gap-4">{children}</View>;
 
+  // Registers this real native Modal as "open" for the lifetime of the mount — read by
+  // `~/context/ToastContext.tsx` (via `~/lib/modalStack.ts`) to decide whether a toast needs its own
+  // native-Modal layer to stack above this one, or can render as a plain overlay. See that file's doc
+  // comment for why this distinction matters on Android specifically.
+  useEffect(() => {
+    registerModalOpen();
+    return unregisterModalOpen;
+  }, []);
+
   return (
     <RNModal transparent animationType="fade" onRequestClose={onClose} onShow={onShow}>
       <View className="flex-1">
@@ -59,11 +69,18 @@ export function Modal({
             style={{ maxHeight: '100%', overflow: 'hidden', boxShadow: '0px 0px 20px rgba(0, 0, 0, 0.2)' }}
           >
             {title !== undefined && (
-              <View className="flex-row items-center justify-between px-5 pt-5">
-                <Text className="text-base font-semibold text-primary">{title}</Text>
+              <View className="flex-row items-center justify-between gap-2 px-5 pt-5">
+                {/* `flex-1` + `numberOfLines` (found 2026-08-30) — without a flex basis, a long title
+                    (e.g. an employer name appended to a sheet title) has no bound and pushes the close
+                    button along with it instead of wrapping/truncating, squeezing it toward — or
+                    past — the card's own right edge. Truncating here is safe for every existing
+                    caller: nothing relies on a multi-line title. */}
+                <Text className="text-base font-semibold text-primary flex-1" numberOfLines={1}>
+                  {title}
+                </Text>
                 <Pressable
                   onPress={onClose}
-                  className="w-8 h-8 items-center justify-center rounded-lg"
+                  className="w-8 h-8 items-center justify-center rounded-lg shrink-0"
                   accessibilityLabel="Close"
                 >
                   <Icon name="ti-x" size={18} color={theme.textTertiary} />

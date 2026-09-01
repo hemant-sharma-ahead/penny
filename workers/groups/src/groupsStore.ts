@@ -36,7 +36,10 @@ export interface EventRow {
 
 // ─── Device key lookup (auth DB, read-only) ────────────────────────────────────
 
-export async function getDeviceSigningKey(authDb: D1Database, deviceId: string): Promise<{ userId: string; signingKey: string; revoked: boolean } | null> {
+export async function getDeviceSigningKey(
+  authDb: D1Database,
+  deviceId: string
+): Promise<{ userId: string; signingKey: string; revoked: boolean } | null> {
   const row = await authDb
     .prepare('SELECT user_id, signing_key, revoked_at FROM devices WHERE device_id = ?')
     .bind(deviceId)
@@ -49,7 +52,9 @@ export async function getDeviceSigningKey(authDb: D1Database, deviceId: string):
  *  can wrap the Group Key for a newly-joined member. Null if the user has no active device. */
 export async function getUserWrappingKey(authDb: D1Database, userId: string): Promise<string | null> {
   const row = await authDb
-    .prepare('SELECT wrapping_key FROM devices WHERE user_id = ? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1')
+    .prepare(
+      'SELECT wrapping_key FROM devices WHERE user_id = ? AND revoked_at IS NULL ORDER BY created_at DESC LIMIT 1'
+    )
     .bind(userId)
     .first<{ wrapping_key: string }>();
   return row?.wrapping_key ?? null;
@@ -79,7 +84,23 @@ export async function setGroupStatus(db: D1Database, groupId: string, status: st
 }
 
 export async function setGroupEncName(db: D1Database, groupId: string, encName: string, now: number): Promise<void> {
-  await db.prepare('UPDATE groups SET enc_name = ?, updated_at = ? WHERE group_id = ?').bind(encName, now, groupId).run();
+  await db
+    .prepare('UPDATE groups SET enc_name = ?, updated_at = ? WHERE group_id = ?')
+    .bind(encName, now, groupId)
+    .run();
+}
+
+/** Delete a group and every row that references it — no FK cascades in this schema, so each table is
+ *  cleared explicitly. Creator-only + emptiness are enforced by the caller (index.ts's
+ *  `handleDeleteGroup`) before this runs. */
+export async function deleteGroup(db: D1Database, groupId: string): Promise<void> {
+  await db.batch([
+    db.prepare('DELETE FROM group_events WHERE group_id = ?').bind(groupId),
+    db.prepare('DELETE FROM group_key_grants WHERE group_id = ?').bind(groupId),
+    db.prepare('DELETE FROM invites WHERE group_id = ?').bind(groupId),
+    db.prepare('DELETE FROM group_members WHERE group_id = ?').bind(groupId),
+    db.prepare('DELETE FROM groups WHERE group_id = ?').bind(groupId)
+  ]);
 }
 
 export async function bumpGroupEpoch(db: D1Database, groupId: string, now: number): Promise<number> {
@@ -87,7 +108,10 @@ export async function bumpGroupEpoch(db: D1Database, groupId: string, now: numbe
     .prepare('UPDATE groups SET key_epoch = key_epoch + 1, updated_at = ? WHERE group_id = ?')
     .bind(now, groupId)
     .run();
-  const row = await db.prepare('SELECT key_epoch FROM groups WHERE group_id = ?').bind(groupId).first<{ key_epoch: number }>();
+  const row = await db
+    .prepare('SELECT key_epoch FROM groups WHERE group_id = ?')
+    .bind(groupId)
+    .first<{ key_epoch: number }>();
   return row?.key_epoch ?? 1;
 }
 
@@ -101,7 +125,10 @@ export function getMember(db: D1Database, groupId: string, userId: string): Prom
 }
 
 export async function listMembers(db: D1Database, groupId: string): Promise<MemberRow[]> {
-  const res = await db.prepare('SELECT * FROM group_members WHERE group_id = ? ORDER BY joined_at').bind(groupId).all<MemberRow>();
+  const res = await db
+    .prepare('SELECT * FROM group_members WHERE group_id = ? ORDER BY joined_at')
+    .bind(groupId)
+    .all<MemberRow>();
   return res.results ?? [];
 }
 
@@ -133,7 +160,10 @@ export async function setMemberStatus(
 }
 
 export async function setMemberRole(db: D1Database, groupId: string, userId: string, role: string): Promise<void> {
-  await db.prepare('UPDATE group_members SET role = ? WHERE group_id = ? AND user_id = ?').bind(role, groupId, userId).run();
+  await db
+    .prepare('UPDATE group_members SET role = ? WHERE group_id = ? AND user_id = ?')
+    .bind(role, groupId, userId)
+    .run();
 }
 
 // ─── Invites ─────────────────────────────────────────────────────────────────────
@@ -144,7 +174,15 @@ export function getInvite(db: D1Database, tokenHash: string): Promise<import('./
 
 export async function insertInvite(
   db: D1Database,
-  i: { tokenHash: string; groupId: string; role: string; expiresAt: number; maxUses: number; createdBy: string; now: number }
+  i: {
+    tokenHash: string;
+    groupId: string;
+    role: string;
+    expiresAt: number;
+    maxUses: number;
+    createdBy: string;
+    now: number;
+  }
 ): Promise<void> {
   await db
     .prepare(
@@ -160,7 +198,10 @@ export async function incrementInviteUses(db: D1Database, tokenHash: string): Pr
 }
 
 export async function revokeInvite(db: D1Database, tokenHash: string, groupId: string): Promise<void> {
-  await db.prepare('UPDATE invites SET revoked = 1 WHERE token_hash = ? AND group_id = ?').bind(tokenHash, groupId).run();
+  await db
+    .prepare('UPDATE invites SET revoked = 1 WHERE token_hash = ? AND group_id = ?')
+    .bind(tokenHash, groupId)
+    .run();
 }
 
 // ─── Key grants ────────────────────────────────────────────────────────────────
@@ -184,7 +225,9 @@ export async function listGrantsForUser(
   userId: string
 ): Promise<{ key_epoch: number; wrapped_key: string }[]> {
   const res = await db
-    .prepare('SELECT key_epoch, wrapped_key FROM group_key_grants WHERE group_id = ? AND user_id = ? ORDER BY key_epoch')
+    .prepare(
+      'SELECT key_epoch, wrapped_key FROM group_key_grants WHERE group_id = ? AND user_id = ? ORDER BY key_epoch'
+    )
     .bind(groupId, userId)
     .all<{ key_epoch: number; wrapped_key: string }>();
   return res.results ?? [];
@@ -196,7 +239,15 @@ export async function listGrantsForUser(
  *  The encrypted body is stored inline in D1 (`ciphertext`) — no R2 needed for these small blobs. */
 export async function appendEvent(
   db: D1Database,
-  e: { groupId: string; eventId: string; authorId: string; keyEpoch: number; ciphertext: string; lamport: number; now: number }
+  e: {
+    groupId: string;
+    eventId: string;
+    authorId: string;
+    keyEpoch: number;
+    ciphertext: string;
+    lamport: number;
+    now: number;
+  }
 ): Promise<{ seq: number; deduped: boolean }> {
   const existing = await db
     .prepare('SELECT seq FROM group_events WHERE group_id = ? AND event_id = ?')
@@ -219,7 +270,12 @@ export async function appendEvent(
   return { seq, deduped: false };
 }
 
-export async function listEventsSince(db: D1Database, groupId: string, sinceSeq: number, limit = 500): Promise<EventRow[]> {
+export async function listEventsSince(
+  db: D1Database,
+  groupId: string,
+  sinceSeq: number,
+  limit = 500
+): Promise<EventRow[]> {
   const res = await db
     .prepare('SELECT * FROM group_events WHERE group_id = ? AND seq > ? ORDER BY seq LIMIT ?')
     .bind(groupId, sinceSeq, limit)

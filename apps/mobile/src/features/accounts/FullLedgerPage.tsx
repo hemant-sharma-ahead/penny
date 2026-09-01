@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, Text, Pressable } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, ScrollView, RefreshControl, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, type RouteProp } from '@react-navigation/native';
 import type { Account, Expense } from '@/core/db/types';
@@ -18,19 +18,20 @@ import {
   unmatchLedgerRow
 } from '@/core/bank-import/ledgerActions';
 import { normalizeNarration } from '@/core/bank-import/normalization';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import { RECONCILIATION_DESCRIPTION } from '@/core/expenses/cashFlowSummary';
 import { logActivity } from '@/core/db/activityLog';
 import { notifyAccountsChanged, notifyBankImportsChanged, useAccountsRefresh } from '@/hooks/useDataRefresh';
 import { notifyTxnChanged, useTxnRefresh } from '@/hooks/useTxnRefresh';
 import { useRepository } from '@/hooks/useRepository';
 import type { AccountInput } from '~/hooks/useAccountForm';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDate, formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { Banner, Card, ConfirmDialog, EmptyState, Modal } from '~/components/ui';
+import { Banner, Button, Card, ConfirmDialog, EmptyState, Modal, PennyLoader } from '~/components/ui';
 import { ExpenseForm, PossibleMatchPickerModal, type StatementPresetInput } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
@@ -61,8 +62,27 @@ export function FullLedgerPage() {
   const { accountId } = route.params;
   useDefaultHeaderBack('FullLedger');
 
-  const { items: accounts, reload: reloadAccounts } = useRepository(accountsRepo);
-  const { items: allExpenses, reload: reloadExpenses } = useRepository(expensesRepo);
+  const { items: accounts, loading: accountsLoading, reload: reloadAccounts } = useRepository(accountsRepo);
+  // Tier 2 performance fix (2026-08-28) — every use of `allExpenses` below is already scoped to this
+  // one account (`accountId === account.id || toAccountId === account.id`), so there was never a
+  // reason to decrypt the WHOLE `expenses` table here. Replaces `useRepository(expensesRepo)`'s
+  // `getAll()` with the real indexed `queryByAccount()` — same `items`/`loading`/`reload` shape, just
+  // scoped at the query itself instead of filtered afterward in JS.
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+  const reloadExpenses = useCallback(() => {
+    let cancelled = false;
+    expensesRepo.queryByAccount(accountId).then((rows) => {
+      if (!cancelled) {
+        setAllExpenses(rows);
+        setExpensesLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+  useEffect(() => reloadExpenses(), [reloadExpenses]);
   const { items: allImportRecords, reload: reloadImportRecords } = useRepository(bankStatementImportsRepo);
   const { items: categories } = useRepository(expenseCategoriesRepo);
   const { items: hashtags } = useRepository(hashtagsRepo);
@@ -76,6 +96,15 @@ export function FullLedgerPage() {
   useTxnRefresh(reloadExpenses);
   const account = accounts.find((a) => a.id === accountId) ?? null;
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+
+  // Same three-repo combo already used after a relink/unmatch/resolve write below (e.g.
+  // `handleUnmatchConfirm`) — pull-to-refresh re-derives the whole ledger from scratch the same way.
+  const { refreshing, onRefresh } = usePullToRefresh(
+    useCallback(
+      () => Promise.all([reloadAccounts(), reloadExpenses(), reloadImportRecords()]),
+      [reloadAccounts, reloadExpenses, reloadImportRecords]
+    )
+  );
 
   // Recent-first, continuously-growing window (docs/plans/bank-reconciliation-ledger.md —
   // "windowed, recent-first" decision, refined 2026-08-10 on-device feedback: a discrete ‹/› window
@@ -317,6 +346,18 @@ export function FullLedgerPage() {
     return record;
   }, []);
 
+  // Both repos start empty until their first load resolves — without this check, a genuinely-loading
+  // screen showed the same "Account not found" message below as an actually-deleted account (found
+  // 2026-08-28, real-device performance pass: `accounts`/`allExpenses` are both `[]` on first render,
+  // so `!account` was true during every cold load, not just a real deletion).
+  if (accountsLoading || expensesLoading) {
+    return (
+      <SafeAreaView edges={[]} className="flex-1 items-center justify-center" style={{ backgroundColor: modeBg }}>
+        <PennyLoader size="lg" accessibilityLabel="Loading ledger" />
+      </SafeAreaView>
+    );
+  }
+
   if (!account) {
     return (
       <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
@@ -341,11 +382,14 @@ export function FullLedgerPage() {
         <Text className="text-sm font-semibold text-primary">Full ledger</Text>
         <Text className="text-xs text-tertiary mt-0.5">{account.name} · every transaction, statement order</Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-3">
           <View className="flex-row items-center justify-between px-3 py-2 rounded-xl border border-theme">
             <Text className="text-xs font-bold text-primary">
-              {formatDateShort(loadedStart)} – {formatDate(windowEnd)}
+              {formatDate(loadedStart)} – {formatDate(windowEnd)}
             </Text>
             <Text className="text-[10px] text-tertiary">
               {rows.length} row{rows.length === 1 ? '' : 's'}
@@ -356,13 +400,14 @@ export function FullLedgerPage() {
            *  so "earlier" content belongs ABOVE what's currently shown, extending the same
            *  continuously-growing list rather than swapping to a disconnected window
            *  (docs/plans/bank-reconciliation-ledger.md, refined 2026-08-10 on-device feedback). */}
-          <Pressable
+          <Button
+            variant="primary"
+            icon="ti-chevron-up"
+            fullWidth
             onPress={() => setLoadedStart((prev) => prev - WINDOW_DAYS * DAY_MS)}
-            className="flex-row items-center justify-center gap-1.5 py-2.5 rounded-full border border-theme"
           >
-            <Icon name="ti-chevron-up" size={13} color={theme.textSecondary} />
-            <Text className="text-xs font-semibold text-secondary">Load earlier transactions</Text>
-          </Pressable>
+            Load earlier transactions
+          </Button>
 
           {rows.length === 0 ? (
             <Card>
@@ -657,10 +702,8 @@ function LedgerRowView({
       <View className="flex-1 px-2 py-2 border-r border-theme min-w-0">
         {row.statement ? (
           <>
-            <Text className="text-[8.5px] text-tertiary">{formatDateShort(row.date)}</Text>
-            <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
-              {row.statement.rawNarration}
-            </Text>
+            <Text className="text-[8.5px] text-tertiary">{formatDate(row.date)}</Text>
+            <Text className="text-[10px] font-semibold text-primary">{row.statement.rawNarration}</Text>
             <Text
               className="text-[9px] mt-0.5"
               style={{ color: row.statement.amount >= 0 ? theme.success : theme.danger }}
@@ -681,8 +724,8 @@ function LedgerRowView({
       <View className="flex-1 px-2 py-2 min-w-0" style={tintBg ? { backgroundColor: tintBg } : undefined}>
         {row.expense ? (
           <>
-            <Text className="text-[8.5px] text-tertiary">{formatDateShort(row.date)}</Text>
-            <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
+            <Text className="text-[8.5px] text-tertiary">{formatDate(row.date)}</Text>
+            <Text className="text-[10px] font-semibold text-primary">
               {row.expense.isTransfer
                 ? `→ Transfer${accountName ? ` to ${accountName}` : ''}`
                 : row.expense.description}

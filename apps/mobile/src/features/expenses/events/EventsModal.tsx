@@ -335,14 +335,12 @@ export function EventsModal({ onClose, linkedCountByEventHashtag, nowMs, onReque
             const durationDays = ev.endDate !== undefined ? Math.max(1, daysBetween(ev.startDate, ev.endDate)) : null;
             const sameDay =
               ev.endDate !== undefined && new Date(ev.startDate).toDateString() === new Date(ev.endDate).toDateString();
-            const fmtShort = (ms: number) =>
-              new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
             const fmtFull = (ms: number) =>
               new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
             const trackedDateLabel = ev.endDate
               ? sameDay
                 ? `${fmtFull(ev.startDate)} · 1 day`
-                : `${fmtShort(ev.startDate)} – ${fmtFull(ev.endDate)} · ${durationDays} day${durationDays !== 1 ? 's' : ''}`
+                : `${fmtFull(ev.startDate)} – ${fmtFull(ev.endDate)} · ${durationDays} day${durationDays !== 1 ? 's' : ''}`
               : fmtFull(ev.startDate);
 
             const cardHeader = (

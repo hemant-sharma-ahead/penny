@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — About Penny screen + Settings entry point — proposal v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      /* ---- Real token values, pulled from packages/core/src/theme/tokens.ts + privacyModeColors.ts ---- */
+      .light {
+        --bg: #e4eeff; --surface: #ffffff; --surface2: #eff6ff; --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+        --border: #c7d8f0; --primary: #00a86b; --warning: #f59e0b; --info: #3b82f6; --neutral: #64748b; --privacy: #7c3aed; --danger: #ef4444;
+        --headerbg: #ffffff;
+      }
+      .dark {
+        --bg: #0b0f14; --surface: #161b22; --surface2: #1c2128; --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+        --border: #2d333b; --primary: #00a86b; --warning: #f59e0b; --info: #3b82f6; --neutral: #64748b; --privacy: #7c3aed; --danger: #ef4444;
+        --headerbg: #161b22;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070a; color: #e6edf3; -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 30px 16px 4px; font-size: 22px; color: #fff; }
+      p.sub { text-align: center; margin: 0 16px 14px; color: #9aa5b1; font-size: 14px; max-width: 900px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+      .topnav { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 16px 34px; }
+      .topnav a { font-size: 12px; font-weight: 700; color: #cfe9db; background: #0f2419; border: 1px solid #1c3d2a; padding: 7px 14px; border-radius: 999px; text-decoration: none; }
+      .topnav a:hover { background: #123524; }
+
+      .sectionband { border-top: 1px solid #1b222b; padding-top: 36px; margin-top: 10px; }
+      .sectiontitle { text-align: center; font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 4px; }
+      .sectionsub { text-align: center; color: #9aa5b1; font-size: 12.5px; max-width: 780px; margin: 0 auto 20px; line-height: 1.65; }
+
+      .gallery { display: flex; flex-wrap: wrap; gap: 40px 26px; justify-content: center; align-items: flex-start; padding: 6px 20px 20px; }
+      .frame-wrap { width: 300px; }
+      .vtitle { font-size: 13px; font-weight: 800; margin: 0 2px 3px; color: #fff; display: flex; align-items: center; gap: 6px; }
+      .vtitle .tag { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 2px 7px; border-radius: 999px; background: #232b35; color: #9aa5b1; }
+      .vtitle .tag.rec { background: #123524; color: #7ee6b8; }
+      .vtitle .tag.new { background: #123047; color: #7ec3f0; }
+      .vsub { font-size: 11px; color: #9aa5b1; margin: 0 2px 12px; line-height: 1.55; }
+
+      /* ---- phone chrome, real device size 390x844 ---- */
+      .phone { width: 300px; height: 649px; /* 390x844 scaled to 300 wide */ background: var(--bg); border-radius: 30px; border: 8px solid #10151c; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height: 20px; flex-shrink: 0; background: var(--headerbg); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 9px; color: var(--text2); font-weight: 600; }
+      .appheader { height: 42px; flex-shrink: 0; background: var(--headerbg); display: flex; align-items: center; padding: 0 12px; gap: 10px; }
+      .appheader .back { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text2); font-size: 17px; }
+      .appheader .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), #00c47e); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; }
+      .appheader .htitle { flex: 1; text-align: center; font-size: 13.5px; font-weight: 700; color: var(--text); }
+      .appheader .side { width: 22px; }
+      .content { flex: 1; overflow-y: auto; padding: 12px 14px 20px; }
+
+      /* ---- Settings rows (real Row component look — icon badge + label/sub + chevron) ---- */
+      .slbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text3); margin: 14px 2px 8px; }
+      .slbl:first-child { margin-top: 2px; }
+      .card { background: var(--surface); border: 1px solid var(--border); border-radius: 15px; overflow: hidden; }
+      .row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; }
+      .row + .row { border-top: 1px solid var(--border); }
+      .ricon { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .ricon i { font-size: 15px; }
+      .row .lbl { flex: 1; font-size: 13px; font-weight: 500; color: var(--text); }
+      .row .lbl small { display: block; font-size: 10px; color: var(--text3); font-weight: 400; margin-top: 1px; }
+      .row .chev { color: var(--text3); font-size: 15px; }
+      .row.highlight { position: relative; }
+      .row.highlight::before { content: ''; position: absolute; inset: 0; border: 1.5px dashed var(--primary); border-radius: 4px; pointer-events: none; }
+      .newbadge { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #04140d; background: var(--primary); padding: 2px 6px; border-radius: 999px; margin-left: 6px; }
+
+      /* ---- About Penny screen ---- */
+      .hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 22px 10px 18px; }
+      .hero img { width: 68px; height: 68px; border-radius: 18px; box-shadow: 0 6px 16px rgba(0,0,0,.35); margin-bottom: 10px; }
+      .hero .name { font-size: 19px; font-weight: 800; color: var(--text); letter-spacing: -0.3px; }
+      .hero .ver { margin-top: 5px; font-size: 11px; font-weight: 700; color: var(--text3); background: var(--surface2); border: 1px solid var(--border); padding: 3px 10px; border-radius: 999px; }
+
+      .mission { text-align: center; font-size: 13px; line-height: 1.6; color: var(--text2); padding: 0 14px 20px; font-style: italic; }
+
+      .promocard { display: flex; align-items: center; gap: 11px; background: var(--surface); border: 1px solid var(--border); border-radius: 15px; padding: 13px; margin: 0 2px 22px; }
+      .promocard .picn { width: 38px; height: 38px; border-radius: 11px; background: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .promocard .picn i { font-size: 18px; color: #fff; }
+      .promocard .ptxt { flex: 1; }
+      .promocard .pt1 { font-size: 13.5px; font-weight: 700; color: var(--text); }
+      .promocard .pt2 { font-size: 10.5px; color: var(--text3); margin-top: 2px; line-height: 1.4; }
+      .promocard .chev { color: var(--text3); font-size: 16px; }
+
+      .whatsnew-card { background: var(--surface); border: 1px solid var(--border); border-radius: 15px; overflow: hidden; margin: 0 2px; }
+      .wnrow { display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; }
+      .wnrow + .wnrow { border-top: 1px solid var(--border); }
+      .wnrow i { font-size: 13px; color: var(--primary); margin-top: 2px; flex-shrink: 0; }
+      .wnrow span { font-size: 12px; line-height: 1.5; color: var(--text2); }
+
+      .legend { max-width: 900px; margin: 16px auto 60px; background: #0e141b; border: 1px solid #1e2733; border-radius: 16px; padding: 22px 26px; color: #c3ccd6; font-size: 13.5px; line-height: 1.75; }
+      .legend h2 { font-size: 15px; margin: 0 0 10px; color: #fff; }
+      .legend b { color: #fff; }
+      .legend ul { margin: 6px 0; padding-left: 20px; }
+      .legend li { margin-bottom: 8px; }
+      .legend code { background: #1c2128; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+      .legend .note { background: color-mix(in srgb, var(--info) 12%, #0e141b); border: 1px solid color-mix(in srgb, var(--info) 35%, #0e141b); border-radius: 12px; padding: 12px 16px; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <h1>About Penny — new screen + Settings entry point</h1>
+    <p class="sub">Content is already signed off (roadmap item 31) — this proposal is purely layout/hierarchy for
+      that approved copy. Grounded in the real <code>SettingsPage.tsx</code> Row/Card pattern, the real
+      <code>PrivacyPromiseScreen.tsx</code> (its copy + shield-check/primary-fill tone), and the real
+      <code>FeedbackPage.tsx</code> version-sourcing pattern (<code>Constants.expoConfig?.version</code>).</p>
+    <div class="topnav">
+      <a href="#light">☀ Light theme</a>
+      <a href="#dark">● Dark theme</a>
+    </div>
+
+    <!-- ================= LIGHT ================= -->
+    <div class="sectionband" id="light">
+      <div class="sectiontitle">Light theme</div>
+      <div class="sectionsub">Tokens read straight from <code>THEME_TOKENS.light</code> +
+        <code>getPrivacyModeColors('safe','light').bg</code> (<code>#e4eeff</code> page bg, <code>#ffffff</code> card
+        surface) — not an approximated palette.</div>
+
+      <div class="gallery">
+        <!-- Settings context -->
+        <div class="frame-wrap">
+          <div class="vtitle">Settings <span class="tag">entry point, in context</span></div>
+          <div class="vsub">New row appended to the end of the existing "Data &amp; activity" card, after
+            Discover Penny — same <code>Row</code> shape (icon badge, label, chevron) as its siblings, same
+            section accent colour (<code>theme.neutral</code>). Dashed outline here is annotation only, not part
+            of the real design.</div>
+          <div class="phone light">
+            <div class="statusbar"><span>9:41</span><span>▂▄▆ 100%</span></div>
+            <div class="appheader"><i class="ti ti-chevron-left back"></i><div class="htitle">Settings</div><div class="side"></div></div>
+            <div class="content">
+              <div class="slbl">Data &amp; activity</div>
+              <div class="card">
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 12%, transparent)"><i class="ti ti-database-export" style="color:var(--neutral)"></i></div><div class="lbl">Backup &amp; Restore</div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 12%, transparent)"><i class="ti ti-message-circle" style="color:var(--neutral)"></i></div><div class="lbl">Contact &amp; Feedback</div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 12%, transparent)"><i class="ti ti-message-2" style="color:var(--neutral)"></i></div><div class="lbl">SMS Tracking<small>Android — detect bank SMS and turn them into transactions</small></div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 12%, transparent)"><i class="ti ti-bulb" style="color:var(--neutral)"></i></div><div class="lbl">Discover Penny<small>Tips and lesser-known things Penny can do</small></div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row highlight"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 12%, transparent)"><i class="ti ti-info-circle" style="color:var(--neutral)"></i></div><div class="lbl">About Penny<small>Version, what's new &amp; our privacy promise</small></div><i class="ti ti-chevron-right chev"></i></div>
+              </div>
+              <div class="slbl" style="color:var(--danger)">Danger zone</div>
+              <div class="card" style="border-color:color-mix(in srgb, var(--danger) 30%, transparent)">
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--danger) 12%, transparent)"><i class="ti ti-trash-x" style="color:var(--danger)"></i></div><div class="lbl">Erase after 5 failed unlocks<small>Irreversible — no recovery</small></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- About Penny screen -->
+        <div class="frame-wrap">
+          <div class="vtitle">About Penny <span class="tag rec">the new screen</span></div>
+          <div class="vsub">Hero (icon + name + live version) → mission statement → Privacy Promise CTA
+            (elevated, primary-filled icon — same weight as the promise screen it opens) → What's new, in that
+            order: identity, trust, then release notes.</div>
+          <div class="phone light">
+            <div class="statusbar"><span>9:41</span><span>▂▄▆ 100%</span></div>
+            <div class="appheader"><i class="ti ti-chevron-left back"></i><div class="htitle">About Penny</div><div class="side"></div></div>
+            <div class="content">
+              <div class="hero">
+                <img src="../../../apps/mobile/assets/icon.png" alt="Penny app icon" />
+                <div class="name">Penny</div>
+                <div class="ver">v1.4.0</div>
+              </div>
+
+              <div class="mission">"We built Penny for people who want wealth tools without surveillance."</div>
+
+              <div class="promocard">
+                <div class="picn"><i class="ti ti-shield-check"></i></div>
+                <div class="ptxt">
+                  <div class="pt1">Our Privacy Promise</div>
+                  <div class="pt2">0 bytes readable by us, 0 trackers, AES-256 on-device encryption — the 5 things we promise.</div>
+                </div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+
+              <div class="slbl">What's new in v1.4.0</div>
+              <div class="whatsnew-card">
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Privacy mode simplified — tap the icon to switch straight between Safe and Open, no menu.</span></div>
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Bank statement import now recognizes SBI, HDFC, ICICI, Axis, and HSBC SMS formats.</span></div>
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Groups: real multi-party expense splitting and tracking.</span></div>
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Dozens of smaller fixes and polish from real-device testing.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= DARK ================= -->
+    <div class="sectionband" id="dark">
+      <div class="sectiontitle">Dark theme</div>
+      <div class="sectionsub">Same layout, <code>THEME_TOKENS.dark</code> + dark-mode page bg
+        (<code>#0b0f14</code>) — dark is the default expectation for this category, per
+        <code>DESIGN_GUIDELINES.md</code> §1.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Settings <span class="tag">entry point, in context</span></div>
+          <div class="vsub">Identical structure to the light frame — only the tokens change.</div>
+          <div class="phone dark">
+            <div class="statusbar"><span>9:41</span><span>▂▄▆ 100%</span></div>
+            <div class="appheader"><i class="ti ti-chevron-left back"></i><div class="htitle">Settings</div><div class="side"></div></div>
+            <div class="content">
+              <div class="slbl">Data &amp; activity</div>
+              <div class="card">
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 16%, transparent)"><i class="ti ti-database-export" style="color:var(--neutral)"></i></div><div class="lbl">Backup &amp; Restore</div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 16%, transparent)"><i class="ti ti-message-circle" style="color:var(--neutral)"></i></div><div class="lbl">Contact &amp; Feedback</div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 16%, transparent)"><i class="ti ti-message-2" style="color:var(--neutral)"></i></div><div class="lbl">SMS Tracking<small>Android — detect bank SMS and turn them into transactions</small></div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 16%, transparent)"><i class="ti ti-bulb" style="color:var(--neutral)"></i></div><div class="lbl">Discover Penny<small>Tips and lesser-known things Penny can do</small></div><i class="ti ti-chevron-right chev"></i></div>
+                <div class="row highlight"><div class="ricon" style="background:color-mix(in srgb, var(--neutral) 16%, transparent)"><i class="ti ti-info-circle" style="color:var(--neutral)"></i></div><div class="lbl">About Penny<small>Version, what's new &amp; our privacy promise</small></div><i class="ti ti-chevron-right chev"></i></div>
+              </div>
+              <div class="slbl" style="color:var(--danger)">Danger zone</div>
+              <div class="card" style="border-color:color-mix(in srgb, var(--danger) 30%, transparent)">
+                <div class="row"><div class="ricon" style="background:color-mix(in srgb, var(--danger) 16%, transparent)"><i class="ti ti-trash-x" style="color:var(--danger)"></i></div><div class="lbl">Erase after 5 failed unlocks<small>Irreversible — no recovery</small></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">About Penny <span class="tag rec">the new screen</span></div>
+          <div class="vsub">Same hierarchy as light. App icon's own dark backdrop (dawn-horizon coin) already
+            reads correctly against a dark page background — no theme-specific treatment needed for the icon
+            itself.</div>
+          <div class="phone dark">
+            <div class="statusbar"><span>9:41</span><span>▂▄▆ 100%</span></div>
+            <div class="appheader"><i class="ti ti-chevron-left back"></i><div class="htitle">About Penny</div><div class="side"></div></div>
+            <div class="content">
+              <div class="hero">
+                <img src="../../../apps/mobile/assets/icon.png" alt="Penny app icon" />
+                <div class="name">Penny</div>
+                <div class="ver">v1.4.0</div>
+              </div>
+
+              <div class="mission">"We built Penny for people who want wealth tools without surveillance."</div>
+
+              <div class="promocard">
+                <div class="picn"><i class="ti ti-shield-check"></i></div>
+                <div class="ptxt">
+                  <div class="pt1">Our Privacy Promise</div>
+                  <div class="pt2">0 bytes readable by us, 0 trackers, AES-256 on-device encryption — the 5 things we promise.</div>
+                </div>
+                <i class="ti ti-chevron-right chev"></i>
+              </div>
+
+              <div class="slbl">What's new in v1.4.0</div>
+              <div class="whatsnew-card">
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Privacy mode simplified — tap the icon to switch straight between Safe and Open, no menu.</span></div>
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Bank statement import now recognizes SBI, HDFC, ICICI, Axis, and HSBC SMS formats.</span></div>
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Groups: real multi-party expense splitting and tracking.</span></div>
+                <div class="wnrow"><i class="ti ti-sparkles"></i><span>Dozens of smaller fixes and polish from real-device testing.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Design notes</h2>
+      <ul>
+        <li><b>Header hero.</b> Real app icon (<code>apps/mobile/assets/icon.png</code>, referenced directly
+          in this mockup) at 68px, rounded 18px to match the OS-rendered icon shape, "Penny" name below, then a
+          small pill showing the live version string. <b>No build-number field</b> — none exists in
+          <code>app.json</code>, so none is shown. Version reads
+          <code>Constants.expoConfig?.version</code>, the exact pattern <code>FeedbackPage.tsx</code> already
+          uses (<code>APP_VERSION</code>) — not a new sourcing mechanism.</li>
+        <li><b>Mission statement.</b> Verbatim, centered, de-emphasized (italic, secondary text colour) under the
+          hero — a single line, not a card, so it doesn't compete with the two real controls below it.</li>
+        <li><b>Our Privacy Promise row.</b> Deliberately styled with more visual weight than a plain settings
+          row — a filled primary icon badge (<code>ti-shield-check</code>), matching the tone of the
+          destination screen it opens (<code>PrivacyPromiseScreen.tsx</code>'s own primary-filled shield icon +
+          "Our privacy promise" heading). The sub-copy ("0 bytes readable by us, 0 trackers, AES-256...") previews
+          real pillars from that screen (not invented) so the row reads as a doorway to something substantial,
+          not a generic settings link. Navigates to the existing <code>PrivacyPromise</code> route — no new
+          screen needed for this piece.</li>
+        <li><b>What's new.</b> Plain <code>SectionLabel</code> + grouped card, exactly like every other
+          Settings section — the 4 bullets are static text (no chevrons, nothing tappable), each with a small
+          <code>ti-sparkles</code> marker instead of a bare dot, reusing the "grouped cards" pattern rather than
+          inventing a changelog-specific component for 4 lines of text.</li>
+        <li><b>Settings entry point.</b> Appended as the <i>last</i> row in the existing "Data &amp; activity"
+          card, after Discover Penny — same <code>Row</code> shape and section accent colour
+          (<code>theme.neutral</code>) as its four siblings, sub-copy in the same descriptive style as SMS
+          Tracking/Discover Penny's rows. Placed last because it's the lowest-frequency, purely-reference item
+          in that card — every other row in "Data &amp; activity" is something you'd actually go tap to do
+          something (back up, message support, review an SMS parse); About Penny is look-then-leave.</li>
+      </ul>
+      <div class="note">
+        <b>Cross-platform check (per <code>ui-design-check</code>):</b> <code>apps/web-react</code> has no
+        equivalent About/version screen today, and — since web-react is frozen (no further changes) — this
+        stays mobile-only by design, the same documented exception already made for <code>PennyLoader</code>
+        and the "Did You Know" tips components. No parity gap to flag: there's nothing on web to disagree with,
+        and nothing to mirror there.
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 import type { Account, BankNarrationOverride, BankStatementImportRecord, Expense } from '@/core/db/types';
 import { DAY_MS, toDateKey } from '@/lib/date';
 import { normalizeNarration } from './normalization';
-import type { ParsedStatementRow } from './types';
+import type { ParsedStatementRow, StatementLineDirection } from './types';
 
 /** ±3 days, per docs/plans/bank-statement-import.md §5. */
 const CANDIDATE_WINDOW_MS = 3 * DAY_MS;
@@ -53,11 +53,20 @@ export function descriptionSimilarity(a: string, b: string): number {
   return shared / Math.max(ta.size, tb.size);
 }
 
-/** Whether a recorded transaction's own money-movement direction matches a statement line's
- *  debit/credit — a transfer counts from whichever side touches this account. */
-function matchesDirection(e: Expense, row: ParsedStatementRow, accountId: string): boolean {
+/** Whether a recorded transaction's own money-movement direction matches an incoming signal's
+ *  debit/credit — a transfer counts from whichever side touches this account. Takes a minimal
+ *  structural `{ direction }` shape rather than the concrete `ParsedStatementRow` so
+ *  `core/sms-import/smsTransactionMatch.ts`'s `ParsedSmsCandidate` (same `direction` field, entirely
+ *  different other fields) can reuse this exact logic too (docs/plans/sms-transaction-tracking.md
+ *  §4a) instead of duplicating it — exported 2026-08-15 for that reason; behavior is unchanged for
+ *  every existing caller. */
+export function matchesDirection(
+  e: Expense,
+  signal: { direction: StatementLineDirection },
+  accountId: string
+): boolean {
   const type = e.type ?? 'expense';
-  if (row.direction === 'debit') {
+  if (signal.direction === 'debit') {
     if (type === 'expense') return e.accountId === accountId;
     if (type === 'transfer') return e.accountId === accountId;
     return false;
@@ -110,6 +119,20 @@ export interface MatchResult {
  * (see `matchStatementRows` below — Tier 1 always runs first, and bypasses Tier 2's exclusion
  * entirely on a hit). A linear scan over `importRecords` — no index needed at the scale one account's
  * import history actually reaches; revisit only if that stops being true.
+ *
+ * KNOWN LIMITATION, not yet fixed (2026-08-28, real-device testing): two statement rows with
+ * identical accountId/date/amount/narration (e.g. two same-day cash withdrawals of the same amount)
+ * both resolve to the SAME stored import record via this plain `.find()` — the first row claims it
+ * correctly, but the second gets the identical record back, sees its linked expense already claimed,
+ * and falls through to Tier 2 — which excludes already-checkpointed expenses by design — landing in
+ * "unmatched" even though its real counterpart is sitting right there, unclaimed. A fix (excluding
+ * already-claimed records from this lookup, so `.find()` naturally advances to the next match for
+ * each subsequent identical-looking row) was implemented and reverted the same day: on a real device,
+ * the app crashed at startup (`TypeError: Cannot read property 'create' of undefined`) with that fix
+ * present, and stopped crashing across 5 consecutive clean launches with it reverted — but the same
+ * crash could NOT be reproduced with the fix present in an isolated debug-build+emulator test, leaving
+ * genuine ambiguity about whether this function was really the cause or a stale release-build cache
+ * was. Deferred rather than re-risked; revisit with a clean bisection before re-attempting.
  */
 function findProvenanceMatch(
   row: ParsedStatementRow,

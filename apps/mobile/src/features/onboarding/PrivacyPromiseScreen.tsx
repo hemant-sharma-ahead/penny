@@ -3,40 +3,11 @@ import { View, ScrollView, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ALLOWED_DOMAINS } from '@/core/ai-safety/piiScanner';
 import { Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { OnboardingStackParamList } from '~/navigation/OnboardingNavigator';
-
-const pillars = [
-  {
-    icon: 'ti-server-off',
-    title: '0 bytes readable by us',
-    detail: 'Our servers only ever see your handle and scrambled data they can’t unlock — never your real numbers.'
-  },
-  {
-    icon: 'ti-world-check',
-    title: `${ALLOWED_DOMAINS.length} permitted domains`,
-    detail: ALLOWED_DOMAINS.join(' · ')
-  },
-  {
-    icon: 'ti-eye-off',
-    title: '0 trackers',
-    detail: 'No analytics SDK, no crash reporter, no ad pixel. Nothing that phones home without your knowledge.'
-  },
-  {
-    icon: 'ti-lock',
-    title: 'AES-256-GCM encryption',
-    detail: 'Everything sensitive is encrypted on your device using your passphrase before it touches storage.'
-  },
-  {
-    icon: 'ti-cloud-lock',
-    title: 'Your backup, your cloud',
-    detail:
-      'If you choose to back up, it goes to your own Google Drive or iCloud — never ours — and stays encrypted the whole way.'
-  }
-];
+import { PRIVACY_MISSION_STATEMENT, PRIVACY_PILLARS as pillars } from './privacyPillars';
 
 export function PrivacyPromiseScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<OnboardingStackParamList>>();
@@ -55,9 +26,7 @@ export function PrivacyPromiseScreen() {
               <Icon name="ti-shield-check" size={28} color="#fff" />
             </View>
             <Text className="text-2xl font-semibold text-primary mb-2 text-center">Our privacy promise</Text>
-            <Text className="text-secondary text-sm text-center">
-              We built Penny for people who want wealth tools without surveillance.
-            </Text>
+            <Text className="text-secondary text-sm text-center">{PRIVACY_MISSION_STATEMENT}</Text>
           </View>
 
           <View className="gap-3 mb-8">

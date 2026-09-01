@@ -1,6 +1,6 @@
 import { View, Pressable, Text } from 'react-native';
 import type { Expense, Goal, GoalContribution } from '@/core/db/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { Modal, Button, Badge, ProgressRing } from '~/components/ui';
 import { ListRow } from '~/components/shared';
 import { Icon } from '~/components/Icon';
@@ -113,7 +113,7 @@ export function GoalDetailView({
                 }
                 subtitle={
                   <View className="flex-row items-center gap-1.5">
-                    <Text className="text-xs text-tertiary">{formatDateShort(c.date)}</Text>
+                    <Text className="text-xs text-tertiary">{formatDate(c.date)}</Text>
                     {c.linkedTxnId && <Badge label="in account" color={theme.info} size="sm" />}
                   </View>
                 }

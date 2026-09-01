@@ -47,7 +47,7 @@ APIs in `core/portfolio/*Client.ts`. See `docs/ARCHITECTURE.md` and `docs/EXTERN
 
 All encrypted reads go through `EncryptedRepository<T>` in `src/core/db/repository.ts`. Direct Dexie access is not permitted from feature code.
 
-**Safe Mode masking:** amounts across every holdings sub-tab respect `usePrivacy().shouldMask(!safeModeVisibility.portfolio)` — a single module-wide toggle in Settings → Safe Mode (visible by default; Privacy always masks; Open never does). Holdings don't have per-item categories, so this isn't per-holding. Real Assets → Vehicle is the one exception: its PII fields (registration number, owner name, address, policy/engine/chassis numbers — see `docs/features/portfolio/real-assets.md`) stay hidden outside Open mode regardless of the Portfolio toggle, since they're identity data, not amounts.
+**Safe Mode masking:** amounts across every holdings sub-tab respect `usePrivacy().shouldMask(!safeModeVisibility.portfolio)` — a single module-wide toggle in Settings → Safe Mode (visible by default; Open never masks). Holdings don't have per-item categories, so this isn't per-holding. Real Assets → Vehicle is the one exception: its PII fields (registration number, owner name, address, policy/engine/chassis numbers — see `docs/features/portfolio/real-assets.md`) stay hidden outside Open mode regardless of the Portfolio toggle, since they're identity data, not amounts.
 
 **Mobile (`apps/mobile`):** ported in Track 4 (the largest module yet, ~7,462 web lines across 53 files) — `apps/mobile/src/features/portfolio/` mirrors the web structure above: a shared `PortfolioPage.tsx` tab shell (Holdings sub-tabs + IPO tab), `holdings/shared/` (reusable field helpers every asset class imports), and one directory per asset class (`equity/`, `fixed-income/`, `precious-metals/`, `real-assets/`, `retirement/`) plus `ipo/`. Ported in parallel by asset class since, unlike Home/IOU, Portfolio has **no `GroupContext`/Tier 2 dependency at all** — no personal-only scoping decision was needed. Recurring platform fixes applied throughout: `STATUS.x` literal CSS-var colors → `useThemeColors()` (highest concentration yet, ~30+ sites, mostly in `RetirementCard.tsx`); CSS Grid → `flex-row flex-wrap`; several hand-rolled `fixed inset-0` modal overlays (`VehicleDetailModal`, `NpsLifecycleDetail`, an `EpfAllTransactionsSheet`, an inline popup in `RetirementSheets`, `IpoDetailModal`) rebuilt on the real ported `Modal` component instead of translating CSS positioning that has no RN equivalent. Two `packages/core` bugs fixed (same class as Home's `marketDataClient`/`apiBase` fixes): `core/ipo/ipoClient.ts` and `core/nps/npsClient.ts` both cached data via synchronous `localStorage`, incompatible with RN — both got `.native.ts` siblings that keep an in-memory-only cache (session-scoped, not persisted across cold starts) rather than restructuring the caching signatures. All external data fetching (stock/MF/gold/silver prices, NPS NAVs, IPO/GMP data, vehicle RC lookup) already routed through `apiBase.native.ts` (built during Home's port) with zero new base-URL gotchas. Full detail: [`docs/plans/mobile-migration.md`](../../plans/mobile-migration.md)'s Portfolio progress-log entry.
 
@@ -80,6 +80,11 @@ only ~2 headline cards visible, and its All News/Holdings News tab row read as a
 under Equity's own main tabs + Stocks/MF/IPO/News sub-tabs — see
 [`docs/features/news.md`](../news.md)/[`docs/features/news-sentiment.md`](../news-sentiment.md) for the
 `NewsMoodNote`/combined-Filters-modal/`SegmentedControl` fix.
+
+**2026-08-27 (`apps/mobile` only):** `usePortfolioHoldings.ts`'s `saveHolding`/`removeHolding` now
+broadcast `notifyTxnChanged()` on every write — holdings mutations never told the rest of the app
+anything changed before this, which is what let the Health Score go stale after adding/deleting a
+holding (root cause + full fix in `docs/features/health-score.md`).
 
 ## Current limitations
 

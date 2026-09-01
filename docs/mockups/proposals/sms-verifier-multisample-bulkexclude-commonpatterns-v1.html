@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SMS Verifier — multi-sample templates, bulk-exclude, Common Patterns redesign (v1)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #eef1f4;
+        --paper: #ffffff;
+        --border: #e2e5ea;
+        --text: #1a2233;
+        --text2: #667085;
+        --text3: #98a2b3;
+        --primary: #059669;
+        --primary-bg: #ecfdf5;
+        --blue: #2563eb;
+        --blue-bg: #eff6ff;
+        --pink: #be185d;
+        --pink-bg: #fce7f3;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --danger: #dc2626;
+        --danger-bg: #fef2f2;
+        --violet: #7c3aed;
+        --violet-bg: #f5f3ff;
+        --teal: #0d9488;
+        --teal-bg: #f0fdfa;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f4f6f8;
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+      }
+      .topnav {
+        position: sticky;
+        top: 0;
+        background: var(--paper);
+        border-bottom: 1px solid var(--border);
+        padding: 10px 20px;
+        display: flex;
+        gap: 16px;
+        font-size: 12px;
+        font-weight: 700;
+        z-index: 10;
+      }
+      .topnav a {
+        color: var(--text2);
+        text-decoration: none;
+      }
+      .topnav a:hover {
+        color: var(--primary);
+      }
+      .sectionhead {
+        max-width: 900px;
+        margin: 36px auto 14px;
+        padding: 0 16px;
+      }
+      .sectionhead h2 {
+        font-size: 18px;
+        margin: 0 0 6px;
+      }
+      .sectionhead p {
+        font-size: 12px;
+        color: var(--text2);
+        line-height: 1.6;
+        margin: 0;
+      }
+      .stepno {
+        display: inline-flex;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        margin-right: 8px;
+      }
+      .note {
+        max-width: 900px;
+        margin: 0 auto 40px;
+        padding: 10px 14px;
+        font-size: 11.5px;
+        color: var(--text2);
+        background: var(--blue-bg);
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+      }
+      .note b {
+        color: var(--text);
+      }
+
+      /* ── §1: Template card with multi-sample pager (real .tplcard/.tplhead language) ── */
+      .demo1 {
+        max-width: 420px;
+        margin: 0 auto 20px;
+        padding: 0 16px;
+      }
+      .papercard-v2 {
+        background: #fffefb;
+        border: 1px solid #e8e2d0;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 10px;
+        color: var(--text2);
+        box-shadow: 0 2px 6px rgba(120, 100, 40, 0.06);
+      }
+      .crow {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        cursor: pointer;
+      }
+      .crow b {
+        font-size: 11px;
+        color: var(--text);
+      }
+      .cbody {
+        margin-top: 8px;
+        cursor: default;
+      }
+      .minilabel {
+        font-size: 8.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+      }
+      .regexinline {
+        flex: 1;
+        min-width: 0;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: var(--text3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .iconbtn {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .iconbtn:hover {
+        color: var(--primary);
+      }
+      .statusicon {
+        font-size: 15px;
+      }
+      .samplepager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+        margin-bottom: 2px;
+        font-size: 9.5px;
+        font-weight: 700;
+        color: var(--text3);
+      }
+      .samplepager i {
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .samplepager i:hover {
+        color: var(--primary);
+      }
+      .samplepager i.disabled {
+        color: #d5d9de;
+        cursor: default;
+      }
+      .twocol {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .paperregex {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9px;
+        color: #6b6250;
+        background: #f4f0e4;
+        border-radius: 5px;
+        padding: 5px 7px;
+        line-height: 1.5;
+        margin-top: 4px;
+        word-break: break-word;
+      }
+      .papersample {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 9.5px;
+        color: var(--text);
+        line-height: 1.5;
+        margin-top: 4px;
+      }
+      .paperregex mark,
+      .papersample mark {
+        background: var(--primary-bg);
+        color: var(--primary);
+        border-radius: 2px;
+        padding: 0 2px;
+        font-weight: 700;
+      }
+      .paperregex mark.f2,
+      .papersample mark.f2 {
+        background: var(--blue-bg);
+        color: var(--blue);
+      }
+      .paperregex mark.f3,
+      .papersample mark.f3 {
+        background: var(--pink-bg);
+        color: var(--pink);
+      }
+      .paperregex mark.f4,
+      .papersample mark.f4 {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .paperregex mark.f6,
+      .papersample mark.f6 {
+        background: var(--teal-bg);
+        color: var(--teal);
+      }
+      .icononly {
+        display: flex;
+        gap: 10px;
+        margin-top: 7px;
+      }
+      .icononly i {
+        color: var(--text3);
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .icononly i:hover {
+        color: var(--primary);
+      }
+      .icononly i.danger {
+        color: var(--danger);
+      }
+      .heightlabel {
+        text-align: center;
+        font-size: 9.5px;
+        color: var(--text3);
+        margin-top: 8px;
+        font-style: italic;
+      }
+
+      /* Modal test-samples list (a static mockup of the real modal's new section) */
+      .modalmock {
+        max-width: 460px;
+        margin: 0 auto 20px;
+        padding: 14px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 11px;
+      }
+      .modalmock h4 {
+        margin: 0 0 10px;
+        font-size: 13px;
+      }
+      .samplelist {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 8px;
+      }
+      .samplerow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 6px 9px;
+        cursor: pointer;
+        font-size: 10.5px;
+      }
+      .samplerow.active {
+        border-color: var(--primary);
+        background: var(--primary-bg);
+      }
+      .samplerow .snum {
+        font-weight: 800;
+        color: var(--text3);
+        flex-shrink: 0;
+      }
+      .samplerow.active .snum {
+        color: var(--primary);
+      }
+      .samplerow .ssnippet {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: ui-monospace, Menlo, monospace;
+        color: var(--text2);
+        font-size: 9.5px;
+      }
+      .samplerow .sx {
+        color: var(--text3);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .samplerow .sx:hover {
+        color: var(--danger);
+      }
+      .addsamplebtn {
+        border: 1px dashed #d8d0b8;
+        border-radius: 7px;
+        padding: 7px;
+        text-align: center;
+        font-size: 10px;
+        color: var(--text2);
+        cursor: pointer;
+        margin-bottom: 12px;
+      }
+      .addsamplebtn:hover {
+        background: #fafbfc;
+      }
+      .formfield {
+        margin-bottom: 8px;
+      }
+      .formfield label {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text3);
+        display: block;
+        margin-bottom: 3px;
+      }
+      .formfield input,
+      .formfield textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 11px;
+        font-family: inherit;
+      }
+
+      /* ── §2: Bulk-exclude checkboxes + action bar (real .rtable language) ── */
+      .demo2 {
+        max-width: 780px;
+        margin: 0 auto 20px;
+        padding: 0 16px;
+      }
+      .bulkbar {
+        display: none;
+        align-items: center;
+        gap: 14px;
+        background: var(--amber-bg);
+        border: 1px solid #fcd9a0;
+        border-radius: 8px;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .bulkbar.show {
+        display: flex;
+      }
+      .bulkbar .cnt {
+        color: var(--amber);
+      }
+      .bulkbtn {
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 3px 9px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--paper);
+      }
+      .bulkbtn.excl {
+        color: var(--danger);
+        border-color: #f6c8c8;
+      }
+      .bulkbtn.incl {
+        color: var(--primary);
+        border-color: #a7f3d0;
+      }
+      .bulkbtn.clear {
+        color: var(--text2);
+        margin-left: auto;
+      }
+      table.rtable {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      table.rtable th {
+        text-align: left;
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--text3);
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--border);
+        background: #fafbfc;
+      }
+      table.rtable td {
+        padding: 7px 8px;
+        border-bottom: 1px solid #f0f2f5;
+        vertical-align: top;
+        color: var(--text);
+      }
+      table.rtable .selcell {
+        width: 22px;
+      }
+      table.rtable .selcell input,
+      table.rtable th.selcell input {
+        cursor: pointer;
+      }
+      table.rtable tr.rrow.excludedrow td {
+        background: var(--danger-bg);
+        opacity: 0.7;
+      }
+      table.rtable .msgtext {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        color: var(--text2);
+      }
+      table.rtable .sact {
+        font-size: 9px;
+        font-weight: 700;
+        color: var(--danger);
+        cursor: pointer;
+      }
+
+      /* ── §3: Common Patterns redesign ── */
+      .demo3 {
+        max-width: 640px;
+        margin: 0 auto 20px;
+        padding: 0 16px;
+      }
+      .cprow {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 9px 11px;
+        margin-bottom: 7px;
+        background: var(--paper);
+      }
+      .cptop {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .cptop b {
+        font-size: 12px;
+      }
+      .cptop .usedin {
+        margin-left: auto;
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--blue);
+        cursor: pointer;
+      }
+      .cptop .usedin:hover {
+        text-decoration: underline;
+      }
+      .cpcode {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 10px;
+        color: var(--primary);
+        background: var(--primary-bg);
+        border-radius: 5px;
+        padding: 4px 7px;
+        margin: 5px 0;
+        word-break: break-word;
+      }
+      .cpexample {
+        font-size: 10px;
+        color: var(--text2);
+      }
+      .cpexample b {
+        font-family: ui-monospace, Menlo, monospace;
+        color: var(--text);
+        font-weight: 600;
+      }
+      .cpexample .lbl {
+        font-size: 8.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--text3);
+        margin-right: 4px;
+      }
+      .popup-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+      .popup-backdrop.active {
+        display: flex;
+      }
+      .popup {
+        background: var(--paper);
+        border-radius: 12px;
+        width: 420px;
+        max-height: 70vh;
+        overflow: auto;
+        padding: 16px;
+      }
+      .popup h4 {
+        margin: 0 0 4px;
+        font-size: 14px;
+      }
+      .popup .sub {
+        font-size: 10.5px;
+        color: var(--text3);
+        margin-bottom: 10px;
+      }
+      .popuprow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        margin-bottom: 5px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+      .popuprow:hover {
+        background: #fafbfc;
+        border-color: var(--primary);
+      }
+      .popuprow .bank {
+        margin-left: auto;
+        font-size: 9.5px;
+        font-weight: 800;
+        color: var(--text3);
+        text-transform: uppercase;
+      }
+      .popupclose {
+        text-align: right;
+        margin-top: 8px;
+      }
+      .popupclose span {
+        font-size: 10.5px;
+        font-weight: 700;
+        color: var(--blue);
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="topnav">
+      <a href="#samples">1. Multiple samples (pager)</a>
+      <a href="#bulk">2. Bulk-exclude checkboxes</a>
+      <a href="#patterns">3. Common Patterns redesign</a>
+    </div>
+
+    <div class="sectionhead" id="samples">
+      <h2><span class="stepno">1</span> Multiple samples per template — small pager</h2>
+      <p>
+        The expanded card gets a "Sample 1 of 3 ‹ ›" pager right above the regex|sample grid — only shown
+        when a template actually has more than one saved sample. Cycling it re-highlights the SAME regex
+        against a different real message, so you can confirm one pattern genuinely handles the different
+        real-world variants it's supposed to. Keeps the card exactly as compact as today when there's only
+        one sample (the common case) — no pager row at all in that case.
+      </p>
+    </div>
+    <div class="demo1">
+      <div class="papercard-v2">
+        <div class="crow" id="cardHead">
+          <i class="ti ti-chevron-down"></i>
+          <b>T1 (2026-08-15 (current era))</b>
+          <span class="regexinline" title="full regex…">Rs\.?\s?(?&lt;amount&gt;[\d,]+\.?\d*)\s+debited…</span>
+          <i class="ti ti-copy iconbtn"></i>
+          <i class="ti ti-pencil iconbtn"></i>
+          <i class="statusicon ti ti-circle-check" style="color: var(--primary)"></i>
+        </div>
+        <div class="cbody">
+          <div class="samplepager">
+            <i class="ti ti-chevron-left disabled" id="pagerPrev"></i>
+            <span id="pagerLabel">Sample 1 of 3</span>
+            <i class="ti ti-chevron-right" id="pagerNext"></i>
+          </div>
+          <div class="twocol" id="pagerContent">
+            <div>
+              <div class="minilabel">Regex</div>
+              <div class="paperregex">
+                Rs\.?\s?(?&lt;<mark>amount</mark>&gt;[\d,]+\.?\d*)\s+debited from a\/c\s+X+(?&lt;<mark
+                  class="f2"
+                  >acctLast4</mark
+                >&gt;\d{3,6})\s+on\s+(?&lt;<mark class="f6">dateStr</mark>&gt;\d{2}-[A-Za-z]{3}-\d{2})\s+to\s+VPA\s+(?&lt;<mark
+                  class="f3"
+                  >counterparty</mark
+                >&gt;[\w.@-]+)\s+\(UPI Ref No\s+(?&lt;<mark class="f4">ref</mark>&gt;\d+)\)
+              </div>
+            </div>
+            <div>
+              <div class="minilabel">Sample</div>
+              <div class="papersample">
+                HDFC Bank: <mark>Rs.500.00</mark> debited from a/c XX<mark class="f2">1234</mark> on
+                <mark class="f6">15-Aug-26</mark> to VPA <mark class="f3">merchant@ybl</mark> (UPI Ref No
+                <mark class="f4">123456789012</mark>).
+              </div>
+            </div>
+          </div>
+          <div class="icononly">
+            <i class="ti ti-eye-off"></i>
+            <i class="ti ti-trash danger"></i>
+          </div>
+        </div>
+      </div>
+      <div class="heightlabel">Pager only appears once a template has 2+ saved samples.</div>
+    </div>
+
+    <div class="sectionhead" style="margin-top: 8px">
+      <p>
+        In the template modal, "Test sender / Test message body" becomes a small list of saved samples —
+        click one to make it the active sample being edited/previewed below, remove any with ×, or add a
+        new blank one. Whichever sample is active when you hit Save is what the preview/live-check below
+        reflects, same as today; every sample in the list gets saved when you save the template.
+      </p>
+    </div>
+    <div class="modalmock">
+      <h4>Edit template — HDFC, T1</h4>
+      <div class="minilabel" style="margin-bottom: 6px">Test samples</div>
+      <div class="samplelist">
+        <div class="samplerow active">
+          <span class="snum">1.</span>
+          <span class="ssnippet">VM-HDFCBK: HDFC Bank: Rs.500.00 debited from a/c XX1234…</span>
+          <span class="sx">✕</span>
+        </div>
+        <div class="samplerow">
+          <span class="snum">2.</span>
+          <span class="ssnippet">AX-HDFCBK: HDFC Bank: Rs.12,340.00 debited from a/c XX9987…</span>
+          <span class="sx">✕</span>
+        </div>
+        <div class="samplerow">
+          <span class="snum">3.</span>
+          <span class="ssnippet">HDFCBK: HDFC Bank: Rs.75.50 debited from a/c XX4410…</span>
+          <span class="sx">✕</span>
+        </div>
+      </div>
+      <div class="addsamplebtn">+ Add another sample</div>
+      <div class="formfield">
+        <label>Test sender (sample 1)</label>
+        <input value="VM-HDFCBK" />
+      </div>
+      <div class="formfield">
+        <label>Test message body (sample 1)</label>
+        <textarea rows="2">HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No 123456789012).</textarea>
+      </div>
+    </div>
+
+    <div class="sectionhead" id="bulk">
+      <h2><span class="stepno">2</span> Bulk-exclude — checkboxes + action bar</h2>
+      <p>
+        A checkbox column (plus "select all visible" in the header) on the results table — filter to one
+        sender first (already possible today via search or clicking the sender), then check just the
+        specific messages that aren't real transactions. A bar appears above the table once anything's
+        selected, with <b>Exclude selected</b> / <b>Include selected</b> (both always offered, since a
+        selection might mix already-excluded and not-yet-excluded rows) and a Clear-selection escape hatch.
+        Each action calls the same per-message exclude/include already used by a single expanded row's own
+        action today — this is just a faster way to do it 7 times instead of once.
+      </p>
+    </div>
+    <div class="demo2">
+      <div class="bulkbar show" id="bulkBar">
+        <span><span class="cnt" id="selCount">3</span> selected</span>
+        <span class="bulkbtn excl">🚫 Exclude selected</span>
+        <span class="bulkbtn incl">↩ Include selected</span>
+        <span class="bulkbtn clear" id="clearSel">Clear selection</span>
+      </div>
+      <table class="rtable">
+        <thead>
+          <tr>
+            <th class="selcell"><input type="checkbox" checked /></th>
+            <th></th>
+            <th>Sender</th>
+            <th>Message</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="rrow">
+            <td class="selcell"><input type="checkbox" checked /></td>
+            <td><i class="ti ti-chevron-right"></i></td>
+            <td>VM-HDFCBK</td>
+            <td class="msgtext">Reminder: your HDFC card bill is due tomorrow.</td>
+            <td><span style="font-size: 9px; font-weight: 800; color: var(--text3)">❌ Unrecognized</span></td>
+          </tr>
+          <tr class="rrow excludedrow">
+            <td class="selcell"><input type="checkbox" checked /></td>
+            <td><i class="ti ti-chevron-right"></i></td>
+            <td>VM-HDFCBK</td>
+            <td class="msgtext">Your OTP for login is 445920. Do not share.</td>
+            <td><span style="font-size: 9px; font-weight: 800; color: var(--text3)">🚫 Excluded</span></td>
+          </tr>
+          <tr class="rrow">
+            <td class="selcell"><input type="checkbox" checked /></td>
+            <td><i class="ti ti-chevron-right"></i></td>
+            <td>VM-HDFCBK</td>
+            <td class="msgtext">Win a free iPhone! Click here to claim your prize now.</td>
+            <td><span style="font-size: 9px; font-weight: 800; color: var(--text3)">❌ Unrecognized</span></td>
+          </tr>
+          <tr class="rrow">
+            <td class="selcell"><input type="checkbox" /></td>
+            <td><i class="ti ti-chevron-right"></i></td>
+            <td>VM-HDFCBK</td>
+            <td class="msgtext">
+              HDFC Bank: Rs.500.00 debited from a/c XX1234 on 15-Aug-26 to VPA merchant@ybl (UPI Ref No
+              123456789012).
+            </td>
+            <td><span style="font-size: 9px; font-weight: 800; color: var(--primary)">✓ Parsed</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="heightlabel">
+        3 of 4 visible rows checked here — the real bar recomputes live as checkboxes change.
+      </div>
+    </div>
+
+    <div class="sectionhead" id="patterns">
+      <h2><span class="stepno">3</span> Common Patterns — sorted, with an example + usage count</h2>
+      <p>
+        Sorted alphabetically by label (was insertion order). Each entry now also shows a real matched
+        example string (authored for every built-in; optional for a tester's own custom snippet) and
+        <b>"Used in N templates"</b> — a live count of how many templates across every bank actually contain
+        this exact snippet text. Clicking the count opens a popup listing every one of them (bank + T-number
+        + label); clicking a listed template there navigates to that bank and expands that card directly —
+        turning "is this pattern even still used anywhere?" into one click instead of a manual search.
+      </p>
+    </div>
+    <div class="demo3">
+      <div class="cprow">
+        <div class="cptop">
+          <b>acctLast4</b>
+          <span class="usedin" id="usedin1">Used in 22 templates</span>
+        </div>
+        <div class="cpcode">X+(?&lt;acctLast4&gt;\d{3,6})</div>
+        <div class="cpexample"><span class="lbl">Example</span>matches <b>XX1234</b> in "...a/c XX1234 on..."</div>
+      </div>
+      <div class="cprow">
+        <div class="cptop">
+          <b>amount</b>
+          <span class="usedin">Used in 30 templates</span>
+        </div>
+        <div class="cpcode">Rs\.?\s?(?&lt;amount&gt;[\d,]+\.?\d*)</div>
+        <div class="cpexample"><span class="lbl">Example</span>matches <b>500.00</b> in "Rs.500.00 debited..."</div>
+      </div>
+      <div class="cprow">
+        <div class="cptop">
+          <b>balance</b>
+          <span class="usedin">Used in 4 templates</span>
+        </div>
+        <div class="cpcode">Avl\.?\s*Bal\.?\s*Rs\.?\s?(?&lt;balance&gt;[\d,]+\.?\d*)</div>
+        <div class="cpexample"><span class="lbl">Example</span>matches <b>10,482.50</b> in "Avl Bal Rs.10,482.50"</div>
+      </div>
+      <div class="cprow">
+        <div class="cptop">
+          <b>cardLast4</b>
+          <span class="usedin">Used in 6 templates</span>
+        </div>
+        <div class="cpcode">X(?&lt;cardLast4&gt;\d{4})</div>
+        <div class="cpexample"><span class="lbl">Example</span>matches <b>4410</b> in "card XXXX4410"</div>
+      </div>
+      <div class="cprow">
+        <div class="cptop">
+          <b>counterparty</b>
+          <span class="usedin">Used in 30 templates</span>
+        </div>
+        <div class="cpcode">(?&lt;counterparty&gt;[\w .@-]+)</div>
+        <div class="cpexample"><span class="lbl">Example</span>matches <b>merchant@ybl</b> in "...to VPA merchant@ybl..."</div>
+      </div>
+      <div class="cprow">
+        <div class="cptop">
+          <b>dateStr (DD-Mon-YY)</b>
+          <span class="usedin">Used in 14 templates</span>
+        </div>
+        <div class="cpcode">(?&lt;dateStr&gt;\d{2}-[A-Za-z]{3}-\d{2})</div>
+        <div class="cpexample"><span class="lbl">Example</span>matches <b>15-Aug-26</b> in "...on 15-Aug-26 to..."</div>
+      </div>
+      <div class="cprow" style="opacity: 0.7">
+        <div class="cptop">
+          <b>upiRefNo (my own)</b>
+          <span class="minipill" style="font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 999px; background: var(--blue-bg); color: var(--blue)">custom</span>
+          <span class="usedin">Used in 0 templates</span>
+        </div>
+        <div class="cpcode">UPI[:\\s]+(?&lt;ref&gt;\d{9,})</div>
+        <div class="cpexample"><span class="lbl">Example</span><i style="color: var(--text3)">— not provided, optional for your own snippets</i></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Note on the usage popup:</b> clicking any "Used in N templates" opens the popup below (try it on
+      "acctLast4" above) — this is what it looks like once built.
+    </div>
+
+    <div class="popup-backdrop" id="popupBackdrop">
+      <div class="popup">
+        <h4>acctLast4</h4>
+        <div class="sub">X+(?&lt;acctLast4&gt;\d{3,6}) — used in 22 templates</div>
+        <div class="popuprow"><span>T1 (2026-08-15 (current era))</span><span class="bank">HDFC</span></div>
+        <div class="popuprow"><span>T2 (2026-08-15 (current era))</span><span class="bank">HDFC</span></div>
+        <div class="popuprow"><span>T3 (2026-08-15 (older era, ~2012-2016))</span><span class="bank">HDFC</span></div>
+        <div class="popuprow"><span>T1 (2026-08-15 (current era))</span><span class="bank">ICICI</span></div>
+        <div class="popuprow"><span>T1 (2026-08-15 (current era))</span><span class="bank">SBI</span></div>
+        <div class="popupclose"><span id="popupClose">Close</span></div>
+      </div>
+    </div>
+
+    <script>
+      // §1 — sample pager (cycles through 3 canned regex|sample pairs)
+      const samples = [
+        {
+          regex:
+            'Rs\\.?\\s?(?<<mark>amount</mark>>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X+(?<<mark class="f2">acctLast4</mark>>\\d{3,6})\\s+on\\s+(?<<mark class="f6">dateStr</mark>>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+to\\s+VPA\\s+(?<<mark class="f3">counterparty</mark>>[\\w.@-]+)\\s+\\(UPI Ref No\\s+(?<<mark class="f4">ref</mark>>\\d+)\\)',
+          sample:
+            'HDFC Bank: <mark>Rs.500.00</mark> debited from a/c XX<mark class="f2">1234</mark> on <mark class="f6">15-Aug-26</mark> to VPA <mark class="f3">merchant@ybl</mark> (UPI Ref No <mark class="f4">123456789012</mark>).'
+        },
+        {
+          regex:
+            'Rs\\.?\\s?(?<<mark>amount</mark>>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X+(?<<mark class="f2">acctLast4</mark>>\\d{3,6})\\s+on\\s+(?<<mark class="f6">dateStr</mark>>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+to\\s+VPA\\s+(?<<mark class="f3">counterparty</mark>>[\\w.@-]+)\\s+\\(UPI Ref No\\s+(?<<mark class="f4">ref</mark>>\\d+)\\)',
+          sample:
+            'HDFC Bank: <mark>Rs.12,340.00</mark> debited from a/c XX<mark class="f2">9987</mark> on <mark class="f6">02-Jan-26</mark> to VPA <mark class="f3">landlord@icici</mark> (UPI Ref No <mark class="f4">987654321000</mark>).'
+        },
+        {
+          regex:
+            'Rs\\.?\\s?(?<<mark>amount</mark>>[\\d,]+\\.?\\d*)\\s+debited from a\\/c\\s+X+(?<<mark class="f2">acctLast4</mark>>\\d{3,6})\\s+on\\s+(?<<mark class="f6">dateStr</mark>>\\d{2}-[A-Za-z]{3}-\\d{2})\\s+to\\s+VPA\\s+(?<<mark class="f3">counterparty</mark>>[\\w.@-]+)\\s+\\(UPI Ref No\\s+(?<<mark class="f4">ref</mark>>\\d+)\\)',
+          sample:
+            'HDFC Bank: <mark>Rs.75.50</mark> debited from a/c XX<mark class="f2">4410</mark> on <mark class="f6">28-Feb-26</mark> to VPA <mark class="f3">chaiwala@paytm</mark> (UPI Ref No <mark class="f4">112233445566</mark>).'
+        }
+      ];
+      let sampleIdx = 0;
+      const pagerLabel = document.getElementById('pagerLabel');
+      const pagerPrev = document.getElementById('pagerPrev');
+      const pagerNext = document.getElementById('pagerNext');
+      const pagerContent = document.getElementById('pagerContent');
+      function renderSample() {
+        pagerLabel.textContent = `Sample ${sampleIdx + 1} of ${samples.length}`;
+        pagerPrev.className = 'ti ti-chevron-left' + (sampleIdx === 0 ? ' disabled' : '');
+        pagerNext.className = 'ti ti-chevron-right' + (sampleIdx === samples.length - 1 ? ' disabled' : '');
+        const s = samples[sampleIdx];
+        pagerContent.innerHTML = `
+          <div><div class="minilabel">Regex</div><div class="paperregex">${s.regex.replace(/</g, '&lt;').replace(/&lt;mark/g, '<mark').replace(/&lt;\/mark/g, '</mark')}</div></div>
+          <div><div class="minilabel">Sample</div><div class="papersample">${s.sample}</div></div>
+        `;
+      }
+      pagerPrev.addEventListener('click', () => {
+        if (sampleIdx > 0) { sampleIdx--; renderSample(); }
+      });
+      pagerNext.addEventListener('click', () => {
+        if (sampleIdx < samples.length - 1) { sampleIdx++; renderSample(); }
+      });
+
+      // §1 modal — clicking a sample row makes it active
+      document.querySelectorAll('.samplerow').forEach((row) => {
+        row.addEventListener('click', (e) => {
+          if (e.target.classList.contains('sx')) return;
+          document.querySelectorAll('.samplerow').forEach((r) => r.classList.remove('active'));
+          row.classList.add('active');
+        });
+      });
+
+      // §2 — live selection count
+      const checkboxes = [...document.querySelectorAll('.demo2 tbody input[type="checkbox"]')];
+      const bulkBar = document.getElementById('bulkBar');
+      const selCount = document.getElementById('selCount');
+      function updateBulkBar() {
+        const n = checkboxes.filter((c) => c.checked).length;
+        selCount.textContent = n;
+        bulkBar.classList.toggle('show', n > 0);
+      }
+      checkboxes.forEach((c) => c.addEventListener('change', updateBulkBar));
+      document.getElementById('clearSel').addEventListener('click', () => {
+        checkboxes.forEach((c) => (c.checked = false));
+        updateBulkBar();
+      });
+
+      // §3 — usage popup
+      const popupBackdrop = document.getElementById('popupBackdrop');
+      document.getElementById('usedin1').addEventListener('click', () => popupBackdrop.classList.add('active'));
+      document.getElementById('popupClose').addEventListener('click', () => popupBackdrop.classList.remove('active'));
+    </script>
+  </body>
+</html>

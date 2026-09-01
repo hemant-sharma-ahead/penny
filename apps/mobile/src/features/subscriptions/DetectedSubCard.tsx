@@ -1,7 +1,7 @@
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Card, Button, Badge } from '~/components/ui';
 import { Icon } from '~/components/Icon';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate, formatDateShort } from '@/lib/formatters';
 import { displayName, intervalLabel } from '@/core/subscriptions/format';
 import type { DetectedSubscription } from '@/core/subscriptions/detector';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -11,9 +11,18 @@ interface DetectedSubCardProps {
   masked: boolean;
   onConfirm: (c: DetectedSubscription) => void;
   onDismiss: (c: DetectedSubscription) => void;
+  /** Item 22/23 (docs/plans/real-device-testing-pass.md) — opens the matching transactions in
+   *  `EntityTransactionsModal`, same drill-down Analytics already uses for a tag/category. */
+  onViewTransactions: (c: DetectedSubscription) => void;
 }
 
-export function DetectedSubCard({ candidate: c, masked, onConfirm, onDismiss }: DetectedSubCardProps) {
+export function DetectedSubCard({
+  candidate: c,
+  masked,
+  onConfirm,
+  onDismiss,
+  onViewTransactions
+}: DetectedSubCardProps) {
   const theme = useThemeColors();
 
   return (
@@ -34,13 +43,15 @@ export function DetectedSubCard({ candidate: c, masked, onConfirm, onDismiss }: 
         </View>
       </View>
 
-      <Text className="text-xs text-tertiary">
-        Seen {c.occurrenceCount} time{c.occurrenceCount !== 1 ? 's' : ''}
-        {c.lastChargedAt !== undefined && ` · last ${formatDateShort(c.lastChargedAt)}`}
-        {c.status === 'trial' && c.trialEndsAt !== undefined && (
-          <Text style={{ color: theme.info }}> · trial may end {formatDateShort(c.trialEndsAt)}</Text>
-        )}
-      </Text>
+      <Pressable onPress={() => onViewTransactions(c)} hitSlop={6} accessibilityRole="button">
+        <Text className="text-xs text-tertiary">
+          Seen {c.occurrenceCount} time{c.occurrenceCount !== 1 ? 's' : ''}
+          {c.lastChargedAt !== undefined && ` · last ${formatDate(c.lastChargedAt)}`}
+          {c.status === 'trial' && c.trialEndsAt !== undefined && (
+            <Text style={{ color: theme.info }}> · trial may end {formatDateShort(c.trialEndsAt)}</Text>
+          )}
+        </Text>
+      </Pressable>
 
       {c.priceCreep && c.latestAmount > c.firstAmount && !masked && (
         <View className="flex-row items-center gap-1">

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insurance Add/Edit form — 5 flat, dense layout options, side-by-side (v2)</title>
+<style>
+  :root { --primary:#00a86b; --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px 24px 100px; background:#05070a; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+  h1 { font-size:21px; margin:0 0 4px; }
+  h2 { font-size:14px; margin:0; color:#fff; }
+  .intro { color:#8b949e; font-size:13px; max-width:1000px; line-height:1.65; margin-bottom:14px; }
+  .intro b { color:#e6edf3; } .intro code { background:#1c2128; border:1px solid #2d333b; border-radius:4px; padding:1px 5px; font-size:11.5px; }
+  .rejected { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 16px; }
+  .rejected span { font-size:10.5px; font-weight:800; color:#f87171; background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.4); border-radius:999px; padding:4px 11px; text-decoration:line-through; }
+
+  nav.anchors { position:sticky; top:0; z-index:30; display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#05070a; padding:10px 0 14px; margin-bottom:6px; border-bottom:1px solid #1c2128; }
+  nav.anchors a { font-size:12px; font-weight:700; color:#c9d1d9; text-decoration:none; padding:6px 12px; border-radius:999px; border:1px solid #2d333b; background:#161b22; cursor:pointer; }
+  .toolbar { position:sticky; top:46px; z-index:29; display:flex; align-items:center; gap:10px; margin:0 0 18px; background:#05070a; padding-bottom:8px; }
+  .toolbar button { font-family:inherit; font-size:12px; font-weight:700; padding:7px 14px; border-radius:999px; border:1px solid #2d333b; background:#161b22; color:#e6edf3; cursor:pointer; }
+  .toolbar button.active { background:var(--primary); border-color:var(--primary); color:#04140d; }
+  .toolbar .hint { font-size:11.5px; color:#6e7681; }
+
+  /* ===== THE ASK: horizontal, side-by-side comparison, not stacked sections ===== */
+  .compare-row { display:flex; gap:22px; overflow-x:auto; padding:8px 4px 20px; scroll-snap-type:x proximity; }
+  .opt-col { scroll-snap-align:start; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:10px; width:300px; }
+  .opt-tag { font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:3px 10px; border-radius:999px; background:rgba(0,168,107,.14); color:var(--primary); }
+  .opt-tag.lead { background:rgba(16,185,129,.22); color:#6ee7b7; }
+  .opt-title { font-size:13px; font-weight:800; color:#fff; text-align:center; }
+  .opt-pitch { font-size:10.5px; color:#8b949e; line-height:1.55; text-align:center; max-width:290px; }
+
+  .phone { width:300px; height:700px; border-radius:30px; border:8px solid #111827; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 14px 30px rgba(0,0,0,.45); flex-shrink:0; }
+  .screen { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .screen[data-theme="light"] { background:#f8fafc; --surface:#ffffff; --surface2:#eff6ff; --surface3:#e2ecfb; --border:#c7d8f0; --text:#0f172a; --text2:#475569; --text3:#94a3b8; }
+  .screen[data-theme="dark"] { background:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --border:#2d333b; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681; }
+
+  .modal-head { display:flex; align-items:center; gap:8px; padding:10px 11px 6px; flex-shrink:0; background:var(--surface); border-bottom:1px solid var(--border); }
+  .modal-title { font-size:12px; font-weight:700; color:var(--text); flex:1; }
+  .xbtn { width:20px; height:20px; border-radius:7px; display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:12px; flex-shrink:0; }
+  .modal-body { flex:1; overflow-y:auto; padding:8px 10px 10px; display:flex; flex-direction:column; gap:7px; background:var(--surface); }
+  .modal-foot { display:flex; gap:8px; padding:7px 10px 10px; flex-shrink:0; background:var(--surface); }
+  .btn { text-align:center; font-size:11px; font-weight:700; padding:9px 8px; border-radius:10px; cursor:pointer; line-height:1.25; }
+  .btn.primary { background:var(--primary); color:#04140d; flex:1; }
+
+  .field-label { font-size:9px; font-weight:600; color:var(--text2); margin-bottom:3px; }
+  .field-label .opt { font-weight:400; color:var(--text3); }
+  .input-box { width:100%; border-radius:8px; border:1px solid var(--border); background:var(--surface2); padding:6px 8px; font-size:10.5px; color:var(--text); }
+  .input-box.ph { color:var(--text3); }
+  .input-box.trigger { display:flex; align-items:center; justify-content:space-between; }
+  .input-box.trigger .chv { color:var(--text3); font-size:10px; }
+  .row2 { display:flex; gap:6px; } .row2 > div { flex:1; min-width:0; }
+  .row3 { display:flex; gap:6px; } .row3 > div { flex:1; min-width:0; }
+  .field-block { display:flex; flex-direction:column; }
+
+  .type-grid { display:flex; flex-wrap:wrap; gap:4px; }
+  .type-tile { width:23%; display:flex; flex-direction:column; align-items:center; gap:1px; border-radius:8px; border:1.5px solid var(--border); background:var(--surface2); padding:4px 2px; }
+  .type-tile .ic { font-size:12px; } .type-tile .lb { font-size:7.5px; font-weight:600; color:var(--text2); }
+  .type-tile.active { border-color:#ef4444; background:rgba(239,68,68,.1); }
+  .type-tile.active .lb { color:#ef4444; font-weight:700; }
+  .type-strip { display:flex; gap:4px; overflow-x:auto; }
+  .type-pill { flex-shrink:0; display:flex; align-items:center; gap:3px; padding:4px 8px; border-radius:99px; border:1.5px solid var(--border); background:var(--surface2); font-size:8.5px; font-weight:700; color:var(--text2); }
+  .type-pill.active { border-color:#ef4444; background:rgba(239,68,68,.12); color:#ef4444; }
+
+  .seg { display:flex; background:var(--surface2); border-radius:8px; padding:2px; gap:1px; }
+  .seg .s { flex:1; text-align:center; font-size:8.5px; font-weight:700; padding:5px 1px; border-radius:7px; color:var(--text2); }
+  .seg .s.active { background:var(--primary); color:#04140d; }
+
+  .chiprow { display:flex; flex-wrap:wrap; gap:4px; }
+  .chip { padding:4px 8px; border-radius:7px; border:1px solid var(--border); background:var(--surface2); font-size:8.5px; font-weight:700; color:var(--text2); }
+  .chip.active { background:var(--primary); border-color:var(--primary); color:#04140d; }
+  .chip.locked { opacity:.5; border-style:dashed; }
+
+  .dob-nudge { display:flex; align-items:center; gap:5px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.35); border-radius:7px; padding:4px 7px; margin-top:3px; }
+  .dob-nudge .ic { font-size:10px; } .dob-nudge .tx { flex:1; font-size:7.8px; color:var(--text2); line-height:1.3; }
+  .dob-nudge .lk { font-size:7.8px; font-weight:800; color:var(--warning); white-space:nowrap; }
+
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:1px 0; }
+  .toggle-row .tl { font-size:9.5px; font-weight:600; color:var(--text); }
+  .switch { width:26px; height:15px; border-radius:99px; background:var(--border); position:relative; flex-shrink:0; }
+  .switch.on { background:var(--primary); }
+  .switch .knob { position:absolute; top:2px; left:2px; width:11px; height:11px; border-radius:50%; background:#fff; }
+  .switch.on .knob { left:13px; }
+
+  .divider-label { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin:1px 0 -2px; display:flex; align-items:center; gap:5px; }
+  .divider-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .hero-sa { background:linear-gradient(135deg, rgba(0,168,107,.16), rgba(0,168,107,.05)); border:1px solid rgba(0,168,107,.35); border-radius:10px; padding:8px 9px; }
+  .hero-sa .hl { font-size:8px; font-weight:700; text-transform:uppercase; color:var(--text2); }
+  .hero-sa .hv { font-size:16px; font-weight:800; color:var(--text); }
+
+  /* Option 2 — compact inline-editable hero strip */
+  .heroStrip { display:flex; align-items:center; background:rgba(0,168,107,.1); border:1px solid rgba(0,168,107,.35); border-radius:9px; padding:6px 8px; gap:0; }
+  .heroStrip .hs-seg { flex:1; text-align:center; }
+  .heroStrip .hs-seg + .hs-seg { border-left:1px solid rgba(0,168,107,.3); }
+  .heroStrip .hs-l { font-size:6.8px; font-weight:700; text-transform:uppercase; color:var(--text3); }
+  .heroStrip .hs-v { font-size:11px; font-weight:800; color:var(--text); }
+
+  /* Option 3 — inline label-beside-value rows */
+  .lrow { display:flex; align-items:center; gap:6px; padding:5px 0; border-top:1px solid var(--border); }
+  .lrow:first-child { border-top:none; }
+  .lrow .ll { width:34%; font-size:9px; font-weight:600; color:var(--text2); flex-shrink:0; }
+  .lrow .lv { flex:1; font-size:10.5px; font-weight:700; color:var(--text); text-align:right; }
+  .lrow .lv.ph { color:var(--text3); font-weight:600; }
+  .lrow.primary .lv { color:var(--primary); font-size:12px; }
+
+  /* Option 4 — stepper */
+  .stepper { display:flex; align-items:center; gap:6px; }
+  .stepper .sb { width:22px; height:22px; border-radius:6px; background:var(--surface2); border:1px solid var(--border); color:var(--text); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .stepper .sv { flex:1; text-align:center; font-size:10.5px; font-weight:700; color:var(--text); }
+
+  /* Option 5 — grouped settings-row list (always fully visible, never collapsible) */
+  .slist { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .slist-cap { font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); background:var(--surface2); padding:4px 8px; }
+  .srow { display:flex; align-items:center; gap:6px; padding:6px 8px; border-top:1px solid var(--border); background:var(--surface); }
+  .srow:first-of-type { border-top:none; }
+  .srow .sic { font-size:11px; width:16px; text-align:center; flex-shrink:0; }
+  .srow .sl { font-size:9px; color:var(--text2); font-weight:600; flex-shrink:0; width:38%; }
+  .srow .sv { flex:1; text-align:right; font-size:10px; font-weight:700; color:var(--text); }
+  .srow .sv.ph { color:var(--text3); font-weight:600; }
+  .srow.primary .sv { color:var(--primary); font-size:12px; }
+  .srow .chv { font-size:9px; color:var(--text3); margin-left:2px; }
+
+  .note { max-width:1000px; margin-top:14px; border:1px dashed #2d333b; border-radius:10px; padding:12px 14px; font-size:11.5px; color:#8b949e; line-height:1.65; }
+  .note b { color:#e6edf3; } .note code { background:#1c2128; border:1px solid #2d333b; border-radius:4px; padding:1px 5px; font-size:10.5px; }
+  section { margin-top:44px; scroll-margin-top:100px; }
+  .section-label { display:inline-flex; align-items:center; gap:8px; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#6e7681; border:1px solid #2d333b; border-radius:999px; padding:3px 10px; margin-bottom:8px; }
+  .desc { max-width:1000px; font-size:12.5px; color:#8b949e; line-height:1.65; margin:6px 0 14px; }
+  .desc b { color:#e6edf3; } .desc code { background:#1c2128; border:1px solid #2d333b; border-radius:4px; padding:1px 5px; font-size:11px; }
+
+  .finding { max-width:1000px; margin:10px 0 18px; border:1px dashed #444c56; border-radius:12px; padding:12px 16px; font-size:12px; line-height:1.7; color:#8b949e; }
+  .finding b { color:#e6edf3; }
+  .finding .tag { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#f59e0b; border:1px solid rgba(245,158,11,.4); background:rgba(245,158,11,.1); border-radius:999px; padding:2px 8px; margin-right:8px; vertical-align:1px; }
+  .finding.rec .tag { color:#6ee7b7; border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.1); }
+
+  .cmp-table { border-collapse:collapse; max-width:1000px; width:100%; font-size:11.5px; margin-top:8px; }
+  .cmp-table th, .cmp-table td { border:1px solid #2d333b; padding:9px 11px; text-align:left; vertical-align:top; }
+  .cmp-table th { background:#161b22; color:#fff; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; }
+  .cmp-table td { color:#c9d1d9; }
+  .cmp-table td.lead { background:rgba(16,185,129,.06); }
+  .cmp-table b { color:#fff; }
+</style>
+</head>
+<body>
+
+<h1>Insurance Add/Edit form — 5 flat, dense options, side by side (v2)</h1>
+<p class="intro">
+  Direct feedback on <code>insurance-form-layout-options-v1.html</code>: <i>"All options are bad. Be
+  intuitive please. We have to keep the taps minimal and do not waste space… Give the options side by side
+  in horizontal style please."</i> v1's "Current (shipped)" recap still applies unchanged — not re-added
+  here per this project's own "don't re-add Current every round" convention. Every option below is grounded
+  fresh in <code>PolicyForm.tsx</code> + <code>fields/*.tsx</code>, applied to the same Term case, with
+  Option ① also shown for Vehicle to prove it generalizes.
+</p>
+<div class="rejected">
+  <span>✕ Multi-step wizard</span>
+  <span>✕ Accordion / collapsible sections</span>
+  <span>✕ One-question-at-a-time</span>
+</div>
+<p class="intro" style="margin-top:-6px;">
+  All 5 options below are <b>single, flat, always-fully-visible views</b> — no pagination, no
+  expand/collapse-to-reveal, no step gating. Reaching any field costs <b>zero extra taps</b>, only scroll.
+  The differentiator between options is purely <b>how densely/efficiently space is used</b>, not how much is
+  hidden.
+</p>
+
+<nav class="anchors">
+  <a onclick="jump('opt1')">① 2-column grid</a>
+  <a onclick="jump('opt2')">② Compact hero strip</a>
+  <a onclick="jump('opt3')">③ Inline label rows</a>
+  <a onclick="jump('opt4')">④ Segmented-control-heavy</a>
+  <a onclick="jump('opt5')">⑤ Settings-row list</a>
+  <a href="#vehicle">Vehicle check</a>
+  <a href="#recommendation">Recommendation</a>
+</nav>
+
+<div class="toolbar">
+  <button id="btn-light" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" class="active" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← theme affects every phone · scroll the row below horizontally →</span>
+</div>
+
+<!-- ======================================================================= -->
+<!-- THE 5 OPTIONS — ONE HORIZONTAL ROW, SIDE BY SIDE                        -->
+<!-- ======================================================================= -->
+<div class="compare-row" id="compare-row">
+
+  <!-- ============ OPTION 1 — DENSE 2-COLUMN GRID ============ -->
+  <div class="opt-col" id="opt1">
+    <span class="opt-tag lead">① Recommended</span>
+    <div class="opt-title">Dense 2-column grid</div>
+    <div class="opt-pitch">Every pairable field sits two-to-a-row (Sum Assured+Premium, Insurer+Plan name, dates) — same familiar boxed inputs, roughly half the vertical space.</div>
+    <div class="phone">
+      <div class="screen" data-theme="dark">
+        <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+        <div class="modal-body">
+          <div class="type-grid">
+            <div class="type-tile active"><span class="ic">☂️</span><span class="lb">Term</span></div>
+            <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+            <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+            <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Sum assured</div><div class="input-box" style="font-weight:800; color:var(--primary);">₹1,00,00,000</div></div>
+            <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹12,000</div></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Plan name</div><div class="input-box">iSelect Smart360</div></div>
+            <div class="field-block"><div class="field-label">Insurer</div><div class="input-box trigger">HDFC Life <span class="chv">▾</span></div></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Policy no. <span class="opt">(opt.)</span></div><div class="input-box ph">P-12345678</div></div>
+            <div class="field-block"><div class="field-label">Frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s active">A</div><div class="s">S</div></div></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 26 <span class="chv">📅</span></div></div>
+            <div class="field-block"><div class="field-label">End date (auto)</div><div class="input-box trigger">31 Aug 41 <span class="chv">📅</span></div></div>
+          </div>
+          <div class="field-block">
+            <div class="field-label">Duration</div>
+            <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip">Custom</div></div>
+            <div class="dob-nudge"><span class="ic">🎂</span><span class="tx">Add DOB to unlock age-based durations</span><span class="lk">Add</span></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="toggle-row"><div class="tl">1st-yr discount</div><div class="switch on"><div class="knob"></div></div></div></div>
+            <div class="field-block"><div class="field-label">Next due (auto)</div><div class="input-box trigger">31 Aug 27 <span class="chv">📅</span></div></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Pay term</div><div class="seg"><div class="s active">Regular</div><div class="s">Limited</div></div></div>
+            <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(opt.)</span></div><div class="input-box ph">Spouse</div></div>
+          </div>
+          <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:6px 12px; font-size:9.5px;">✓ Mark as paid</div>
+          <div class="field-block"><div class="field-label">Notes <span class="opt">(opt.)</span></div><div class="input-box ph">Family floater</div></div>
+        </div>
+        <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION 2 — COMPACT HERO STRIP + TIGHT FORM ============ -->
+  <div class="opt-col" id="opt2">
+    <span class="opt-tag">② Alternative</span>
+    <div class="opt-title">Compact hero strip + tight form</div>
+    <div class="opt-pitch">One slim, inline-editable stat bar (not big tiles) up top — tap any segment to edit it right there, no separate duplicate field below — then a tightened form.</div>
+    <div class="phone">
+      <div class="screen" data-theme="dark">
+        <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+        <div class="modal-body">
+          <div class="heroStrip">
+            <div class="hs-seg"><div class="hs-l">Type</div><div class="hs-v">☂️ Term</div></div>
+            <div class="hs-seg"><div class="hs-l">Sum assured</div><div class="hs-v">₹1.0Cr</div></div>
+            <div class="hs-seg"><div class="hs-l">Premium</div><div class="hs-v">₹12,000/yr</div></div>
+          </div>
+          <div class="field-hint" style="font-size:7.5px; color:var(--text3); text-align:center;">↑ tap any figure above to edit it in place</div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Plan name</div><div class="input-box">iSelect Smart360</div></div>
+            <div class="field-block"><div class="field-label">Insurer</div><div class="input-box trigger">HDFC Life <span class="chv">▾</span></div></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Policy no. <span class="opt">(opt.)</span></div><div class="input-box ph">P-12345678</div></div>
+            <div class="field-block"><div class="field-label">Frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s active">A</div><div class="s">S</div></div></div>
+          </div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Start</div><div class="input-box trigger">31 Aug 26 <span class="chv">📅</span></div></div>
+            <div class="field-block"><div class="field-label">End (auto)</div><div class="input-box trigger">31 Aug 41 <span class="chv">📅</span></div></div>
+          </div>
+          <div class="field-block">
+            <div class="field-label">Duration</div>
+            <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip">Custom</div></div>
+            <div class="dob-nudge"><span class="ic">🎂</span><span class="tx">Add DOB to unlock age-based durations</span><span class="lk">Add</span></div>
+          </div>
+          <div class="toggle-row"><div class="tl">1st-year discount</div><div class="switch on"><div class="knob"></div></div></div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Next due (auto)</div><div class="input-box trigger">31 Aug 27 <span class="chv">📅</span></div></div>
+            <div class="field-block"><div class="field-label">Pay term</div><div class="seg"><div class="s active">Reg.</div><div class="s">Limited</div></div></div>
+          </div>
+          <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:6px 12px; font-size:9.5px;">✓ Mark as paid</div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(opt.)</span></div><div class="input-box ph">Spouse</div></div>
+            <div class="field-block"><div class="field-label">Notes <span class="opt">(opt.)</span></div><div class="input-box ph">—</div></div>
+          </div>
+        </div>
+        <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION 3 — INLINE LABEL-BESIDE-VALUE ROWS ============ -->
+  <div class="opt-col" id="opt3">
+    <span class="opt-tag">③ Alternative</span>
+    <div class="opt-title">Refined scroll — inline label rows</div>
+    <div class="opt-pitch">Every field is one line: label left, value right — no separate label-above-input line, the single biggest space cost in the shipped form.</div>
+    <div class="phone">
+      <div class="screen" data-theme="dark">
+        <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+        <div class="modal-body">
+          <div class="type-grid">
+            <div class="type-tile active"><span class="ic">☂️</span><span class="lb">Term</span></div>
+            <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+            <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+            <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+          </div>
+          <div>
+            <div class="lrow primary"><span class="ll">Sum assured</span><span class="lv">₹1,00,00,000</span></div>
+            <div class="lrow primary"><span class="ll">Annual premium</span><span class="lv">₹12,000</span></div>
+            <div class="lrow"><span class="ll">Plan name</span><span class="lv">iSelect Smart360</span></div>
+            <div class="lrow"><span class="ll">Insurer</span><span class="lv">HDFC Life ▾</span></div>
+            <div class="lrow"><span class="ll">Policy no.</span><span class="lv ph">optional</span></div>
+            <div class="lrow"><span class="ll">Start date</span><span class="lv">31 Aug 2026 📅</span></div>
+            <div class="lrow"><span class="ll">End date</span><span class="lv">31 Aug 2041 (auto) 📅</span></div>
+            <div class="lrow"><span class="ll">Frequency</span><span class="lv">Annual</span></div>
+            <div class="lrow"><span class="ll">1st-yr discount</span><span class="lv">10% on ▸</span></div>
+            <div class="lrow"><span class="ll">Next due</span><span class="lv">31 Aug 2027 (auto)</span></div>
+            <div class="lrow"><span class="ll">Pay term</span><span class="lv">Regular</span></div>
+            <div class="lrow"><span class="ll">Nominee(s)</span><span class="lv ph">optional</span></div>
+            <div class="lrow"><span class="ll">Notes</span><span class="lv ph">optional</span></div>
+          </div>
+          <div class="field-block">
+            <div class="field-label">Duration</div>
+            <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip">Custom</div></div>
+            <div class="dob-nudge"><span class="ic">🎂</span><span class="tx">Add DOB to unlock age-based durations</span><span class="lk">Add</span></div>
+          </div>
+          <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:6px 12px; font-size:9.5px;">✓ Mark as paid</div>
+        </div>
+        <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION 4 — SEGMENTED/INLINE-CONTROL-HEAVY ============ -->
+  <div class="opt-col" id="opt4">
+    <span class="opt-tag">④ Alternative</span>
+    <div class="opt-title">Segmented-control-heavy</div>
+    <div class="opt-pitch">Any field with a small realistic value set (pay term years, co-pay, NCB) becomes a tap-once chip/stepper instead of a keyboard-opening text box — fewer taps <i>and</i> less vertical space than a full input row.</div>
+    <div class="phone">
+      <div class="screen" data-theme="dark">
+        <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+        <div class="modal-body">
+          <div class="type-grid">
+            <div class="type-tile active"><span class="ic">☂️</span><span class="lb">Term</span></div>
+            <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+            <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+            <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+          </div>
+          <div class="hero-sa"><div class="hl">Sum assured</div><div class="hv">₹1,00,00,000</div></div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Insurer</div><div class="input-box trigger">HDFC Life <span class="chv">▾</span></div></div>
+            <div class="field-block"><div class="field-label">Plan name</div><div class="input-box">iSelect Smart360</div></div>
+          </div>
+          <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹12,000</div></div>
+          <div class="field-block"><div class="field-label">Frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s">H</div><div class="s active">A</div><div class="s">S</div></div></div>
+          <div class="field-block">
+            <div class="field-label">Duration</div>
+            <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip">Custom</div></div>
+            <div class="dob-nudge"><span class="ic">🎂</span><span class="tx">Add DOB to unlock age-based durations</span><span class="lk">Add</span></div>
+          </div>
+          <div class="field-block"><div class="field-label">Discount</div><div class="chiprow"><div class="chip active">10%</div><div class="chip">15%</div><div class="chip">20%</div><div class="chip" style="opacity:.5;">Off</div></div></div>
+          <div class="field-block"><div class="field-label">Next due</div><div class="input-box trigger">31 Aug 27 <span class="chv">📅</span></div></div>
+          <div class="field-block"><div class="field-label">Pay term</div><div class="seg"><div class="s active">Regular</div><div class="s">Limited</div></div></div>
+          <div class="field-block">
+            <div class="field-label">Pay for how many years? <span class="opt">(if Limited)</span></div>
+            <div class="stepper"><div class="sb">–</div><div class="sv">10 yrs</div><div class="sb">+</div></div>
+          </div>
+          <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:6px 12px; font-size:9.5px;">✓ Mark as paid</div>
+          <div class="row2">
+            <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(opt.)</span></div><div class="input-box ph">Spouse</div></div>
+            <div class="field-block"><div class="field-label">Policy no. <span class="opt">(opt.)</span></div><div class="input-box ph">—</div></div>
+          </div>
+        </div>
+        <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OPTION 5 — SETTINGS-ROW STYLE DENSE LIST ============ -->
+  <div class="opt-col" id="opt5">
+    <span class="opt-tag">⑤ Alternative</span>
+    <div class="opt-title">Grouped settings-row list</div>
+    <div class="opt-pitch">Reuses Penny's own Settings-screen row pattern (icon+label+value, single line, grouped cards) — densest of the 5. Groups are <b>always fully open</b>, unlike the rejected accordion — purely visual organization, zero taps to reveal anything.</div>
+    <div class="phone">
+      <div class="screen" data-theme="dark">
+        <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+        <div class="modal-body">
+          <div class="type-strip">
+            <div class="type-pill active">☂️ Term</div><div class="type-pill">❤️ Life</div><div class="type-pill">🏥 Health</div><div class="type-pill">🚗 Vehicle</div><div class="type-pill">🏠 Home</div>
+          </div>
+          <div class="slist">
+            <div class="slist-cap">Coverage &amp; premium</div>
+            <div class="srow primary"><span class="sic">💰</span><span class="sl">Sum assured</span><span class="sv">₹1.0Cr</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">🧾</span><span class="sl">Premium</span><span class="sv">₹12,000/yr</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">🔁</span><span class="sl">Frequency</span><span class="sv">Annual</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">🏷</span><span class="sl">1st-yr discount</span><span class="sv">10% off</span><span class="chv">›</span></div>
+          </div>
+          <div class="slist">
+            <div class="slist-cap">Basics</div>
+            <div class="srow"><span class="sic">📄</span><span class="sl">Plan name</span><span class="sv">iSelect Smart360</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">🏢</span><span class="sl">Insurer</span><span class="sv">HDFC Life</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">#️⃣</span><span class="sl">Policy no.</span><span class="sv ph">Optional</span><span class="chv">›</span></div>
+          </div>
+          <div class="slist">
+            <div class="slist-cap">Dates &amp; schedule</div>
+            <div class="srow"><span class="sic">📅</span><span class="sl">Start date</span><span class="sv">31 Aug 2026</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">📅</span><span class="sl">End date</span><span class="sv">31 Aug 2041</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">⏱</span><span class="sl">Next due</span><span class="sv">31 Aug 2027</span><span class="chv">›</span></div>
+          </div>
+          <div class="field-block">
+            <div class="field-label">Duration presets</div>
+            <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip">Custom</div></div>
+            <div class="dob-nudge"><span class="ic">🎂</span><span class="tx">Add DOB to unlock age-based durations</span><span class="lk">Add</span></div>
+          </div>
+          <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:6px 12px; font-size:9.5px;">✓ Mark as paid</div>
+          <div class="slist">
+            <div class="slist-cap">Details</div>
+            <div class="srow"><span class="sic">👪</span><span class="sl">Nominee(s)</span><span class="sv ph">Optional</span><span class="chv">›</span></div>
+            <div class="srow"><span class="sic">📝</span><span class="sl">Notes</span><span class="sv ph">Optional</span><span class="chv">›</span></div>
+          </div>
+        </div>
+        <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="finding">
+  <span class="tag">shared across all 5</span>
+  Sum Assured is within the <b>top 2 visible fields</b> in every option (never buried), and the DOB gap for
+  "Till 60/65" gets the same visible-before-tap treatment in all 5: a dimmed/dashed chip + an inline
+  "Add DOB to unlock…" nudge with a real tappable "Add" affordance — never a silent chip relying on a toast
+  after the fact.
+</div>
+
+<!-- ======================================================================= -->
+<!-- VEHICLE GENERALIZATION CHECK — recommended option applied elsewhere     -->
+<!-- ======================================================================= -->
+<section id="vehicle">
+  <div class="section-label">Generalization check</div>
+  <h2>Option ① (2-column grid) applied to Vehicle</h2>
+  <p class="desc">Vehicle has only 3 type-specific fields (Reg. number, IDV, NCB) plus the universal set minus payment schedule (Vehicle isn't Term/Life, so no due-date/mark-as-paid block) — the same pairing technique still holds up without feeling padded.</p>
+  <div class="compare-row" style="justify-content:flex-start;">
+    <div class="opt-col">
+      <div class="phone" style="height:560px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+          <div class="modal-body">
+            <div class="type-grid">
+              <div class="type-tile"><span class="ic">☂️</span><span class="lb">Term</span></div>
+              <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+              <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+              <div class="type-tile active"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+            </div>
+            <div class="row2">
+              <div class="field-block"><div class="field-label">IDV</div><div class="input-box" style="font-weight:800; color:var(--primary);">₹5,80,000</div></div>
+              <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹9,800</div></div>
+            </div>
+            <div class="row2">
+              <div class="field-block"><div class="field-label">Reg. number</div><div class="input-box">KA03AB1234</div></div>
+              <div class="field-block"><div class="field-label">Insurer</div><div class="input-box trigger">HDFC ERGO <span class="chv">▾</span></div></div>
+            </div>
+            <div class="row2">
+              <div class="field-block"><div class="field-label">NCB</div><div class="chiprow"><div class="chip active">20%</div><div class="chip">35%</div></div></div>
+              <div class="field-block"><div class="field-label">Frequency</div><div class="seg"><div class="s active">A</div><div class="s">S</div></div></div>
+            </div>
+            <div class="row2">
+              <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">2 Jan 26 <span class="chv">📅</span></div></div>
+              <div class="field-block"><div class="field-label">Renews</div><div class="input-box trigger">2 Jan 27 <span class="chv">📅</span></div></div>
+            </div>
+            <div class="field-block"><div class="field-label">Notes <span class="opt">(opt.)</span></div><div class="input-box ph">—</div></div>
+          </div>
+          <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+        </div>
+      </div>
+      <div class="col-cap" style="max-width:300px; font-size:11px; color:#6e7681; text-align:center; margin-top:8px;">6 fields total for Vehicle fit without scrolling at all — the pairing technique scales down gracefully, not just up.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- RECOMMENDATION                                                          -->
+<!-- ======================================================================= -->
+<section id="recommendation">
+  <div class="section-label">Recommendation</div>
+  <h2>Comparison &amp; recommendation</h2>
+
+  <table class="cmp-table">
+    <tr><th>Option</th><th>Taps to reach any field</th><th>Vertical space vs. shipped</th><th>Learning curve</th><th>Implementation risk</th></tr>
+    <tr class="lead"><td><b>① 2-column grid</b></td><td>Zero — plain scroll</td><td><b>~45% shorter</b></td><td>None — familiar boxed inputs</td><td><b>Lowest</b> — just wrap existing fields in row pairs</td></tr>
+    <tr><td>② Hero strip</td><td>Zero</td><td>~35% shorter</td><td>Low — new tap-to-edit-inline strip</td><td>Medium — inline-editable strip is new</td></tr>
+    <tr><td>③ Inline label rows</td><td>Zero</td><td>~40% shorter</td><td>Low</td><td>Medium — every field's visual shape changes</td></tr>
+    <tr><td>④ Segmented-heavy</td><td><b>Fewest real taps</b> (chip vs. keyboard)</td><td>~30% shorter</td><td>Low — reuses existing chip/segment components</td><td>Low-medium — a few TextInputs become steppers</td></tr>
+    <tr><td>⑤ Settings-row list</td><td>Zero</td><td><b>Most compact overall</b></td><td>Medium — form reads more like a settings list</td><td>Medium-high — needs a real tap-to-edit-in-place mechanic per row</td></tr>
+  </table>
+
+  <div class="finding rec" style="margin-top:16px;">
+    <span class="tag">recommendation</span>
+    <b>Lead with Option ① (dense 2-column grid), and fold in Option ③'s technique for the handful of fields
+    that can't naturally pair</b> (Duration chips, Notes). This is the most direct answer to exactly what was
+    asked — <i>intuitive</i> (every field still looks and behaves like a normal input, just laid out two-up),
+    <i>minimal taps</i> (nothing gated behind an extra tap — it's still one continuous scroll), and
+    <i>doesn't waste space</i> (pairing Sum Assured+Premium, dates, and Insurer+Plan name alone removes
+    roughly half the vertical rows the shipped form uses today). It's also the lowest-risk to build: no new
+    component, no new interaction model — just restructuring existing field pairs into
+    <code>flex-row gap-3</code> rows, the same technique <code>PolicyForm.tsx</code> already uses today for
+    Premium+Frequency.
+    <br /><br />
+    <b>Option ④ (segmented-heavy)</b> is worth adopting as a smaller, independent follow-on regardless of
+    which layout ships — converting "Pay for how many years?" from a free-text box to a stepper/chip row is a
+    genuine tap-and-space win on its own, orthogonal to the grid-vs-list structural choice.
+    <br /><br />
+    <b>Option ⑤ (settings-row list)</b> is the single most space-efficient of the 5, but changes what this
+    screen visually reads as — from "a form" to "a settings list" — which risks feeling like a different app
+    surface mid-flow. Worth keeping in mind if a future pass wants to push density further, but not the
+    first move.
+    <br /><br />
+    <b>Option ② (hero strip)</b> I'd deprioritize specifically because a truly-inline-editable strip segment
+    (tap "₹1.0Cr" and have it become an editable field in place, in a slim strip) is a genuinely fiddly
+    interaction to get right on a small touch target — the risk of it feeling finicky outweighs the visual
+    polish it adds over Option ①.
+  </div>
+</section>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+  function jump(id) {
+    var el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  }
+</script>
+
+</body>
+</html>

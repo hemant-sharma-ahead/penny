@@ -34,8 +34,21 @@
  * still resolve correctly and still warn exactly the way real RN intends for actual usage; only
  * incidental enumeration is suppressed.
  */
-import * as RealReactNative from 'react-native';
 import { Text as AppText } from '~/components/AppText';
+
+// Plain `require`, not `import * as RealReactNative from 'react-native'` — real-device crash,
+// 2026-08-29: real RN's own `index.js` exports several properties (including `StyleSheet`) as lazy
+// getters (`get StyleSheet() { return require('./Libraries/StyleSheet/StyleSheet').default; }`), not
+// plain values. Babel's ESM interop for a `import *` namespace binding against a CommonJS module
+// copies/redefines those properties onto a fresh object during this shim's own module evaluation —
+// which only reproduced as a hard native-level crash (`TypeError: Cannot read property 'create' of
+// undefined`, escalating to a fatal `std::terminate()`) in a real release build (Hermes bytecode
+// compilation), never in a debug/Metro-interpreted session, isolating it to exactly this interop step's
+// evaluation-order sensitivity. A plain `require('react-native')` returns the real module's own
+// `module.exports` object directly — no interop copy, no risk of evaluating a lazy getter at the wrong
+// moment — so the Proxy below always forwards straight through to RN's own live getters instead.
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- deliberate, see comment above
+const RealReactNative = require('react-native') as typeof import('react-native');
 
 // RN's own deprecated re-exports — each warns via `console.warn` on read alone, so they must be hidden
 // from enumeration (Fast Refresh's module scan) without blocking direct access (see doc comment above).

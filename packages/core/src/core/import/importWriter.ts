@@ -24,8 +24,10 @@
 //   (c) links the two entries via relatedLogId in both directions, so restoring the UNDO_IMPORT entry
 //       can flip the original IMPORT entry's `restored` back to false — its own Undo button reappears,
 //       so the whole thing can be undone-and-redone-and-undone-again without any dead ends.
-import { expensesRepo, activityLogRepo } from '@/core/db/repositories';
+import { expensesRepo, activityLogRepo, hashtagsRepo, merchantMemoryRepo } from '@/core/db/repositories';
 import { logActivityAwaited, restoreActivity } from '@/core/db/activityLog';
+import { buildMemory, memoryKey } from '@/core/expenses/merchantMemory';
+import type { Expense } from '@/core/db/types';
 import type { ResolvedPreviewRow } from './importPipeline';
 
 export interface FailedImportRow {
@@ -81,6 +83,60 @@ async function writeRows(rows: ResolvedPreviewRow[], options?: WriteRowsOptions)
   const succeededRows: { row: ResolvedPreviewRow; expenseId: string }[] = [];
   const failed: FailedImportRow[] = [];
 
+  // Hashtag usage bookkeeping (2026-08-20, item 37 real-device testing pass) — same shape as
+  // `useExpenses.ts`'s `saveExpenseWithHashtags`/`useBankImport.ts`'s own `ensureHashtag`, just batched
+  // here: an existing tag's usage count increments, a brand-new one gets its own `Hashtag` row created.
+  // Root-cause fix: this write loop used to write `row.hashtags` straight onto the new `Expense` (still
+  // does, below) but never touched the `Hashtag` table at all — a tag applied via CSV import's
+  // `ImportCategorizeModal`/`tagRows` (packages/core's `importPipeline.ts` layers it onto `hashtags[]`
+  // during resolution) would land on real expenses (so Analytics, which reads tag strings directly off
+  // live `Expense.hashtags[]`, saw it fine) but never appear in Manage Tags/Filter (which read from the
+  // `Hashtag` table) since its row was simply never created. Resolved against a fresh read + a local
+  // cache so N occurrences of the same tag in one batch upsert it exactly once per occurrence, not
+  // re-reading the DB each time.
+  const hashtagCache = new Map((await hashtagsRepo.getAll()).map((h) => [h.name, h]));
+  async function ensureHashtag(tag: string) {
+    const existing = hashtagCache.get(tag);
+    if (existing) {
+      const updated = { ...existing, usageCount: existing.usageCount + 1 };
+      await hashtagsRepo.put(updated);
+      hashtagCache.set(tag, updated);
+    } else {
+      const created = {
+        id: crypto.randomUUID(),
+        name: tag,
+        usageCount: 1,
+        setAside: false,
+        hideInSafeMode: false,
+        createdAt: Date.now()
+      };
+      await hashtagsRepo.put(created);
+      hashtagCache.set(tag, created);
+    }
+  }
+
+  // Merchant-memory bookkeeping (2026-08-20, item 45 real-device testing pass) — same shape as
+  // `useExpenses.ts`'s `saveExpenseWithHashtags`, just batched: `buildMemory()` merges into whatever
+  // memory record (if any) already exists for this exact (type + merchant + category) key, so
+  // `usageCount` keeps accumulating correctly across repeated imports, not just manual saves. Root-
+  // cause fix: this write loop used to write every imported `Expense` straight to `expensesRepo` (still
+  // does, below) but never touched `merchantMemoryRepo` at all — so CSV-imported rows were structurally
+  // invisible to `ExpenseForm`'s category-suggestion engine (`searchMerchantMemories()`), both going
+  // forward and for anything already imported (see this session's separate backfill-version-bump fix in
+  // `useExpenses.ts` for the retroactive half). Resolved against a fresh read + a local cache, same
+  // pattern as `ensureHashtag` above, so N rows for the same merchant in one batch merge correctly
+  // instead of each starting from a stale `usageCount`.
+  const merchantMemoryCache = new Map((await merchantMemoryRepo.getAll()).map((m) => [m.id, m]));
+  async function updateMerchantMemory(expense: Expense) {
+    const key = memoryKey(expense.type ?? 'expense', expense.description, expense.categoryId);
+    if (!key) return;
+    const memory = buildMemory(expense, merchantMemoryCache.get(key));
+    if (memory) {
+      await merchantMemoryRepo.put(memory);
+      merchantMemoryCache.set(memory.id, memory);
+    }
+  }
+
   // Filtered upfront (rather than `continue`-ing past a duplicate/skipped row inline, as this loop used
   // to) so `total` below is the real count of rows this run will actually attempt — exactly what a live
   // progress display needs. Purely a restructuring, not a behavior change: iterating the filtered list
@@ -118,7 +174,7 @@ async function writeRows(rows: ResolvedPreviewRow[], options?: WriteRowsOptions)
     const id = crypto.randomUUID();
     try {
       const now = Date.now();
-      await expensesRepo.put({
+      const expense: Expense = {
         id,
         amount: row.amount,
         categoryId: row.categoryId,
@@ -135,9 +191,14 @@ async function writeRows(rows: ResolvedPreviewRow[], options?: WriteRowsOptions)
         sourceRef: row.sourceRef,
         createdAt: now,
         updatedAt: now
-      });
+      };
+      await expensesRepo.put(expense);
       succeededIds.push(id);
       succeededRows.push({ row, expenseId: id });
+      for (const tag of row.hashtags) {
+        await ensureHashtag(tag);
+      }
+      await updateMerchantMemory(expense);
     } catch (err) {
       failed.push({ row, error: err instanceof Error ? err.message : 'Could not save this row' });
     }

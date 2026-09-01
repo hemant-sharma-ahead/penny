@@ -40,8 +40,40 @@ export function useTransactionFilters(
   const [categoryFilters, setCategoryFilters] = useState<Set<string>>(new Set());
   const [eventFilters, setEventFilters] = useState<Set<string>>(new Set());
   const [goalFilters, setGoalFilters] = useState<Set<string>>(new Set());
-  const [monthFilter, setMonthFilter] = useState<string | null>(null);
+  // Item 26 (docs/plans/real-device-testing-pass.md Phase 2) — multi-select, OR match, same shape as
+  // `eventFilters` above.
+  const [tagFilters, setTagFilters] = useState<Set<string>>(new Set());
+  // Item 42 (docs/plans/real-device-testing-pass.md Phase 4) — defaults to the current month instead of
+  // "All time": every open of the Expenses tab used to load/decrypt/filter/group the ENTIRE transaction
+  // history (no pagination), which is both a worse default (you usually care about recent spend, not
+  // all-time) and a real performance cost at high transaction counts. The top-bar month chip
+  // (`TransactionsSlice.tsx`) and `FilterModal`'s Month section both already render off this same
+  // `monthFilter` value, so they correctly show the active month rather than "All" as soon as this
+  // changes — no separate wiring needed there.
+  const [monthFilter, setMonthFilter] = useState<string | null>(() => toMonthYearKey());
   const [paymentModeMismatchOnly, setPaymentModeMismatchOnly] = useState(false);
+
+  // Item 43 (docs/plans/real-device-testing-pass.md Phase 5) — the month-scrub-bar's chip range
+  // needs the earliest recorded transaction's month as its floor. No existing helper computes this
+  // (confirmed during investigation), so this is a simple one-time `Math.min` scan over the already-
+  // loaded `expenses` array — memoized on `expenses` so it only re-runs when the underlying data
+  // actually changes, not on every render/filter change.
+  const earliestMonth = useMemo(() => {
+    if (expenses.length === 0) return toMonthYearKey();
+    let min = Infinity;
+    for (const e of expenses) if (e.date < min) min = e.date;
+    return toMonthYearKey(new Date(min));
+  }, [expenses]);
+
+  // Item 15 (docs/mockups/proposals/punch-list-batch-v1.html §1) — which `YYYY-MM` months have at
+  // least one transaction, so the month-scrub-bar (`MonthScrubBar.tsx`) can visually dim the
+  // (still fully tappable) chips for months that are empty. A cheap one-time pass over the same
+  // already-loaded `expenses` array `earliestMonth` above scans, memoized the same way.
+  const monthsWithTxns = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of expenses) set.add(toMonthYearKey(new Date(e.date)));
+    return set;
+  }, [expenses]);
 
   const activeFilterCount =
     (monthFilter ? 1 : 0) +
@@ -50,13 +82,15 @@ export function useTransactionFilters(
     (parentCategoryFilters.size > 0 || categoryFilters.size > 0 ? 1 : 0) +
     (eventFilters.size > 0 ? 1 : 0) +
     (goalFilters.size > 0 ? 1 : 0) +
+    (tagFilters.size > 0 ? 1 : 0) +
     (paymentModeMismatchOnly ? 1 : 0);
 
   const filteredExpenses = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
     return expenses.filter((e) => {
       if (typeFilter !== 'all' && (e.type ?? 'expense') !== typeFilter) return false;
-      if (accountFilters.size > 0 && !accountFilters.has(e.accountId ?? '')) return false;
+      if (accountFilters.size > 0 && !accountFilters.has(e.accountId ?? '') && !accountFilters.has(e.toAccountId ?? ''))
+        return false;
       if (categoryFilters.size > 0) {
         if (!categoryFilters.has(e.categoryId)) return false;
       } else if (parentCategoryFilters.size > 0) {
@@ -73,6 +107,10 @@ export function useTransactionFilters(
       if (goalFilters.size > 0) {
         const matchesAnyGoal = [...goalFilters].some((goalId) => txnIdsByGoal.get(goalId)?.has(e.id));
         if (!matchesAnyGoal) return false;
+      }
+      if (tagFilters.size > 0) {
+        const hasAnyTag = e.hashtags.some((t) => tagFilters.has(t));
+        if (!hasAnyTag) return false;
       }
       if (monthFilter && toMonthYearKey(new Date(e.date)) !== monthFilter) return false;
       if (paymentModeMismatchOnly && !mismatchedTxnIds.has(e.id)) return false;
@@ -93,6 +131,7 @@ export function useTransactionFilters(
     categoryFilters,
     eventFilters,
     goalFilters,
+    tagFilters,
     txnIdsByGoal,
     monthFilter,
     paymentModeMismatchOnly,
@@ -116,6 +155,7 @@ export function useTransactionFilters(
     categoryFilters,
     eventFilters,
     goalFilters,
+    tagFilters: [...tagFilters],
     paymentModeMismatchOnly
   };
 
@@ -127,6 +167,7 @@ export function useTransactionFilters(
     setCategoryFilters(filters.categoryFilters);
     setEventFilters(filters.eventFilters);
     setGoalFilters(filters.goalFilters);
+    setTagFilters(new Set(filters.tagFilters));
     setPaymentModeMismatchOnly(filters.paymentModeMismatchOnly);
   }
 
@@ -137,6 +178,7 @@ export function useTransactionFilters(
     setCategoryFilters(new Set());
     setEventFilters(new Set());
     setGoalFilters(new Set());
+    setTagFilters(new Set());
     setPaymentModeMismatchOnly(false);
   }
 
@@ -153,8 +195,12 @@ export function useTransactionFilters(
     setCategoryFilters,
     eventFilters,
     setEventFilters,
+    tagFilters,
+    setTagFilters,
     monthFilter,
     setMonthFilter,
+    earliestMonth,
+    monthsWithTxns,
     paymentModeMismatchOnly,
     setPaymentModeMismatchOnly,
     activeFilterCount,

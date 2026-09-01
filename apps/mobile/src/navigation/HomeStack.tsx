@@ -7,6 +7,9 @@ import { ProfilePage } from '../features/profile/ProfilePage';
 import { SettingsPage } from '../features/settings/SettingsPage';
 import { SafeModeSettingsPage } from '../features/settings/SafeModeSettingsPage';
 import { ManageTagsPage } from '../features/settings/ManageTagsPage';
+import { DiscoverTipsPage } from '../features/settings/DiscoverTipsPage';
+import { AboutPennyPage } from '../features/settings/AboutPennyPage';
+import { PrivacyPromisePage } from '../features/settings/PrivacyPromisePage';
 import { ChangePinPage } from '../features/security/ChangePinPage';
 import { ChangePassphrasePage } from '../features/security/ChangePassphrasePage';
 import { TimelinePage } from '../features/activity/TimelinePage';
@@ -25,6 +28,10 @@ import { BankImportHistoryPage } from '../features/bank-import/BankImportHistory
 import { CheckpointTimelinePage } from '../features/accounts/CheckpointTimelinePage';
 import { CheckOpeningBalancePage } from '../features/accounts/CheckOpeningBalancePage';
 import { FullLedgerPage } from '../features/accounts/FullLedgerPage';
+import { SmsTrackingSettingsPage } from '../features/sms-tracking/SmsTrackingSettingsPage';
+import { UnparsedMessagesPage } from '../features/sms-tracking/UnparsedMessagesPage';
+import { SmsReviewPage } from '../features/sms-tracking/SmsReviewPage';
+import { PossibleMatchPage } from '../features/sms-tracking/PossibleMatchPage';
 
 /**
  * The Home tab's own navigation stack — Track: chrome-persistence fix. Previously all of these
@@ -55,6 +62,13 @@ export type HomeStackParamList = {
   Profile: undefined;
   SafeModeSettings: undefined;
   ManageTags: undefined;
+  DiscoverTips: undefined;
+  /** About Penny (docs/mockups/proposals/about-penny-v1.html) — reached from Settings' "Data &
+   *  activity" card, last row. `PrivacyPromise` here is a distinct, read-only screen from onboarding's
+   *  own `PrivacyPromise` route (`OnboardingStackParamList`, a separate navigator) — see
+   *  `AboutPennyPage.tsx`'s doc comment for why they aren't the same screen. */
+  AboutPenny: undefined;
+  PrivacyPromise: undefined;
   ChangePin: { forcedPinReset?: boolean } | undefined;
   ChangePassphrase: undefined;
   Timeline: undefined;
@@ -97,6 +111,15 @@ export type HomeStackParamList = {
    *  `CheckpointTimeline`'s sparse checkpoint-only table, reached from that page's "View full ledger
    *  ›" action. */
   FullLedger: { accountId: string };
+  /** SMS-Based Expense Auto-Tracking (docs/plans/sms-transaction-tracking.md), reached from Settings.
+   *  `scanLocked` mirrors `ExpensesStack.tsx`'s `Import` screen's own `importLocked` param — set via
+   *  `navigation.setParams` from `SmsTrackingSettingsPage.tsx` itself while a backfill scan is actually
+   *  running, to disable the swipe-back gesture for that window (the header back-chevron is disabled
+   *  separately, via `useRegisterHeaderScreen`'s own `chromeLocked`). */
+  SmsTrackingSettings: { scanLocked?: boolean } | undefined;
+  SmsUnparsedMessages: undefined;
+  SmsReview: undefined;
+  SmsPossibleMatch: { recordId: string };
 };
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -112,6 +135,9 @@ export function HomeStack() {
       <Stack.Screen name="Profile" component={ProfilePage} />
       <Stack.Screen name="SafeModeSettings" component={SafeModeSettingsPage} />
       <Stack.Screen name="ManageTags" component={ManageTagsPage} />
+      <Stack.Screen name="DiscoverTips" component={DiscoverTipsPage} />
+      <Stack.Screen name="AboutPenny" component={AboutPennyPage} />
+      <Stack.Screen name="PrivacyPromise" component={PrivacyPromisePage} />
       <Stack.Screen
         name="ChangePin"
         component={ChangePinPage}
@@ -137,6 +163,14 @@ export function HomeStack() {
       <Stack.Screen name="CheckpointTimeline" component={CheckpointTimelinePage} />
       <Stack.Screen name="CheckOpeningBalance" component={CheckOpeningBalancePage} />
       <Stack.Screen name="FullLedger" component={FullLedgerPage} />
+      <Stack.Screen
+        name="SmsTrackingSettings"
+        component={SmsTrackingSettingsPage}
+        options={({ route }) => ({ gestureEnabled: !route.params?.scanLocked })}
+      />
+      <Stack.Screen name="SmsUnparsedMessages" component={UnparsedMessagesPage} />
+      <Stack.Screen name="SmsReview" component={SmsReviewPage} />
+      <Stack.Screen name="SmsPossibleMatch" component={PossibleMatchPage} />
     </Stack.Navigator>
   );
 }

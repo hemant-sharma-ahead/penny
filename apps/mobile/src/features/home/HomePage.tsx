@@ -1,9 +1,12 @@
-import { View, ScrollView } from 'react-native';
+import { useCallback } from 'react';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, type ParamListBase } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useGroupContext } from '~/context/GroupContext';
 import { GroupDashboard } from '~/features/groups/GroupDashboard';
+import { DailyTipCard } from '~/components/shared';
+import { Card, PennyLoader } from '~/components/ui';
 import { StoriesRow } from './stories/StoriesRow';
 import { GlanceHeader } from './GlanceHeader';
 import { AccountsStrip } from './AccountsStrip';
@@ -11,8 +14,11 @@ import { MoneyStatsCard } from './MoneyStatsCard';
 import { FinancialHealthCard } from '~/features/health/FinancialHealthCard';
 import { HomeGroupsCard } from './HomeGroupsCard';
 import { useHome } from './useHome';
+import { useHomeStats } from './useHomeStats';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useThemeColors } from '~/theme/useThemeColors';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import type { AppRouteKey } from '@/core/advisor/guidance';
 
 /** Maps the advisor's platform-agnostic route keys to this app's actual screen names — RN port of
@@ -34,10 +40,20 @@ const ROUTE_MAP: Record<AppRouteKey, string> = {
  * placement, both previously dropped when Home was ported personal-only ahead of Groups.
  */
 export function HomePage() {
+  const theme = useThemeColors();
   const modeBg = useModeBackgroundColor();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   const { activeGroup } = useGroupContext();
-  const { summary, assetGroups, totalAssets } = useHome();
+  const { summary, assetGroups, totalAssets, reload } = useHome();
+  const { stats, reload: reloadStats } = useHomeStats();
+  // Folds `useHomeStats`'s own reload into this screen's pull-to-refresh (2026-08-31 fix) — see that
+  // hook's own doc comment for why a manual refresh gesture previously couldn't clear a stale "Track
+  // Insurance"/"Track Loans" prompt at all, even after the underlying data actually changed.
+  const combinedReload = useCallback(() => {
+    reload();
+    reloadStats();
+  }, [reload, reloadStats]);
+  const { refreshing, onRefresh } = usePullToRefresh(combinedReload);
   useRegisterHeaderScreen('HomeMain');
 
   // When a group is the active context, Home becomes that group's dashboard. "Personal ▾"/the group
@@ -56,11 +72,32 @@ export function HomePage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 pt-3 pb-6">
-          {summary && <GlanceHeader summary={summary} assetGroups={assetGroups} totalAssets={totalAssets} />}
+          {/* Home's daily "Did you know" card (2026-08-16) — deliberately the very first thing on the
+              screen, above the at-a-glance summary: Home is the most-visited screen, so this is where a
+              daily tip earns the most eyes. See DailyTipCard.tsx's own doc comment for the full mechanics
+              (one new curated tip a day, stops once all are shown, toggle in Discover Penny). */}
+          <DailyTipCard onSeeAll={() => navigation.navigate('DiscoverTips')} />
 
-          <MoneyStatsCard />
+          {summary ? (
+            <GlanceHeader summary={summary} assetGroups={assetGroups} totalAssets={totalAssets} />
+          ) : (
+            // Cold-start placeholder — `summary` stays null until `useHome`'s first load resolves.
+            // Previously this slot (and AccountsStrip's below) rendered nothing at all, which is what
+            // made a slow load read as a blank screen rather than a busy one (2026-08-28, real-device
+            // performance pass). Roughly matches GlanceHeader's own height so the layout doesn't jump
+            // once real content swaps in.
+            <Card radius="lg" className="items-center justify-center py-10 mb-4">
+              <PennyLoader size="lg" accessibilityLabel="Loading your summary" />
+            </Card>
+          )}
+
+          <MoneyStatsCard stats={stats} />
 
           <FinancialHealthCard onNavigate={(to) => navigation.navigate(ROUTE_MAP[to])} />
 

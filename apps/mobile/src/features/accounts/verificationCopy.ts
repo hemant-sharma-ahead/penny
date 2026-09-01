@@ -1,6 +1,6 @@
 import type { AccountVerificationFinding } from '@/core/bank-import/accountVerification';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 
 /**
  * Composes the exact mockup copy (`docs/mockups/proposals/bank-balance-sync-v2.html` Frame 2d/2e/2b)
@@ -28,8 +28,8 @@ export function describeFinding(finding: AccountVerificationFinding): Verificati
     const m = finding.checkpointMismatch;
     const absDiff = formatCurrency(Math.abs(m.diff));
     if (m.signature === 'steps-partway' && m.lastAgreeing) {
-      const lastDate = formatDateShort(m.lastAgreeing.date);
-      const firstDate = formatDateShort(m.firstDisagreeing.date);
+      const lastDate = formatDate(m.lastAgreeing.date);
+      const firstDate = formatDate(m.firstDisagreeing.date);
       return {
         headline: `Balance mismatch between ${lastDate} and ${firstDate}, ${absDiff}.`,
         detail: `Every checkpoint agreed until ${lastDate}, then jumped to a steady ${m.diff > 0 ? '+' : '−'}${absDiff} from ${firstDate} on. Signature: steps in partway, then holds steady → look for one missing or duplicate transaction in that window, not a wrong opening balance.`,
@@ -38,7 +38,7 @@ export function describeFinding(finding: AccountVerificationFinding): Verificati
       };
     }
     // 'flat-from-start'
-    const firstDate = formatDateShort(m.firstDisagreeing.date);
+    const firstDate = formatDate(m.firstDisagreeing.date);
     if (m.diffStaysConstant === false) {
       // The opening balance is still the right first thing to check (the very first checkpoint was
       // never right either), but a later checkpoint disagreeing by a DIFFERENT amount means there's
@@ -62,7 +62,7 @@ export function describeFinding(finding: AccountVerificationFinding): Verificati
 
   if (finding.kind === 'anchor-disagreement' && finding.anchorDisagreement) {
     const a = finding.anchorDisagreement;
-    const anchorDate = formatDateShort(a.oldAnchorDate);
+    const anchorDate = formatDate(a.oldAnchorDate);
     return {
       headline: `Your opening balance may be off by ${formatCurrency(Math.abs(a.diff))} as of ${anchorDate}.`,
       detail: `A later statement implied your ${anchorDate} balance should have been ${formatCurrency(a.impliedOldBalance)}, not ${formatCurrency(a.oldOpeningBalance)} — flagged for later instead of resolved automatically.`,
@@ -91,12 +91,12 @@ export function describeFinding(finding: AccountVerificationFinding): Verificati
  *  time to paper over it (an impure call during render, flagged by this project's own React-purity
  *  lint rule). */
 export function describeDismissed(finding: AccountVerificationFinding, dismissedAt: number | undefined): string {
-  const when = dismissedAt !== undefined ? ` on ${formatDateShort(dismissedAt)}` : '';
+  const when = dismissedAt !== undefined ? ` on ${formatDate(dismissedAt)}` : '';
   if (finding.kind === 'checkpoint-mismatch' && finding.checkpointMismatch) {
     const m = finding.checkpointMismatch;
     const absDiff = formatCurrency(Math.abs(m.diff));
     if (m.signature === 'steps-partway' && m.lastAgreeing) {
-      return `Reviewed — you accepted the ${absDiff} variance between ${formatDateShort(m.lastAgreeing.date)} and ${formatDateShort(m.firstDisagreeing.date)}${when}.`;
+      return `Reviewed — you accepted the ${absDiff} variance between ${formatDate(m.lastAgreeing.date)} and ${formatDate(m.firstDisagreeing.date)}${when}.`;
     }
     const variance =
       m.diffStaysConstant === false

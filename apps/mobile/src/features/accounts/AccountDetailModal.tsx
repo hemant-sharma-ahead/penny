@@ -9,6 +9,7 @@ import {
   type AccountVerificationFinding,
   type AccountVerificationStatus
 } from '@/core/bank-import/accountVerification';
+import { computeVerifiedThroughDate } from '@/core/bank-import/coverage';
 import type { CheckpointHighlight, CheckpointRowMark } from '~/features/expenses/transactions/TransactionsTab';
 import { EntityTransactionsModal } from '~/components/shared';
 import { Button } from '~/components/ui';
@@ -87,10 +88,10 @@ export function AccountDetailModal({
 
   const eligible = CHECKPOINT_ELIGIBLE.has(account.type);
   const neverImported = (account.coveredStatementRanges?.length ?? 0) === 0;
-  const verifiedThroughDate = useMemo(() => {
-    const ranges = account.coveredStatementRanges ?? [];
-    return ranges.length === 0 ? undefined : Math.max(...ranges.map((r) => r.end));
-  }, [account.coveredStatementRanges]);
+  const verifiedThroughDate = useMemo(
+    () => computeVerifiedThroughDate(account.coveredStatementRanges ?? []),
+    [account.coveredStatementRanges]
+  );
   const dismissedAt = account.dismissedVerificationFindings?.find(
     (d) => d.fingerprint === verification?.dismissedFinding?.fingerprint
   )?.dismissedAt;
@@ -167,16 +168,33 @@ export function AccountDetailModal({
       </Button>
     ) : undefined;
 
+  // Real-device testing 2026-08-28: this used to be a plain `txns.filter(...)` computed inline on
+  // every render, unmemoized — a brand-new array reference each time. `EntityTransactionsModal`'s own
+  // `groupExpensesByDate` is keyed off THIS array's identity via `useMemo`, so an account's whole
+  // transaction history (thousands of rows) got re-grouped from scratch on every re-render of this
+  // modal, not just its first — and this component reliably re-renders twice on open (parent
+  // `AccountList.tsx`'s own state settling). Measured live: ~700ms-1.5s per `groupExpensesByDate` call,
+  // paid twice — most of the ~2.5s this screen felt slow. Memoizing on `[txns, account.id]` keeps the
+  // reference stable across those re-renders whenever the underlying data hasn't actually changed.
+  const accountTxns = useMemo(
+    () => txns.filter((t) => t.accountId === account.id || t.toAccountId === account.id),
+    [txns, account.id]
+  );
+  const balanceForStat = useMemo(
+    () => computeBalance(account.id, account.openingBalance, txns),
+    [account.id, account.openingBalance, txns]
+  );
+
   return (
     <EntityTransactionsModal
       title={account.name}
+      // Item 22/23 (docs/plans/real-device-testing-pass.md) — every `EntityTransactionsModal` caller
+      // shows a transaction count; this one had no `subtitle` at all before, so it's added fresh
+      // (nothing existing to append to, unlike Analytics' three callers).
+      subtitle={`${accountTxns.length} transaction${accountTxns.length !== 1 ? 's' : ''}`}
       statLabel="Current balance"
-      statValue={
-        shouldMask(account.hideInSafeMode)
-          ? '••••'
-          : formatCurrency(computeBalance(account.id, account.openingBalance, txns))
-      }
-      expenses={txns.filter((t) => t.accountId === account.id || t.toAccountId === account.id)}
+      statValue={shouldMask(account.hideInSafeMode) ? '••••' : formatCurrency(balanceForStat)}
+      expenses={accountTxns}
       categoryMap={categoryMap}
       accountMap={accountMap}
       hashtags={hashtags}

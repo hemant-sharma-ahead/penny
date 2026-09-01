@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — items 79/80: Custom-import field coverage + Groups "left" read-only history — FINAL, locked in</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      /* ============ Theme tokens — real values from packages/core/src/theme/tokens.ts ============ */
+      :root, html[data-theme="light"] {
+        --screenbg:#eff6ff; --card:#ffffff; --card2:#e4eeff; --chip:#e4eeff;
+        --text:#0f172a; --text2:#475569; --text3:#94a3b8;
+        --border:#c7d8f0; --borderstrong:#a5bfdf;
+        --primary:#00a86b; --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6; --neutral:#64748b;
+        --oncolor:#ffffff;
+      }
+      html[data-theme="dark"] {
+        --screenbg:#0b0f14; --card:#161b22; --card2:#1c2128; --chip:#1c2128;
+        --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --borderstrong:#444c56;
+        --primary:#00a86b; --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6; --neutral:#8b949e;
+        --oncolor:#ffffff;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; padding-bottom:80px; }
+      a { color:inherit; }
+      code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+
+      /* ---- page chrome ---- */
+      .pagehead { text-align:center; padding:34px 16px 6px; }
+      .pagehead h1 { margin:0 0 6px; font-size:21px; color:#fff; }
+      .pagehead .sub { color:#9aa5b1; font-size:13px; max-width:900px; margin:0 auto; line-height:1.65; }
+      .scopebox { max-width:880px; margin:16px auto 0; background:#12181f; border:1px solid #2d333b; border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.65; }
+      .scopebox b { color:#fff; }
+
+      .topnav { position:sticky; top:0; z-index:50; background:#05070a; border-bottom:1px solid #1b222b; display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 16px; margin-top:22px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+      .themebtn { font-size:12px; font-weight:700; color:#fbdca0; background:#2a2107; border:1px solid #4d3c0f; padding:7px 14px; border-radius:999px; cursor:pointer; font-family:inherit; }
+      .themebtn:hover { background:#352a09; }
+
+      .section { max-width:1200px; margin:0 auto; padding:44px 16px 10px; border-top:1px solid #1b222b; }
+      .section:first-of-type { border-top:none; }
+      .sectiontitle { text-align:center; font-size:17px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:24px; height:24px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12.5px; line-height:24px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:860px; margin:0 auto 8px; line-height:1.7; }
+      .planquote { max-width:860px; margin:10px auto 20px; background:#12181f; border-left:3px solid var(--primary); border-radius:0 10px 10px 0; padding:10px 16px; color:#b9c2cc; font-size:11.5px; line-height:1.65; font-style:italic; }
+      .planquote b { color:#7ee6b8; font-style:normal; }
+
+      .subhead { text-align:center; font-size:13px; font-weight:800; color:#fff; margin:30px 0 4px; }
+      .subheadsub { text-align:center; color:#9aa5b1; font-size:11.5px; max-width:800px; margin:0 auto 14px; line-height:1.6; }
+
+      .tabbar { display:flex; justify-content:center; gap:8px; margin-bottom:22px; flex-wrap:wrap; }
+      .tabbtn { font-size:12px; font-weight:700; color:#c7ccd3; background:#151b22; border:1px solid #2d333b; padding:8px 16px; border-radius:999px; cursor:pointer; font-family:inherit; }
+      .tabbtn.active { background:var(--primary); color:#04140d; border-color:transparent; }
+
+      .frame-row { display:flex; justify-content:center; align-items:flex-start; gap:26px; flex-wrap:wrap; }
+      .frame-col { display:none; flex-direction:column; align-items:center; gap:10px; }
+      .frame-col.show { display:flex; }
+      .frame-label { font-size:11.5px; font-weight:800; color:#fff; text-align:center; max-width:390px; }
+      .frame-label .tag { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; margin-left:6px; vertical-align:middle; }
+      .tag.now { background:rgba(139,148,158,.22); color:#c7ccd3; }
+      .tag.rec { background:rgba(16,185,129,.2); color:#7ee6b8; }
+      .tag.alt { background:rgba(59,130,246,.2); color:#8fb4e6; }
+      .tag.est { background:rgba(245,158,11,.2); color:#f0b060; }
+
+      /* ============ Real device frame — 390×844, full height always ============ */
+      .phone { width:390px; height:844px; background:var(--screenbg); border-radius:44px; border:10px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.55); flex-shrink:0; }
+      .statusbar { height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 24px; font-size:13px; font-weight:700; color:var(--text); background:var(--screenbg); }
+      .statusbar .sbicons { display:flex; gap:5px; align-items:center; color:var(--text); font-size:12px; }
+      .appheader { height:46px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; gap:8px; background:var(--screenbg); }
+      .appheader .back3 { width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; border-radius:8px; }
+      .appheader .htitle3 { flex:1; font-size:12.5px; font-weight:700; color:var(--text); }
+      .appheader .hact { width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:15px; }
+      .content { padding:10px 13px 16px; flex:1; overflow-y:auto; background:var(--screenbg); }
+      .content::-webkit-scrollbar { width:0; }
+
+      /* ---- banners (real Banner.tsx variants) ---- */
+      .rbanner { border-radius:11px; border:1px solid; padding:9px 10px; display:flex; gap:7px; font-size:10px; line-height:1.55; margin-bottom:10px; }
+      .rbanner i { font-size:14px; margin-top:1px; flex-shrink:0; }
+      .rbanner.info { border-color:rgba(59,130,246,.3); background:rgba(59,130,246,.12); color:var(--info); }
+      .rbanner.warning { border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.12); color:var(--warning); }
+      .rbanner b { color:var(--text); }
+      .rbanner .body { color:var(--text); }
+
+      /* ---- section 1 (item 79) form rows — real Card/SelectInput/SegmentedControl look ---- */
+      .impcard { background:var(--card); border:1px solid var(--border); border-radius:11px; padding:9px 10px; margin-bottom:11px; }
+      .impcard .t1 { font-size:11.5px; font-weight:700; color:var(--text); }
+      .impcard .t2 { font-size:9.5px; color:var(--text3); margin-top:2px; line-height:1.5; }
+
+      .sectionlbl2 { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); margin:13px 0 6px; }
+      .fieldrow { margin-bottom:9px; }
+      .fieldlbl { font-size:10px; font-weight:700; color:var(--text2); display:flex; align-items:center; gap:5px; margin-bottom:4px; }
+      .fieldlbl .req { color:var(--danger); font-weight:800; }
+      .fieldlbl .opt { color:var(--text3); font-weight:600; font-style:italic; }
+      .autotag { font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:1.5px 6px; border-radius:999px; background:rgba(0,168,107,.16); color:var(--primary); }
+      .selecttrigger { display:flex; align-items:center; justify-content:space-between; border:1px solid var(--border); border-radius:10px; padding:9px 10px; background:var(--card2); font-size:10.5px; color:var(--text); }
+      .selecttrigger.filled { border-color:rgba(0,168,107,.35); background:rgba(0,168,107,.07); }
+      .selecttrigger.placeholder { color:var(--text3); }
+      .selecttrigger i { color:var(--text3); font-size:12px; }
+      .fieldhint { font-size:9px; color:var(--text3); margin-top:3px; line-height:1.5; }
+      .fieldsplit { display:flex; gap:8px; }
+      .fieldsplit > div { flex:1; }
+
+      .segctrl { display:flex; border-radius:10px; overflow:hidden; border:1px solid var(--border); margin-bottom:7px; }
+      .segopt { flex:1; text-align:center; padding:7px 2px; font-size:9.5px; font-weight:700; color:var(--text2); background:var(--card2); }
+      .segopt.active { background:var(--primary); color:#04140d; }
+
+      /* collapsible "More fields" disclosure — same visual language as DuplicatesBucket's duptile/duphead */
+      .morefields { border:1px solid var(--border); border-radius:11px; overflow:hidden; margin:4px 0 10px; }
+      .morehead { display:flex; align-items:center; gap:7px; padding:9px 10px; cursor:pointer; background:rgba(139,148,158,.1); }
+      .morehead .nm { flex:1; font-size:10.5px; font-weight:700; color:var(--text); }
+      .morehead .cnt { font-size:8.5px; font-weight:800; background:var(--chip); color:var(--text2); padding:2px 7px; border-radius:999px; }
+      .morehead .cnt.hasauto { background:rgba(0,168,107,.16); color:var(--primary); }
+      .morebody { border-top:1px solid var(--border); padding:10px 10px 4px; background:var(--card); }
+      .morebody.collapsed { display:none; }
+
+      .btnrow { display:flex; gap:8px; margin-top:6px; }
+      .rbtn { flex:1; text-align:center; padding:10px 0; border-radius:11px; font-size:11px; font-weight:700; }
+      .rbtn.secondary { background:var(--card2); color:var(--text); border:1px solid var(--border); }
+      .rbtn.primary { background:var(--primary); color:#04140d; flex-grow:2; }
+      .rbtn.disabled { opacity:.5; }
+
+      /* ---- section 2 (item 80) group dashboard ---- */
+      .grouphdr { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+      .gicon { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:#3b62d6; }
+      .gicon i { color:#fff; font-size:18px; }
+      .gname { font-size:14px; font-weight:700; color:var(--text); }
+      .gsub { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .ggear { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:15px; flex-shrink:0; }
+      .ggear.hidden-el { opacity:.18; }
+
+      .balcard { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; text-align:center; margin-bottom:11px; }
+      .balcard .lbl { font-size:9.5px; color:var(--text2); }
+      .balcard .amt { font-size:23px; font-weight:800; margin-top:2px; color:var(--text); }
+      .balcard .sub { font-size:9.5px; color:var(--text3); margin-top:1px; }
+
+      .actionrow2 { display:flex; gap:8px; margin-bottom:12px; }
+      .actionrow2 .a1, .actionrow2 .a2 { flex:1; text-align:center; padding:10px 0; border-radius:11px; font-size:10.5px; font-weight:700; }
+      .actionrow2 .a1 { background:var(--primary); color:#04140d; }
+      .actionrow2 .a2 { background:var(--card2); border:1px solid var(--border); color:var(--text); }
+      .frozentext { text-align:center; font-size:9.5px; color:var(--text3); margin:-2px 0 12px; line-height:1.5; }
+
+      .memberslbl { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin:2px 0 6px; }
+      .memberscard { background:var(--card); border:1px solid var(--border); border-radius:13px; overflow:hidden; margin-bottom:12px; }
+      .memberrow { display:flex; align-items:center; gap:8px; padding:9px 11px; border-top:1px solid var(--border); }
+      .memberrow:first-child { border-top:none; }
+      .mavatar { width:26px; height:26px; border-radius:999px; background:var(--card2); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:var(--text2); flex-shrink:0; }
+      .mname { flex:1; font-size:10.5px; font-weight:600; color:var(--text); }
+      .mname .role { font-size:9px; color:var(--text3); font-weight:400; }
+      .mbal { font-size:10px; font-weight:700; text-align:right; }
+      .mbal.owe { color:var(--danger); }
+      .mbal.owed { color:var(--success); }
+      .mbal.settled { color:var(--text3); }
+
+      .feedlbl { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); margin:2px 0 6px; }
+      .feedcard { background:var(--card); border:1px solid var(--border); border-radius:11px; padding:9px 10px; margin-bottom:8px; }
+      .feedrow1 { display:flex; align-items:center; gap:8px; }
+      .fricon { width:30px; height:30px; border-radius:8px; background:var(--card2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .fricon i { color:var(--text2); font-size:14px; }
+      .frtext { flex:1; }
+      .frtitle { font-size:10.5px; font-weight:600; color:var(--text); }
+      .frsub { font-size:8.5px; color:var(--text3); margin-top:1px; }
+      .framt { font-size:10.5px; font-weight:700; color:var(--text); }
+      .fractions { display:flex; justify-content:flex-end; gap:5px; margin-top:6px; }
+      .fracticon { width:20px; height:20px; border-radius:5px; background:var(--card2); display:flex; align-items:center; justify-content:center; }
+      .fracticon i { font-size:10px; }
+
+      /* ---- Home groups card ---- */
+      .homecard { background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+      .homerow { display:flex; align-items:center; gap:9px; padding:10px 12px; border-top:1px solid var(--border); }
+      .homerow:first-child { border-top:none; }
+      .homerow.faded { opacity:.62; }
+      .hgicon { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:#3b62d6; }
+      .hgicon i { color:#fff; font-size:15px; }
+      .hgname { font-size:11px; font-weight:700; color:var(--text); }
+      .hgname .suf { font-size:8.5px; color:var(--text3); font-weight:500; }
+      .hgsub { font-size:8.5px; color:var(--text3); margin-top:1px; }
+      .hgbal { font-size:10px; font-weight:700; text-align:right; }
+      .hgbalsub { font-size:8px; color:var(--text3); text-align:right; margin-top:1px; }
+
+      /* generic notes/callout boxes */
+      .recobox { max-width:900px; margin:20px auto 6px; background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.35); border-radius:12px; padding:13px 16px; color:#d3f5e6; font-size:11.5px; line-height:1.7; display:flex; gap:9px; }
+      .recobox i { color:var(--success); font-size:16px; flex-shrink:0; margin-top:1px; }
+      .recobox b { color:#7ee6b8; }
+      .openbox { max-width:900px; margin:10px auto 4px; background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.3); border-radius:12px; padding:12px 16px; color:#f5e3c2; font-size:11px; line-height:1.75; }
+      .openbox b { color:#f0b060; }
+      .openbox ul { margin:6px 0 0; padding-left:18px; }
+      .openbox li { margin-bottom:6px; }
+      .findbox { max-width:900px; margin:10px auto 4px; background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.3); border-radius:12px; padding:12px 16px; color:#cfe1fb; font-size:11px; line-height:1.75; }
+      .findbox b { color:#8fb4e6; }
+    </style>
+  </head>
+  <body>
+    <div class="pagehead">
+      <h1>Items 79 &amp; 80 — Custom-import field coverage + Groups "left" read-only history <span style="color:#7ee6b8; font-size:14px; font-weight:800;">— FINAL, locked in</span></h1>
+      <div class="sub">
+        Two unrelated design changes from the same 9th-batch CSV export/import + Groups-leave review
+        (<code>docs/plans/real-device-testing-pass.md</code>) — bundled in one file per this project's
+        "one mockup per discussion" convention, not because the screens are related. Grounded in the real
+        current <code>apps/mobile/src/features/import/MapColumnsStep.tsx</code>,
+        <code>packages/core/src/core/import/importMatcher.ts</code>,
+        <code>apps/mobile/src/features/groups/GroupDashboard.tsx</code>,
+        <code>GroupMembersModal.tsx</code> and <code>HomeGroupsCard.tsx</code>. <b style="color:#fff;">Both items now
+        reviewed and confirmed</b> — this file was updated in place to lock in the picked direction, not versioned
+        into a new file — see each section's green "Confirmed" box for exactly what's final.
+      </div>
+      <div class="scopebox">
+        <b>Scope:</b> <code>apps/mobile</code> only, per the task. <code>apps/web-react</code> is frozen — its
+        <code>MapColumnsStep.tsx</code> and <code>GroupDashboard.tsx</code> are near-identical to mobile's (same 6
+        hardcoded import fields; same <code>closed</code>-only read-only treatment, no <code>left</code> concept
+        either) but per <code>CLAUDE.md</code> they're kept only as historical reference — <b style="color:#fff;">no
+        mirroring proposed there.</b> Both platforms already agree on today's behavior, so there's no
+        cross-platform disagreement to flag for either item.
+      </div>
+    </div>
+
+    <div class="topnav">
+      <a href="#item-79">79 · Custom-import field coverage</a>
+      <a href="#item-80">80 · Groups: leave → read-only</a>
+      <button class="themebtn" onclick="toggleTheme()"><i class="ti ti-sun-moon"></i> Toggle Light/Dark</button>
+    </div>
+
+    <!-- ============================================================ ITEM 79 ============================================================ -->
+    <div class="section" id="item-79">
+      <div class="sectiontitle"><span class="num">79</span>Custom-format mapping screen should show every Penny-supported field</div>
+      <div class="sectionsub">
+        <code>MapColumnsStep.tsx</code> hardcodes exactly 6 target concepts (Date, Description, Amount/split,
+        Category, Account, Notes) while <code>ColumnMapping</code> (<code>importMatcher.ts</code>) models 14 raw
+        fields — <code>tags</code>, <code>paymentMode</code>, <code>bankName</code>, <code>accountType</code>, and an
+        explicit type-text/income-flag pair are never rendered, even when <code>guessColumnMapping()</code> already
+        auto-matched them from the file's own headers.
+      </div>
+      <div class="planquote">
+        Plan (from the doc): show ALL of Penny's real supported fields — including ones already auto-mapped,
+        pre-filled and editable. <b>Not</b> a free-form/arbitrary-field mechanism — every field shown already maps to
+        something the data model understands. "Add more rows of the same kind," not a redesign of the row pattern
+        itself.
+      </div>
+
+      <div class="tabbar" id="tabs-79">
+        <button class="tabbtn active" onclick="showFrame('79','current')">Current (today)</button>
+        <button class="tabbtn" onclick="showFrame('79','final')">Final direction — Required/Common + collapsible More fields</button>
+      </div>
+
+      <div class="frame-row">
+        <!-- CURRENT -->
+        <div class="frame-col show" data-item="79" data-opt="current">
+          <div class="frame-label">Today — 6 concepts only; 8 real fields never shown even when auto-matched <span class="tag now">CURRENT</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Map columns</div></div>
+            <div class="content">
+              <div class="impcard">
+                <div class="t1">Map your columns</div>
+                <div class="t2">We took a best guess from your file's headers — check it and adjust anything that's wrong.</div>
+              </div>
+
+              <div class="fieldrow">
+                <div class="fieldlbl">Date <span class="req">*</span></div>
+                <div class="selecttrigger filled"><span>Txn Date</span><i class="ti ti-chevron-down"></i></div>
+              </div>
+              <div class="fieldrow">
+                <div class="fieldlbl">Description / merchant <span class="req">*</span></div>
+                <div class="selecttrigger filled"><span>Narration</span><i class="ti ti-chevron-down"></i></div>
+              </div>
+
+              <div class="sectionlbl2">Amount</div>
+              <div class="segctrl">
+                <div class="segopt">One amount column</div>
+                <div class="segopt active">Separate debit / credit</div>
+              </div>
+              <div class="fieldsplit fieldrow">
+                <div>
+                  <div class="fieldlbl">Debit / outflow</div>
+                  <div class="selecttrigger filled"><span>Withdrawal Amt</span><i class="ti ti-chevron-down"></i></div>
+                </div>
+                <div>
+                  <div class="fieldlbl">Credit / inflow</div>
+                  <div class="selecttrigger filled"><span>Deposit Amt</span><i class="ti ti-chevron-down"></i></div>
+                </div>
+              </div>
+
+              <div class="fieldrow">
+                <div class="fieldlbl">Category <span class="opt">(optional)</span></div>
+                <div class="selecttrigger filled"><span>Category</span><i class="ti ti-chevron-down"></i></div>
+              </div>
+              <div class="fieldrow">
+                <div class="fieldlbl">Account <span class="opt">(optional)</span></div>
+                <div class="selecttrigger placeholder"><span>— None —</span><i class="ti ti-chevron-down"></i></div>
+                <div class="fieldhint">Leave as None if your file doesn't track which account each row is from.</div>
+              </div>
+              <div class="fieldrow">
+                <div class="fieldlbl">Notes <span class="opt">(optional)</span></div>
+                <div class="selecttrigger placeholder"><span>— None —</span><i class="ti ti-chevron-down"></i></div>
+              </div>
+
+              <div style="text-align:center; font-size:9px; color:var(--danger); margin:4px 0 10px; line-height:1.6;">
+                ⚠ This file's header row also has "Mode" (UPI/NEFT/Cash), "Ref No / Tags", "Txn Type" and "Bank" columns
+                — <code>guessColumnMapping()</code> already resolved several of these behind the scenes, but none of
+                them ever reach this screen to confirm or correct.
+              </div>
+
+              <div class="btnrow">
+                <div class="rbtn secondary">Back</div>
+                <div class="rbtn primary">Continue</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FINAL DIRECTION: sectioned + collapsible more fields (was "Option 2" — now the confirmed, chosen design) -->
+        <div class="frame-col" data-item="79" data-opt="final">
+          <div class="frame-label">Final direction — Required / Common always shown, rest in a "More fields" disclosure <span class="tag rec">CONFIRMED — FINAL</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Map columns</div></div>
+            <div class="content">
+              <div class="impcard">
+                <div class="t1">Map your columns</div>
+                <div class="t2">We took a best guess from your file's headers — check it and adjust anything that's wrong.</div>
+              </div>
+
+              <div class="sectionlbl2" style="margin-top:2px;">Required</div>
+              <div class="fieldrow">
+                <div class="fieldlbl">Date <span class="req">*</span></div>
+                <div class="selecttrigger filled"><span>Txn Date</span><i class="ti ti-chevron-down"></i></div>
+              </div>
+              <div class="fieldrow">
+                <div class="fieldlbl">Description / merchant <span class="req">*</span></div>
+                <div class="selecttrigger filled"><span>Narration</span><i class="ti ti-chevron-down"></i></div>
+              </div>
+              <div class="segctrl"><div class="segopt">One column</div><div class="segopt active">Debit / credit split <span class="req">*</span></div></div>
+              <div class="fieldsplit fieldrow">
+                <div><div class="fieldlbl">Debit / outflow</div><div class="selecttrigger filled"><span>Withdrawal Amt</span><i class="ti ti-chevron-down"></i></div></div>
+                <div><div class="fieldlbl">Credit / inflow</div><div class="selecttrigger filled"><span>Deposit Amt</span><i class="ti ti-chevron-down"></i></div></div>
+              </div>
+
+              <div class="sectionlbl2">Optional — commonly used</div>
+              <div class="fieldrow"><div class="fieldlbl">Category</div><div class="selecttrigger filled"><span>Category</span><i class="ti ti-chevron-down"></i></div></div>
+              <div class="fieldrow"><div class="fieldlbl">Account</div><div class="selecttrigger placeholder"><span>— None —</span><i class="ti ti-chevron-down"></i></div></div>
+              <div class="fieldrow"><div class="fieldlbl">Payment mode <span class="autotag">Auto-matched</span></div><div class="selecttrigger filled"><span>Mode</span><i class="ti ti-chevron-down"></i></div></div>
+              <div class="fieldrow"><div class="fieldlbl">Notes</div><div class="selecttrigger placeholder"><span>— None —</span><i class="ti ti-chevron-down"></i></div></div>
+
+              <!-- collapsible, auto-expanded because it contains auto-matched values — try collapsing it -->
+              <div class="morefields">
+                <div class="morehead" onclick="toggleMore(this)">
+                  <i class="ti ti-chevron-up chev79" style="color:var(--text3); font-size:12px;"></i>
+                  <div class="nm">More fields</div>
+                  <div class="cnt hasauto">3 auto-matched</div>
+                </div>
+                <div class="morebody">
+                  <div class="fieldrow"><div class="fieldlbl">Tags <span class="autotag">Auto-matched</span></div><div class="selecttrigger filled"><span>Ref No / Tags</span><i class="ti ti-chevron-down"></i></div></div>
+                  <div class="sectionlbl2" style="margin-top:2px;">Transaction type</div>
+                  <div class="segctrl"><div class="segopt active">Text column</div><div class="segopt">Income-flag column</div></div>
+                  <div class="fieldrow"><div class="fieldlbl">Type <span class="autotag">Auto-matched</span></div><div class="selecttrigger filled"><span>Txn Type</span><i class="ti ti-chevron-down"></i></div></div>
+                  <div class="fieldrow"><div class="fieldlbl">Bank name <span class="autotag">Auto-matched</span></div><div class="selecttrigger filled"><span>Bank</span><i class="ti ti-chevron-down"></i></div></div>
+                  <div class="fieldrow" style="margin-bottom:2px;"><div class="fieldlbl">Account type</div><div class="selecttrigger placeholder"><span>— None —</span><i class="ti ti-chevron-down"></i></div></div>
+                </div>
+              </div>
+
+              <div style="text-align:center; font-size:9px; color:var(--success); margin:0 0 10px; line-height:1.6;">
+                ✓ Tap "More fields" to try collapsing it — it re-opens itself whenever it holds an auto-matched value,
+                so nothing pre-filled is ever hidden by default.
+              </div>
+
+              <div class="btnrow"><div class="rbtn secondary">Back</div><div class="rbtn primary">Continue</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="recobox">
+        <i class="ti ti-check"></i>
+        <span><b>Confirmed — final direction: sectioned + collapsible.</b> The flat single-list alternative (the
+        previous "Option 1" — all 11 rows in one continuous list) was considered and rejected: it pushed
+        Back/Continue well off the fold on a screen most users only ever touch once per custom source, where
+        "uncluttered first" and "progressive disclosure" (§1) both point at grouping instead. The three-tier split
+        (Required / Common / More fields) mirrors a real usage split — Category/Account/Payment mode/Notes show up
+        in most Indian bank exports, while Tags/Type/Bank name/Account type are genuinely rarer — and "More fields"
+        auto-expands with a "N auto-matched" badge whenever it holds a value the matcher already found, so
+        collapsing is only ever a size reduction, never a way to accidentally miss something real. Reuses the exact
+        chevron-header disclosure pattern already shipped for <code>DuplicatesBucket.tsx</code>'s grouped tiles, and
+        models "Transaction type" as its own segmented text-column-vs-income-flag choice mirroring the existing
+        Amount split control — no new interaction invented anywhere on this screen.
+        <br /><br />
+        <b>Parity confirmed separately:</b> a fully-populated Custom mapping now behaves identically to picking the
+        Cashew/MoneyView preset directly — nothing downstream of the <code>ColumnMapping</code> object branches on
+        which format produced it, and <code>parseFlexibleDate</code>'s date hint already resolves identically
+        (<code>'auto'</code>) for <code>custom</code>/<code>cashew</code>/<code>moneyview</code>. The only reason
+        full parity wasn't reachable through the actual UI before this item was that <code>MapColumnsStep.tsx</code>
+        had no manual picker at all for Tags/PaymentMode/BankName/AccountType/Type — this design closes exactly that
+        gap, not just adding visibility for its own sake.</span>
+      </div>
+      <div class="openbox">
+        <b>Resolved — nothing open remains for this item.</b>
+        <ul>
+          <li><b>Flat list vs sectioned + collapsible</b> — sectioned + collapsible (the former "Option 2") is
+            final; the flat single-list alternative was considered and rejected (see the confirmed box above).</li>
+          <li><b>Type field UI</b> — the segmented text-column-vs-income-flag control (mirroring Amount's split
+            control) is final; the alternative generic "pick any extra column" dropdown-of-dropdowns was considered
+            and rejected as more generic/less guided.</li>
+          <li><b>Common-vs-More placement</b> — Payment mode in "Common", Tags/Type/Bank name/Account type in "More
+            fields" is final, confirmed as designed. No further changes before implementation.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============================================================ ITEM 80 ============================================================ -->
+    <div class="section" id="item-80">
+      <div class="sectiontitle"><span class="num">80</span>Groups: leaving a group should keep local history visible, read-only</div>
+      <div class="sectionsub">
+        <code>leaveGroup()</code> (<code>groupsService.ts</code>) deletes the local <code>groups</code> record and the
+        user's own membership row immediately — <code>group_events</code> rows are left behind but orphaned (nothing
+        can query them once the owning <code>groups</code> record is gone), so the group and its whole history vanish
+        from the device the moment you leave.
+      </div>
+      <div class="planquote">
+        Plan: keep the local <code>groups</code> record and its <code>group_events</code> intact on leave, marking the
+        group with a new status alongside the existing <code>closeGroup</code>/<code>reopenGroup</code> mechanism, so
+        <code>GroupDashboard.tsx</code> renders it read-only — history visible, new activity/admin actions disabled,
+        banner explaining the user left.
+      </div>
+
+      <div class="findbox">
+        <b>Existing "read-only past state" pattern found and reused:</b> a <code>closed</code> group (settled &amp;
+        closed) already hides Add expense/Settle up, disables per-row edit/delete/flag (<code>canAct = group.status
+        === 'active'</code>), and disables member-row settle actions. The design below extends that exact mechanism
+        with a new status (e.g. <code>'left'</code>) rather than inventing a second read-only visual language — the
+        per-row action gating already keys off <code>status === 'active'</code>, so it needs zero new code once
+        <code>left</code> is a distinct status value, not <code>'active'</code>. <b>Confirmed, final scope:</b> the
+        two states are now fully unified — <code>closed</code>'s plain-text explanatory line is upgraded to the same
+        real <code>Banner</code> component <code>left</code> uses (own copy per state), shown in the updated
+        "closed" frame below.
+      </div>
+
+      <div class="subhead">A. Group Dashboard</div>
+      <div class="subheadsub">Same screen, three states — the existing <code>active</code> baseline, and the final <code>closed</code>/<code>left</code> read-only designs.</div>
+
+      <div class="tabbar" id="tabs-80a">
+        <button class="tabbtn active" onclick="showFrame('80a','active')">Active group (baseline)</button>
+        <button class="tabbtn" onclick="showFrame('80a','closed')">Closed group — Banner treatment (final)</button>
+        <button class="tabbtn" onclick="showFrame('80a','left')">Left group (final)</button>
+      </div>
+
+      <div class="frame-row">
+        <!-- ACTIVE (baseline) -->
+        <div class="frame-col show" data-item="80a" data-opt="active">
+          <div class="frame-label">Today — active group, full baseline for comparison <span class="tag now">CURRENT</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Goa Trip</div></div>
+            <div class="content">
+              <div class="grouphdr">
+                <div class="gicon"><i class="ti ti-plane"></i></div>
+                <div style="flex:1;"><div class="gname">Goa Trip</div><div class="gsub">4 members</div></div>
+                <div class="ggear"><i class="ti ti-settings"></i></div>
+              </div>
+              <div class="balcard"><div class="lbl">Your balance in this group</div><div class="amt" style="color:var(--success);">₹1,850</div><div class="sub">you're owed</div></div>
+              <div class="actionrow2"><div class="a1">+ Add expense</div><div class="a2">Settle up</div></div>
+
+              <div class="memberslbl">Members</div>
+              <div class="memberscard">
+                <div class="memberrow"><div class="mavatar">Y</div><div class="mname">You</div><div class="mbal settled">you</div></div>
+                <div class="memberrow"><div class="mavatar">R</div><div class="mname">Rahul</div><div class="mbal owe">owes you ₹1,200</div></div>
+                <div class="memberrow"><div class="mavatar">P</div><div class="mname">Priya</div><div class="mbal owed" style="color:var(--success);">owes you ₹650</div></div>
+              </div>
+
+              <div class="feedlbl">Shared expenses</div>
+              <div class="feedcard">
+                <div class="feedrow1">
+                  <div class="fricon"><i class="ti ti-receipt"></i></div>
+                  <div class="frtext"><div class="frtitle">Beach shack dinner</div><div class="frsub">You paid · split 4 ways</div></div>
+                  <div class="framt">₹3,200</div>
+                </div>
+                <div class="fractions"><div class="fracticon"><i class="ti ti-pencil" style="color:var(--text2);"></i></div><div class="fracticon"><i class="ti ti-trash" style="color:var(--danger);"></i></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CLOSED (existing pattern) -->
+        <div class="frame-col" data-item="80a" data-opt="closed">
+          <div class="frame-label">Closed group — now uses the same shared Banner as "left" <span class="tag rec">CONFIRMED — FINAL</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Goa Trip</div></div>
+            <div class="content">
+              <div class="grouphdr">
+                <div class="gicon"><i class="ti ti-plane"></i></div>
+                <div style="flex:1;"><div class="gname">Goa Trip</div><div class="gsub">4 members · closed</div></div>
+                <div class="ggear"><i class="ti ti-settings"></i></div>
+              </div>
+
+              <div class="rbanner info">
+                <i class="ti ti-lock"></i>
+                <div class="body"><b>This group is closed.</b> You can still see everything that happened before,
+                but nothing new can be added.</div>
+              </div>
+
+              <div class="balcard"><div class="lbl">Your balance in this group</div><div class="amt">₹0</div><div class="sub">all settled up</div></div>
+
+              <div class="memberslbl">Members</div>
+              <div class="memberscard">
+                <div class="memberrow"><div class="mavatar">Y</div><div class="mname">You</div><div class="mbal settled">you</div></div>
+                <div class="memberrow"><div class="mavatar">R</div><div class="mname">Rahul</div><div class="mbal settled">settled up</div></div>
+                <div class="memberrow"><div class="mavatar">P</div><div class="mname">Priya</div><div class="mbal settled">settled up</div></div>
+              </div>
+
+              <div class="feedlbl">Shared expenses</div>
+              <div class="feedcard">
+                <div class="feedrow1">
+                  <div class="fricon"><i class="ti ti-receipt"></i></div>
+                  <div class="frtext"><div class="frtitle">Beach shack dinner</div><div class="frsub">You paid · split 4 ways</div></div>
+                  <div class="framt">₹3,200</div>
+                </div>
+                <!-- no edit/delete icons — canAct = status === 'active' is false -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LEFT (final) -->
+        <div class="frame-col" data-item="80a" data-opt="left">
+          <div class="frame-label">Final — you left: banner up top, gear hidden, history frozen &amp; read-only <span class="tag rec">CONFIRMED — FINAL</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Goa Trip</div></div>
+            <div class="content">
+              <div class="grouphdr">
+                <div class="gicon" style="background:#6b7280;"><i class="ti ti-plane"></i></div>
+                <div style="flex:1;"><div class="gname">Goa Trip</div><div class="gsub">4 members · you left</div></div>
+                <div class="ggear hidden-el"><i class="ti ti-settings"></i></div>
+              </div>
+
+              <div class="rbanner info">
+                <i class="ti ti-door-exit"></i>
+                <div class="body"><b>You left this group.</b> You can still see everything that happened before — it
+                just won't update, and you can't add anything new.</div>
+              </div>
+
+              <div class="balcard"><div class="lbl">Your balance when you left</div><div class="amt" style="color:var(--success);">₹1,850</div><div class="sub">you were owed</div></div>
+
+              <div class="memberslbl">Members</div>
+              <div class="memberscard">
+                <div class="memberrow"><div class="mavatar">R</div><div class="mname">Rahul</div><div class="mbal owe">owed you ₹1,200</div></div>
+                <div class="memberrow"><div class="mavatar">P</div><div class="mname">Priya</div><div class="mbal" style="color:var(--success);">owed you ₹650</div></div>
+              </div>
+
+              <div class="feedlbl">Shared expenses</div>
+              <div class="feedcard">
+                <div class="feedrow1">
+                  <div class="fricon"><i class="ti ti-receipt"></i></div>
+                  <div class="frtext"><div class="frtitle">Beach shack dinner</div><div class="frsub">You paid · split 4 ways</div></div>
+                  <div class="framt">₹3,200</div>
+                </div>
+                <!-- no action icons here either — same canAct gate, now false because status !== 'active' -->
+              </div>
+
+              <div style="text-align:center; font-size:9px; color:var(--success); margin-top:2px; line-height:1.6;">
+                ✓ "You" row removed from Members (your membership record really is gone) but everyone else's frozen
+                balance vs. you still renders from history · no edit/delete/settle affordances anywhere on this screen
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subhead">B. Where else this group surfaces — Home's Groups card</div>
+      <div class="subheadsub">
+        <code>HomeGroupsCard.tsx</code> is the one other place a group list renders today (the header's "Personal ▾"
+        switcher also lists groups — see the note below). Its current filter has a real gap worth fixing alongside
+        this item, not a new one introduced by it.
+      </div>
+
+      <div class="tabbar" id="tabs-80b">
+        <button class="tabbtn active" onclick="showFrame('80b','current')">Current — filter hides non-active groups</button>
+        <button class="tabbtn" onclick="showFrame('80b','fixed')">Final — always show every group, tagged</button>
+      </div>
+
+      <div class="frame-row">
+        <div class="frame-col show" data-item="80b" data-opt="current">
+          <div class="frame-label">Today — <code style="font-size:9px;">shown = activeGroups.length ? activeGroups : groups</code> <span class="tag now">CURRENT — GAP</span></div>
+          <div class="phone" style="height:auto; min-height:340px;">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Home</div></div>
+            <div class="content">
+              <div style="font-size:11px; font-weight:700; color:var(--text); margin-bottom:8px;">Groups</div>
+              <div class="homecard">
+                <div class="homerow">
+                  <div class="hgicon" style="background:#10b981;"><i class="ti ti-home"></i></div>
+                  <div style="flex:1;"><div class="hgname">Flatmates</div><div class="hgsub">3 members · 12 expenses</div></div>
+                  <div style="text-align:right;"><div class="hgbal" style="color:var(--danger);">−₹420</div><div class="hgbalsub">you owe</div></div>
+                </div>
+              </div>
+              <div style="text-align:center; font-size:9px; color:var(--danger); margin-top:8px; line-height:1.6;">
+                ⚠ "Goa Trip" (left) has NO active groups filter to fall back to here — because "Flatmates" is
+                active, the filter shows ONLY active groups, so "Goa Trip" disappears from Home entirely even though
+                item 80 explicitly requires it to stay visible. (The same gap already exists for <code>closed</code>
+                groups today, just never surfaced before now.)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-col" data-item="80b" data-opt="fixed">
+          <div class="frame-label">Final — active-only filter dropped; every group always shows, tagged <span class="tag rec">CONFIRMED — FINAL</span></div>
+          <div class="phone" style="height:auto; min-height:340px;">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Home</div></div>
+            <div class="content">
+              <div style="font-size:11px; font-weight:700; color:var(--text); margin-bottom:8px;">Groups</div>
+              <div class="homecard">
+                <div class="homerow">
+                  <div class="hgicon" style="background:#10b981;"><i class="ti ti-home"></i></div>
+                  <div style="flex:1;"><div class="hgname">Flatmates</div><div class="hgsub">3 members · 12 expenses</div></div>
+                  <div style="text-align:right;"><div class="hgbal" style="color:var(--danger);">−₹420</div><div class="hgbalsub">you owe</div></div>
+                </div>
+                <div class="homerow faded">
+                  <div class="hgicon" style="background:#6b7280;"><i class="ti ti-plane"></i></div>
+                  <div style="flex:1;"><div class="hgname">Goa Trip <span class="suf">· you left</span></div><div class="hgsub">4 members · 9 expenses</div></div>
+                  <div style="text-align:right;"><div class="hgbal" style="color:var(--success);">+₹1,850</div><div class="hgbalsub">you were owed</div></div>
+                </div>
+                <div class="homerow faded">
+                  <div class="hgicon" style="background:#6b7280;"><i class="ti ti-users-group"></i></div>
+                  <div style="flex:1;"><div class="hgname">Office Lunch <span class="suf">· closed</span></div><div class="hgsub">5 members · 21 expenses</div></div>
+                  <div style="text-align:right;"><div class="hgbal">₹0</div><div class="hgbalsub">settled up</div></div>
+                </div>
+              </div>
+              <div style="text-align:center; font-size:9px; color:var(--success); margin-top:8px; line-height:1.6;">
+                ✓ Tapping either faded row still opens its (read-only) dashboard — same "· closed" suffix style
+                already shipped, now joined by "· you left"; both non-active kinds slightly dimmed via row opacity.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="findbox">
+        <b>Also found — the "Personal ▾" context switcher</b> (<code>ContextSwitcher.tsx</code>'s menu) lists every
+        group with just a name + balance pill, no closed/left indicator at all today. <b>Confirmed, final:</b> the
+        same small " · closed" / " · you left" suffix goes there too, in the same one pass as the Home groups card
+        fix below — otherwise switching into a left group from that menu would look identical to switching into any
+        active one, until the dashboard itself loads.
+      </div>
+
+      <div class="recobox">
+        <i class="ti ti-check"></i>
+        <span><b>Confirmed — final direction.</b> Reuse the <code>closed</code> read-only mechanism (extend it with a
+        new <code>left</code> status rather than a parallel flag) so every existing <code>canAct</code>/<code>!closed</code>
+        gate in <code>GroupDashboard.tsx</code> and <code>GroupMembersModal.tsx</code> keeps working with a one-line
+        change to what counts as "not active." The header's settings gear is hidden entirely for a left group — once
+        your own membership row is gone there is nothing left to manage in <code>GroupMembersModal</code> (no
+        invite, no role changes, no delete, and "Leave group" itself must never be offered again on a group you've
+        already left); the alternative — keeping the gear but opening a stripped-down read-only roster — was
+        considered and rejected as unnecessary complexity when the dashboard already shows the member roster +
+        frozen balances inline. The explanatory <code>Banner variant="info"</code> sits at the very top, above the
+        balance card, since it's the first thing that answers "why is this frozen" — using the exact copy shown in
+        the frame above. <code>closed</code>'s previous plain-text line is upgraded to the same real
+        <code>Banner</code> component (own copy, shown in its updated frame above) for one consistent "why is this
+        read-only" visual language app-wide.</span>
+      </div>
+      <div class="openbox">
+        <b>Resolved — nothing open remains for this item.</b>
+        <ul>
+          <li><b>Settings gear on a left group</b> — hidden entirely, final. The alternative (kept, opening a
+            stripped-down read-only roster) was considered and rejected as unnecessary given the dashboard already
+            shows the member roster + frozen balances inline.</li>
+          <li><b>Unify <code>closed</code>'s plain-text line with the Banner treatment</b> — confirmed and now in
+            scope; the "closed" frame above shows the updated design with closed-specific copy.</li>
+          <li><b>Home groups card / ContextSwitcher fix scope</b> — confirmed to cover both <code>closed</code> and
+            <code>left</code> in one pass, exactly as designed above.</li>
+          <li><b>Exact banner copy</b> — the longer version is final: "You left this group. You can still see
+            everything that happened before — it just won't update, and you can't add anything new." (shown
+            verbatim in the "left" frame above).</li>
+          <li><b>Pull-to-refresh on a left group</b> — confirmed: leave enabled, no special-casing. Nothing to
+            design here — the existing sync/error-handling path already covers it.</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      function showFrame(item, opt) {
+        document.querySelectorAll('.frame-col[data-item="' + item + '"]').forEach(function (el) {
+          el.classList.toggle('show', el.getAttribute('data-opt') === opt);
+        });
+        document.querySelectorAll('#tabs-' + item + ' .tabbtn').forEach(function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('onclick').indexOf("'" + opt + "'") !== -1);
+        });
+      }
+      function toggleTheme() {
+        var html = document.documentElement;
+        html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      }
+      function toggleMore(headEl) {
+        var body = headEl.parentElement.querySelector('.morebody');
+        var chev = headEl.querySelector('.chev79');
+        body.classList.toggle('collapsed');
+        chev.classList.toggle('ti-chevron-up');
+        chev.classList.toggle('ti-chevron-down');
+      }
+    </script>
+  </body>
+</html>

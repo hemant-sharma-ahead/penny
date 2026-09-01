@@ -1,0 +1,1418 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — PPF manual-entry FY guard: proposal (v1)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      /* ============ Theme tokens — real values from packages/core/src/theme/tokens.ts ============ */
+      :root,
+      html[data-theme='light'] {
+        --screenbg: #f8fafc;
+        --card: #ffffff;
+        --card2: #f1f5f9;
+        --chip: #f1f5f9;
+        --text: #0f172a;
+        --text2: #475569;
+        --text3: #94a3b8;
+        --border: #e2e8f0;
+        --borderstrong: #cbd5e1;
+        --primary: #00a86b;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --info: #3b82f6;
+        --neutral: #64748b;
+        --ppf: #8b5cf6;
+        --oncolor: #ffffff;
+        --warn-tint: rgba(245, 158, 11, 0.12);
+        --warn-border: rgba(245, 158, 11, 0.35);
+        --warn-ink: #8a5a05;
+        --succ-tint: rgba(16, 185, 129, 0.12);
+        --neu-tint: rgba(100, 116, 139, 0.1);
+        --neu-border: rgba(100, 116, 139, 0.25);
+      }
+      html[data-theme='dark'] {
+        --screenbg: #0b0f14;
+        --card: #161b22;
+        --card2: #1c2128;
+        --chip: #1c2128;
+        --text: #e6edf3;
+        --text2: #8b949e;
+        --text3: #6e7681;
+        --border: #2d333b;
+        --borderstrong: #444c56;
+        --primary: #00a86b;
+        --success: #34d399;
+        --danger: #f87171;
+        --warning: #fbbf24;
+        --info: #60a5fa;
+        --neutral: #94a3b8;
+        --ppf: #a78bfa;
+        --oncolor: #ffffff;
+        --warn-tint: rgba(251, 191, 36, 0.14);
+        --warn-border: rgba(251, 191, 36, 0.4);
+        --warn-ink: #fbbf24;
+        --succ-tint: rgba(52, 211, 153, 0.14);
+        --neu-tint: rgba(148, 163, 184, 0.13);
+        --neu-border: rgba(148, 163, 184, 0.3);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background: #05070a;
+        color: #e6edf3;
+        -webkit-font-smoothing: antialiased;
+        padding-bottom: 80px;
+      }
+      html[data-theme='light'] body {
+        background: #eef2f9;
+        color: #0f172a;
+      }
+      a {
+        color: inherit;
+      }
+
+      .pagehead {
+        text-align: center;
+        padding: 34px 16px 6px;
+      }
+      .pagehead h1 {
+        margin: 0 0 6px;
+        font-size: 21px;
+        color: #fff;
+      }
+      html[data-theme='light'] .pagehead h1 {
+        color: #0f172a;
+      }
+      .pagehead .sub {
+        color: #9aa5b1;
+        font-size: 13px;
+        max-width: 920px;
+        margin: 0 auto;
+        line-height: 1.65;
+      }
+      html[data-theme='light'] .pagehead .sub {
+        color: #475569;
+      }
+      .scopebox {
+        max-width: 900px;
+        margin: 16px auto 0;
+        background: #12181f;
+        border: 1px solid #2d333b;
+        border-radius: 12px;
+        padding: 12px 16px;
+        color: #9aa5b1;
+        font-size: 11.5px;
+        line-height: 1.65;
+      }
+      html[data-theme='light'] .scopebox {
+        background: #fff;
+        border-color: #e2e8f0;
+        color: #475569;
+      }
+      .scopebox code {
+        background: #1c2128;
+        padding: 1px 5px;
+        border-radius: 5px;
+        font-size: 10.5px;
+        color: #c3ccd6;
+      }
+      html[data-theme='light'] .scopebox code {
+        background: #eef2f9;
+        color: #334155;
+      }
+      .scopebox b {
+        color: #fff;
+      }
+      html[data-theme='light'] .scopebox b {
+        color: #0f172a;
+      }
+
+      .topnav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: #05070a;
+        border-bottom: 1px solid #1b222b;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 10px 16px;
+        margin-top: 22px;
+      }
+      html[data-theme='light'] .topnav {
+        background: #eef2f9;
+        border-bottom-color: #dbe4f0;
+      }
+      .topnav a {
+        font-size: 12px;
+        font-weight: 700;
+        color: #cfe9db;
+        background: #0f2419;
+        border: 1px solid #1c3d2a;
+        padding: 7px 14px;
+        border-radius: 999px;
+        text-decoration: none;
+      }
+      html[data-theme='light'] .topnav a {
+        color: #046c43;
+        background: #e3f8ee;
+        border-color: #b9ecd4;
+      }
+      .topnav a:hover {
+        background: #123524;
+      }
+      .themebtn {
+        font-size: 12px;
+        font-weight: 700;
+        color: #fbdca0;
+        background: #2a2107;
+        border: 1px solid #4d3c0f;
+        padding: 7px 14px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      html[data-theme='light'] .themebtn {
+        color: #8a5a05;
+        background: #fef3dc;
+        border-color: #f5dba3;
+      }
+      .themebtn:hover {
+        background: #352a09;
+      }
+
+      .section {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 44px 16px 10px;
+        border-top: 1px solid #1b222b;
+      }
+      html[data-theme='light'] .section {
+        border-top-color: #dbe4f0;
+      }
+      .section:first-of-type {
+        border-top: none;
+      }
+      .sectiontitle {
+        text-align: center;
+        font-size: 17px;
+        font-weight: 800;
+        color: #fff;
+        margin: 0 0 4px;
+      }
+      html[data-theme='light'] .sectiontitle {
+        color: #0f172a;
+      }
+      .sectiontitle .num {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #04140d;
+        font-size: 12.5px;
+        line-height: 24px;
+        margin-right: 8px;
+      }
+      .sectionsub {
+        text-align: center;
+        color: #9aa5b1;
+        font-size: 12.5px;
+        max-width: 880px;
+        margin: 0 auto 8px;
+        line-height: 1.7;
+      }
+      html[data-theme='light'] .sectionsub {
+        color: #475569;
+      }
+      .sectionsub code {
+        background: #1c2128;
+        padding: 1px 5px;
+        border-radius: 5px;
+        font-size: 11px;
+        color: #c3ccd6;
+      }
+      html[data-theme='light'] .sectionsub code {
+        background: #eef2f9;
+        color: #334155;
+      }
+
+      .scenario {
+        max-width: 900px;
+        margin: 10px auto 20px;
+        background: #12181f;
+        border-left: 3px solid var(--ppf);
+        border-radius: 0 10px 10px 0;
+        padding: 10px 16px;
+        color: #b9c2cc;
+        font-size: 11.5px;
+        line-height: 1.65;
+      }
+      html[data-theme='light'] .scenario {
+        background: #f4f1fe;
+        color: #4c3f76;
+        border-left-color: #8b5cf6;
+      }
+      .scenario b {
+        color: #c9b6ff;
+      }
+      html[data-theme='light'] .scenario b {
+        color: #6d28d9;
+      }
+
+      .tabbar {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+      }
+      .tabbtn {
+        font-size: 12px;
+        font-weight: 700;
+        color: #c7ccd3;
+        background: #151b22;
+        border: 1px solid #2d333b;
+        padding: 8px 16px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      html[data-theme='light'] .tabbtn {
+        color: #334155;
+        background: #fff;
+        border-color: #dbe4f0;
+      }
+      .tabbtn.active {
+        background: var(--ppf);
+        color: #fff;
+        border-color: transparent;
+      }
+
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 26px;
+        flex-wrap: wrap;
+      }
+      .frame-col {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .frame-col.show {
+        display: flex;
+      }
+      .frame-label {
+        font-size: 11.5px;
+        font-weight: 800;
+        color: #fff;
+        text-align: center;
+        max-width: 390px;
+      }
+      html[data-theme='light'] .frame-label {
+        color: #0f172a;
+      }
+      .frame-label .tag {
+        display: inline-block;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 2px 7px;
+        border-radius: 999px;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+      .tag.now {
+        background: rgba(139, 148, 158, 0.22);
+        color: #c7ccd3;
+      }
+      .tag.blk {
+        background: rgba(251, 191, 36, 0.22);
+        color: #fbbf24;
+      }
+      .tag.ok {
+        background: rgba(16, 185, 129, 0.2);
+        color: #7ee6b8;
+      }
+      html[data-theme='light'] .tag.now {
+        background: #e2e8f0;
+        color: #334155;
+      }
+      html[data-theme='light'] .tag.blk {
+        background: #fef3dc;
+        color: #8a5a05;
+      }
+      html[data-theme='light'] .tag.ok {
+        background: #e3f8ee;
+        color: #046c43;
+      }
+
+      /* ============ Real device frame — 390×844, full height always ============ */
+      .phone {
+        width: 390px;
+        height: 844px;
+        background: var(--screenbg);
+        border-radius: 44px;
+        border: 10px solid #1c2128;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+        flex-shrink: 0;
+      }
+      html[data-theme='light'] .phone {
+        border-color: #0f172a;
+      }
+      .statusbar {
+        height: 38px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: var(--text);
+        background: var(--screenbg);
+      }
+      .statusbar .sbicons {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        color: var(--text);
+        font-size: 12px;
+      }
+      /* dim backdrop + centered modal card — real Modal.tsx: RN Modal, transparent+fade, full-screen
+         dim Pressable backdrop, centered card. No bottom sheet per docs/DESIGN_GUIDELINES.md. */
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 38px 16px;
+      }
+      html[data-theme='dark'] .backdrop {
+        background: rgba(0, 0, 0, 0.65);
+      }
+      .modalcard {
+        width: 100%;
+        max-width: 358px;
+        max-height: 100%;
+        background: var(--card);
+        border-radius: 20px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      }
+      .modalhead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 15px 10px;
+        flex-shrink: 0;
+      }
+      .modalhead .t {
+        font-size: 14.5px;
+        font-weight: 800;
+        color: var(--text);
+      }
+      .modalhead .x {
+        color: var(--text3);
+        font-size: 17px;
+        background: none;
+        border: none;
+        cursor: pointer;
+      }
+      .modalbody {
+        padding: 2px 16px 16px;
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      /* SegmentedControl.tsx real shell */
+      .segctrl {
+        display: flex;
+        gap: 6px;
+        padding: 4px;
+        border-radius: 12px;
+        background: var(--card2);
+      }
+      .segopt {
+        flex: 1;
+        text-align: center;
+        padding: 8px 0;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text2);
+      }
+      .segopt.on {
+        color: #fff;
+      }
+
+      /* FormField.tsx real label-above pattern */
+      .flabel {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text2);
+        margin-bottom: 5px;
+      }
+      .fbox {
+        background: var(--card2);
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        padding: 10px 12px;
+        font-size: 13px;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .fbox .pfx {
+        color: var(--text3);
+      }
+      .fhint {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 5px;
+      }
+      .fhint span {
+        font-size: 10.5px;
+        font-weight: 600;
+      }
+      .fwords {
+        font-size: 11px;
+        color: var(--text3);
+        margin-top: 5px;
+      }
+
+      /* Gap-guard warning banner — reuses RetirementCard.tsx's own FY-end nudge banner treatment
+         (amber/warning tint + border, ti-calendar-event icon, inline pill action) verbatim, since this
+         is semantically the same "a past FY's interest is missing" signal, just triggered from inside
+         the sheet instead of the card. */
+      .gapbanner {
+        border-radius: 12px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-tint);
+        padding: 10px 11px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .gapbanner .row1 {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .gapbanner .row1 i {
+        color: var(--warning);
+        font-size: 15px;
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+      .gapbanner .row1 .msg {
+        font-size: 11px;
+        line-height: 1.5;
+        color: var(--warn-ink);
+        flex: 1;
+      }
+      .gapbanner .row1 .msg b {
+        color: var(--text);
+      }
+      .gapbanner .addpill {
+        align-self: flex-start;
+        margin-left: 23px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: var(--warning);
+        color: #3a2703;
+        font-size: 11px;
+        font-weight: 800;
+        cursor: pointer;
+        border: none;
+      }
+      html[data-theme='dark'] .gapbanner .addpill {
+        color: #241a00;
+      }
+
+      /* Save button row */
+      .saverow {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .savebtn {
+        width: 100%;
+        text-align: center;
+        padding: 13px 0;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 800;
+        border: none;
+        cursor: default;
+      }
+      .savebtn.enabled {
+        background: var(--ppf);
+        color: #fff;
+      }
+      .savebtn.disabled {
+        background: var(--card2);
+        color: var(--text3);
+      }
+      .saveHelp {
+        text-align: center;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--warn-ink);
+      }
+      .btnrow2 {
+        display: flex;
+        gap: 10px;
+      }
+      .btnrow2 .savebtn {
+        flex: 1;
+      }
+      .delbtn {
+        flex: 1;
+        text-align: center;
+        padding: 13px 0;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 800;
+        border: none;
+        background: rgba(239, 68, 68, 0.12);
+        color: var(--danger);
+      }
+
+      /* Calculation info banner — shell mirrors EpfTransactionSheet's existing "calculate it for
+         me" card (neutral slate tint/border, ti-calculator/ti-circle-check/ti-info-circle icons); the
+         mismatch variant borrows PPF's own amber flag language (ti-alert-triangle, warning tint) used
+         for `findAllPpfReviewFlags` rows elsewhere on this same screen — no new banner style invented. */
+      .calcbanner {
+        border-radius: 12px;
+        border: 1px solid var(--neu-border);
+        background: var(--neu-tint);
+        padding: 10px 11px;
+        display: flex;
+        gap: 8px;
+      }
+      .calcbanner.mismatch {
+        border-color: var(--warn-border);
+        background: var(--warn-tint);
+      }
+      .calcbanner i {
+        font-size: 15px;
+        margin-top: 1px;
+        flex-shrink: 0;
+        color: var(--neutral);
+      }
+      .calcbanner.mismatch i {
+        color: var(--warning);
+      }
+      .calcbanner .msg {
+        font-size: 10.5px;
+        line-height: 1.55;
+        color: var(--text2);
+        flex: 1;
+      }
+      .calcbanner.mismatch .msg {
+        color: var(--warn-ink);
+      }
+      .calcbanner .msg b {
+        color: var(--text);
+      }
+      .calcbanner .msg .link {
+        color: var(--ppf);
+        font-weight: 700;
+      }
+      .calcbanner .cmprow {
+        display: flex;
+        gap: 14px;
+        margin-top: 6px;
+      }
+      .calcbanner .cmprow .c {
+        flex: 1;
+      }
+      .calcbanner .cmprow .clbl {
+        font-size: 8.5px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text3);
+      }
+      .calcbanner.mismatch .cmprow .clbl {
+        color: var(--warn-ink);
+        opacity: 0.8;
+      }
+      .calcbanner .cmprow .cval {
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--text);
+        margin-top: 1px;
+      }
+
+      .noteinput {
+        background: var(--card2);
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        color: var(--text3);
+      }
+
+      /* flow diagram */
+      .flowrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 0 auto 18px;
+        max-width: 1000px;
+      }
+      .flowstep {
+        background: #12181f;
+        border: 1px solid #2d333b;
+        border-radius: 12px;
+        padding: 10px 13px;
+        font-size: 11px;
+        color: #c7ccd3;
+        max-width: 190px;
+        line-height: 1.5;
+      }
+      html[data-theme='light'] .flowstep {
+        background: #fff;
+        border-color: #e2e8f0;
+        color: #334155;
+      }
+      .flowstep b {
+        color: #fff;
+        display: block;
+        margin-bottom: 3px;
+        font-size: 11.5px;
+      }
+      html[data-theme='light'] .flowstep b {
+        color: #0f172a;
+      }
+      .flowarrow {
+        color: #546374;
+        font-size: 16px;
+      }
+
+      .recobox {
+        max-width: 920px;
+        margin: 20px auto 6px;
+        background: rgba(16, 185, 129, 0.08);
+        border: 1px solid rgba(16, 185, 129, 0.35);
+        border-radius: 12px;
+        padding: 13px 16px;
+        color: #d3f5e6;
+        font-size: 11.5px;
+        line-height: 1.7;
+        display: flex;
+        gap: 9px;
+      }
+      html[data-theme='light'] .recobox {
+        background: #e3f8ee;
+        border-color: #b9ecd4;
+        color: #0f5132;
+      }
+      .recobox i {
+        color: var(--success);
+        font-size: 16px;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .recobox b {
+        color: #7ee6b8;
+      }
+      html[data-theme='light'] .recobox b {
+        color: #046c43;
+      }
+      .openbox {
+        max-width: 920px;
+        margin: 14px auto 4px;
+        background: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 12px;
+        padding: 12px 16px;
+        color: #cfe1fb;
+        font-size: 11px;
+        line-height: 1.75;
+      }
+      html[data-theme='light'] .openbox {
+        background: #eaf2fe;
+        border-color: #bfdbfe;
+        color: #1e3a5f;
+      }
+      .openbox b {
+        color: #8fb4e6;
+      }
+      html[data-theme='light'] .openbox b {
+        color: #1d4ed8;
+      }
+      .openbox ol {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .openbox li {
+        margin-bottom: 7px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="pagehead">
+      <h1>
+        PPF manual-entry FY-order guard
+        <span style="color: #7ee6b8; font-size: 14px; font-weight: 800">— proposal, v1</span>
+      </h1>
+      <div class="sub">
+        A safeguard for
+        <code style="background: #1c2128; padding: 1px 5px; border-radius: 5px">PpfTransactionSheet</code>
+        (add/edit deposit·interest·withdrawal) mirroring the class of bug just fixed in
+        <code style="background: #1c2128; padding: 1px 5px; border-radius: 5px">ppfReconciliation.ts</code>: a later
+        year's interest — or even just a later deposit — can no longer be entered before an earlier year's own interest
+        is actually recorded. Built on top of the already-correct, already-tested
+        <code style="background: #1c2128; padding: 1px 5px; border-radius: 5px">findMissingPpfInterestFys</code> /
+        <code style="background: #1c2128; padding: 1px 5px; border-radius: 5px">computePpfInterestOnDemand</code> — this
+        is UI wiring, not new calculation logic.
+      </div>
+      <div class="scopebox">
+        <b>Scope:</b> <code>apps/mobile</code> only. <code>apps/web-react</code>'s <code>RetirementSheets.tsx</code> has
+        the same <code>PpfTransactionSheet</code> shape today, but per <code>CLAUDE.md</code> web-react is frozen (no
+        feature work) — no mirroring proposed there. CSV import (<code>ppfReconciliation.ts</code>) is explicitly out of
+        scope — it already handles the multi-year case correctly since the recent fix.
+      </div>
+    </div>
+
+    <div class="topnav">
+      <a href="#current">Current (today)</a>
+      <a href="#gapguard">1 · Gap-guard warning</a>
+      <a href="#flow">2 · Add-interest flow</a>
+      <a href="#calcbanner">3 · Calculation banner states</a>
+      <a href="#decisions">Open decisions</a>
+      <button class="themebtn" onclick="toggleTheme()"><i class="ti ti-sun-moon"></i> Toggle Light/Dark</button>
+    </div>
+
+    <!-- ============================================================ CURRENT ============================================================ -->
+    <div class="section" id="current">
+      <div class="sectiontitle">Current (today)</div>
+      <div class="sectionsub">
+        The real <code>PpfTransactionSheet</code> as it exists now — a <code>SegmentedControl</code> type pill, a
+        <code>DateInput</code> with the existing "before/after 5th" hint (deposits only), an <code>AmountInput</code>, a
+        note field, Save. No FY-order awareness at all today — you can add an interest transaction for FY2025-26 while
+        FY2023-24's interest was never recorded, and nothing warns you.
+      </div>
+      <div class="frame-row">
+        <div class="frame-col show">
+          <div class="frame-label">Add PPF transaction <span class="tag now">TODAY</span></div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Add PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt on" style="background: #8b5cf6">Deposit</div>
+                      <div class="segopt" style="background: transparent">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">15 Aug 2025</div>
+                      <div class="fhint">
+                        <i class="ti ti-alert-triangle" style="color: var(--warning); font-size: 13px"></i
+                        ><span style="color: var(--warning)">After 5th — interest starts next month</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flabel">Amount</div>
+                      <div class="fbox"><span class="pfx">₹</span>50,000</div>
+                      <div class="fwords">Fifty thousand rupees</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Note (optional)</div>
+                      <div class="noteinput">e.g. Annual lump sum</div>
+                    </div>
+                    <div class="saverow">
+                      <button class="savebtn enabled">Add transaction</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ 1. GAP-GUARD WARNING ============================================================ -->
+    <div class="section" id="gapguard">
+      <div class="sectiontitle"><span class="num">1</span>Gap-guard warning — blocked Save</div>
+      <div class="sectionsub">
+        <code>missingFys = findMissingPpfInterestFys(...)</code> → <code>earliestMissingFy</code>. Any transaction
+        (deposit, withdrawal, <i>or</i> interest) dated in a FY <b>after</b> the earliest missing one is blocked — a
+        transaction dated within/before the gap year itself is untouched (you can keep depositing into FY2023-24 right
+        up to its own year-end; that's normal).
+      </div>
+      <div class="scenario">
+        <b>Example shown below:</b> FY2023-24's interest was never recorded. The user opens "+ Add" and tries to log a
+        routine deposit dated 15 Aug 2025 (FY2025-26 — two years past the gap). Save is disabled; the banner explains
+        why and offers the fix in one tap.
+      </div>
+      <div class="frame-row">
+        <div class="frame-col show">
+          <div class="frame-label">Add PPF transaction <span class="tag blk">BLOCKED</span></div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Add PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt on" style="background: #8b5cf6">Deposit</div>
+                      <div class="segopt" style="background: transparent">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">15 Aug 2025</div>
+                      <div class="fhint">
+                        <i class="ti ti-alert-triangle" style="color: var(--warning); font-size: 13px"></i
+                        ><span style="color: var(--warning)">After 5th — interest starts next month</span>
+                      </div>
+                    </div>
+
+                    <!-- NEW: gap-guard banner — reuses the FY-end nudge banner's exact amber shell -->
+                    <div class="gapbanner">
+                      <div class="row1">
+                        <i class="ti ti-calendar-event"></i>
+                        <div class="msg">
+                          <b>FY 2023-24</b> interest hasn't been recorded yet — entries dated after that year are on
+                          hold until it's added.
+                        </div>
+                      </div>
+                      <button class="addpill"><i class="ti ti-plus"></i> Add FY 2023-24 interest</button>
+                    </div>
+
+                    <div style="opacity: 0.45">
+                      <div class="flabel">Amount</div>
+                      <div class="fbox"><span class="pfx">₹</span>50,000</div>
+                      <div class="fwords">Fifty thousand rupees</div>
+                    </div>
+                    <div style="opacity: 0.45">
+                      <div class="flabel">Note (optional)</div>
+                      <div class="noteinput">e.g. Annual lump sum</div>
+                    </div>
+                    <div class="saverow">
+                      <button class="savebtn disabled">Add transaction</button>
+                      <div class="saveHelp">Add FY 2023-24's interest first to continue</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="openbox">
+        <b>Open decision (flagging, not silently picking):</b> the field values above (amount/note) are shown dimmed but
+        still visible rather than hidden — the user's already-typed ₹50,000/note isn't lost, it's just inert until the
+        gap closes. Save itself stays visible-but-disabled with a one-line reason underneath (matches this app's
+        existing <code>canSave</code>-disable convention everywhere else, e.g. this same sheet's own current
+        Amount-required disable) rather than the banner replacing the Save button outright — replacing it would hide the
+        primary action's usual position and reads as more punitive than "not yet."
+      </div>
+    </div>
+
+    <!-- ============================================================ 2. ADD-INTEREST FLOW ============================================================ -->
+    <div class="section" id="flow">
+      <div class="sectiontitle"><span class="num">2</span>End-to-end: tapping "Add FY 2023-24 interest"</div>
+      <div class="sectionsub">
+        The banner's CTA switches the <b>same open sheet</b> — no navigation, no second modal. Toggle the tabs below to
+        step through what changes.
+      </div>
+      <div class="flowrow">
+        <div class="flowstep"><b>1. Tap CTA</b>Type pill switches Deposit → Interest credited</div>
+        <div class="flowarrow">→</div>
+        <div class="flowstep">
+          <b>2. Date set</b>31 Mar 2024 (FY2023-24's own FY-end) — same convention the FY-end nudge banner already uses
+        </div>
+        <div class="flowarrow">→</div>
+        <div class="flowstep">
+          <b>3. Amount pre-filled</b><code style="font-size: 10px">computePpfInterestOnDemand(...)</code> result, still
+          editable
+        </div>
+        <div class="flowarrow">→</div>
+        <div class="flowstep"><b>4. Banner shown</b>Calculation info banner appears, "Matches" — Save now enabled</div>
+      </div>
+      <div class="tabbar">
+        <button class="tabbtn active" onclick="showFlow('before', this)">Before tap</button>
+        <button class="tabbtn" onclick="showFlow('after', this)">After tap — sheet re-seeded</button>
+      </div>
+      <div class="frame-row">
+        <div class="frame-col flow-before show">
+          <div class="frame-label">Blocked state <span class="tag blk">BEFORE</span></div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Add PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt on" style="background: #8b5cf6">Deposit</div>
+                      <div class="segopt" style="background: transparent">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">15 Aug 2025</div>
+                    </div>
+                    <div class="gapbanner">
+                      <div class="row1">
+                        <i class="ti ti-calendar-event"></i>
+                        <div class="msg"><b>FY 2023-24</b> interest hasn't been recorded yet.</div>
+                      </div>
+                      <button class="addpill"><i class="ti ti-plus"></i> Add FY 2023-24 interest</button>
+                    </div>
+                    <div class="saverow">
+                      <button class="savebtn disabled">Add transaction</button>
+                      <div class="saveHelp">Add FY 2023-24's interest first to continue</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-col flow-after">
+          <div class="frame-label">Re-seeded to Interest <span class="tag ok">AFTER</span></div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Add PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt" style="background: transparent">Deposit</div>
+                      <div class="segopt on" style="background: #10b981">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">31 Mar 2024</div>
+                    </div>
+
+                    <!-- calc banner: fresh pre-fill == calculated, shown as "Matches" since the CTA
+                         path always arrives with amount already populated by the same calculation -->
+                    <div class="calcbanner">
+                      <i class="ti ti-circle-check" style="color: var(--success)"></i>
+                      <div class="msg">
+                        <b>Matches the calculated ₹10,662</b> — FY2023-24's 7.1% rate applied to your logged deposits.
+                        Pre-filled below; edit if your passbook shows a different figure.
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="flabel">Amount</div>
+                      <div class="fbox"><span class="pfx">₹</span>10,662</div>
+                      <div class="fwords">Ten thousand six hundred sixty-two rupees</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Note (optional)</div>
+                      <div class="noteinput">e.g. Annual lump sum</div>
+                    </div>
+                    <div class="saverow">
+                      <button class="savebtn enabled" style="background: #10b981">Add transaction</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ 3. CALCULATION BANNER STATES ============================================================ -->
+    <div class="section" id="calcbanner">
+      <div class="sectiontitle"><span class="num">3</span>Calculation info banner — all states</div>
+      <div class="sectionsub">
+        Shown automatically whenever the type pill is <b>Interest credited</b> and a valid date is selected — whether
+        arriving fresh, via the "Add interest" CTA, or <b>editing an existing interest transaction</b>
+        (spec: "immediately appear in the popup"). More proactive than EPF's opt-in "want me to calculate it for you?"
+        button — this is the one deliberate divergence from that precedent. Shell reuses
+        <code>EpfTransactionSheet</code>'s existing neutral calc-card language; the mismatch variant reuses this same
+        screen's amber review-flag language (<code>findAllPpfReviewFlags</code>, ⚠️ icon) rather than inventing a third
+        banner style.
+      </div>
+      <div class="tabbar">
+        <button class="tabbtn active" onclick="showCalc('rateunavail', this)">Rate not yet available</button>
+        <button class="tabbtn" onclick="showCalc('fresh', this)">Fresh — pre-filled, nothing to compare</button>
+        <button class="tabbtn" onclick="showCalc('matches', this)">Editing — matches</button>
+        <button class="tabbtn" onclick="showCalc('mismatch', this)">Editing — mismatch</button>
+      </div>
+      <div class="frame-row">
+        <div class="frame-col calc-rateunavail show">
+          <div class="frame-label">Rate for this FY not confirmed</div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Add PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt" style="background: transparent">Deposit</div>
+                      <div class="segopt on" style="background: #10b981">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">31 Mar 2026</div>
+                    </div>
+                    <div class="calcbanner">
+                      <i class="ti ti-info-circle"></i>
+                      <div class="msg">
+                        Rate for <b>FY2025-26</b> hasn't been declared by the government yet — we'll never guess. Enter
+                        the amount manually once you know it, or check back after it's ratified.
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flabel">Amount</div>
+                      <div class="fbox"><span class="pfx">₹</span><span style="color: var(--text3)">0</span></div>
+                    </div>
+                    <div class="saverow"><button class="savebtn disabled">Add transaction</button></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-col calc-fresh">
+          <div class="frame-label">Fresh add, informational only</div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Add PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt" style="background: transparent">Deposit</div>
+                      <div class="segopt on" style="background: #10b981">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">31 Mar 2025</div>
+                    </div>
+                    <div class="calcbanner">
+                      <i class="ti ti-calculator"></i>
+                      <div class="msg">
+                        Calculated using <b>FY2024-25</b>'s 7.1% rate and your logged deposits: <b>₹9,840</b> —
+                        pre-filled below, review before saving.
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flabel">Amount</div>
+                      <div class="fbox"><span class="pfx">₹</span>9,840</div>
+                      <div class="fwords">Nine thousand eight hundred forty rupees</div>
+                    </div>
+                    <div class="saverow">
+                      <button class="savebtn enabled" style="background: #10b981">Add transaction</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-col calc-matches">
+          <div class="frame-label">Editing existing txn <span class="tag ok">MATCHES</span></div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Edit PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt" style="background: transparent">Deposit</div>
+                      <div class="segopt on" style="background: #10b981">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">31 Mar 2024</div>
+                    </div>
+                    <div class="calcbanner">
+                      <i class="ti ti-circle-check" style="color: var(--success)"></i>
+                      <div class="msg">
+                        <b>Matches the calculated ₹10,662 interest</b> — FY2023-24's 7.1% rate applied to your logged
+                        deposits agrees with what you recorded.
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flabel">Amount</div>
+                      <div class="fbox"><span class="pfx">₹</span>10,662</div>
+                      <div class="fwords">Ten thousand six hundred sixty-two rupees</div>
+                    </div>
+                    <div class="btnrow2">
+                      <button class="delbtn">Delete</button
+                      ><button class="savebtn enabled" style="background: #10b981">Update</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-col calc-mismatch">
+          <div class="frame-label">Editing existing txn <span class="tag blk">MISMATCH</span></div>
+          <div class="phone">
+            <div class="statusbar">
+              <span>9:41</span
+              ><span class="sbicons"
+                ><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i
+              ></span>
+            </div>
+            <div
+              style="flex: 1; background: var(--screenbg); display: flex; align-items: center; justify-content: center"
+            >
+              <div class="backdrop" style="position: relative; inset: auto; width: 100%; height: 100%">
+                <div class="modalcard" style="height: auto; max-height: none">
+                  <div class="modalhead">
+                    <div class="t">Edit PPF transaction</div>
+                    <button class="x">✕</button>
+                  </div>
+                  <div class="modalbody">
+                    <div class="segctrl">
+                      <div class="segopt" style="background: transparent">Deposit</div>
+                      <div class="segopt on" style="background: #10b981">Interest credited</div>
+                      <div class="segopt" style="background: transparent">Withdrawal</div>
+                    </div>
+                    <div>
+                      <div class="flabel">Date</div>
+                      <div class="fbox">31 Mar 2024</div>
+                    </div>
+                    <div class="calcbanner mismatch">
+                      <i class="ti ti-alert-triangle"></i>
+                      <div class="msg">
+                        <b>Doesn't match our recalculation</b> — worth a quick check against your passbook before
+                        saving.
+                        <div class="cmprow">
+                          <div class="c">
+                            <div class="clbl">You entered</div>
+                            <div class="cval">₹9,900</div>
+                          </div>
+                          <div class="c">
+                            <div class="clbl">We calculate</div>
+                            <div class="cval">₹10,662</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div class="flabel">Amount</div>
+                      <div class="fbox"><span class="pfx">₹</span>9,900</div>
+                      <div class="fwords">Nine thousand nine hundred rupees</div>
+                    </div>
+                    <div class="btnrow2">
+                      <button class="delbtn">Delete</button
+                      ><button class="savebtn enabled" style="background: #10b981">Update</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="openbox">
+        <b>Open decision:</b> the mismatch banner is <b>informational, not blocking</b> — Save/Update stays enabled.
+        Real passbook figures can legitimately differ by a few rupees (rounding, a rate-change edge case Penny's model
+        doesn't capture), and the person editing is usually transcribing a real document; forcing them to match Penny's
+        number would fight the actual passbook. This is different from the gap-guard in §1, which <i>does</i> block —
+        there the problem is a missing prerequisite record, not a legitimate value discrepancy. Flagging this
+        distinction explicitly since the spec's wording ("should be blocked") could be read either way; recommend
+        confirming before implementation.
+      </div>
+    </div>
+
+    <!-- ============================================================ OPEN DECISIONS / RECOMMENDATION ============================================================ -->
+    <div class="section" id="decisions">
+      <div class="sectiontitle">Summary &amp; open decisions</div>
+      <div class="recobox">
+        <i class="ti ti-bulb"></i>
+        <div>
+          <b>Recommendation:</b> build all three pieces together (gap-guard + CTA re-seed + always-on calc banner) —
+          they're one coherent feature, not three independent toggles, and the calc banner is what makes the gap-guard's
+          fix path actually one tap instead of "go figure out the number yourself." Reuse <code>PpfInfoModal</code>'s
+          slate/violet aesthetic and the FY-end nudge's amber shell exactly as shown above rather than a new visual
+          language — this screen already has enough distinct banner colors (violet=education, amber=action-needed,
+          green=confirmed) that a fourth would blur the "what does this color mean here" convention the redesign already
+          established.
+        </div>
+      </div>
+      <div class="openbox">
+        <b>Open items to confirm before implementation:</b>
+        <ol>
+          <li>
+            <b>Exact banner copy</b> — wording above is a first pass; confirm tone (the gap-guard's "on hold until it's
+            added" vs. something softer) before wiring real strings.
+          </li>
+          <li>
+            <b>Gap-guard scope confirmation</b> — structural read says it applies to deposit/withdrawal/interest
+            transactions dated after <code>earliestMissingFy</code>, but never blocks anything dated within/before the
+            gap year itself. Confirmed against the spec's own wording; flagging once more since it's the crux of the
+            whole feature.
+          </li>
+          <li>
+            <b>Mismatch = informational, not blocking</b> (see §3's box above) — recommend confirming this explicitly
+            since it's the one place this proposal reads the spec differently from a strict literal block-everything
+            interpretation.
+          </li>
+          <li>
+            <b>A missing-history edge case</b> —
+            <code>PpfInterestCalculationResult.basedOnIncompleteHistory</code> already exists (true when Penny's own
+            transaction record starts after the FY it's calculating, i.e. the account has real pre-Penny history never
+            entered). Not shown as a separate banner state above to avoid multiplying variants unnecessarily, but the
+            calc banner's copy should soften to "our estimate — based on only what's logged in Penny" whenever this flag
+            is true, both in the fresh and matches/mismatch states.
+          </li>
+          <li>
+            <b>No new tracking doc</b> — this is a portfolio/PPF feature, unrelated to
+            <code>docs/plans/real-device-testing-pass.md</code>; if it needs its own implementation tracking doc, that's
+            a suggestion for the user to decide, not something created here.
+          </li>
+        </ol>
+      </div>
+    </div>
+
+    <script>
+      function toggleTheme() {
+        const html = document.documentElement;
+        html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      }
+      function showFlow(which, btn) {
+        document.querySelectorAll('#flow .tabbtn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.flow-before, .flow-after').forEach((el) => el.classList.remove('show'));
+        document.querySelector('.flow-' + which).classList.add('show');
+      }
+      function showCalc(which, btn) {
+        document.querySelectorAll('#calcbanner .tabbar .tabbtn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        document
+          .querySelectorAll('.calc-rateunavail, .calc-fresh, .calc-matches, .calc-mismatch')
+          .forEach((el) => el.classList.remove('show'));
+        document.querySelector('.calc-' + which).classList.add('show');
+      }
+    </script>
+  </body>
+</html>

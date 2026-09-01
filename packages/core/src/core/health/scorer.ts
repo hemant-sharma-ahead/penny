@@ -1,4 +1,5 @@
 import type { Expense, Goal, Holding, InsurancePolicy, Liability, EmploymentType } from '@/core/db/types';
+import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
 
 // ── Derived input types ───────────────────────────────────────────────────────
 
@@ -42,6 +43,38 @@ function expenseMonthSpan(expenses: Expense[], nowMs: number): number {
   if (expenses.length === 0) return 0;
   const earliest = Math.min(...expenses.map((e) => e.date));
   return Math.max(1, Math.ceil((nowMs - earliest) / (30 * 86_400_000)));
+}
+
+/** [start, end) of the most recently *completed* calendar month relative to `nowMs` — e.g. on any day
+ *  in August, this is July 1 00:00 through August 1 00:00. The current, still-in-progress month is
+ *  deliberately excluded: it would understate income for however many days remain in it. */
+function mostRecentCompletedMonthRange(nowMs: number): { start: number; end: number } {
+  const now = new Date(nowMs);
+  const end = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const start = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+  return { start, end };
+}
+
+/**
+ * Sums genuine take-home income (salary, side income/freelance, and the rest of the `income` intent
+ * group per `categoryGroups.ts`) recorded in the most recently completed calendar month — used to
+ * prefill `useHealthScore`'s manual monthly-income input instead of leaving it blank every session
+ * (2026-08-18, real-device testing feedback). Deliberately excludes `IOU_MANDATORY_CATEGORY_IDS`'s two
+ * income-side categories (Borrowed Money, Collected Money): a loan taken out or a loan repaid *to* you
+ * isn't disposable income, and counting it as such would distort the savings-rate/debt-to-income
+ * components this feeds. Returns 0 when nothing genuinely income-shaped was recorded that month — the
+ * caller treats that the same as "nothing to prefill" and leaves the field blank rather than showing ₹0.
+ */
+export function deriveRecentMonthlyIncome(expenses: Expense[], nowMs: number): number {
+  const { start, end } = mostRecentCompletedMonthRange(nowMs);
+  let total = 0;
+  for (const e of expenses) {
+    if (e.type !== 'income') continue;
+    if (IOU_MANDATORY_CATEGORY_IDS.has(e.categoryId)) continue;
+    if (e.date < start || e.date >= end) continue;
+    total += e.amount;
+  }
+  return total;
 }
 
 export function deriveInputs(

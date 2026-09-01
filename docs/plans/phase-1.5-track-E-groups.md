@@ -7,6 +7,11 @@
 > (demo no longer fakes a claim), so the claim state is honest for verification. **Remaining:** the live
 > verification pass (see "▶ Resume here") + Stage F closeout. Note: **group recovery *after* a reclaim**
 > (list-my-groups sync + key re-grant) is a Track F follow-up tracked there.
+> **2026-08-18 — extended by the real-device-testing-pass Phase 3 redesign** (orphaned-shared-transaction
+> tombstoning, "flag as not needed", write-off/undo-write-off, static/accountless members, admin-less
+> server-side protection, creator-only delete-when-empty). The event-type list and data model below are
+> now **superseded** by [`docs/SCHEMA.md`](../SCHEMA.md) and [`docs/features/groups.md`](../features/groups.md)
+> — read those for the current authoritative shape, not this section.
 > Authoritative per-track status: [`docs/MILESTONES.md`](../MILESTONES.md) / [`docs/ROADMAP.md`](../ROADMAP.md).
 > Parent plan: [`phase-1.5-groups-household-os.md`](phase-1.5-groups-household-os.md) → "Track E".
 

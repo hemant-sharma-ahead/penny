@@ -7,7 +7,8 @@ import {
   ppfMaturityMs,
   ppfBuildCardData,
   dateToFyStartYear,
-  ppfFyStart
+  ppfFyStart,
+  earliestBlockingPpfFy
 } from '@/core/portfolio/ppfCalculations';
 import type { PpfTransaction } from '@/core/db/types';
 
@@ -134,5 +135,43 @@ describe('ppfBuildCardData — yearsElapsed/yearsLeft consistency', () => {
     expect(data.yearsElapsed).not.toBeNull();
     expect(data.yearsLeft).not.toBeNull();
     expect((data.yearsElapsed ?? 0) + (data.yearsLeft ?? 0)).toBeCloseTo(15, 5);
+  });
+});
+
+describe('earliestBlockingPpfFy', () => {
+  it('returns null when no FY has missing interest', () => {
+    expect(earliestBlockingPpfFy([], ms(2025, 8, 15))).toBeNull();
+  });
+
+  it('blocks a transaction dated in a FY after the earliest missing-interest FY', () => {
+    // FY2023-24's interest was never recorded; a deposit dated 15-Aug-2025 (FY2025-26, two years
+    // past the gap) should be blocked, naming FY2023-24 as the FY to fix first.
+    expect(earliestBlockingPpfFy([2023], ms(2025, 8, 15))).toBe(2023);
+  });
+
+  it('never blocks a transaction dated within the gap year itself', () => {
+    // Still allowed to keep depositing into FY2023-24 right up to its own year-end — that's normal.
+    expect(earliestBlockingPpfFy([2023], ms(2024, 3, 31))).toBeNull();
+    expect(earliestBlockingPpfFy([2023], ms(2023, 4, 1))).toBeNull();
+  });
+
+  it('never blocks a transaction dated before the gap year', () => {
+    expect(earliestBlockingPpfFy([2023], ms(2022, 12, 1))).toBeNull();
+  });
+
+  it('blocks a transaction dated exactly one FY after the gap year', () => {
+    expect(earliestBlockingPpfFy([2023], ms(2024, 4, 1))).toBe(2023);
+  });
+
+  it('uses the EARLIEST missing FY when several are missing, not the latest', () => {
+    // FY2021-22 and FY2023-24 both missing interest — a transaction dated in FY2025-26 should still
+    // name the earliest gap (FY2021-22), the one that actually needs fixing first.
+    expect(earliestBlockingPpfFy([2023, 2021], ms(2025, 8, 15))).toBe(2021);
+  });
+
+  it('a transaction dated within the earliest gap year is not blocked even if a LATER FY is also missing', () => {
+    // Both FY2021-22 and FY2023-24 are missing interest, but a transaction dated inside FY2021-22
+    // itself (the earliest gap) is still fine — only entries dated AFTER the earliest gap are blocked.
+    expect(earliestBlockingPpfFy([2023, 2021], ms(2021, 6, 1))).toBeNull();
   });
 });

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAccounts, normalize, suggestCardAccountMerges } from '@/core/import/importAccountResolution';
+import {
+  resolveAccounts,
+  normalize,
+  suggestCardAccountMerges,
+  findAmbiguousCardAccountMerges
+} from '@/core/import/importAccountResolution';
 import type { Account } from '@/core/db/types';
 import type { ParsedRow } from '@/core/import/importParsers';
 
@@ -137,6 +142,44 @@ describe('suggestCardAccountMerges', () => {
     const rows = [cardRow('HDFC Bank', 'HDFC Bank', 'bank'), cardRow('ICICI Bank', 'ICICI Bank', 'bank')];
     const resolutions = resolveAccounts(rows, []);
     expect(suggestCardAccountMerges(rows, resolutions)).toEqual([]);
+  });
+});
+
+describe('findAmbiguousCardAccountMerges (item 70)', () => {
+  it('flags a card as ambiguous instead of picking one when 2+ non-card resolutions share its Bank Name', () => {
+    const rows = [
+      cardRow('SBI Bank A/C', 'SBI', 'bank'),
+      cardRow('SBI Bank A/C 2', 'SBI', 'bank'),
+      cardRow('SBI Bank A/C •• 9012', 'SBI', 'credit-card')
+    ];
+    const resolutions = resolveAccounts(rows, []);
+
+    // No confident suggestion for the ambiguous card — this is the actual regression fix.
+    expect(suggestCardAccountMerges(rows, resolutions)).toEqual([]);
+
+    const ambiguities = findAmbiguousCardAccountMerges(rows, resolutions);
+    expect(ambiguities).toHaveLength(1);
+    expect(ambiguities[0]).toMatchObject({ cardSourceName: 'SBI Bank A/C •• 9012', paymentMode: 'Credit Card' });
+    expect(new Set(ambiguities[0]?.candidateSourceNames)).toEqual(new Set(['SBI Bank A/C', 'SBI Bank A/C 2']));
+  });
+
+  it('scales to 3+ same-bank candidates, listing every one', () => {
+    const rows = [
+      cardRow('SBI Bank A/C', 'SBI', 'bank'),
+      cardRow('SBI Bank A/C 2', 'SBI', 'bank'),
+      cardRow('SBI Bank A/C 3', 'SBI', 'bank'),
+      cardRow('SBI Bank A/C •• 9012', 'SBI', 'debit-card')
+    ];
+    const resolutions = resolveAccounts(rows, []);
+    const ambiguities = findAmbiguousCardAccountMerges(rows, resolutions);
+    expect(ambiguities).toHaveLength(1);
+    expect(ambiguities[0]?.candidateSourceNames).toHaveLength(3);
+  });
+
+  it('is empty when exactly one non-card resolution shares the bank key (the confident, unambiguous case)', () => {
+    const rows = [cardRow('HDFC Bank', 'HDFC Bank', 'bank'), cardRow('HDFC Bank •• 4471', 'HDFC Bank', 'debit-card')];
+    const resolutions = resolveAccounts(rows, []);
+    expect(findAmbiguousCardAccountMerges(rows, resolutions)).toEqual([]);
   });
 });
 

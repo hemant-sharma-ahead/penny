@@ -28,6 +28,10 @@ This is also the **deploy template** for the later backend workers (Tracks B–E
 | `GET /rss/:feedId`                | One of 4 fixed news RSS feeds (`et-markets`, `mint`, `rbi`, `sebi`) — see `src/news.ts`                                             | KV 45 min                                                       |
 | `GET /vehicle/:regno[?refresh=1]` | vahandetails (RC + challans)                                                                                                        | **D1 permanent** + queue                                        |
 | `GET /epf-rates`                  | Static, in-source EPF interest rate table (`src/epfRates.ts`) — no upstream call at all; redeploy this worker to publish a new rate | None needed — the response body itself changes only on redeploy |
+| `GET /ppf-rates`                  | Static, in-source PPF interest rate table (`src/ppfRates.ts`) — same shape as `/epf-rates`                                          | None needed — the response body itself changes only on redeploy |
+| `GET /sms-patterns`               | Static, in-source SMS transaction-parsing templates (`src/smsPatterns.ts`, regex strings only, no user data) — same shape as `/epf-rates` | None needed — the response body itself changes only on redeploy |
+| `GET /epf-basic-to-gross-rates`   | Static, in-source EPF Basic-to-Gross ratio convention table (`src/epfBasicToGrossRates.ts`) — same shape as `/epf-rates`             | None needed — the response body itself changes only on redeploy |
+| `GET /epf-income-tax-rates`       | Static, in-source Indian income-tax slab table, both regimes (`src/epfIncomeTaxRates.ts`) — same shape as `/epf-rates`               | None needed — the response body itself changes only on redeploy |
 
 Vehicle returns `{ status: 'ok', data }`, or `{ status: 'queued', message, etaMorningIST }` when the
 daily budget/window can't serve it — the reg is queued (deduped) and a morning **Cron** fetches it;

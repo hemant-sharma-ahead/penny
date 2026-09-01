@@ -46,15 +46,30 @@ export function VehicleFields({
             <TextInput
               placeholder="e.g. MH12AB1234"
               value={vehicleRegInput}
+              // Store exactly what the native keyboard hands back — do NOT re-inject a
+              // JS-transformed (.toUpperCase()) string into this controlled value. Feeding a
+              // transformed string back into a controlled TextInput's `value` desyncs the
+              // native text buffer from the JS value, which is what caused backspace to
+              // re-insert the whole string instead of deleting a character (found 2026-08-04,
+              // re-fixed 2026-08-24 to remove the forced-uppercase root cause instead of just
+              // avoiding a second transform on top of it). `autoCapitalize` below already
+              // makes the keyboard type uppercase directly, so this is rarely even visibly
+              // wrong — but don't rely on the keyboard alone for correctness: both the RC/
+              // challan lookup (rcClient.ts's `normReg`) and the final saved value
+              // (vehicleMeta.ts's `applyVehicleFields`) uppercase the registration number
+              // themselves at their point of use, independent of what's typed here.
               onChange={(v) => {
-                setVehicleRegInput(v.toUpperCase());
+                setVehicleRegInput(v);
                 setVehicleFetchError('');
                 if (vehicleRcSnapshot) setVehicleRcSnapshot(null);
               }}
-              // Do NOT also add a CSS `uppercase` class here — stacking a native textTransform on top
-              // of this already-uppercased controlled value desyncs the native text buffer from the JS
-              // value, which is what caused backspace to re-insert the whole string instead of deleting
-              // a character (found 2026-08-04).
+              autoCapitalize="characters"
+              autoCorrect={false}
+              // Still do NOT also add a CSS `uppercase` class here — even though the value is
+              // no longer forcibly uppercased on every keystroke, stacking a native
+              // textTransform on top of a controlled TextInput's value is its own independent
+              // way to desync the native text buffer from JS state (same failure class as the
+              // original bug), so it stays off regardless.
               inputClassName="font-mono"
             />
           </View>

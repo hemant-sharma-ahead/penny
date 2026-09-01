@@ -152,21 +152,24 @@ The following are not PII and may be sent to Chip:
 
 ## Privacy modes
 
-Three modes control what's visible on-screen. These are independent of encryption — all data is always encrypted at rest regardless of mode.
+Two modes control what's visible on-screen. These are independent of encryption — all data is always encrypted at rest regardless of mode.
 
 ```ts
-type PrivacyMode = 'safe' | 'privacy' | 'open';
+type PrivacyMode = 'safe' | 'open';
 ```
 
-| Mode      | Display                       | Colour           | Default |
-| --------- | ----------------------------- | ---------------- | ------- |
-| `safe`    | Amounts masked as ••••        | Amber (#f59e0b)  | Yes     |
-| `privacy` | Module names only, no amounts | Violet (#7c3aed) | No      |
-| `open`    | All data visible              | Red (#dc2626)    | No      |
+| Mode   | Display                                                      | Colour          | Default |
+| ------ | ------------------------------------------------------------ | --------------- | ------- |
+| `safe` | Only amounts explicitly flagged sensitive are masked as •••• | Amber (#f59e0b) | Yes     |
+| `open` | All data visible                                             | Red (#dc2626)   | No      |
 
-**Switching to `open` mode requires PIN verification.** This is a deliberate friction point — Open mode shows all data on screen, which is a shoulder-surfing risk.
+**Switching to `open` mode requires PIN verification** (plus a one-time shoulder-surfing warning screen). This is a deliberate friction point — Open mode shows all data on screen. By default, Open has no persisted default and no visible countdown — it auto-reverts to Safe the moment the app backgrounds (an `AppState` safety net), or stays until the user switches back manually. See "3-day default-to-Open" below for the one opt-in exception to this.
 
-The default mode can be changed in Settings. The privacy badge in the header shows the current mode. Users can tap it to switch modes (with PIN gate for switching to Open).
+**2026-08-18 — a third mode, `privacy` (mask every amount app-wide regardless of sensitivity), and Open mode's fixed-duration countdown were both removed** (real-device testing found the three-mode picker + timer overkill for what people actually used day to day). `packages/core`'s shared `privacyModeColors.ts` type still carries the old 3-mode union — kept while `apps/web-react` was its last remaining 3-mode consumer, now genuinely dead code since that app's 2026-08-29 retirement, not yet cleaned up. `apps/mobile` (the only app) only ever constructs `'safe' | 'open'`. Safe Mode's own masking granularity (which amounts count as "sensitive") is unchanged — see "IOU privacy" below and each feature doc's own Safe Mode section.
+
+The privacy badge in the header shows the current mode; users tap it to switch (PIN + warning gate for Open).
+
+**2026-08-29 — 3-day default-to-Open, opt-in only.** A real default-mode picker exists again in Settings ("Frequent" card) — but unlike the pre-2026-08-18 picker it replaces, it's not a persistent 3-way choice: turning Open into the default arms a **3-day countdown** from that moment (`defaultOpenArmedUntil`, `SettingsContext.tsx`), shown in Settings with days/hours remaining. **While armed, the `AppState`-background auto-revert-to-Safe above is deliberately suppressed** — foregrounding the app goes straight back to Open, no PIN — this is the actual point of the feature (avoids re-entering the PIN on every app-switch). Real, accepted trade-off: **an unattended, unlocked phone stays in Open mode for the remainder of the 3-day window** unless the user manually switches back to Safe from the same Settings row. Setting Open as default still goes through the same PIN + warning gate as any other switch to Open — this feature only changes what happens *after* that gate, not the gate itself. Once the window lapses, the app reverts to Safe on next open with a one-time toast, and the normal per-background auto-revert resumes exactly as before. Safe is still always the *starting* mode for a device that has never armed this — nothing changes there.
 
 ---
 
@@ -179,6 +182,13 @@ All 17 primary stores are encrypted:
 
 Plus the stores added in later milestones (see `docs/SCHEMA.md` for the authoritative list):
 `accounts`, `activity_log`, `merchant_memory`, `transaction_templates` (Pre-Phase 1.5); `persons`, `ledger_entries` (Phase 1.5 Track 1); `device_keys`, `group_keys`, `sync_cursor` (Phase 1.5 Track B — device keypairs, per-group keys, sync cursors; private key material is DMK-encrypted like everything else).
+
+**One documented exception (2026-08-28):** `expenses` additionally stores `date`/`accountId`/
+`toAccountId`/`categoryId`/`type` as plaintext, indexed columns — a deliberate trade-off, not a
+gap, made only for this one table since without a queryable field, every read (even "this month's
+transactions") had to decrypt the entire table first. Amount, description, category name (looked up
+via the separately-encrypted `categoryId` reference), hashtags, and notes all stay fully encrypted,
+same as before. No other store gets this treatment.
 
 ### Plain stores (IndexedDB, no encryption)
 

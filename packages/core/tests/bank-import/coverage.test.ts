@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  computeVerifiedThroughDate,
   countSkippedRows,
   detectCoverageGap,
   findStandingCoverageGaps,
+  findUnverifiedTailExpenses,
   mergeCoveredRanges
 } from '@/core/bank-import/coverage';
 import type { BankStatementImportRecord, Expense } from '@/core/db/types';
@@ -177,5 +179,64 @@ describe('findStandingCoverageGaps (docs/plans/bank-balance-sync.md §3 decision
   it('returns nothing when the account has no covered ranges at all', () => {
     const gaps = findStandingCoverageGaps([], [expense()], []);
     expect(gaps).toHaveLength(0);
+  });
+});
+
+describe('computeVerifiedThroughDate', () => {
+  it('returns the latest end across the covered ranges', () => {
+    const ranges = [
+      { start: d(2026, 1, 1), end: d(2026, 1, 31) },
+      { start: d(2026, 3, 1), end: d(2026, 3, 15) }
+    ];
+    expect(computeVerifiedThroughDate(ranges)).toBe(d(2026, 3, 15));
+  });
+
+  it('is undefined when there are no covered ranges (never imported)', () => {
+    expect(computeVerifiedThroughDate([])).toBeUndefined();
+  });
+});
+
+describe('findUnverifiedTailExpenses (mobile punch-list item 4b)', () => {
+  it('flags an expense dated after the covered ranges union end', () => {
+    const tails = findUnverifiedTailExpenses(
+      [{ start: d(2026, 4, 1), end: d(2026, 4, 30) }],
+      [expense({ id: 'e1', date: d(2026, 5, 5) })],
+      []
+    );
+    expect(tails.map((e) => e.id)).toEqual(['e1']);
+  });
+
+  it('does not flag an expense dated on or before the covered ranges union end', () => {
+    const tails = findUnverifiedTailExpenses(
+      [{ start: d(2026, 4, 1), end: d(2026, 4, 30) }],
+      [expense({ id: 'e1', date: d(2026, 4, 30) }), expense({ id: 'e2', date: d(2026, 4, 15) })],
+      []
+    );
+    expect(tails).toHaveLength(0);
+  });
+
+  it('does not flag an expense a linkedTxnId already points at, even if dated after the union end', () => {
+    const tails = findUnverifiedTailExpenses(
+      [{ start: d(2026, 4, 1), end: d(2026, 4, 30) }],
+      [expense({ id: 'e1', date: d(2026, 5, 5) })],
+      [importRecord({ linkedTxnId: 'e1' })]
+    );
+    expect(tails).toHaveLength(0);
+  });
+
+  it('uses the merged union end, not any single individual ranges end', () => {
+    // Two overlapping ranges together cover through 30 Apr; an expense on 2 May must be flagged, even
+    // though the SECOND range alone (ending 20 Apr) would have made it look further past its own end.
+    const ranges = [
+      { start: d(2026, 4, 1), end: d(2026, 4, 30) },
+      { start: d(2026, 4, 10), end: d(2026, 4, 20) }
+    ];
+    const tails = findUnverifiedTailExpenses(ranges, [expense({ id: 'e1', date: d(2026, 5, 2) })], []);
+    expect(tails.map((e) => e.id)).toEqual(['e1']);
+  });
+
+  it('returns nothing when the account has never had a statement imported at all', () => {
+    const tails = findUnverifiedTailExpenses([], [expense({ date: d(2026, 12, 31) })], []);
+    expect(tails).toHaveLength(0);
   });
 });

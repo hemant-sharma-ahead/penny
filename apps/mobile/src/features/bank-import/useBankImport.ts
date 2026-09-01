@@ -10,8 +10,10 @@ import {
   bankNarrationOverridesRepo,
   paymentModesRepo,
   personsRepo,
-  ledgerEntriesRepo
+  ledgerEntriesRepo,
+  merchantMemoryRepo
 } from '@/core/db/repositories';
+import { buildMemory, memoryKey } from '@/core/expenses/merchantMemory';
 import { useRepository } from '@/hooks/useRepository';
 import { logActivityAwaited } from '@/core/db/activityLog';
 import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
@@ -34,6 +36,7 @@ import {
 import { parseXlsxToGrid, XlsxParseError } from '@/core/bank-import/xlsxParser';
 import type { BankPresetId, ColumnMapping, ParsedStatementRow, StatementParseResult } from '@/core/bank-import/types';
 import { normalizeNarration } from '@/core/bank-import/normalization';
+import { getOrCreatePerson } from '@/core/iou/personResolver';
 import {
   matchStatementRows,
   deriveLoneWolves,
@@ -62,9 +65,10 @@ import {
   rowsAsCandidateTxns,
   type AnchorShiftCheck
 } from '@/core/bank-import/openingBalanceAnchor';
-import { inferPaymentMode } from '@/core/bank-import/paymentModeInference';
+import { inferPaymentMode } from '@/core/expenses/paymentModeInference';
 import {
   applyCashTransferConversion,
+  cashDirectionForRow,
   suggestCashTransfer,
   suggestRetroactiveCashTransfer,
   type CashTransferSuggestion
@@ -91,21 +95,44 @@ export function useBankImport(accountId: string) {
   const [step, setStep] = useState<BankImportStep>('setup');
 
   // ── Data (loaded once, read fresh at commit time where it matters) ──────────────────────────────
-  const { items: accounts } = useRepository(accountsRepo);
-  const { items: allExpenses } = useRepository(expensesRepo);
-  const { items: categories } = useRepository(expenseCategoriesRepo);
-  const { items: hashtags } = useRepository(hashtagsRepo);
-  const { items: importRecords } = useRepository(bankStatementImportsRepo);
-  const { items: overrides } = useRepository(bankNarrationOverridesRepo);
+  const { items: accounts, loading: accountsLoading } = useRepository(accountsRepo);
+  const { items: allExpenses, loading: allExpensesLoading } = useRepository(expensesRepo);
+  const { items: categories, loading: categoriesLoading } = useRepository(expenseCategoriesRepo);
+  const { items: hashtags, loading: hashtagsLoading } = useRepository(hashtagsRepo);
+  const { items: importRecords, loading: importRecordsLoading } = useRepository(bankStatementImportsRepo);
+  const { items: overrides, loading: overridesLoading } = useRepository(bankNarrationOverridesRepo);
   const { modes: allPaymentModes } = usePaymentModes();
-  const { items: iouPersons } = useRepository(personsRepo);
+  const { items: iouPersons, loading: iouPersonsLoading } = useRepository(personsRepo);
+  // Real bug found 2026-08-28, real-device testing: `confirmMapping()` below runs the two-tier
+  // matcher against whatever `importRecords`/`allExpenses`/etc. happen to be in state at that instant
+  // — none of these `useRepository()` loads were previously gated. Reach "Continue to review" before
+  // `importRecords` finishes its first load and it's still `[]`, so Tier 1's exact-provenance lookup
+  // (`matcher.ts`'s `findProvenanceMatch`) finds nothing for every row from a PREVIOUSLY-imported
+  // statement, and Tier 2's fuzzy fallback explicitly excludes already-checkpointed expenses from its
+  // candidate pool (by design, for a different reason — see `matchStatementRows`'s own doc comment) —
+  // so a row that should provenance-match instead falls all the way through to unmatched. Exposed as
+  // `dataLoading` below; `SetupStep.tsx`'s "Continue to review" button disables on it.
+  const dataLoading =
+    accountsLoading ||
+    allExpensesLoading ||
+    categoriesLoading ||
+    hashtagsLoading ||
+    importRecordsLoading ||
+    overridesLoading ||
+    iouPersonsLoading;
   // Seeded here (not just in the settings screen) so the researched defaults exist the first time
   // *any* import happens, even if the user never visits Settings → Cash-withdrawal codes first.
   const { codes: cashWithdrawalCodes } = useBankCashWithdrawalCodes();
 
   const account = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
   const expensesById = useMemo(() => new Map(allExpenses.map((e) => [e.id, e])), [allExpenses]);
-  const cashAccounts = useMemo(() => accounts.filter((a) => a.type === 'cash'), [accounts]);
+  // Neither archived nor closed (2026-08-27) is a valid cash-transfer destination — the second half
+  // of this filter was a pre-existing, separate gap (never checked `isArchived` either) found while
+  // adding the `isClosed` check.
+  const cashAccounts = useMemo(
+    () => accounts.filter((a) => a.type === 'cash' && !a.isArchived && !a.isClosed),
+    [accounts]
+  );
   // Feeds `CategoryPickerModal`'s "Frequent" quick-pick row (its own `txnCountByCategory` prop,
   // independent of `manager` — bulk-categorize never passes a full `CategoryManager`) — same shape
   // `useExpenses.ts`'s `categoryManager.txnCountByCategory` builds for the normal Expenses flow.
@@ -128,8 +155,14 @@ export function useBankImport(accountId: string) {
    *  bank-agnostic codes apply yet). Both review buckets (`PossibleBucket`/`UnmatchedBucket`) call
    *  this instead of duplicating the lookup. */
   const suggestCashTransferFor = useCallback(
-    (rawNarration: string): CashTransferSuggestion | null =>
-      suggestCashTransfer(rawNarration, presetId ?? 'any', cashWithdrawalCodes, cashAccounts),
+    (rawNarration: string, rowDirection: 'debit' | 'credit'): CashTransferSuggestion | null =>
+      suggestCashTransfer(
+        rawNarration,
+        presetId ?? 'any',
+        cashDirectionForRow({ direction: rowDirection }),
+        cashWithdrawalCodes,
+        cashAccounts
+      ),
     [presetId, cashWithdrawalCodes, cashAccounts]
   );
 
@@ -232,6 +265,13 @@ export function useBankImport(accountId: string) {
     [xlsxRows, rawText, delimiter]
   );
   const headers = useMemo(() => extractHeaderRow(tokenizedRows), [tokenizedRows]);
+  /** First 5 raw data rows (header excluded — `tokenizedRows[0]` is the header row `headers` is already
+   *  extracted from) — feeds `SetupStep.tsx`'s "Raw file preview" table (2026-09-01, real user request:
+   *  seeing the file's own literal column names/date format alongside the mapping guess, not just the
+   *  mapping's own after-the-fact interpretation of it). Exposing a small slice rather than the full
+   *  `tokenizedRows` — the preview only ever needs a handful of rows, and this keeps that scoping decision
+   *  here rather than making every consumer re-slice it. */
+  const rawPreviewRows = useMemo(() => tokenizedRows.slice(1, 6), [tokenizedRows]);
 
   /** Confident whenever a known bank preset is active (every one declares its own `dateFormat`) —
    *  otherwise guessed from the actual chosen date column's real values via `detectDateFormat()`,
@@ -357,7 +397,10 @@ export function useBankImport(accountId: string) {
   const [loneWolfDeletions, setLoneWolfDeletions] = useState<Set<string>>(new Set());
 
   const confirmMapping = useCallback(() => {
-    if (!mappingReady) return;
+    // Guarded here, not just at the 3 button call sites (`SetupStep.tsx`'s plain button,
+    // `ExpenseCoverageNudge.tsx`, `OpeningBalancePrompt.tsx`) — a single point of enforcement so no
+    // future entry point can reintroduce the race this fixes. See `dataLoading`'s own doc comment.
+    if (!mappingReady || dataLoading) return;
     const cm: ColumnMapping = {
       date: mapping.date,
       narration: mapping.narration,
@@ -392,6 +435,7 @@ export function useBankImport(accountId: string) {
     setStep('review');
   }, [
     mappingReady,
+    dataLoading,
     mapping,
     tokenizedRows,
     headers,
@@ -945,20 +989,35 @@ export function useBankImport(accountId: string) {
       }
     }
 
-    // IOU (Lent/Borrowed) — `BulkCategorizeModal`'s optional bulk-shared person field. Resolved the
-    // same way `useExpenses.ts`'s `getOrCreatePerson` does (case-insensitive match, un-archive if
-    // needed), against a fresh read + local cache so the same name across many rows in one batch
-    // resolves to one `Person`, not one per row.
-    const personCache = new Map((await personsRepo.getAll()).map((p) => [p.name.toLowerCase(), p]));
+    // Merchant-memory bookkeeping (2026-08-20, item 45 real-device testing pass) — same shape as
+    // `useExpenses.ts`'s `saveExpenseWithHashtags`/`core/import/importWriter.ts`'s own analogous fix:
+    // brand-new bank-import transactions (`stagedNewTxns`, below) previously never touched
+    // `merchantMemoryRepo` at all, so a bank-imported merchant was structurally invisible to
+    // `ExpenseForm`'s category-suggestion engine (`searchMerchantMemories()`) — both going forward and
+    // for anything already imported this way (the retroactive half is the same backfill-version-bump
+    // fix in `useExpenses.ts`, which reindexes ALL expense rows regardless of origin). `matchedPairs`
+    // (existing app expenses being reconciled against a statement line) are deliberately NOT covered
+    // here — reconciliation only touches date/amount/checkpoint fields, never category, so whatever
+    // memory already exists for that expense (from its original manual save, or the backfill) is
+    // already correct and would be a no-op merge here anyway. Resolved against a fresh read + a local
+    // cache, same pattern as `ensureHashtag` above.
+    const merchantMemoryCache = new Map((await merchantMemoryRepo.getAll()).map((m) => [m.id, m]));
+    async function updateMerchantMemory(expense: Expense) {
+      const key = memoryKey(expense.type ?? 'expense', expense.description, expense.categoryId);
+      if (!key) return;
+      const memory = buildMemory(expense, merchantMemoryCache.get(key));
+      if (memory) {
+        await merchantMemoryRepo.put(memory);
+        merchantMemoryCache.set(memory.id, memory);
+      }
+    }
+
+    // IOU (Lent/Borrowed) — `BulkCategorizeModal`'s optional bulk-shared person field. Resolved via the
+    // shared `getOrCreatePerson` in packages/core (2026-08-18 dedup fix — see personResolver.ts's
+    // header), same case-insensitive-match + un-archive-if-needed logic every other IOU-person entry
+    // point uses now, instead of this commit's own local cache reimplementing it.
     async function resolvePerson(name: string): Promise<Person> {
-      const key = name.trim().toLowerCase();
-      const cached = personCache.get(key);
-      if (cached && !cached.isArchived) return cached;
-      const person: Person = cached
-        ? { ...cached, isArchived: false, updatedAt: now }
-        : { id: crypto.randomUUID(), name: name.trim(), createdAt: now, updatedAt: now };
-      await personsRepo.put(person);
-      personCache.set(key, person);
+      const { person } = await getOrCreatePerson(name);
       return person;
     }
 
@@ -1038,6 +1097,7 @@ export function useBankImport(accountId: string) {
         for (const tag of staged.expense.hashtags ?? []) {
           await ensureHashtag(tag, staged.newTagSetAside?.[tag] ?? false);
         }
+        await updateMerchantMemory(expenseToSave);
         if (staged.iouPersonName) {
           const person = await resolvePerson(staged.iouPersonName);
           const kind: 'lent' | 'borrowed' = staged.expense.type === 'income' ? 'borrowed' : 'lent';
@@ -1188,6 +1248,7 @@ export function useBankImport(accountId: string) {
   return {
     step,
     setStep,
+    dataLoading,
     account,
     accounts,
     cashAccounts,
@@ -1220,6 +1281,7 @@ export function useBankImport(accountId: string) {
     mapping,
     setMappingField,
     headers,
+    rawPreviewRows,
     mappingReady,
     mappingPreview,
     delimiter,
@@ -1258,6 +1320,7 @@ export function useBankImport(accountId: string) {
     loneWolfDeletions,
     readyCount,
     reassignMatchedPair,
+    unclaimExpenseEverywhere,
     convertMatchedPairToTransfer,
     resolvePossibleMatch,
     dismissPossibleAsNew,

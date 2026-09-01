@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, EmptyState } from '~/components/ui';
-import { ExpenseForm } from '~/components/shared';
+import { ExpenseForm, TipNudgeBanner } from '~/components/shared';
+import { shouldNudgeGoalLink } from '@/core/tips/tipTriggers';
+import { DAY_MS } from '@/lib/date';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { formatCurrency } from '@/lib/formatters';
 import { calcSipNeeded, monthsUntil } from '@/core/goals/sipCalculator';
@@ -10,6 +12,7 @@ import { getRiskReturn } from '@/core/goals/meta';
 import type { Account, Expense, ExpenseCategory, GoalContribution, Hashtag } from '@/core/db/types';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { useEventMode } from '~/context/EventModeContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { GoalCard } from './GoalCard';
 import { GoalForm } from './GoalForm';
 import { GoalDetailView } from './GoalDetailView';
@@ -97,6 +100,9 @@ interface GoalsTabProps {
   removeContribution: (contribution: GoalContribution) => Promise<void>;
   goalLinkedTxnIds: Set<string>;
   linkTransaction: (goalId: string, txn: Expense) => Promise<void>;
+  /** Pull-to-refresh — combines `reloadGoals`/`reloadContributions`/`reloadAccounts`/`reloadExpenses`
+   *  (see `useGoals.ts`'s `refreshGoalData`). */
+  onRefresh: () => void;
 }
 
 export function GoalsTab({
@@ -115,10 +121,13 @@ export function GoalsTab({
   saveGoalContributionTxn,
   removeContribution,
   goalLinkedTxnIds,
-  linkTransaction
+  linkTransaction,
+  onRefresh
 }: GoalsTabProps) {
+  const theme = useThemeColors();
   const insets = useSafeAreaInsets();
   const { events: activeEvents } = useEventMode();
+  const { refreshing, onRefresh: handleRefresh } = usePullToRefresh(onRefresh);
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [detailGoal, setDetailGoal] = useState<Goal | null>(null);
@@ -129,9 +138,21 @@ export function GoalsTab({
     null
   );
   const [linkingGoalId, setLinkingGoalId] = useState<string | null>(null);
+  // Captured once (not read fresh via `Date.now()` inside a memo — the lint rule against impure reads
+  // during render/memoization) — a few ms of staleness on "months tracked" is immaterial here.
+  const [nowMs] = useState(() => Date.now());
 
   const expensesById = useMemo(() => new Map(expenses.map((e) => [e.id, e])), [expenses]);
   const accountMap = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+
+  // Months of real tracked history — feeds the "link a transaction to a goal" nudge below, which should
+  // only ever fire once there's enough real data for the suggestion to be meaningful (never a cold,
+  // data-free guess). Earliest transaction of ANY kind, not just expenses.
+  const monthsTracked = useMemo(() => {
+    if (expenses.length === 0) return 0;
+    const earliest = expenses.reduce((min, e) => Math.min(min, e.date), Infinity);
+    return (nowMs - earliest) / (DAY_MS * 30);
+  }, [expenses, nowMs]);
 
   const contributionGoalName = contributionForm
     ? (goals.find((g) => g.id === contributionForm.goalId)?.name ?? 'Goal')
@@ -141,15 +162,26 @@ export function GoalsTab({
 
   return (
     <>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} />}
+      >
         {goals.length > 0 && (
           <View className="px-4 pt-4">
             <GoalsSummaryCard goals={goals} masked={masked} effectiveSaved={effectiveSaved} />
           </View>
         )}
         {goals.length === 0 ? (
-          <View className="px-4 py-6">
+          <View className="px-4 py-6 gap-3">
             <EmptyState icon="ti-target" title="No goals yet" description="Tap + to set your first savings goal." />
+            {/* Tier 1 "Did you know" nudge (2026-08-16) — fires once, ever, once there's enough real
+                tracked history for the suggestion to be meaningful. */}
+            <TipNudgeBanner
+              id="goal-link-transaction"
+              text="Did you know you can link any transaction — even one you already logged — straight to a goal? Look for the target icon in the entry form."
+              active={shouldNudgeGoalLink(goals.length, monthsTracked)}
+            />
           </View>
         ) : (
           <View className="px-4 py-4 gap-3">
@@ -193,9 +225,13 @@ export function GoalsTab({
             await saveGoal(goal);
             setShowForm(false);
           }}
-          onDelete={async (id) => {
-            await removeGoal(id);
+          // Close first, then remove — see RetirementSection.tsx's `del` for the full rationale
+          // (closing-after-remove let the Undo toast stack a second native Modal on top of this
+          // one, and both tearing down together could background the whole app). Still returns
+          // the promise (not fire-and-forget) — `GoalForm.handleDelete` chains its own `.catch`.
+          onDelete={(id) => {
             setShowForm(false);
+            return removeGoal(id).then(() => {});
           }}
           onClose={() => setShowForm(false)}
         />

@@ -15,6 +15,11 @@ The subscriptions module automatically detects recurring charges in your transac
 - **Price-hike detail** on detected subscriptions (₹old → ₹new, +X%) when a charge has crept up
 - **Unused/zombie nudge** — active subscriptions not charged in 2+ billing cycles surface a "looks unused — cancelling saves ₹X/yr" banner
 - Cancel any subscription from your list (and renewal charges already appear in the header Reminders bell within 7 days)
+- **Tap "Seen N times" to see those exact transactions (2026-08-18)** — `DetectedSubCard.tsx`'s
+  previously-inert "Seen N times" text is now pressable: it filters transactions matching the
+  candidate's `merchantCategory` (via the detector's own `normalize()`) and opens the shared
+  `EntityTransactionsModal` (the same drill-down Analytics uses for tag/category groups), subtitled with
+  the transaction count.
 
 ## How it works
 
@@ -41,7 +46,7 @@ Subscription logic and presentation are shared between the standalone `/app/subs
 the Expenses → Subscriptions tab: both consume the `useSubscriptions` hook and render the same
 `SubscriptionsView` / `DetectedSubCard` / `ActiveSubCard` components, so the two surfaces stay in sync.
 
-Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.subscriptions)` — Safe Mode hides subscription amounts only if the "Subscriptions" toggle in Settings → Safe Mode is switched off (visible by default); Privacy always masks; Open never does. Both entry points compute this independently since they don't share a parent component.
+Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.subscriptions)` — Safe Mode hides subscription amounts only if the "Subscriptions" toggle in Settings → Safe Mode is switched off (visible by default); Open never masks. Both entry points compute this independently since they don't share a parent component.
 
 Key files:
 

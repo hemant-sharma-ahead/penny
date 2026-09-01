@@ -3,6 +3,7 @@ import { holdingsRepo } from '@/core/db/repositories';
 import { fetchMfNav, fetchStockPrice } from '@/core/db/priceCache';
 import type { AssetClass, Holding } from '@/core/db/types';
 import { useLoggedRepository } from '~/hooks/useLoggedRepository';
+import { notifyTxnChanged } from '@/hooks/useTxnRefresh';
 
 const summarizeHolding = (h: Holding) => `holding: ${h.name}`;
 
@@ -74,13 +75,34 @@ export function effectiveValue(h: Holding): number {
 export function usePortfolioHoldings() {
   const {
     items: holdings,
-    save: saveHolding,
-    remove: removeHolding
+    save: saveHoldingBase,
+    remove: removeHoldingBase
   } = useLoggedRepository(holdingsRepo, {
     entityType: 'holding',
     summarize: summarizeHolding,
     diffFields: ['investedAmount', 'units', 'currentValue']
   });
+  // Found 2026-08-27, real-user report: adding/deleting a holding never broadcast on the shared
+  // refresh bus — `useHealthScore.ts` (net worth/asset inputs) loads holdings once at mount with no
+  // subscription of its own, so it stayed stale until the app fully restarted. Same bug class already
+  // fixed for expenses/goals/IOU elsewhere in this app; holdings just never got the broadcast in the
+  // first place. Scoped to holdings only here — the app-wide "does every mutation path call
+  // `notifyTxnChanged()`" audit is its own separate, not-yet-started task (Phase 7,
+  // docs/plans/real-device-testing-pass.md), not something to fold in here.
+  const saveHolding = useCallback(
+    async (h: Holding) => {
+      await saveHoldingBase(h);
+      notifyTxnChanged();
+    },
+    [saveHoldingBase]
+  );
+  const removeHolding = useCallback(
+    async (id: string) => {
+      await removeHoldingBase(id);
+      notifyTxnChanged();
+    },
+    [removeHoldingBase]
+  );
   const [refreshing, setRefreshing] = useState(false);
 
   const totalInvested = useMemo(() => holdings.reduce((s, h) => s + h.investedAmount, 0), [holdings]);

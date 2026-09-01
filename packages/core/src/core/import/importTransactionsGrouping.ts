@@ -107,5 +107,18 @@ export function groupRowsForTransactionsStage(
     if (synthetic) syntheticTiles.set(key, synthetic);
   });
 
+  // Most-recent-first within every tile's row list (2026-08-20, item 41 real-device testing pass) — the
+  // file/parse order these groups were built in is otherwise ascending-by-appearance-in-file, not by
+  // date, which reads oddly once a tile has more than a couple of rows. Applied once here so every
+  // consumer of `rowsByFullKey` (`CategoryTile.tsx`'s row list, `MovedRowsTile.tsx`'s synthetic tiles)
+  // and `duplicateRows` (`DuplicatesBucket.tsx`) gets the same order consistently, instead of each
+  // component re-sorting its own copy.
+  for (const list of rowsByFullKey.values()) sortByDateDescending(list);
+  sortByDateDescending(duplicateRows);
+
   return { rowsByFullKey, syntheticTiles, duplicateRows };
+}
+
+function sortByDateDescending(rows: TransactionRowRef[]): void {
+  rows.sort((a, b) => b.row.date - a.row.date);
 }

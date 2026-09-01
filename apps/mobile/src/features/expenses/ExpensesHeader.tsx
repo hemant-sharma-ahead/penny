@@ -6,7 +6,7 @@ import { Modal, Button, PageHeader } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { usePrivacy } from '~/context/PrivacyContext';
 import { useEventMode } from '~/context/EventModeContext';
-import type { Account, Expense, ExpenseCategory } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Group } from '@/core/db/types';
 import { formatCurrency } from '@/lib/formatters';
 import { useForecast } from '~/hooks/useForecast';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -28,6 +28,11 @@ interface ExpensesHeaderProps {
    *  is either verified or not `CHECKPOINT_ELIGIBLE`, in which case the banner renders nothing at all
    *  (pixel-identical to before this feature existed). */
   accountsNeedingAttention: Account[];
+  /** Threaded through to `ExpenseExportModal` for the CSV export's Account / IOU Person / Shared-to-group
+   *  columns (2026-08-23, real-device-testing-pass item 76). */
+  accounts: Account[];
+  iouLinkByTxn: Map<string, { personName: string }>;
+  groups: Group[];
 }
 
 /**
@@ -42,7 +47,10 @@ export function ExpensesHeader({
   expenseCategories,
   linkedCountByEventHashtag,
   saveExpense,
-  accountsNeedingAttention
+  accountsNeedingAttention,
+  accounts,
+  iouLinkByTxn,
+  groups
 }: ExpensesHeaderProps) {
   const theme = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
@@ -165,6 +173,9 @@ export function ExpensesHeader({
         <ExpenseExportModal
           expenses={expenses}
           expenseCategories={expenseCategories}
+          accounts={accounts}
+          iouLinkByTxn={iouLinkByTxn}
+          groups={groups}
           onClose={() => setShowExportSheet(false)}
         />
       )}

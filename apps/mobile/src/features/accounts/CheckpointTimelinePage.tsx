@@ -1,9 +1,9 @@
-import { Fragment, useMemo } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { Account } from '@/core/db/types';
+import type { Account, Expense } from '@/core/db/types';
 import { accountsRepo, bankStatementImportsRepo, expensesRepo } from '@/core/db/repositories';
 import { delta } from '@/core/accounts/balanceCalculator';
 import { computeCheckpointDiagnostics, type CheckpointComparison } from '@/core/bank-import/checkpointDiagnostics';
@@ -12,12 +12,13 @@ import { mergeCoveredRanges, detectCoverageGap } from '@/core/bank-import/covera
 import { useRepository } from '@/hooks/useRepository';
 import { useAccountsRefresh } from '@/hooks/useDataRefresh';
 import { useTxnRefresh } from '@/hooks/useTxnRefresh';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDate, formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { Banner, Button, Card, EmptyState } from '~/components/ui';
+import { Banner, Button, Card, EmptyState, PennyLoader } from '~/components/ui';
 import { tint } from '~/lib/color';
 import type { HomeStackParamList } from '~/navigation/HomeStack';
 import { useOpeningBalanceResolution, type OpeningBalanceImplied } from './useOpeningBalanceResolution';
@@ -51,8 +52,25 @@ export function CheckpointTimelinePage() {
   const { accountId } = route.params;
   useDefaultHeaderBack('CheckpointTimeline');
 
-  const { items: accounts, reload: reloadAccounts } = useRepository(accountsRepo);
-  const { items: allExpenses, reload: reloadExpenses } = useRepository(expensesRepo);
+  const { items: accounts, loading: accountsLoading, reload: reloadAccounts } = useRepository(accountsRepo);
+  // Tier 2 performance fix (2026-08-28) — identical swap to `FullLedgerPage.tsx`'s: every use of
+  // `allExpenses` below is already scoped to this one account, so the real indexed `queryByAccount()`
+  // replaces `useRepository(expensesRepo)`'s `getAll()` with no downstream logic change.
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+  const reloadExpenses = useCallback(() => {
+    let cancelled = false;
+    expensesRepo.queryByAccount(accountId).then((rows) => {
+      if (!cancelled) {
+        setAllExpenses(rows);
+        setExpensesLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+  useEffect(() => reloadExpenses(), [reloadExpenses]);
   const { items: allImportRecords } = useRepository(bankStatementImportsRepo);
   // The anchor-boundary divider's own Update/Keep actions write straight to `accountsRepo` (via
   // `useOpeningBalanceResolution`) without navigating away — this page needs to actually see that write
@@ -64,6 +82,13 @@ export function CheckpointTimelinePage() {
   // kept running against a stale `allExpenses` snapshot from whenever it first mounted.
   useTxnRefresh(reloadExpenses);
   const account = accounts.find((a) => a.id === accountId) ?? null;
+
+  // Pull-to-refresh re-derives both halves this page's diagnostics depend on — the account (opening
+  // balance/anchor reference) and its transactions — rather than just one, since either can change
+  // this page's verdict.
+  const { refreshing, onRefresh } = usePullToRefresh(
+    useCallback(() => Promise.all([reloadAccounts(), reloadExpenses()]), [reloadAccounts, reloadExpenses])
+  );
 
   // Description + this row's own signed amount (found via on-device feedback 2026-08-09: the table only
   // ever showed the running balance, never what actually moved between checkpoints) — `delta()` gives the
@@ -115,6 +140,17 @@ export function CheckpointTimelinePage() {
     dismiss: dismissAnchor
   } = useOpeningBalanceResolution(account, anchorFinding);
 
+  // Both repos start empty until their first load resolves — without this, a genuinely-loading screen
+  // showed the same "Account not found" message below as an actually-deleted account (identical bug to
+  // `FullLedgerPage.tsx`'s, fixed there the same way — found 2026-08-28, real-device performance pass).
+  if (accountsLoading || expensesLoading) {
+    return (
+      <SafeAreaView edges={[]} className="flex-1 items-center justify-center" style={{ backgroundColor: modeBg }}>
+        <PennyLoader size="lg" accessibilityLabel="Loading checkpoint timeline" />
+      </SafeAreaView>
+    );
+  }
+
   if (!account || !diagnostics) {
     return (
       <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
@@ -147,7 +183,10 @@ export function CheckpointTimelinePage() {
         <Text className="text-sm font-semibold text-primary">Reconciliation</Text>
         <Text className="text-xs text-tertiary mt-0.5">{account.name}</Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-3">
           <Text className="text-[11px] text-secondary leading-relaxed">
             Comparing Penny's running balance against your bank's own stated balance after each checkpointed
@@ -199,6 +238,16 @@ export function CheckpointTimelinePage() {
                   <Text className="text-[8.5px] text-secondary">Penny</Text>
                 </View>
               </View>
+              {/* Item 6 — Diff shows the real, unrounded figure, not the ±₹1 tolerance
+               *  `checkpointDiagnostics.ts` already uses to decide "agrees" elsewhere in this app — so a
+               *  genuinely tiny (sub-rupee) difference can still render as a red, non-zero-signed
+               *  "₹0.00" once formatted. Stated once here rather than changing what Diff actually shows,
+               *  so the precise value stays visible for anyone who wants it. */}
+              <View className="flex-row px-3 py-1.5 border-t border-theme" style={{ backgroundColor: theme.surface }}>
+                <Text className="text-[8.5px] text-tertiary flex-1">
+                  Differences under ₹1 are normal rounding and still count as reconciled.
+                </Text>
+              </View>
               <View
                 className="flex-row px-3 py-2 border-t border-theme"
                 style={{ backgroundColor: theme.surfaceSecondary }}
@@ -242,8 +291,8 @@ export function CheckpointTimelinePage() {
 
           {diagnostics.mismatch && signature === 'steps-partway' && diagnostics.mismatch.lastAgreeing && (
             <Banner variant="warning" icon="ti-bulb">
-              A missing or duplicate transaction between {formatDateShort(diagnostics.mismatch.lastAgreeing.date)} and{' '}
-              {formatDateShort(diagnostics.mismatch.firstDisagreeing.date)} — most likely a{' '}
+              A missing or duplicate transaction between {formatDate(diagnostics.mismatch.lastAgreeing.date)} and{' '}
+              {formatDate(diagnostics.mismatch.firstDisagreeing.date)} — most likely a{' '}
               {formatCurrency(Math.abs(diagnostics.mismatch.diff))} debit or credit that never got recorded. Not an
               opening-balance issue, since earlier checkpoints agree.
             </Banner>
@@ -263,9 +312,9 @@ export function CheckpointTimelinePage() {
         </View>
       </ScrollView>
 
-      <View className="flex-row gap-2 px-4 py-3 border-t border-theme" style={{ backgroundColor: theme.surface }}>
-        {diagnostics.mismatch || anchorFinding ? (
-          signature === 'flat-from-start' || (!diagnostics.mismatch && anchorFinding) ? (
+      <View className="gap-2 px-4 py-3 border-t border-theme" style={{ backgroundColor: theme.surface }}>
+        {(diagnostics.mismatch || anchorFinding) &&
+          (signature === 'flat-from-start' || (!diagnostics.mismatch && anchorFinding) ? (
             <Button
               variant="secondary"
               icon="ti-anchor"
@@ -278,19 +327,20 @@ export function CheckpointTimelinePage() {
             <Button variant="ghost" fullWidth onPress={() => navigation.goBack()}>
               I've reviewed this, dismiss
             </Button>
-          )
-        ) : (
-          // `docs/plans/bank-reconciliation-ledger.md` — a deeper zoom into every transaction, not
-          // just checkpoints, always reachable even when everything above already agrees.
-          <Button
-            variant="ghost"
-            icon="ti-list-search"
-            fullWidth
-            onPress={() => navigation.navigate('FullLedger', { accountId: account.id })}
-          >
-            View full ledger ›
-          </Button>
-        )}
+          ))}
+        {/* `docs/plans/bank-reconciliation-ledger.md` — a deeper zoom into every transaction, not just
+            checkpoints. Found 2026-08-27: this used to only render in the else-branch above (fully
+            reconciled state) — while any OTHER finding was open on the account, there was no way to
+            reach it at all, even to fix something completely unrelated to that finding. Now always
+            reachable, alongside whichever primary action (if any) applies. */}
+        <Button
+          variant="ghost"
+          icon="ti-list-search"
+          fullWidth
+          onPress={() => navigation.navigate('FullLedger', { accountId: account.id })}
+        >
+          View full ledger ›
+        </Button>
       </View>
     </SafeAreaView>
   );
@@ -427,7 +477,7 @@ function TimelineRow({
         className="flex-row items-center px-3 py-2 border-t border-theme"
         style={flagged ? { backgroundColor: tint(theme.danger, 7) } : undefined}
       >
-        <Text className="flex-1 text-[10px] text-secondary">{formatDateShort(comparison.date)}</Text>
+        <Text className="flex-1 text-[10px] text-secondary">{formatDate(comparison.date)}</Text>
         <View className="flex-[1.6]">
           <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
             {description}

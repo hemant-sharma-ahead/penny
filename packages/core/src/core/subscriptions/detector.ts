@@ -24,8 +24,12 @@ const KNOWN_INTERVALS: { days: number; tolerance: number }[] = [
   { days: 365, tolerance: 30 }
 ];
 
-// Pass 1 helper: strip to lowercase alphanum + spaces
-function normalize(desc: string): string {
+// Pass 1 helper: strip to lowercase alphanum + spaces. Exported (item 22/23,
+// docs/plans/real-device-testing-pass.md) so `DetectedSubCard.tsx` can re-derive the same grouping key
+// to filter `expenses` for its "seen N times" drill-down — `DetectedSubscription` carries only the
+// grouped `merchantCategory` string, no transaction-id list, so this is the one source of truth for
+// "does this expense belong to this candidate's group."
+export function normalize(desc: string): string {
   return desc
     .toLowerCase()
     .trim()

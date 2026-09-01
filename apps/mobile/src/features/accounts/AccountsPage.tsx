@@ -1,6 +1,7 @@
-import { View, ScrollView } from 'react-native';
+import { useCallback } from 'react';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { Account } from '@/core/db/types';
 import { usePrivacy } from '~/context/PrivacyContext';
@@ -11,20 +12,52 @@ import { AccountList } from './AccountList';
 import { PaymentModesSection } from './PaymentModesSection';
 import { AccountFormModal } from '~/components/shared';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
+import { useThemeColors } from '~/theme/useThemeColors';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import type { HomeStackParamList } from '~/navigation/HomeStack';
 
 export function AccountsPage() {
   const modeBg = useModeBackgroundColor();
+  const theme = useThemeColors();
   const { shouldMask } = usePrivacy();
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
-  const { accounts, txns, saving, totalBalance, saveAccount, deleteAccount, reconcileAccount, categoryMap, hashtags } =
-    useAccounts();
+  const {
+    accounts,
+    txns,
+    saving,
+    loading,
+    totalBalance,
+    saveAccount,
+    deleteAccount,
+    reconcileAccount,
+    categoryMap,
+    hashtags,
+    reload
+  } = useAccounts();
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
   const form = useAccountForm(saveAccount, accounts);
   useDefaultHeaderBack('Accounts');
+  // Found 2026-08-27, real user report: after a bank-statement import (18 new transactions on an
+  // account that had 3), coming back to this screen via `navigation.goBack()` still showed the old
+  // count/balance until a manual pull-to-refresh. `useAccounts.ts`'s own `useTxnRefresh(reload)`
+  // subscription looked correct in isolation (and `useBankImport.ts`'s commit path does call
+  // `notifyTxnChanged()`) — this is a defensive second layer, not a replacement for that: the shared
+  // refresh bus depends on this screen's listener having survived correctly across the whole
+  // multi-step Bank Import flow it was sitting behind; a real on-focus reload can't miss that
+  // regardless, the same reasoning `useRegisterHeaderScreen`'s own `useFocusEffect` doc comment gives
+  // for why focus (not a fire-and-forget event) is what actually guarantees a screen is current.
+  useFocusEffect(useCallback(() => reload(), [reload]));
 
   function handleImport(acc: Account) {
     navigation.navigate('BankImport', { accountId: acc.id });
+  }
+
+  // Per-tile "Import History" shortcut (punch-list item 8) — same screen as the global header icon
+  // below, just pre-scoped to one account so `BankImportHistoryPage`'s own account-picker step (only
+  // shown when `route.params.accountId` is absent) is skipped entirely.
+  function handleImportHistory(acc: Account) {
+    navigation.navigate('BankImportHistory', { accountId: acc.id });
   }
 
   // Zero-account empty state's "or import a bank statement" — creates the account as `'bank'` (no
@@ -42,11 +75,17 @@ export function AccountsPage() {
       <PageHeader
         actions={
           <View className="flex-row gap-2">
+            {/* Boxed-neutral treatment (punch-list item 9) — same `ghost` + tinted-surface-background
+                pattern `AccountList.tsx`'s own revealed-row action icons already use, reused here rather
+                than inventing a new style. Deliberately NOT `variant="primary"` — that stays reserved for
+                "Add" alone, the one true primary action on this screen. */}
             <Button
               variant="ghost"
               icon="ti-adjustments-horizontal"
               accessibilityLabel="Merchant recognition settings"
               className="w-8 h-8 rounded-lg"
+              color={theme.surfaceSecondary}
+              textColor={theme.textSecondary}
               onPress={() => navigation.navigate('BankImportOverrides')}
             />
             <Button
@@ -54,6 +93,8 @@ export function AccountsPage() {
               icon="ti-cash"
               accessibilityLabel="Cash-withdrawal code settings"
               className="w-8 h-8 rounded-lg"
+              color={theme.surfaceSecondary}
+              textColor={theme.textSecondary}
               onPress={() => navigation.navigate('BankCashWithdrawalCodes')}
             />
             <Button
@@ -61,6 +102,8 @@ export function AccountsPage() {
               icon="ti-history"
               accessibilityLabel="Import history"
               className="w-8 h-8 rounded-lg"
+              color={theme.surfaceSecondary}
+              textColor={theme.textSecondary}
               onPress={() => navigation.navigate('BankImportHistory', {})}
             />
             <Button
@@ -74,17 +117,22 @@ export function AccountsPage() {
         }
       />
 
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <AccountList
           accounts={accounts}
           txns={txns}
           totalBalance={totalBalance}
+          loading={loading}
           shouldMask={shouldMask}
           categoryMap={categoryMap}
           hashtags={hashtags}
           onAdd={form.openAdd}
           onEdit={form.openEdit}
           onImport={handleImport}
+          onImportHistory={handleImportHistory}
           onImportOnboarding={handleImportOnboarding}
           deleteAccount={deleteAccount}
           reconcileAccount={reconcileAccount}

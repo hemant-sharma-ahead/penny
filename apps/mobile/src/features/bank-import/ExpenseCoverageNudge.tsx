@@ -90,7 +90,7 @@ export function ExpenseCoverageNudge({ bi, bankLabel }: ExpenseCoverageNudgeProp
         <Button variant="primary" color={theme.warning} icon="ti-receipt-2" fullWidth onPress={goLogExpensesFirst}>
           Go log expenses first
         </Button>
-        <Button variant="ghost" fullWidth onPress={bi.confirmMapping}>
+        <Button variant="ghost" fullWidth loading={bi.dataLoading} onPress={bi.confirmMapping}>
           Continue anyway
         </Button>
       </View>

@@ -14,7 +14,10 @@ import {
   checkProRataConsistency,
   estimateGrossAndCtc,
   EPF_DEFAULT_BASIC_TO_GROSS_PCT,
-  buildEpfHikeJourney
+  buildEpfHikeJourney,
+  findUnrecordedEpfHikes,
+  epfExperienceLabel,
+  epfEmployerTotals
 } from '@/core/portfolio/epfCalculations';
 import type { AssetMeta, EpfEmployer, EpfTransaction } from '@/core/db/types';
 
@@ -599,5 +602,143 @@ describe('buildEpfHikeJourney', () => {
     });
     const journey = buildEpfHikeJourney(emp);
     expect(journey.map((p) => p.basicSalary)).toEqual([50000, 40000, 30000]);
+  });
+});
+
+// Real bug this covers (2026-08-30): an employer re-imported across several yearly passbooks never had
+// its `basicSalary`/`hikeTimeline` re-examined for a real wage change already proven by the imported
+// data itself — see `findUnrecordedEpfHikes`'s own doc comment.
+describe('findUnrecordedEpfHikes', () => {
+  // Apr(join, excluded) – Sep(leave, excluded) 2023, per the `employer()` fixture's own default range —
+  // May/Jun/Jul/Aug are the usable contribution months for these tests.
+  function wageRow(wagesMonth: string, epfWages: number, overrides: Partial<EpfTransaction> = {}): EpfTransaction {
+    return contributionTxn({
+      id: `t-${wagesMonth}`,
+      wagesMonth,
+      date: new Date(`${wagesMonth}-15T00:00:00`).getTime(),
+      epfWages,
+      ...overrides
+    });
+  }
+
+  it('detects a genuine, sustained wage increase not yet in hikeTimeline', () => {
+    const emp = employer({ basicSalary: 40000 });
+    const txns = [
+      wageRow('2023-05', 40000),
+      wageRow('2023-06', 55000),
+      wageRow('2023-07', 56000),
+      wageRow('2023-08', 56000)
+    ];
+    const hikes = findUnrecordedEpfHikes(emp, txns);
+    expect(hikes).toHaveLength(1);
+    expect(hikes[0]).toMatchObject({ wagesMonth: '2023-06', basicSalary: 55000 });
+  });
+
+  it('ignores a single-month anomaly that drops back down the very next month', () => {
+    const emp = employer({ basicSalary: 40000 });
+    const txns = [wageRow('2023-05', 40000), wageRow('2023-06', 60000), wageRow('2023-07', 40000)];
+    expect(findUnrecordedEpfHikes(emp, txns)).toHaveLength(0);
+  });
+
+  it('never flags the employer’s own joining or leaving wage month, however low', () => {
+    const emp = employer({ basicSalary: 40000 }); // fromDate Apr 2023, toDate Sep 2023
+    const txns = [
+      wageRow('2023-04', 20000), // joining month — expected pro-rata partial, not a "hike"
+      wageRow('2023-09', 20000) // leaving month — same
+    ];
+    expect(findUnrecordedEpfHikes(emp, txns)).toHaveLength(0);
+  });
+
+  it('does not re-detect a hike already recorded in hikeTimeline', () => {
+    const emp = employer({
+      basicSalary: 40000,
+      hikeTimeline: [{ fromDate: new Date(2023, 5, 1).getTime(), basicSalary: 55000 }]
+    });
+    const txns = [wageRow('2023-05', 40000), wageRow('2023-06', 55000), wageRow('2023-07', 55000)];
+    expect(findUnrecordedEpfHikes(emp, txns)).toHaveLength(0);
+  });
+
+  it('detects two separate sustained raises in the same employer’s history, oldest first', () => {
+    const longEmployer = employer({
+      basicSalary: 30000,
+      fromDate: new Date(2020, 3, 1).getTime(), // Apr 2020
+      toDate: new Date(2023, 8, 30).getTime() // Sep 2023
+    });
+    const txns = [
+      wageRow('2020-05', 30000),
+      wageRow('2021-04', 45000),
+      wageRow('2021-05', 45000),
+      wageRow('2023-01', 70000),
+      wageRow('2023-02', 70000)
+    ];
+    const hikes = findUnrecordedEpfHikes(longEmployer, txns);
+    expect(hikes.map((h) => h.wagesMonth)).toEqual(['2021-04', '2023-01']);
+  });
+
+  it('ignores rows with no real epfWages recorded (never fabricates a hike from partial data)', () => {
+    const emp = employer({ basicSalary: 40000 });
+    const txns = [wageRow('2023-05', 40000), contributionTxn({ id: 't-2023-06', wagesMonth: '2023-06' })];
+    expect(findUnrecordedEpfHikes(emp, txns)).toHaveLength(0);
+  });
+});
+
+describe('epfExperienceLabel', () => {
+  it('formats a full year/month/day breakdown', () => {
+    expect(epfExperienceLabel(new Date(2014, 10, 1).getTime(), new Date(2016, 1, 25).getTime())).toBe(
+      '1 year, 3 months, 24 days'
+    );
+  });
+
+  it('omits zero-value components entirely', () => {
+    expect(epfExperienceLabel(new Date(2020, 0, 1).getTime(), new Date(2022, 0, 1).getTime())).toBe('2 years');
+  });
+
+  it('always shows at least "0 days" for a same-day range', () => {
+    const d = new Date(2024, 5, 1).getTime();
+    expect(epfExperienceLabel(d, d)).toBe('0 days');
+  });
+
+  it('clamps rather than showing a negative day count for a short-February edge case', () => {
+    // 31 Jan -> 1 Mar: borrowing Feb's own 28 days still leaves a negative remainder (Jan has 31) —
+    // clamped to 0 rather than showing something nonsensical; "1 month" is still a reasonable answer
+    // for this genuinely ambiguous calendar-arithmetic edge case (day-of-month overflow past a short
+    // month), not a bug to chase further.
+    expect(epfExperienceLabel(new Date(2023, 0, 31).getTime(), new Date(2023, 2, 1).getTime())).toBe('1 month');
+  });
+});
+
+describe('epfEmployerTotals', () => {
+  it('sums contribution totals scoped to ONE employer, matching epfComputeAllMonths', () => {
+    const empA = employer({ id: 'a', basicSalary: 30000 });
+    const empB = employer({
+      id: 'b',
+      basicSalary: 40000,
+      fromDate: new Date(2023, 9, 1).getTime(),
+      toDate: new Date(2024, 2, 31).getTime()
+    });
+    const totals = epfEmployerTotals(empA, [empA, empB], []);
+    const allMonthsA = epfComputeAllMonths([empA], []);
+    expect(totals.employeeTotal).toBe(allMonthsA.reduce((s, m) => s + m.empAmount, 0));
+    expect(totals.employerTotal).toBe(allMonthsA.reduce((s, m) => s + m.eplrEpfAmount, 0));
+    expect(totals.pensionTotal).toBe(allMonthsA.reduce((s, m) => s + m.epsAmount, 0));
+  });
+
+  it('sums real interest transactions scoped to this employer only, preferring the real split', () => {
+    const emp = employer({ id: 'a' });
+    const other = employer({ id: 'b', fromDate: new Date(2024, 0, 1).getTime() });
+    const txns: EpfTransaction[] = [
+      {
+        id: 'i1',
+        type: 'interest',
+        employerId: 'a',
+        date: new Date(2023, 8, 30).getTime(),
+        employeeAmount: 400,
+        employerAmount: 120
+      },
+      { id: 'i2', type: 'interest', employerId: 'a', date: new Date(2023, 8, 30).getTime(), amount: 90 },
+      { id: 'i3', type: 'interest', employerId: 'b', date: new Date(2024, 8, 30).getTime(), amount: 999 }
+    ];
+    const totals = epfEmployerTotals(emp, [emp, other], txns);
+    expect(totals.interestEarned).toBe(400 + 120 + 90);
   });
 });

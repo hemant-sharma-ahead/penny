@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Backup icons &amp; IPO GMP — polish proposals (v1)</title>
+<style>
+  :root { --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6; --drive: #4285F4; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 24px 100px; background: #05070a; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; color: #e6edf3; }
+  h3 { font-size: 13px; margin: 0; color: #e6edf3; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 920px; line-height: 1.65; margin-bottom: 14px; }
+  .intro b { color: #e6edf3; }
+  .finding {
+    max-width: 920px; margin: 10px 0; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+  .finding .tag.ok { color: #10b981; border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.1); }
+  .finding .tag.warn { color: #f59e0b; }
+  .rec {
+    max-width: 920px; margin: 18px 0 26px; border: 1px solid rgba(0,168,107,.4); background: rgba(0,168,107,.08);
+    border-radius: 12px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; color: #cdeee0;
+  }
+  .rec b { color: #baf3d8; }
+  .rec .h { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--primary); margin-bottom: 6px; }
+
+  nav.anchors {
+    position: sticky; top: 0; z-index: 30; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: #05070a; padding: 10px 0 14px; margin-bottom: 6px; border-bottom: 1px solid #1c2128;
+  }
+  nav.anchors a {
+    font-size: 12px; font-weight: 700; color: #c9d1d9; text-decoration: none; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid #2d333b; background: #161b22;
+  }
+  nav.anchors a.rec-link { border-color: rgba(0,168,107,.5); color: #baf3d8; }
+  nav.anchors .sep { width: 1px; height: 18px; background: #2d333b; margin: 0 4px; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin: 16px 0 22px; position: sticky; top: 46px; z-index: 25; background: #05070a; padding: 6px 0; }
+  .toolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid #2d333b; background: #161b22; color: #e6edf3; cursor: pointer;
+  }
+  .toolbar button.active { background: var(--primary); border-color: var(--primary); color: #04140d; }
+  .toolbar .hint { font-size: 11.5px; color: #6e7681; }
+
+  section { margin-top: 52px; padding-top: 6px; }
+  .section-label {
+    display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: #6e7681; border: 1px solid #2d333b; border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .section-label.rec { color: #baf3d8; border-color: rgba(0,168,107,.5); background: rgba(0,168,107,.1); }
+  .desc { max-width: 800px; font-size: 12.5px; color: #8b949e; line-height: 1.65; margin: 6px 0 20px; }
+  .desc b { color: #e6edf3; }
+  .desc code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+
+  .opttoolbar { display: flex; gap: 8px; margin: 18px 0 20px; flex-wrap: wrap; }
+  .opttoolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 10px;
+    border: 1px solid #2d333b; background: #161b22; color: #c9d1d9; cursor: pointer;
+  }
+  .opttoolbar button.active { background: #1c2128; border-color: var(--primary); color: #baf3d8; }
+  .opttoolbar button .star { color: #f0c419; }
+
+  .row { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-cap { max-width: 320px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center; }
+  .col-cap b { color: #9aa4b0; }
+  .opt-pane { display: none; }
+  .opt-pane.open { display: block; }
+
+  /* Real device frame — 300x650 ≈ a 390x844 phone scaled down, per ui-design-check skill's real-device-size rule */
+  .phone {
+    width: 300px; height: 650px; border-radius: 34px; border: 9px solid #111827; overflow: hidden;
+    position: relative; display: flex; flex-direction: column; box-shadow: 0 16px 34px rgba(0,0,0,0.45); flex-shrink: 0;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .screen[data-theme="light"] {
+    background: #f8fafc; --surface: #ffffff; --surface2: #eff6ff; --border: #c7d8f0;
+    --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+  }
+  .screen[data-theme="dark"] {
+    background: #0b0f14; --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; background: inherit;
+  }
+  .backchev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 16px; }
+  .header-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .header-icons { display: flex; gap: 12px; }
+  .hdr-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.6px solid var(--text2); }
+  .hdr-bell { width: 14px; height: 14px; border: 1.6px solid var(--text2); border-radius: 4px 4px 7px 7px; }
+
+  .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 15px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; }
+  .card-badge {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .card-badge.warn { background: rgba(245,158,11,0.1); color: var(--warning); }
+  .card-badge.green { background: rgba(0,168,107,0.1); color: var(--primary); }
+  .card-badge.danger { background: rgba(239,68,68,0.1); color: var(--danger); }
+  .card-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .card-sub { font-size: 10.5px; color: var(--text3); line-height: 1.5; margin-top: 2px; }
+
+  .destrow { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-top: 1px solid var(--border); }
+  .destrow:first-child { border-top: none; }
+  .destrow.accent-l { border-left: 3px solid transparent; padding-left: 8px; margin-left: -4px; }
+  .rowicon {
+    width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; background: var(--surface2);
+  }
+  .rowicon svg { width: 16px; height: 16px; }
+  .destrow .dl { flex: 1; min-width: 0; }
+  .destrow .dl .dname { font-size: 11.5px; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 5px; }
+  .destrow .dl .dstat { font-size: 10px; color: var(--text3); margin-top: 1px; }
+  .dot-accent { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dchip { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+  .dchip.on { background: rgba(0,168,107,.12); color: var(--primary); }
+  .dchip.on.tint-drive { background: rgba(66,133,244,.14); color: var(--drive); }
+  .chev { font-size: 12px; color: var(--text3); }
+  .destpanel { padding: 10px 4px 4px 4px; border-top: 1px dashed var(--border); display: flex; flex-direction: column; gap: 10px; }
+
+  .btnrow { display: flex; gap: 8px; }
+  .btn {
+    text-align: center; font-size: 11px; font-weight: 700; padding: 10px 8px; border-radius: 11px;
+    cursor: default; line-height: 1.3; flex: 1;
+  }
+  .btn.primary { background: var(--primary); color: #04140d; }
+  .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn.drive { background: var(--drive); color: #fff; }
+  .btn.apple { background: #000; color: #fff; }
+  .screen[data-theme="dark"] .btn.apple { background: #fff; color: #000; }
+  .btn.full { width: 100%; }
+  .helper { font-size: 9.5px; color: var(--text3); text-align: center; }
+
+  .fineprint { font-size: 9.5px; color: var(--text3); line-height: 1.5; }
+  .field-label { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 4px; display: block; }
+  .filepick {
+    width: 100%; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2);
+    padding: 9px 10px; display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text3);
+  }
+  .pwfield {
+    width: 100%; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2);
+    padding: 9px 10px; font-size: 11px; color: var(--text3);
+  }
+  .pinstrip {
+    display: flex; align-items: center; gap: 7px; padding: 8px 10px; border-radius: 10px;
+    background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35);
+  }
+  .pinstrip .t { font-size: 10px; font-weight: 600; color: var(--text); line-height: 1.4; }
+  .pinstrip .t b { color: var(--warning); }
+
+  /* ---- IPO card + GMP badge system ---- */
+  .subtabs { display: flex; gap: 6px; padding: 2px 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .subtab { font-size: 10px; font-weight: 700; padding: 4px 9px; border-radius: 999px; background: var(--surface2); color: var(--text2); }
+  .subtab.active { background: var(--primary); color: #fff; }
+  .ipocard { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 11px; }
+  .ipo-toprow { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .ipo-namewrap { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; min-width: 0; }
+  .ipo-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .catbadge { font-size: 8px; font-weight: 800; text-transform: uppercase; padding: 1px 4px; border-radius: 4px; flex-shrink: 0; }
+  .catbadge.main { background: rgba(99,102,241,.12); color: #6366f1; }
+  .catbadge.sme { background: rgba(245,158,11,.12); color: var(--warning); }
+  .ipo-meta { font-size: 10.5px; color: var(--text2); margin-top: 2px; }
+  .ipo-sub { font-size: 10.5px; font-weight: 700; color: var(--primary); margin-top: 2px; }
+  .ipo-bottomrow { display: flex; justify-content: flex-end; }
+  .ipo-dates { font-size: 9.5px; color: var(--text3); text-align: right; line-height: 1.55; }
+  .ipo-dates .strong { font-weight: 700; color: var(--success); }
+
+  .gmpbadge {
+    flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+    padding: 4px 8px; border-radius: 9px; min-width: 66px;
+  }
+  .gmpbadge .lbl { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; opacity: .85; }
+  .gmpbadge .val { font-size: 12px; font-weight: 800; line-height: 1.15; }
+  .gmpbadge .pct { font-size: 9.5px; font-weight: 700; }
+  .gmpbadge.green { background: rgba(16,185,129,.12); color: var(--success); }
+  .gmpbadge.amber { background: rgba(245,158,11,.12); color: var(--warning); }
+  .gmpbadge.red { background: rgba(239,68,68,.12); color: var(--danger); }
+  .gmpbadge.neutral { background: var(--surface2); color: var(--text3); }
+  .gmpbadge.muted { opacity: .8; }
+
+  .gmpchip-inline {
+    display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  }
+  .gmpchip-inline.green { background: rgba(16,185,129,.12); color: var(--success); }
+  .gmpchip-inline.amber { background: rgba(245,158,11,.12); color: var(--warning); }
+  .gmpchip-inline.red { background: rgba(239,68,68,.12); color: var(--danger); }
+  .gmpchip-inline.neutral { background: var(--surface2); color: var(--text3); }
+  .gmpchip-inline.muted { opacity: .8; }
+
+  /* ---- §2b (2nd pass) — compact, non-chip and reused-slot RAG treatments ---- */
+  .ipocard.stripe-green { border-left: 3px solid var(--success); }
+  .ipocard.stripe-amber { border-left: 3px solid var(--warning); }
+  .ipocard.stripe-red { border-left: 3px solid var(--danger); }
+  .ipocard.stripe-green.muted-stripe { border-left-color: rgba(16,185,129,.4); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; margin-right: 1px; }
+  .dot.green { background: var(--success); }
+  .dot.amber { background: var(--warning); }
+  .dot.red { background: var(--danger); }
+  .arrowval { font-weight: 800; font-size: 11.5px; white-space: nowrap; }
+  .arrowval.green { color: var(--success); }
+  .arrowval.amber { color: var(--warning); }
+  .arrowval.red { color: var(--danger); }
+  .statchip { font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+  .statchip.green { background: rgba(16,185,129,.12); color: var(--success); }
+
+  .note {
+    max-width: 920px; margin-top: 12px; border: 1px dashed #2d333b; border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: #8b949e; line-height: 1.65;
+  }
+  .note b { color: #e6edf3; }
+  .note code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+
+  .checklist { max-width: 920px; margin-top: 14px; }
+  .checklist ul { padding-left: 18px; margin: 8px 0; }
+  .checklist li { font-size: 12px; color: #8b949e; line-height: 1.7; margin-bottom: 4px; }
+  .checklist li b { color: #e6edf3; }
+  .checklist li.pass::marker { color: #10b981; }
+</style>
+</head>
+<body>
+
+<h1>Backup icons &amp; IPO GMP — polish proposals (v1)</h1>
+<p class="intro">
+  Two small, unrelated <code>apps/mobile</code> polish requests, bundled into one file per this project's
+  "one HTML file per discussion" convention (they were raised together, but are separate discussions — see
+  the two clearly separated sections below, each with its own anchor nav and recommendation). Nothing here is
+  final and no app code has been touched — both sections are grounded in the real current source
+  (<code>AutoBackupCard.tsx</code> / <code>BackupPage.tsx</code> / <code>IpoTab.tsx</code>, read in full first)
+  and in real, verified Simple Icons brand data (see the finding below) rather than an invented palette.
+</p>
+
+<div class="finding">
+  <span class="tag ok">cross-platform check — backup icons</span>
+  <code>apps/web-react/src/features/backup/AutoBackupCard.tsx</code> read for comparison. Web still uses the
+  <b>old 3-way <code>SegmentedControl</code></b> (This device / Drive / iCloud tabs) — it was never migrated to
+  the tap-to-reveal accordion (mobile's "Option B", shipped this session,
+  <code>docs/mockups/proposals/backup-restore-redesign-v1.html</code>). This is an <b>expected, already-flagged
+  divergence</b>: <code>apps/web-react</code> is frozen (CLAUDE.md), so this icon/button proposal is
+  <b>mobile-only</b> and needs no mirroring. Flagging per the ui-design-check methodology rather than leaving it
+  implicit.
+</div>
+
+<div class="finding">
+  <span class="tag ok">cross-platform check — IPO GMP</span>
+  <code>apps/web-react/src/features/portfolio/ipo/IpoTab.tsx</code> read for comparison. Web has the
+  <b>identical</b> inline two-way GMP treatment in the left column, down to the same logic
+  (<code>gmpValue &gt; 0 ? green : gmpValue &lt; 0 ? red : tertiary</code>) — except web still hardcodes raw hex
+  (<code>#10b981</code>/<code>#ef4444</code>) where mobile already uses <code>theme.success</code>/
+  <code>theme.danger</code> tokens, a small pre-existing drift not introduced by this task. Both platforms
+  currently <b>agree</b> on this screen. Since web is frozen, this GMP redesign is <b>mobile-only</b>; after
+  implementing, the two platforms will intentionally diverge until any future <code>react-native-web</code>
+  unification — documented here as expected, not a leftover bug.
+</div>
+
+<div class="finding">
+  <span class="tag warn">real constraint — verified against Simple Icons' own data</span>
+  Fetched the actual <code>simple-icons</code> package metadata (<code>icons.json</code>, the same source
+  <code>BankLogo.tsx</code>'s doc comment describes checking) rather than assuming: <b>Google Drive =
+  <code>#4285F4</code></b> (flat Google-blue glyph — Simple Icons does not ship a literal multi-color
+  green/yellow/blue triangle mark; that particular rendering doesn't exist as a redistributable flat SVG path
+  anywhere reputable, so "real Drive triangle in its 3 colors" as literally described in the ask isn't available —
+  the single-color blue mark below is the real, verified substitute). <b>Apple = <code>#000000</code></b>
+  (pure black, monochrome by Apple's own brand guidelines — Apple never publishes a colored mark). <b>iCloud has
+  its own slug</b> in Simple Icons, but its glyph is a plain cloud outline at an arbitrary
+  <code>#999999</code> gray with no real distinctive brand identity (Apple doesn't define an official "iCloud
+  color") — <b>not more recognizable than today's neutral icon</b>, so this proposal keeps the existing
+  <code>ti-brand-apple</code> choice for the iCloud row (the real Apple mark) rather than swapping to Simple
+  Icons' generic gray cloud shape.
+</div>
+
+<div class="finding">
+  <span class="tag warn">theme-contrast risk</span>
+  Apple's real hex is pure <b>black</b> — invisible on a dark-theme card background if used as a fixed literal.
+  Recommend a theme-keyed swap (black in Light, white in Dark) for the Apple mark specifically — this mirrors
+  Apple's <i>own</i> guidelines (they ship the mark in both black and white for exactly this reason), so it's not
+  "overriding a real brand color" the way <code>BankLogo.tsx</code>'s doc comment forbids, it's picking the
+  correct one of Apple's two officially sanctioned variants per background. Implementation should key this off
+  the theme mode explicitly (<code>theme.mode === 'dark' ? '#fff' : '#000'</code>), not off
+  <code>theme.textPrimary</code>, so it can't silently drift if that token's exact shade ever changes for
+  unrelated reasons. Drive's blue (<code>#4285F4</code>) needs no such override — it passes contrast in both
+  themes as one fixed color, same as <code>BankLogo.tsx</code>'s bank marks. <b>Toggle Light/Dark below to check
+  this yourself.</b>
+</div>
+
+<nav class="anchors">
+  <a href="#sec1">§1 Backup icons + button emphasis</a>
+  <a href="#sec1-rec" class="rec-link">→ recommended: Moderate</a>
+  <span class="sep"></span>
+  <a href="#sec2">§2 IPO GMP — Options 1–2 (1st pass)</a>
+  <a href="#sec2b">§2b IPO GMP — Options 3–8 (2nd pass, compact)</a>
+  <a href="#sec2-rec" class="rec-link">→ recommended: Option 6</a>
+</nav>
+
+<div class="toolbar">
+  <button id="btn-light" class="active" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← applies to every frame on this page at once — check contrast in both themes, especially the Apple mark</span>
+</div>
+
+<!-- ============================================================ SECTION 1 ============================================================ -->
+<section id="sec1">
+  <div class="section-label">Section 1</div>
+  <h2>Backup &amp; Restore — icon color + button emphasis</h2>
+  <p class="desc">
+    Scope: <code>apps/mobile/src/features/backup/AutoBackupCard.tsx</code> (destination rows + each panel's "Back
+    up now") and <code>BackupPage.tsx</code> (the Restore card's "Restore from file" / "Restore from Drive" pair).
+    Grounded in the real Option B tap-to-reveal accordion shipped this session — <b>not</b> redesigning the
+    accordion itself, only its icon color and button weight. Three genuinely different answers to "how much
+    brand color should touch an otherwise neutral, theme-token-driven screen", not three placements of the same
+    idea.
+  </p>
+
+  <div class="section-label">Current (today)</div>
+  <div class="row">
+    <div class="col">
+      <div class="col-cap">Real current state — neutral <code>IconBadge</code> icons (<code>theme.textSecondary</code>),
+        every "Back up now" and "Restore from Drive" rendered as <code>variant="secondary"</code></div>
+      <div class="phone">
+        <div class="screen" data-theme="light">
+          <div class="header-row">
+            <div class="backchev">‹</div><div class="header-title">Backup</div>
+            <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge green">↻</div>
+                <div><div class="card-title">Automatic backup</div>
+                  <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div></div>
+              </div>
+              <div>
+                <div class="destrow"><div class="rowicon">📱</div><div class="dl"><div class="dname">This device</div><div class="dstat">On-device safety copy</div></div><div class="chev">⌄</div></div>
+                <div class="destrow"><div class="rowicon">☁</div><div class="dl"><div class="dname">Drive<span class="dchip on">Active</span></div><div class="dstat">jane.doe@example.com · Today</div></div><div class="chev">︿</div></div>
+                <div class="destpanel">
+                  <div class="btnrow"><div class="btn secondary full">Back up now</div></div>
+                </div>
+                <div class="destrow"><div class="rowicon"></div><div class="dl"><div class="dname">iCloud</div><div class="dstat">Not selected</div></div><div class="chev">⌄</div></div>
+              </div>
+              <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge warn">⇧</div>
+                <div><div class="card-title">Restore from backup</div>
+                  <div class="card-sub">Replaces everything on this device.</div></div>
+              </div>
+              <div><span class="field-label">Backup file</span><div class="filepick">📄 Choose .penny file…</div></div>
+              <div class="pwfield">Your original passphrase</div>
+              <div class="pinstrip"><div class="t">Use the PIN <b>active when this backup was made</b> — not necessarily today's.</div></div>
+              <div class="btnrow">
+                <div class="btn primary">Restore from file</div>
+                <div class="btn secondary">Restore from Drive</div>
+              </div>
+              <div class="helper">Both read the same weight — but restoring from Drive is not a lesser action than restoring from a file.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opttoolbar">
+    <button id="opt1-a" class="active" onclick="showOpt(1,'a')">(a) Minimal</button>
+    <button id="opt1-b" onclick="showOpt(1,'b')"><span class="star">★</span> (b) Moderate</button>
+    <button id="opt1-c" onclick="showOpt(1,'c')">(c) Fuller</button>
+  </div>
+
+  <div class="opt-pane open" id="opt1-pane-a">
+    <p class="desc"><b>(a) Minimal</b> — icons stay neutral (no third-party marks introduced at all); the only new
+      color is a tiny 6px accent dot next to the active row's name, distinguishing destinations without a full
+      brand mark. Every "Back up now" and "Restore from Drive" is promoted from <code>secondary</code> to
+      <code>primary</code> (plain Penny green) — fixes the actual functional complaint (secondary undersells the
+      one primary action in each panel) with <b>zero</b> new brand color anywhere. Lowest risk, lowest payoff.</p>
+    <div class="row">
+      <div class="col">
+        <div class="phone"><div class="screen" data-theme="light">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Backup</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+          <div class="body">
+            <div class="card">
+              <div class="card-head"><div class="card-badge green">↻</div><div><div class="card-title">Automatic backup</div><div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div></div></div>
+              <div>
+                <div class="destrow"><div class="rowicon">📱</div><div class="dl"><div class="dname">This device</div><div class="dstat">On-device safety copy</div></div><div class="chev">⌄</div></div>
+                <div class="destrow"><div class="rowicon">☁</div><div class="dl"><div class="dname">Drive<span class="dot-accent" style="background:var(--drive)"></span><span class="dchip on">Active</span></div><div class="dstat">jane.doe@example.com · Today</div></div><div class="chev">︿</div></div>
+                <div class="destpanel"><div class="btnrow"><div class="btn primary full">Back up now</div></div></div>
+                <div class="destrow"><div class="rowicon"></div><div class="dl"><div class="dname">iCloud</div><div class="dstat">Not selected</div></div><div class="chev">⌄</div></div>
+              </div>
+              <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div class="card-badge warn">⇧</div><div><div class="card-title">Restore from backup</div><div class="card-sub">Replaces everything on this device.</div></div></div>
+              <div><span class="field-label">Backup file</span><div class="filepick">📄 Choose .penny file…</div></div>
+              <div class="pwfield">Your original passphrase</div>
+              <div class="pinstrip"><div class="t">Use the PIN <b>active when this backup was made</b> — not necessarily today's.</div></div>
+              <div class="btnrow"><div class="btn primary">Restore from file</div><div class="btn primary">Restore from Drive</div></div>
+              <div class="helper">Both now equally bold — differentiated only by label, no brand color.</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="col-cap">Two equally bold green buttons side by side — fixes the weight problem, but "Restore from Drive" is visually indistinguishable from any other primary action on the screen.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-pane" id="opt1-pane-b">
+    <p class="desc" id="sec1-rec"><b>(b) Moderate — ★ recommended.</b> Real brand-colored marks
+      (verified Simple Icons paths) replace the neutral glyph for Drive and Apple/iCloud in the row
+      <code>IconBadge</code> — "This device" stays generic (no third-party mark exists for it, a real
+      constraint, not an oversight). "Back up now" / "Restore from Drive" are promoted to <code>primary</code>
+      <b>everywhere</b>, and the two Drive-specific actions additionally pick up Drive's own blue
+      (<code>#4285F4</code>) as their background — the same "Continue with Google"-style convention users already
+      recognize from sign-in screens, reused here rather than invented. Local's and iCloud's "Back up now" stay
+      plain green-primary (no Apple-black button) — an iCloud backup isn't a redirect-to-Apple-auth action the
+      way "Restore from Drive" or a Google sign-in is, so a black CTA there would overstate what actually happens
+      on tap.</p>
+    <div class="row">
+      <div class="col">
+        <div class="phone"><div class="screen" data-theme="light">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Backup</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+          <div class="body">
+            <div class="card">
+              <div class="card-head"><div class="card-badge green">↻</div><div><div class="card-title">Automatic backup</div><div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div></div></div>
+              <div>
+                <div class="destrow"><div class="rowicon">📱</div><div class="dl"><div class="dname">This device</div><div class="dstat">On-device safety copy</div></div><div class="chev">⌄</div></div>
+                <div class="destrow"><div class="rowicon"><svg viewBox="0 0 24 24"><path fill="#4285F4" d="M12.01 1.485c-2.082 0-3.754.02-3.743.047.01.02 1.708 3.001 3.774 6.62l3.76 6.574h3.76c2.081 0 3.753-.02 3.742-.047-.005-.02-1.708-3.001-3.775-6.62l-3.76-6.574zm-4.76 1.73a789.828 789.861 0 0 0-3.63 6.319L0 15.868l1.89 3.298 1.885 3.297 3.62-6.335 3.618-6.33-1.88-3.287C8.1 4.704 7.255 3.22 7.25 3.214zm2.259 12.653-.203.348c-.114.198-.96 1.672-1.88 3.287a423.93 423.948 0 0 1-1.698 2.97c-.01.026 3.24.042 7.222.042h7.244l1.796-3.157c.992-1.734 1.85-3.23 1.906-3.323l.104-.167h-7.249z"/></svg></div><div class="dl"><div class="dname">Drive<span class="dchip on tint-drive">Active</span></div><div class="dstat">jane.doe@example.com · Today</div></div><div class="chev">︿</div></div>
+                <div class="destpanel"><div class="btnrow"><div class="btn drive full">Back up now</div></div></div>
+                <div class="destrow"><div class="rowicon"><svg viewBox="0 0 24 24"><path fill="var(--text)" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></div><div class="dl"><div class="dname">iCloud</div><div class="dstat">Not selected</div></div><div class="chev">⌄</div></div>
+              </div>
+              <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div class="card-badge warn">⇧</div><div><div class="card-title">Restore from backup</div><div class="card-sub">Replaces everything on this device.</div></div></div>
+              <div><span class="field-label">Backup file</span><div class="filepick">📄 Choose .penny file…</div></div>
+              <div class="pwfield">Your original passphrase</div>
+              <div class="pinstrip"><div class="t">Use the PIN <b>active when this backup was made</b> — not necessarily today's.</div></div>
+              <div class="btnrow"><div class="btn primary">Restore from file</div><div class="btn drive">Restore from Drive</div></div>
+              <div class="helper">Equal visual weight, distinguished by real source color — not a lesser option anymore.</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="col-cap"><b>Recommended.</b> Toggle Dark above — the Apple mark switches to white automatically so it stays visible on a dark card, while Drive's blue needs no such swap.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-pane" id="opt1-pane-c">
+    <p class="desc"><b>(c) Fuller.</b> Everything in (b), plus brand color also touches the row's "Active" pill
+      background/border of the expanded panel (a colored left accent border matching the destination), and
+      iCloud's "Back up now" also picks up the Apple black/white treatment for full symmetry with Drive. Most
+      visually distinctive, but the biggest risk: Settings' own precedent (§3 of the guidelines) is
+      <b>"one accent colour per section, not per row"</b> — tinting borders/pills per-row here works against that,
+      and risks this calm, neutral screen reading as busier than the rest of the app for no functional gain over
+      (b). I'd only reach for this if the team specifically wants Backup &amp; Restore to feel more "branded"
+      than the rest of Settings-adjacent screens.</p>
+    <div class="row">
+      <div class="col">
+        <div class="phone"><div class="screen" data-theme="light">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Backup</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+          <div class="body">
+            <div class="card">
+              <div class="card-head"><div class="card-badge green">↻</div><div><div class="card-title">Automatic backup</div><div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div></div></div>
+              <div>
+                <div class="destrow"><div class="rowicon">📱</div><div class="dl"><div class="dname">This device</div><div class="dstat">On-device safety copy</div></div><div class="chev">⌄</div></div>
+                <div class="destrow accent-l" style="border-left-color:#4285F4"><div class="rowicon"><svg viewBox="0 0 24 24"><path fill="#4285F4" d="M12.01 1.485c-2.082 0-3.754.02-3.743.047.01.02 1.708 3.001 3.774 6.62l3.76 6.574h3.76c2.081 0 3.753-.02 3.742-.047-.005-.02-1.708-3.001-3.775-6.62l-3.76-6.574zm-4.76 1.73a789.828 789.861 0 0 0-3.63 6.319L0 15.868l1.89 3.298 1.885 3.297 3.62-6.335 3.618-6.33-1.88-3.287C8.1 4.704 7.255 3.22 7.25 3.214zm2.259 12.653-.203.348c-.114.198-.96 1.672-1.88 3.287a423.93 423.948 0 0 1-1.698 2.97c-.01.026 3.24.042 7.222.042h7.244l1.796-3.157c.992-1.734 1.85-3.23 1.906-3.323l.104-.167h-7.249z"/></svg></div><div class="dl"><div class="dname">Drive<span class="dchip on tint-drive">Active</span></div><div class="dstat">jane.doe@example.com · Today</div></div><div class="chev">︿</div></div>
+                <div class="destpanel" style="border-left:3px solid rgba(66,133,244,.35); margin-left:-4px; padding-left:8px;"><div class="btnrow"><div class="btn drive full">Back up now</div></div></div>
+                <div class="destrow"><div class="rowicon"><svg viewBox="0 0 24 24"><path fill="var(--text)" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg></div><div class="dl"><div class="dname">iCloud</div><div class="dstat">Not selected</div></div><div class="chev">⌄</div></div>
+              </div>
+              <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+            </div>
+            <div class="card">
+              <div class="card-head"><div class="card-badge warn">⇧</div><div><div class="card-title">Restore from backup</div><div class="card-sub">Replaces everything on this device.</div></div></div>
+              <div><span class="field-label">Backup file</span><div class="filepick">📄 Choose .penny file…</div></div>
+              <div class="pwfield">Your original passphrase</div>
+              <div class="pinstrip"><div class="t">Use the PIN <b>active when this backup was made</b> — not necessarily today's.</div></div>
+              <div class="btnrow"><div class="btn primary">Restore from file</div><div class="btn drive">Restore from Drive</div></div>
+              <div class="helper">Same as (b) — the accent border is the only visible delta on this particular card.</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="col-cap">Left accent border + brand-tinted "Active" pill on the expanded Drive row. Riskiest option for feeling busy.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Implementation note (not yet approved — mockup only):</b> a real <code>DriveLogo</code>/<code>AppleLogo</code>
+    component following <code>BankLogo.tsx</code>'s exact pattern (verified <code>viewBox</code> + <code>d</code> +
+    fixed brand hex, plugged into <code>IconBadge</code>'s existing <code>iconElement</code> prop — already built
+    for exactly this, see its doc comment) is the natural implementation path once a tier is picked. No new
+    component pattern needed.
+  </div>
+</section>
+
+<!-- ============================================================ SECTION 2 ============================================================ -->
+<section id="sec2">
+  <div class="section-label">Section 2</div>
+  <h2>IPO tab — GMP redesign with RAG coloring</h2>
+  <p class="desc">
+    Scope: <code>apps/mobile/src/features/portfolio/ipo/IpoTab.tsx</code>'s <code>renderIpoCard</code>. Today GMP
+    renders as plain inline text buried in the left column, colored only two ways (green if
+    <code>gmpValue &gt; 0</code>, red if <code>&lt; 0</code>, tertiary/dash otherwise). This moves GMP to a
+    distinct right-side element and applies real three-tier RAG coloring, shown across all 4 real card states
+    (<code>upcoming</code> / <code>open</code> / <code>closed</code> / <code>listed</code>) so no state is
+    silently dropped.
+  </p>
+
+  <div class="finding">
+    <span class="tag warn">revision, 2nd pass — added after real feedback on Options 1 &amp; 2</span>
+    You liked the corner-badge <i>direction</i> in principle, but flagged two real problems: <b>the cards got
+    taller</b> (Option 1's badge stacks label/value/% across up to 3 lines inside a brand-new header slot, on top
+    of a body that was otherwise unchanged) and <b>information got lost</b> — comparing against the real code
+    while building the "Current (today)" frame below caught that both Options 1 and 2's <code>listed</code>
+    example had actually dropped <code>listingGain</code> ("Listed +X%"), the real headline stat for a listed
+    IPO today, showing only the muted historical "GMP was" figure instead. <b>Fixed in place above</b> — both
+    options now show both figures, matching the real card, and are kept for comparison per your instruction.
+    <b>§2b below adds 6 new options</b> built around one constraint taken directly from this feedback: none of
+    them add a new line/row for a status that already has somewhere for GMP to live — each merges into or reuses
+    an existing line instead, which as a side effect makes several of them <i>shorter</i> than today's real card,
+    not just no taller.
+  </div>
+
+  <div class="finding">
+    <span class="tag warn">threshold is a proposal, not a fact — needs your sign-off</span>
+    There's no existing amber/neutral threshold anywhere in the codebase to inherit, so this is a genuinely new
+    call: <b>Red</b> = <code>gmpValue &lt; 0</code> (trading below issue price — expect a listing loss). <b>Amber</b>
+    = <code>0% ≤ gmpPercent &lt; 8%</code> (a modest/uncertain premium — grey-market quotes swing several % day to
+    day on low liquidity, so anything under ~8% isn't reliably distinguishable from noise). <b>Green</b> =
+    <code>gmpPercent ≥ 8%</code> (a premium large enough to read as a real bullish signal, not noise). <b>Unknown</b>
+    (<code>gmpValue === null</code>) stays a plain neutral dash, outside the RAG system entirely — same as today.
+    <b>8% is a starting proposal, not a researched cutoff</b> — happy to move it if you have a different number in
+    mind.
+  </div>
+
+  <div class="section-label">Current (today)</div>
+  <div class="row">
+    <div class="col">
+      <div class="col-cap">The real card right now, all 4 statuses, using the same 4 example IPOs reused across
+        every option below for direct comparison. GMP is plain inline text in the <b>left</b> column (two-way
+        color only) for upcoming/open/closed; for <code>listed</code>, <code>listingGain</code> is the bold
+        left-column headline and "GMP was" is a plain line in the right column — this is the baseline every
+        option below is measured against for height and information.</div>
+      <div class="phone"><div class="screen" data-theme="light">
+        <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+        <div class="body">
+          <div class="subtabs"><div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div></div>
+
+          <div class="ipocard">
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1; min-width:0;">
+                <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+                <div class="ipo-meta">₹1,150/sh · Lot 13 · ₹1,200 Cr</div>
+                <div class="ipo-sub">2.4x subscribed</div>
+                <div style="font-size:11px; margin-top:1px;"><span style="color:var(--text3)">GMP: </span><span style="color:var(--success); font-weight:600">₹212 (+18.4%)</span></div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                <div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ipocard">
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1; min-width:0;">
+                <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+                <div class="ipo-meta">₹250/sh · Lot 600</div>
+                <div style="font-size:11px; margin-top:1px;"><span style="color:var(--text3)">GMP: </span><span style="color:var(--success); font-weight:600">₹9 (+3.6%)</span><span style="color:var(--text3); font-size:10px;"> est.</span></div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                <div class="ipo-dates">Dates TBA</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ipocard">
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1; min-width:0;">
+                <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+                <div class="ipo-meta">₹295/sh · Lot 50</div>
+                <div class="ipo-sub">0.8x subscribed</div>
+                <div style="font-size:11px; margin-top:1px;"><span style="color:var(--text3)">GMP: </span><span style="color:var(--danger); font-weight:600">₹18 (-6.1%)</span></div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                <div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ipocard">
+            <div style="display:flex; gap:10px;">
+              <div style="flex:1; min-width:0;">
+                <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+                <div class="ipo-meta">₹410/sh · Lot 36</div>
+                <div class="ipo-sub" style="color:var(--success)">Listed +10.2%</div>
+              </div>
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                <div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452<br/>GMP was: ~+9.2%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="section-label">Options 1–2 (1st pass)</div>
+  <div class="opttoolbar">
+    <button id="opt2-1" class="active" onclick="showOpt(2,1)"><span class="star">★</span> Option 1 — corner badge</button>
+    <button id="opt2-2" onclick="showOpt(2,2)">Option 2 — top of date column</button>
+  </div>
+
+  <div class="opt-pane open" id="opt2-pane-1">
+    <p class="desc"><b>Option 1 — top-right corner badge.</b> The card's header
+      becomes a full-width row: name + category badge on the left, the new GMP badge pinned top-right — a
+      self-contained "headline metric" the way a price-change indicator anchors a stock-app row, not squeezed into
+      the existing date stack below. Matches "show what the user needs most, first" (§1 of the guidelines) — GMP
+      is the single most decision-relevant number on this card for most retail IPO watchers. <b>Real feedback on
+      this option:</b> the stacked label/value/% badge adds real height on top of an otherwise-unchanged body,
+      and comparing it against the real code while building the "Current (today)" frame below surfaced a dropped
+      field (<code>listingGain</code>, now fixed above). Kept here for comparison — see
+      <a href="#sec2b" style="color:#7dd3ac">§2b below</a> for 6 more options built specifically to stay compact
+      and lose nothing.</p>
+    <div class="row">
+      <div class="col">
+        <div class="phone"><div class="screen" data-theme="light">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+          <div class="body">
+            <div class="subtabs">
+              <div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div>
+            </div>
+
+            <!-- open: green (strong) -->
+            <div class="ipocard">
+              <div class="ipo-toprow">
+                <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+                <div class="gmpbadge green"><span class="lbl">GMP</span><span class="val">₹212</span><span class="pct">+18.4%</span></div>
+              </div>
+              <div class="ipo-meta">₹1,150/sh · Lot 13</div>
+              <div class="ipo-sub">2.4x subscribed</div>
+              <div class="ipo-bottomrow"><div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div></div>
+            </div>
+
+            <!-- upcoming: amber (weak) -->
+            <div class="ipocard">
+              <div class="ipo-toprow">
+                <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+                <div class="gmpbadge amber muted"><span class="lbl">GMP est.</span><span class="val">₹9</span><span class="pct">+3.6%</span></div>
+              </div>
+              <div class="ipo-meta">₹250/sh · Lot 600</div>
+              <div class="ipo-bottomrow"><div class="ipo-dates">Dates TBA</div></div>
+            </div>
+
+            <!-- closed: red -->
+            <div class="ipocard">
+              <div class="ipo-toprow">
+                <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+                <div class="gmpbadge red"><span class="lbl">GMP</span><span class="val">₹18</span><span class="pct">-6.1%</span></div>
+              </div>
+              <div class="ipo-meta">₹295/sh · Lot 50</div>
+              <div class="ipo-sub">0.8x subscribed</div>
+              <div class="ipo-bottomrow"><div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div></div>
+            </div>
+
+            <!-- listed: historical, muted green — fixed to also show listingGain (was missing here, the real
+                 headline stat for a listed card; caught while building the "Current (today)" frame below, from
+                 your "information is also lost" feedback) -->
+            <div class="ipocard">
+              <div class="ipo-toprow">
+                <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+                <div class="gmpbadge green muted"><span class="lbl">GMP was</span><span class="pct">+9.2%</span></div>
+              </div>
+              <div class="ipo-meta">₹410/sh · Lot 36</div>
+              <div class="ipo-sub" style="color:var(--success)">Listed +10.2%</div>
+              <div class="ipo-bottomrow"><div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452</div></div>
+            </div>
+          </div>
+        </div></div>
+        <div class="col-cap">All 4 statuses shown: <b>open</b> (green), <b>upcoming</b> (amber, "est." sub-label),
+          <b>closed</b> (red), <b>listed</b> (muted green "GMP was", no ₹ value — matches today's listed copy of
+          "% only, no absolute").<br/>Not pictured to save space: <code>gmpValue === null</code> renders a plain
+          neutral dash badge, identical between both options.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="opt-pane" id="opt2-pane-2">
+    <p class="desc"><b>Option 2 — top of the date column.</b> Lower-diff alternative: keep the card's existing
+      two-column skeleton exactly as it is today (left = name/price/subscription, right = dates); just delete the
+      old inline GMP text from the left column and insert the new RAG-colored chip as the <i>first</i> item at the
+      top of the existing right-hand column, above the dates — reusing the same "right column = at-a-glance
+      status" spot the green "2d left" chip already lives in today. Smaller structural change than Option 1, but
+      GMP now visually competes with the dates for the same column instead of getting its own dedicated space.</p>
+    <div class="row">
+      <div class="col">
+        <div class="phone"><div class="screen" data-theme="light">
+          <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+          <div class="body">
+            <div class="subtabs">
+              <div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div>
+            </div>
+
+            <div class="ipocard">
+              <div style="display:flex; gap:10px;">
+                <div style="flex:1; min-width:0;">
+                  <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+                  <div class="ipo-meta">₹1,150/sh · Lot 13</div>
+                  <div class="ipo-sub">2.4x subscribed</div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                  <span class="gmpchip-inline green">₹212 · +18.4%</span>
+                  <div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ipocard">
+              <div style="display:flex; gap:10px;">
+                <div style="flex:1; min-width:0;">
+                  <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+                  <div class="ipo-meta">₹250/sh · Lot 600</div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                  <span class="gmpchip-inline amber">est. +3.6%</span>
+                  <div class="ipo-dates">Dates TBA</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ipocard">
+              <div style="display:flex; gap:10px;">
+                <div style="flex:1; min-width:0;">
+                  <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+                  <div class="ipo-meta">₹295/sh · Lot 50</div>
+                  <div class="ipo-sub">0.8x subscribed</div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                  <span class="gmpchip-inline red">₹18 · -6.1%</span>
+                  <div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- fixed to also show listingGain — see the note above the "Current (today)" frame below -->
+            <div class="ipocard">
+              <div style="display:flex; gap:10px;">
+                <div style="flex:1; min-width:0;">
+                  <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+                  <div class="ipo-meta">₹410/sh · Lot 36</div>
+                  <div class="ipo-sub" style="color:var(--success)">Listed +10.2%</div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                  <span class="gmpchip-inline green">was +9.2%</span>
+                  <div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+        <div class="col-cap">Same 4 statuses, lower structural diff from today's card — GMP now shares the right
+          column with the dates instead of getting a dedicated header slot.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec2b" class="section-label" style="margin-top:44px;">Options 3–8 (2nd pass — compact, per your feedback)</div>
+  <p class="desc">
+    Six more genuinely different treatments — not placement variants of the corner badge. Same RAG threshold
+    carried through unchanged (Red &lt;0% · Amber 0–8% · Green ≥8%) unless a specific option's own note below
+    flags a reason to reconsider it. Same 4 example IPOs as above throughout, for direct comparison.
+  </p>
+
+  <div class="opttoolbar">
+    <button id="opt2b-3" class="active" onclick="showOpt2b(3)">3 — merge into price line</button>
+    <button id="opt2b-4" onclick="showOpt2b(4)">4 — traffic-light dot</button>
+    <button id="opt2b-5" onclick="showOpt2b(5)">5 — edge stripe (minimal)</button>
+    <button id="opt2b-6" onclick="showOpt2b(6)"><span class="star">★</span> 6 — paired chip</button>
+    <button id="opt2b-7" onclick="showOpt2b(7)">7 — merge into subscription</button>
+    <button id="opt2b-8" onclick="showOpt2b(8)">8 — arrow, no chip</button>
+  </div>
+
+  <!-- ---------- Option 3 ---------- -->
+  <div class="opt-pane open" id="opt2b-pane-3">
+    <p class="desc"><b>Option 3 — merge into the price/lot line.</b> GMP right-aligns onto the <i>same</i> line
+      that already shows price/lot(/issue size) via <code>justify-content: space-between</code> — no new line
+      anywhere. For <code>upcoming</code> this actually removes a line versus today (GMP no longer needs its own
+      row). <code>listingGain</code> keeps its existing bold line for <code>listed</code>; "GMP was" merges onto
+      the price/lot line instead of living in the right-hand date column.</p>
+    <div class="row"><div class="col">
+      <div class="phone"><div class="screen" data-theme="light">
+        <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+        <div class="body">
+          <div class="subtabs"><div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <span class="ipo-meta">₹1,150/sh · Lot 13</span><span class="gmpchip-inline green">₹212 · +18.4%</span>
+              </div>
+              <div class="ipo-sub">2.4x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <span class="ipo-meta">₹250/sh · Lot 600</span><span class="gmpchip-inline amber">est. +3.6%</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Dates TBA</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <span class="ipo-meta">₹295/sh · Lot 50</span><span class="gmpchip-inline red">₹18 · -6.1%</span>
+              </div>
+              <div class="ipo-sub">0.8x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <span class="ipo-meta">₹410/sh · Lot 36</span><span class="gmpchip-inline green muted">was +9.2%</span>
+              </div>
+              <div class="ipo-sub" style="color:var(--success)">Listed +10.2%</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452</div></div>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="col-cap">Left column: <b>3 lines</b> for open/closed (name / price+GMP merged / subscription)
+        — one fewer than today's 4. Nothing removed, just recombined onto an existing line.</div>
+    </div></div>
+  </div>
+
+  <!-- ---------- Option 4 ---------- -->
+  <div class="opt-pane" id="opt2b-pane-4">
+    <p class="desc"><b>Option 4 — traffic-light dot on the name row.</b> A small RAG-colored dot + the % sit
+      right-aligned on the name row itself (reusing the very first line, already always present); the absolute ₹
+      value folds into the price/lot line instead of getting its own row. Most "read nothing, just glance"
+      option — the dot signals the tier before you even parse the number. For <code>listed</code>, the dot+% on
+      the name row represents "GMP was" (historical, muted) and <code>listingGain</code> is promoted onto the
+      price line in bold, since it's the more decision-relevant figure once an IPO has actually listed.</p>
+    <div class="row"><div class="col">
+      <div class="phone"><div class="screen" data-theme="light">
+        <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+        <div class="body">
+          <div class="subtabs"><div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="dot green"></span><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+                <span class="arrowval green">+18.4%</span>
+              </div>
+              <div class="ipo-meta">₹1,150/sh · Lot 13 · <span style="color:var(--success); font-weight:600">GMP ₹212</span></div>
+              <div class="ipo-sub">2.4x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="dot amber"></span><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+                <span class="arrowval amber">+3.6%</span>
+              </div>
+              <div class="ipo-meta">₹250/sh · Lot 600 · <span style="color:var(--warning); font-weight:600">GMP ₹9 est.</span></div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Dates TBA</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="dot red"></span><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+                <span class="arrowval red">-6.1%</span>
+              </div>
+              <div class="ipo-meta">₹295/sh · Lot 50 · <span style="color:var(--danger); font-weight:600">GMP ₹18</span></div>
+              <div class="ipo-sub">0.8x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="dot green" style="opacity:.55"></span><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+                <span class="arrowval green" style="opacity:.7">~+9.2%</span>
+              </div>
+              <div class="ipo-meta">₹410/sh · Lot 36 · <span style="color:var(--success); font-weight:700">Listed +10.2%</span></div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452</div></div>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="col-cap">Zero new lines anywhere — dot+% reuses the name row, ₹ value reuses the price row. Right
+        column is freed of GMP entirely, back to just dates.</div>
+    </div></div>
+  </div>
+
+  <!-- ---------- Option 5 ---------- -->
+  <div class="opt-pane" id="opt2b-pane-5">
+    <p class="desc"><b>Option 5 — left-edge stripe, plain text, no chip at all.</b> The most conservative option
+      of the eight: GMP is still plain colored text (now 3-tier RAG instead of 2-way), moved to the right column
+      as its own line (satisfying "distinct right-side element" from the original ask) with <b>no background
+      box</b> — plus a thin colored left-edge stripe on the whole card for ambient, peripheral-vision RAG
+      scanning down a long list. Left column drops one line (GMP removed) for every non-listed status, which
+      offsets the one line gained on the right — net card height never grows past today's, and shrinks for
+      <code>upcoming</code> specifically.</p>
+    <div class="finding" style="max-width:800px;">
+      <span class="tag warn">separate open question — not the numeric threshold</span> Should a <code>listed</code>
+      card's stripe still be colored red/green/amber, or does a purely historical, non-actionable card read
+      better with a fixed neutral stripe regardless of how strong the old GMP was? Shown here as a muted green
+      stripe (tier preserved but faded) — flagging this as its own call, separate from the 8% cutoff itself.
+    </div>
+    <div class="row"><div class="col">
+      <div class="phone"><div class="screen" data-theme="light">
+        <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+        <div class="body">
+          <div class="subtabs"><div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div></div>
+
+          <div class="ipocard stripe-green"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹1,150/sh · Lot 13</div>
+              <div class="ipo-sub">2.4x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+              <div style="font-size:11px; font-weight:700; color:var(--success)">₹212 (+18.4%)</div>
+              <div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div>
+            </div>
+          </div></div>
+
+          <div class="ipocard stripe-amber"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+              <div class="ipo-meta">₹250/sh · Lot 600</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+              <div style="font-size:11px; font-weight:700; color:var(--warning)">₹9 (+3.6%) est.</div>
+              <div class="ipo-dates">Dates TBA</div>
+            </div>
+          </div></div>
+
+          <div class="ipocard stripe-red"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹295/sh · Lot 50</div>
+              <div class="ipo-sub">0.8x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+              <div style="font-size:11px; font-weight:700; color:var(--danger)">₹18 (-6.1%)</div>
+              <div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div>
+            </div>
+          </div></div>
+
+          <div class="ipocard stripe-green muted-stripe"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹410/sh · Lot 36</div>
+              <div class="ipo-sub" style="color:var(--success)">Listed +10.2%</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+              <div style="font-size:11px; font-weight:700; color:var(--success); opacity:.8;">GMP was ~+9.2%</div>
+              <div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452</div>
+            </div>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="col-cap">Smallest possible diff from today's real card. Never taller than today for any
+        status — the safest fallback if minimal risk matters more than a bolder visual.</div>
+    </div></div>
+  </div>
+
+  <!-- ---------- Option 6 ---------- -->
+  <div class="opt-pane" id="opt2b-pane-6">
+    <p class="desc"><b>Option 6 — paired chip in the right column. ★ recommended.</b> GMP becomes a small chip
+      that sits <i>beside</i> whatever status chip the right column already has for that status, instead of
+      stacking above/below it. For <code>open</code> (the most-viewed sub-tab), this reuses the exact row the
+      "2d left" chip already occupies — genuinely zero new lines. <code>upcoming</code>/<code>closed</code> have
+      no existing chip to pair with, so the GMP chip gets exactly one compact new line there (still a single
+      line, not a 3-line stacked badge like Option 1). <code>listed</code>'s "GMP was" simply becomes a chip on
+      its existing line — no growth, <code>listingGain</code> unchanged.</p>
+    <div class="row"><div class="col">
+      <div class="phone"><div class="screen" data-theme="light">
+        <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+        <div class="body">
+          <div class="subtabs"><div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹1,150/sh · Lot 13</div>
+              <div class="ipo-sub">2.4x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+              <div class="ipo-dates">12 Aug → 14 Aug</div>
+              <div style="display:flex; gap:5px;"><span class="gmpchip-inline green">+18.4%</span><span class="statchip green">2d left</span></div>
+            </div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+              <div class="ipo-meta">₹250/sh · Lot 600</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+              <span class="gmpchip-inline amber">est. +3.6%</span>
+              <div class="ipo-dates">Dates TBA</div>
+            </div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹295/sh · Lot 50</div>
+              <div class="ipo-sub">0.8x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+              <span class="gmpchip-inline red">-6.1%</span>
+              <div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div>
+            </div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹410/sh · Lot 36</div>
+              <div class="ipo-sub" style="color:var(--success)">Listed +10.2%</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+              <div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452</div>
+              <span class="gmpchip-inline green muted">was +9.2%</span>
+            </div>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="col-cap"><b>Recommended.</b> Stays chip-styled (a recognizable status affordance, not just
+        text) and genuinely right-side, per the original ask — while adding zero rows for the most-viewed
+        <code>open</code> status.</div>
+    </div></div>
+  </div>
+
+  <!-- ---------- Option 7 ---------- -->
+  <div class="opt-pane" id="opt2b-pane-7">
+    <p class="desc"><b>Option 7 — merge into the subscription line.</b> Pairs GMP with <i>demand</i> instead of
+      <i>price</i>: "2.4x subscribed · <span style="color:var(--success)">+18.4%</span>" on one line, for
+      <code>open</code>/<code>closed</code> (which always have a subscription figure). <code>upcoming</code> has
+      no subscription yet, so it falls back to the price-line merge (Option 3's mechanic) for that one status
+      only. <b>Known gap:</b> <code>listed</code> has no subscription line either and pairing GMP-was with
+      "demand" doesn't make semantic sense retroactively, so this option leaves <code>listed</code> exactly as
+      today (GMP-was in the right column, unchanged) — the one status this particular option doesn't improve on,
+      worth naming rather than glossing over.</p>
+    <div class="row"><div class="col">
+      <div class="phone"><div class="screen" data-theme="light">
+        <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+        <div class="body">
+          <div class="subtabs"><div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹1,150/sh · Lot 13</div>
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <span class="ipo-sub" style="margin:0">2.4x subscribed</span><span class="gmpchip-inline green">+18.4%</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <span class="ipo-meta">₹250/sh · Lot 600</span><span class="gmpchip-inline amber">est. +3.6%</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Dates TBA</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹295/sh · Lot 50</div>
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <span class="ipo-sub" style="margin:0">0.8x subscribed</span><span class="gmpchip-inline red">-6.1%</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+              <div class="ipo-meta">₹410/sh · Lot 36</div>
+              <div class="ipo-sub" style="color:var(--success)">Listed +10.2%</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452<br/>GMP was: ~+9.2%</div></div>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="col-cap">Same line-saving as Option 3 for open/closed, but pairs GMP with demand instead of
+        price — a genuinely different semantic grouping, with one named gap (listed, unchanged).</div>
+    </div></div>
+  </div>
+
+  <!-- ---------- Option 8 ---------- -->
+  <div class="opt-pane" id="opt2b-pane-8">
+    <p class="desc"><b>Option 8 — arrow + text, no background at all.</b> Lightest-weight rendering of all 8: a
+      small ▲/▼ glyph plus bold colored percentage, right-aligned on the name row — no chip, no dot, no
+      background fill anywhere, closest to how a stock-tracking app shows a price change. The absolute ₹ value
+      folds into the price line. For <code>listed</code>, <code>listingGain</code> — not "GMP was" — gets
+      promoted to this headline arrow slot (matching what today's real code already emphasizes most for a listed
+      card), and "GMP was" becomes the smaller, muted addition to the price line instead.</p>
+    <div class="row"><div class="col">
+      <div class="phone"><div class="screen" data-theme="light">
+        <div class="header-row"><div class="backchev">‹</div><div class="header-title">Portfolio</div><div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div></div>
+        <div class="body">
+          <div class="subtabs"><div class="subtab active">Open</div><div class="subtab">Upcoming</div><div class="subtab">Closed</div><div class="subtab">Listed</div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="ipo-name">Acme Industries Ltd</span><span class="catbadge main">Main</span></div>
+                <span class="arrowval green">▲ +18.4%</span>
+              </div>
+              <div class="ipo-meta">₹1,150/sh · Lot 13 · GMP ₹212</div>
+              <div class="ipo-sub">2.4x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">12 Aug → 14 Aug<br/><span class="strong">2d left</span></div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="ipo-name">Nimbus Textiles</span><span class="catbadge sme">SME</span></div>
+                <span class="arrowval amber">▲ +3.6%</span>
+              </div>
+              <div class="ipo-meta">₹250/sh · Lot 600 · GMP ₹9 est.</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Dates TBA</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="ipo-name">Vertex Logistics</span><span class="catbadge main">Main</span></div>
+                <span class="arrowval red">▼ -6.1%</span>
+              </div>
+              <div class="ipo-meta">₹295/sh · Lot 50 · GMP ₹18</div>
+              <div class="ipo-sub">0.8x subscribed</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">05 Aug → 07 Aug<br/>Allotment: 09 Aug<br/>Listing: 12 Aug</div></div>
+          </div></div>
+
+          <div class="ipocard"><div style="display:flex; gap:10px;">
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; gap:6px;">
+                <div class="ipo-namewrap"><span class="ipo-name">Bharat Renewables</span><span class="catbadge main">Main</span></div>
+                <span class="arrowval green">▲ +10.2%</span>
+              </div>
+              <div class="ipo-meta">₹410/sh · Lot 36 · <span style="opacity:.7">GMP was ~+9.2%</span></div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;"><div class="ipo-dates">Listed: 28 Jul<br/>At: ₹452</div></div>
+          </div></div>
+        </div>
+      </div></div>
+      <div class="col-cap">No background anywhere — the lightest visual footprint of all 8 options. Re-prioritizes
+        <code>listed</code> around <code>listingGain</code> rather than the historical GMP figure.</div>
+    </div></div>
+  </div>
+
+  <div class="rec" id="sec2-rec">
+    <div class="h">Recommendation (2nd pass)</div>
+    <b>Option 6</b> (GMP chip paired with the existing right-column status chip) is the strongest overall pick
+    across all 8: it keeps GMP genuinely on the right as originally asked, stays chip-styled (a recognizable
+    status affordance, consistent with how the days-left chip already works) rather than becoming plain text,
+    and for <code>open</code> — the sub-tab people actually live in most — it adds <i>zero</i> new lines by
+    reusing the existing chip's row. <b>Option 5</b> (edge stripe + plain text) is the safest fallback if you'd
+    rather ship the smallest possible diff from today's card. <b>Option 4</b> and <b>Option 8</b> are worth a
+    look if "glanceable without reading digits" matters more than exact precision while scrolling a long list —
+    a dot or arrow the eye parses instantly beats parsing a percentage sign for that use case. I'd steer away
+    from <b>Option 1</b> (already flagged above) and would only reach for <b>Option 7</b> if pairing GMP with
+    demand specifically matters more than its one named gap on <code>listed</code>.
+  </div>
+</section>
+
+<div class="checklist">
+  <div class="section-label">Review checklist (per <code>.claude/skills/ui-design-check/SKILL.md</code>)</div>
+  <ul>
+    <li class="pass"><b>Tokens:</b> every non-brand color above maps to an existing semantic token
+      (<code>theme.success</code>/<code>danger</code>/<code>warning</code>/<code>textTertiary</code>/<code>primary</code>).
+      Only the two documented brand exceptions (Drive blue, Apple black/white) are new fixed hex values — same
+      class of exception <code>BankLogo.tsx</code> and the design guidelines' §5 "domain/brand accent" carve-out
+      already allow.</li>
+    <li class="pass"><b>Modals:</b> n/a — neither change touches a modal.</li>
+    <li class="pass"><b>Back button:</b> unaffected — both screens keep the existing global header back-chevron.</li>
+    <li class="pass"><b>Z-index:</b> n/a — no new overlay/modal layer introduced.</li>
+    <li class="pass"><b>Privacy-mode reactivity:</b> n/a — none of these new colors are backgrounds/accents that
+      should tint with Safe/Open mode (backgrounds are theme-reactive only per the 2026-07-31 decision); brand
+      marks and RAG status colors are identity/status colors, not mode-reactive chrome.</li>
+    <li class="pass"><b>Consistency with itself:</b> the Drive/Apple marks would be the same
+      <code>DriveLogo</code>/<code>AppleLogo</code> component used at both call sites (row icon + Restore button),
+      so there's exactly one place to update if a mark ever changes — no duplicate copies to drift.</li>
+    <li class="pass"><b>Duplicated capability:</b> neither change adds a second control for something that already
+      exists elsewhere — this is a pure visual/weight change on controls that are already the sole owner of their
+      capability (Backup screen was already consolidated 2026-07-27; the IPO card's GMP display has only ever
+      lived in one place).</li>
+  </ul>
+</div>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+  function showOpt(section, key) {
+    const panes = section === 1 ? ['a','b','c'] : [1,2];
+    panes.forEach(k => {
+      document.getElementById('opt'+section+'-pane-'+k).classList.toggle('open', k === key);
+      document.getElementById('opt'+section+'-'+k).classList.toggle('active', k === key);
+    });
+  }
+  // §2b (2nd pass, options 3–8) — independent of showOpt above so section 1 / options 1–2 are untouched.
+  function showOpt2b(key) {
+    [3,4,5,6,7,8].forEach(k => {
+      document.getElementById('opt2b-pane-'+k).classList.toggle('open', k === key);
+      document.getElementById('opt2b-'+k).classList.toggle('active', k === key);
+    });
+  }
+</script>
+
+</body></html>

@@ -41,7 +41,7 @@ shared pure function — `useGoals.ts` (this module's own progress bars) and `~/
 `goalReservations`/`totalGoalReserved` turn a goal list + its `countsTowardSafeToSpend` flag into the
 total Safe-to-spend should subtract.
 
-Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.goals)` — Safe Mode hides goal amounts only if the "Goals" toggle in Settings → Safe Mode is switched off (visible by default); Privacy always masks; Open never does. A single module-wide toggle, not per-goal.
+Amounts respect `usePrivacy().shouldMask(!safeModeVisibility.goals)` — Safe Mode hides goal amounts only if the "Goals" toggle in Settings → Safe Mode is switched off (visible by default); Open never masks. A single module-wide toggle, not per-goal.
 
 The SIP calculator uses the standard future value of a series formula: it works backwards from the target corpus to calculate the required monthly investment given the expected return rate and time horizon. The calculation happens entirely on-device.
 
@@ -229,6 +229,26 @@ latest data), but is not recomputed again once the goal is actually added — fr
   was already correctly data-driven (`months × real avgMonthlyExpenses`, real `liquidAssets`, and
   already skips itself as an `'add-data'` action when there's no expense data) — audited as part of this
   work, no change needed there.
+
+**Sync/consistency fixes, 2026-08-26 (`apps/mobile` only) — found alongside the identical IOU-side
+bug, see `docs/features/iou.md`:**
+
+- **Origin no longer gates matching.** `reconcileGoalLink` had the same bug as IOU's
+  `reconcileExpenseLink`: it only matched an existing linked `GoalContribution` when `origin ===
+'expense'`, so a contribution created the other way (`useGoals.ts`'s manual contribution flow,
+  `origin: 'manual'`) was invisible to a later edit from the Transactions tab. Fixed identically —
+  matches on `linkedTxnId` alone, `origin` preserved rather than forced (`GoalDetailView.tsx`'s
+  `editable = c.origin === 'manual'` check still depends on it staying accurate).
+- **`useGoals.ts` bypassing its own repository wrappers.** `syncLinkedGoalTxn`, `saveGoalContributionTxn`,
+  and `removeContribution` all called `expensesRepo.put()`/`.delete()` directly instead of the hook's
+  own `save`/`remove` wrappers from `useRepository<Expense>` — same staleness risk as the IOU-side bug,
+  fixed the same way.
+- **`linkTransaction` ("Link existing transaction") had its own, independent bug.** It called
+  `goalContributionsRepo.put()`/`.delete()` directly — bypassing `useLoggedRepository`'s own
+  `save`/`remove` (so linking/unlinking a transaction to a goal never got an activity-log entry) — *and*
+  never called `notifyTxnChanged()` at all, so nothing else on screen learned a link had changed without
+  a manual pull-to-refresh. Both fixed: routes through the logged wrappers, and broadcasts on the shared
+  refresh bus when anything actually changed.
 
 ## Current limitations
 

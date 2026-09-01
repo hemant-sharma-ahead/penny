@@ -12,7 +12,8 @@ export function useLoans() {
   const {
     items: liabilities,
     save: saveLiability,
-    remove: deleteLiability
+    remove: deleteLiability,
+    reload
   } = useLoggedRepository(liabilitiesRepo, {
     entityType: 'liability',
     summarize: summarizeLiability,
@@ -21,5 +22,5 @@ export function useLoans() {
 
   const emiLoans = useMemo(() => liabilities.filter((l) => EMI_LOAN_TYPES.includes(l.type)), [liabilities]);
 
-  return { liabilities, saveLiability, deleteLiability, emiLoans };
+  return { liabilities, saveLiability, deleteLiability, emiLoans, reload };
 }

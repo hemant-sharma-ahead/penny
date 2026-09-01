@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   dedupKey,
+  dedupDayKey,
   buildPreviewRows,
   matchCategory,
   buildResolvedPreviewRows,
   buildResolvedPreviewRowsByIndex,
   toConfirmedCategoryMap,
   applyConfirmedTransferPairs,
+  releaseConfirmedPairsFromGroupSkip,
   type ConfirmedCategoryMap,
   type ResolvedPreviewRow,
   type RowOverride,
@@ -54,6 +56,31 @@ describe('dedupKey', () => {
     const c = dedupKey(1_700_000_000_000, 100, 'Tea');
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+  });
+});
+
+// Real reported bug (2026-08-31): importing a Cashew CSV where some rows had already been manually
+// added to Penny still imported all of them — none flagged as duplicates. Root cause: a manual entry's
+// date carries the real wall-clock time it was entered, while Cashew's export is always midnight-local
+// with no time-of-day at all — comparing full epoch-ms (`dedupKey`) never matched even though the day,
+// amount, and description all genuinely agreed.
+describe('dedupDayKey', () => {
+  it('matches two timestamps on the same local day regardless of time-of-day', () => {
+    const morning = new Date(2026, 3, 10, 9, 15).getTime(); // manually entered mid-morning
+    const midnight = new Date(2026, 3, 10, 0, 0).getTime(); // Cashew's export, always midnight-local
+    expect(dedupDayKey(morning, 250, 'Groceries')).toBe(dedupDayKey(midnight, 250, 'Groceries'));
+  });
+
+  it('still differs across two different calendar days', () => {
+    const day1 = new Date(2026, 3, 10, 9, 15).getTime();
+    const day2 = new Date(2026, 3, 11, 9, 15).getTime();
+    expect(dedupDayKey(day1, 250, 'Groceries')).not.toBe(dedupDayKey(day2, 250, 'Groceries'));
+  });
+
+  it('still differs on amount or description, same as dedupKey', () => {
+    const t = new Date(2026, 3, 10, 9, 15).getTime();
+    expect(dedupDayKey(t, 250, 'Groceries')).not.toBe(dedupDayKey(t, 300, 'Groceries'));
+    expect(dedupDayKey(t, 250, 'Groceries')).not.toBe(dedupDayKey(t, 250, 'Rent'));
   });
 });
 
@@ -194,26 +221,39 @@ describe('buildResolvedPreviewRows', () => {
       expect(preview[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining & Café' });
     });
   });
+
+  // 2026-08-23, real-device-testing-pass item 77 — a re-imported Penny CSV's "IOU Person" column
+  // survives this row transform as `iouPersonName`, for `useImport.ts`'s commit-time Person/LedgerEntry
+  // resolution to consume later.
+  it('carries ParsedRow.iouPerson through as iouPersonName', () => {
+    const preview = buildResolvedPreviewRows([row({ iouPerson: 'Rahul' })], categoryMap, resolveAccountId, new Set());
+    expect(preview[0]?.iouPersonName).toBe('Rahul');
+  });
+
+  it('omits iouPersonName entirely when the row has no IOU-person value', () => {
+    const preview = buildResolvedPreviewRows([row()], categoryMap, resolveAccountId, new Set());
+    expect(preview[0]).not.toHaveProperty('iouPersonName');
+  });
 });
 
-describe('applyConfirmedTransferPairs', () => {
-  function resolvedRow(overrides: Partial<ResolvedPreviewRow> = {}): ResolvedPreviewRow {
-    return {
-      date: 100,
-      amount: 5000,
-      description: 'Cash withdrawal',
-      type: 'expense',
-      hashtags: [],
-      categoryId: 'cat-tr-other',
-      categoryName: 'Other Transfer',
-      accountId: 'acc-hdfc',
-      skipped: false,
-      duplicate: false,
-      sourceRef: 'ref-1',
-      ...overrides
-    };
-  }
+function resolvedRow(overrides: Partial<ResolvedPreviewRow> = {}): ResolvedPreviewRow {
+  return {
+    date: 100,
+    amount: 5000,
+    description: 'Cash withdrawal',
+    type: 'expense',
+    hashtags: [],
+    categoryId: 'cat-tr-other',
+    categoryName: 'Other Transfer',
+    accountId: 'acc-hdfc',
+    skipped: false,
+    duplicate: false,
+    sourceRef: 'ref-1',
+    ...overrides
+  };
+}
 
+describe('applyConfirmedTransferPairs', () => {
   it('merges a confirmed pair into ONE row with type transfer, accountId, and toAccountId', () => {
     const rows: ResolvedPreviewRow[] = [
       resolvedRow({ accountId: 'acc-hdfc', type: 'expense', amount: 5000 }),
@@ -250,6 +290,242 @@ describe('applyConfirmedTransferPairs', () => {
     const rows: ResolvedPreviewRow[] = [resolvedRow(), resolvedRow({ sourceRef: 'ref-2' })];
     const result = applyConfirmedTransferPairs(rows, []);
     expect(result).toEqual(rows);
+  });
+});
+
+describe('releaseConfirmedPairsFromGroupSkip (2026-08-22 real-device regression)', () => {
+  const fallback = { id: 'cat-tr-other', name: 'Other Transfer' };
+
+  it('un-skips a paired row that was force-skipped by its GROUP-level readiness gate', () => {
+    const actions = new Map<number, RowAction>([
+      [0, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }],
+      [1, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }]
+    ]);
+    const pairs: TransferPair[] = [
+      { outgoingIndex: 0, incomingIndex: 1, fromAccount: 'HDFC1234', toAccount: 'Cash', amount: 5000, date: 100 }
+    ];
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+    expect(result.get(0)).toMatchObject({
+      type: 'transfer',
+      categoryId: 'cat-tr-other',
+      categoryName: 'Other Transfer'
+    });
+    expect(result.get(1)).toMatchObject({
+      type: 'transfer',
+      categoryId: 'cat-tr-other',
+      categoryName: 'Other Transfer'
+    });
+    expect(result.get(0)?.skip).toBeUndefined();
+  });
+
+  it('the real reported bug: 16 confirmed pairs sharing ONE category with a single unpaired straggler no longer all get force-skipped', () => {
+    // Mirrors the exact shape of `useImport.ts`'s `transactionsRowGroups` commit loop: one category
+    // group ("Cash Withdrawal::expense") owns 17 row indices — 16 that each pair with a reciprocal
+    // "Cash Withdrawal::income" row, plus ONE unpaired straggler (index 32) needing its own manual
+    // destination-account pick. Because the group has ANY undecided row, `g.transactionsReady` is false
+    // for the WHOLE group, so every one of its 17 rows starts out force-skipped by the group loop —
+    // exactly the real regression (16 correctly-detected, correctly-confirmed pairs writing zero rows).
+    const groupRowIndices = Array.from({ length: 17 }, (_, i) => i * 2); // 0,2,4,...,32 (17 expense legs)
+    const incomeRowIndices = Array.from({ length: 16 }, (_, i) => i * 2 + 1); // 1,3,...,31 (16 income legs)
+    const actions = new Map<number, RowAction>();
+    for (const i of [...groupRowIndices, ...incomeRowIndices]) {
+      actions.set(i, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true });
+    }
+    const pairs: TransferPair[] = Array.from({ length: 16 }, (_, i) => ({
+      outgoingIndex: i * 2,
+      incomingIndex: i * 2 + 1,
+      fromAccount: 'HDFC1234',
+      toAccount: 'Cash',
+      amount: 5000,
+      date: 100
+    }));
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+
+    // All 16 confirmed pairs (32 row indices) are released from the group-level skip.
+    for (const pair of pairs) {
+      expect(result.get(pair.outgoingIndex)).toMatchObject({ type: 'transfer' });
+      expect(result.get(pair.outgoingIndex)?.skip).toBeUndefined();
+      expect(result.get(pair.incomingIndex)).toMatchObject({ type: 'transfer' });
+      expect(result.get(pair.incomingIndex)?.skip).toBeUndefined();
+    }
+    // The unpaired straggler (index 32) correctly stays skipped — it was never confirmed, and this
+    // function must never widen its scope beyond rows that are ACTUALLY part of a confirmed pair.
+    expect(result.get(32)).toMatchObject({ skip: true, categoryName: 'Needs review — not yet resolved' });
+  });
+
+  it('leaves a normal, non-forced-skip action untouched even if the row happens to be paired', () => {
+    // A row whose group WAS ready (e.g. `kind: 'existing'`, already decided) must be passed through
+    // exactly as-is — `applyConfirmedTransferPairs` overrides `type`/`amount`/`toAccountId` anyway, so
+    // there is nothing for this function to "fix" here, and it must never invent work.
+    const readyAction: RowAction = { categoryId: 'cat-groceries', categoryName: 'Groceries' };
+    const actions = new Map<number, RowAction>([
+      [0, readyAction],
+      [1, readyAction]
+    ]);
+    const pairs: TransferPair[] = [
+      { outgoingIndex: 0, incomingIndex: 1, fromAccount: 'HDFC1234', toAccount: 'Cash', amount: 5000, date: 100 }
+    ];
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+    expect(result.get(0)).toBe(readyAction);
+    expect(result.get(1)).toBe(readyAction);
+  });
+
+  it('never touches a row that is not part of any confirmed pair', () => {
+    const actions = new Map<number, RowAction>([
+      [0, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }]
+    ]);
+    const result = releaseConfirmedPairsFromGroupSkip(actions, [], fallback);
+    expect(result.get(0)).toMatchObject({ skip: true });
+  });
+
+  it('the SECOND real reported bug: an explicit user "Skip" on the visible stragglers must not also skip the invisible paired rows sharing that group (2026-08-22 follow-up)', () => {
+    // This reproduces `useImport.ts`'s LIVE `rowActions` memo, not the commit-time `finalRowActions` —
+    // the actual reported regression this time. The "Balance Correction" tile only ever DISPLAYS its 7
+    // unpaired rows (both legs of every one of the 16 pairs are excluded from the tile by
+    // `groupRowsForTransactionsStage`) — so when the user explicitly taps "Skip" for what they see, that
+    // decision is recorded once at the GROUP's key and the per-group loop applies `{ skip: true }` to
+    // EVERY row index the group owns, uniformly — all 39, not just the 7 the user actually acted on.
+    // Simulates exactly that: one group's `RowAction` map, ALL 39 rows uniformly skipped by the user's
+    // own explicit tile-level decision (deliberately NOT the `!transactionsReady` reason — proving this
+    // function fixes a group-level skip regardless of WHY the group ended up skip).
+    const pairedIndices = Array.from({ length: 16 }, (_, i) => [i * 2, i * 2 + 1] as const);
+    const stragglerIndices = [32, 33, 34, 35, 36, 37, 38];
+    const actions = new Map<number, RowAction>();
+    for (const [out, inc] of pairedIndices) {
+      actions.set(out, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+      actions.set(inc, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    }
+    for (const i of stragglerIndices) {
+      actions.set(i, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    }
+    const pairs: TransferPair[] = pairedIndices.map(([outgoingIndex, incomingIndex]) => ({
+      outgoingIndex,
+      incomingIndex,
+      fromAccount: 'HDFC XX8112',
+      toAccount: 'Cash',
+      amount: 5000,
+      date: 100
+    }));
+
+    // This is the LIVE-layer release — called with every currently-still-paired `transferPairs` entry
+    // (not the narrower `confirmedTransferPairs`, which doesn't exist yet at this point in the real hook).
+    const result = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+
+    for (const [out, inc] of pairedIndices) {
+      expect(result.get(out)).toMatchObject({ type: 'transfer' });
+      expect(result.get(out)?.skip).toBeUndefined();
+      expect(result.get(inc)).toMatchObject({ type: 'transfer' });
+      expect(result.get(inc)?.skip).toBeUndefined();
+    }
+    // The 7 stragglers are exactly what the user actually chose to skip — must stay skipped.
+    for (const i of stragglerIndices) {
+      expect(result.get(i)).toMatchObject({ skip: true, categoryName: 'Balance Correction' });
+    }
+  });
+
+  it('full real-shape simulation: 999 other-category rows + 16 confirmed transfers + 7 user-skipped stragglers = 1015 written, 0 silently lost', () => {
+    // End-to-end proof against the exact real numbers reported: 1038 total rows, 39 "Balance
+    // Correction" (16 pairs + 7 stragglers the user explicitly skips), 999 everything else. Simulates
+    // both the LIVE release (fixing `confirmedTransferPairs`) and the COMMIT release (the first
+    // regression's fix), then the real merge + duplicate/skip filter a write loop applies.
+    const pairedIndices = Array.from({ length: 16 }, (_, i) => [i * 2, i * 2 + 1] as const);
+    const stragglerIndices = Array.from({ length: 7 }, (_, i) => 32 + i);
+    const otherIndices = Array.from({ length: 999 }, (_, i) => 39 + i);
+
+    const liveActions = new Map<number, RowAction>();
+    for (const [out, inc] of pairedIndices) {
+      liveActions.set(out, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+      liveActions.set(inc, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    }
+    for (const i of stragglerIndices)
+      liveActions.set(i, { categoryId: '', categoryName: 'Balance Correction', skip: true });
+    for (const i of otherIndices) liveActions.set(i, { categoryId: 'cat-other', categoryName: 'Other' });
+
+    const pairs: TransferPair[] = pairedIndices.map(([outgoingIndex, incomingIndex]) => ({
+      outgoingIndex,
+      incomingIndex,
+      fromAccount: 'HDFC XX8112',
+      toAccount: 'Cash',
+      amount: 5000,
+      date: 100
+    }));
+
+    // Step 1 (live layer fix): `confirmedTransferPairs`'s equivalent — a pair only counts as confirmed
+    // if BOTH legs are not skipped in the (now correctly released) live actions.
+    const releasedLive = releaseConfirmedPairsFromGroupSkip(liveActions, pairs, fallback);
+    const confirmedPairs = pairs.filter(
+      (p) => !releasedLive.get(p.outgoingIndex)?.skip && !releasedLive.get(p.incomingIndex)?.skip
+    );
+    expect(confirmedPairs).toHaveLength(16);
+
+    // Step 2 (commit layer): rebuild a fresh, commit-shaped action map from scratch (mirrors
+    // `finalRowActions` never reusing `rowActions`) and apply the SAME release using the now-correct
+    // `confirmedPairs`.
+    const commitActions = new Map<number, RowAction>(liveActions);
+    const releasedCommit = releaseConfirmedPairsFromGroupSkip(commitActions, confirmedPairs, fallback);
+
+    const allIndices = [...pairedIndices.flat(), ...stragglerIndices, ...otherIndices];
+    const totalRows = allIndices.length;
+    expect(totalRows).toBe(1038);
+
+    const previewRows: ResolvedPreviewRow[] = allIndices.map((i) => {
+      const action = releasedCommit.get(i);
+      return {
+        date: 100,
+        amount: 5000,
+        description: 'row',
+        type: action?.type ?? 'expense',
+        hashtags: [],
+        categoryId: action?.categoryId ?? 'cat-other',
+        categoryName: action?.categoryName ?? 'Other',
+        accountId: i % 2 === 0 ? 'acc-hdfc' : 'acc-cash',
+        skipped: !!action?.skip,
+        duplicate: false,
+        sourceRef: `ref-${i}`
+      };
+    });
+
+    const merged = applyConfirmedTransferPairs(previewRows, confirmedPairs);
+    const written = merged.filter((r) => !r.skipped && !r.duplicate);
+
+    // 999 other-category rows + 16 MERGED transfer rows = 1015 written. The 7 stragglers stay excluded
+    // (the user's own explicit choice — shown and actable-on, never silently imported either way).
+    expect(written).toHaveLength(1015);
+    expect(written.filter((r) => r.type === 'transfer')).toHaveLength(16);
+    expect(merged.filter((r) => r.skipped)).toHaveLength(7);
+  });
+
+  it('end to end: a released pair action survives into a real merged type-transfer row via applyConfirmedTransferPairs', () => {
+    // The full real chain this bug lived in: group loop force-skips → this function releases the
+    // confirmed pair → `buildResolvedPreviewRowsByIndex`-shaped preview rows are no longer `skipped` →
+    // `applyConfirmedTransferPairs` merges them into one real `type: 'transfer'` row that a write loop
+    // filtering on `!row.skipped` will actually persist.
+    const actions = new Map<number, RowAction>([
+      [0, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }],
+      [1, { categoryId: '', categoryName: 'Needs review — not yet resolved', skip: true }]
+    ]);
+    const pairs: TransferPair[] = [
+      { outgoingIndex: 0, incomingIndex: 1, fromAccount: 'HDFC1234', toAccount: 'Cash', amount: 5000, date: 100 }
+    ];
+    const released = releaseConfirmedPairsFromGroupSkip(actions, pairs, fallback);
+
+    // Simulate what `buildResolvedPreviewRowsByIndex` would now produce given the released actions —
+    // `skipped: !!resolved?.skip` is the exact expression that function uses.
+    const preview: ResolvedPreviewRow[] = [
+      resolvedRow({ accountId: 'acc-hdfc', type: 'expense', skipped: !!released.get(0)?.skip }),
+      resolvedRow({ accountId: 'acc-cash', type: 'income', sourceRef: 'ref-2', skipped: !!released.get(1)?.skip })
+    ];
+    expect(preview[0]?.skipped).toBe(false);
+    expect(preview[1]?.skipped).toBe(false);
+
+    const merged = applyConfirmedTransferPairs(preview, pairs);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      type: 'transfer',
+      accountId: 'acc-hdfc',
+      toAccountId: 'acc-cash',
+      skipped: false
+    });
   });
 });
 
@@ -310,7 +586,7 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
       [0, { categoryId: 'cat-tr-other', categoryName: 'Other Transfer', type: 'transfer', toAccountId: 'acc-cash' }],
       [1, { categoryId: 'cat-salary', categoryName: 'Salary' }]
     ]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
     expect(result[0]).toMatchObject({ type: 'transfer', categoryId: 'cat-tr-other', toAccountId: 'acc-cash' });
     expect(result[1]).toMatchObject({ type: 'income', categoryId: 'cat-salary' });
   });
@@ -319,7 +595,7 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
     const rows = [row()];
     const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-other', categoryName: 'Other' }]]);
     const rowOverrides = new Map<number, RowOverride>([[0, { categoryId: 'cat-food', categoryName: 'Dining' }]]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set(), rowOverrides);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map(), rowOverrides);
     expect(result[0]).toMatchObject({ categoryId: 'cat-food', categoryName: 'Dining' });
   });
 
@@ -329,21 +605,102 @@ describe('buildResolvedPreviewRowsByIndex (2026-08-14, CSV-import redesign Chunk
       [0, { categoryId: 'cat-food', categoryName: 'Food' }],
       [1, { categoryId: 'cat-food', categoryName: 'Food' }]
     ]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
     expect(result[0]?.duplicate).toBe(false);
     expect(result[1]?.duplicate).toBe(true); // duplicate of the first row within this same batch
+  });
+
+  it('2026-08-16 fix: caps DB-match consumption at the real existing count, not unlimited Set membership', () => {
+    // Two rows share a dedupKey, but differ in every OTHER field the same-batch check now looks at
+    // (different category/payment mode/notes) — so they must NOT suppress each other as a "same file,
+    // repeated line" (fix #2); only the DB's own real count (1 id) should explain either of them.
+    const rows = [
+      row({ description: 'Same', categoryName: 'Groceries', paymentMode: 'upi', notes: 'a' }),
+      row({ description: 'Same', categoryName: 'Rent', paymentMode: 'cash', notes: 'b' })
+    ];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-food', categoryName: 'Groceries' }],
+      [1, { categoryId: 'cat-rent', categoryName: 'Rent' }]
+    ]);
+    // Keyed by dedupDayKey — see that function's doc comment for why the DB-match side is day-truncated,
+    // unlike the same-batch check this test is really exercising.
+    const key = dedupDayKey(0, 100, 'same');
+    // Only ONE real existing expense id shares this key — a plain Set would have flagged BOTH rows
+    // (unconditional membership test); the id-list-based fix only lets one of them claim it.
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-1']]]));
+    const duplicateCount = result.filter((r) => r.duplicate).length;
+    expect(duplicateCount).toBe(1);
+  });
+
+  it('2026-08-16: the duplicate row carries the specific matched expense id, not just a boolean flag', () => {
+    const rows = [row({ description: 'Same' })];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-food', categoryName: 'Groceries' }]]);
+    const key = dedupDayKey(0, 100, 'same');
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-42']]]));
+    expect(result[0]).toMatchObject({ duplicate: true, matchedExpenseId: 'exp-42' });
+  });
+
+  it('2026-08-16: a same-batch-only duplicate (no real DB match) never gets a matchedExpenseId', () => {
+    // Two rows sharing the exact same signature in-file — a genuine "repeated line" duplicate, not a
+    // DB match — the second is flagged duplicate but has no specific existing expense to point at.
+    const rows = [row({ description: 'Same' }), row({ description: 'Same' })];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-food', categoryName: 'Food' }],
+      [1, { categoryId: 'cat-food', categoryName: 'Food' }]
+    ]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
+    expect(result[1]).toMatchObject({ duplicate: true });
+    expect(result[1]?.matchedExpenseId).toBeUndefined();
+  });
+
+  it('2026-08-16 fix: same-batch matching requires a fuller row signature, not just date/amount/description', () => {
+    // Two DIFFERENT real transactions coincidentally sharing date+amount+description (the day-precision-
+    // collision case dedupKey's own doc comment measured) but differing in category — must NOT suppress
+    // each other, since the bare 3-field key used to conflate them with a genuine same-file repeat.
+    const rows = [
+      row({ description: 'Same', categoryName: 'Groceries' }),
+      row({ description: 'Same', categoryName: 'Rent' })
+    ];
+    const rowActions = new Map<number, RowAction>([
+      [0, { categoryId: 'cat-food', categoryName: 'Groceries' }],
+      [1, { categoryId: 'cat-rent', categoryName: 'Rent' }]
+    ]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
+    expect(result[0]?.duplicate).toBe(false);
+    expect(result[1]?.duplicate).toBe(false); // no longer falsely flagged as a repeat of row 0
+  });
+
+  it('2026-08-31 fix: matches a DB expense against a CSV row on the same day despite differing time-of-day', () => {
+    // Exact reported scenario: a manually-entered expense (real wall-clock time) vs. a Cashew CSV row for
+    // the same day/amount/description (always midnight-local) — must now be recognized as a duplicate.
+    const midnight = new Date(2026, 3, 10, 0, 0).getTime();
+    const manualEntryTime = new Date(2026, 3, 10, 14, 32).getTime();
+    const rows = [row({ date: midnight, description: 'Groceries' })];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-food', categoryName: 'Groceries' }]]);
+    const key = dedupDayKey(manualEntryTime, 100, 'Groceries');
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map([[key, ['exp-1']]]));
+    expect(result[0]).toMatchObject({ duplicate: true, matchedExpenseId: 'exp-1' });
   });
 
   it('a "skip" action marks the row skipped with an empty categoryId, falling back to "Other"', () => {
     const rows = [row()];
     const rowActions = new Map<number, RowAction>([[0, { categoryId: '', categoryName: 'A/c to A/c', skip: true }]]);
-    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
     expect(result[0]).toMatchObject({ skipped: true, categoryName: 'A/c to A/c' });
   });
 
   it('falls back to cat-other/"Other" for a row with no action at all', () => {
     const rows = [row()];
-    const result = buildResolvedPreviewRowsByIndex(rows, new Map(), resolveAccountId, new Set());
+    const result = buildResolvedPreviewRowsByIndex(rows, new Map(), resolveAccountId, new Map());
     expect(result[0]).toMatchObject({ categoryId: 'cat-other', categoryName: 'Other' });
+  });
+
+  // 2026-08-23, real-device-testing-pass item 77 — same carry-through as the name-keyed
+  // buildResolvedPreviewRows sibling above, for apps/mobile's actual index-keyed write path.
+  it('carries ParsedRow.iouPerson through as iouPersonName', () => {
+    const rows = [row({ iouPerson: 'Priya' })];
+    const rowActions = new Map<number, RowAction>([[0, { categoryId: 'cat-food', categoryName: 'Food' }]]);
+    const result = buildResolvedPreviewRowsByIndex(rows, rowActions, resolveAccountId, new Map());
+    expect(result[0]?.iouPersonName).toBe('Priya');
   });
 });

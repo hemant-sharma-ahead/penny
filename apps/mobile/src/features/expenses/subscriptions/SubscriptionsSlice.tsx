@@ -1,14 +1,24 @@
-import { ScrollView } from 'react-native';
-import type { Expense } from '@/core/db/types';
+import type { Account, Expense, ExpenseCategory, Hashtag } from '@/core/db/types';
 import { useSubscriptions } from '~/features/subscriptions/useSubscriptions';
 import { SubscriptionsView } from '~/features/subscriptions/SubscriptionsView';
 
 interface SubscriptionsSliceProps {
   expenses: Expense[];
+  categoryMap: Map<string, ExpenseCategory>;
+  accountMap: Map<string, Account>;
+  hashtags: Hashtag[];
+  shouldMask: (sensitive: boolean | undefined) => boolean;
   masked: boolean;
 }
 
-export function SubscriptionsSlice({ expenses, masked }: SubscriptionsSliceProps) {
+export function SubscriptionsSlice({
+  expenses,
+  categoryMap,
+  accountMap,
+  hashtags,
+  shouldMask,
+  masked
+}: SubscriptionsSliceProps) {
   const {
     detectedSubs,
     activeSubs,
@@ -17,23 +27,32 @@ export function SubscriptionsSlice({ expenses, masked }: SubscriptionsSliceProps
     confirmSubscription,
     dismissSubscription,
     cancelSubscription,
-    addSubscription
+    addSubscription,
+    reload
   } = useSubscriptions(expenses);
 
+  // SubscriptionsView owns its own scrollable container (incl. pull-to-refresh) — no ScrollView
+  // wrapper here, to avoid nesting scroll containers. This slice sits above the Expenses tab bar/FAB
+  // chrome, hence the taller bottom padding vs. the standalone SubscriptionsPage.
   return (
-    <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 96 }}>
-      <SubscriptionsView
-        detected={detectedSubs}
-        active={activeSubs}
-        monthlyTotal={subsMonthlyTotal}
-        annualTotal={subsAnnualTotal}
-        hasExpenses={expenses.length > 0}
-        masked={masked}
-        onConfirm={confirmSubscription}
-        onDismiss={dismissSubscription}
-        onCancel={cancelSubscription}
-        onAdd={addSubscription}
-      />
-    </ScrollView>
+    <SubscriptionsView
+      detected={detectedSubs}
+      active={activeSubs}
+      monthlyTotal={subsMonthlyTotal}
+      annualTotal={subsAnnualTotal}
+      hasExpenses={expenses.length > 0}
+      masked={masked}
+      onConfirm={confirmSubscription}
+      onDismiss={dismissSubscription}
+      onCancel={cancelSubscription}
+      onAdd={addSubscription}
+      reload={reload}
+      contentBottomPadding={96}
+      expenses={expenses}
+      categoryMap={categoryMap}
+      accountMap={accountMap}
+      hashtags={hashtags}
+      shouldMask={shouldMask}
+    />
   );
 }

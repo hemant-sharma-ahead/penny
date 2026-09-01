@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,8 +7,9 @@ import type { Account, Expense, ImportBatchSummary } from '@/core/db/types';
 import { accountsRepo, bankStatementImportsRepo, expensesRepo } from '@/core/db/repositories';
 import { findStandingCoverageGaps } from '@/core/bank-import/coverage';
 import { useRepository } from '@/hooks/useRepository';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
-import { formatDate, formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useRegisterHeaderScreen } from '~/navigation/HeaderBackContext';
 import { useThemeColors } from '~/theme/useThemeColors';
@@ -45,7 +46,7 @@ export function BankImportHistoryPage() {
   const route = useRoute<RouteProp<HomeStackParamList, 'BankImportHistory'>>();
   const { items: accounts } = useRepository(accountsRepo);
   const { items: allExpenses } = useRepository(expensesRepo);
-  const { items: allImportRecords } = useRepository(bankStatementImportsRepo);
+  const { items: allImportRecords, reload: reloadImportRecords } = useRepository(bankStatementImportsRepo);
 
   const [accountId, setAccountId] = useState<string | null>(route.params?.accountId ?? null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
@@ -106,6 +107,7 @@ export function BankImportHistoryPage() {
       batches={batches}
       standingGaps={standingGaps}
       onSelectBatch={setSelectedBatchId}
+      reload={reloadImportRecords}
     />
   );
 }
@@ -171,22 +173,28 @@ function BatchListView({
   account,
   batches,
   standingGaps,
-  onSelectBatch
+  onSelectBatch,
+  reload
 }: {
   modeBg: string;
   account: Account;
   batches: ImportBatchSummary[];
   standingGaps: Expense[];
   onSelectBatch: (batchId: string) => void;
+  reload: () => unknown;
 }) {
   const theme = useThemeColors();
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
       <View className="px-4 pt-3 pb-2 border-b border-theme">
         <Text className="text-sm font-semibold text-primary">Import history</Text>
         <Text className="text-xs text-tertiary mt-0.5">{account.name}</Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           {standingGaps.length > 0 && (
             // Placeholder surface for the closed-loop sweep (docs/plans/bank-balance-sync.md §3
@@ -229,7 +237,7 @@ function BatchListView({
                       {b.fileName}
                     </Text>
                     <Text className="text-[11px] text-tertiary mt-0.5" numberOfLines={1}>
-                      {formatDateShort(b.start)}–{formatDateShort(b.end)} · imported {formatDate(b.importedAt)}
+                      {formatDate(b.start)}–{formatDate(b.end)} · imported {formatDate(b.importedAt)}
                     </Text>
                   </View>
                   <View className="items-end shrink-0">
@@ -267,7 +275,7 @@ function BatchDetailView({ modeBg, account, batch }: { modeBg: string; account: 
             <View className="flex-row items-center justify-between">
               <Text className="text-xs text-secondary">Covered range</Text>
               <Text className="text-xs font-semibold text-primary">
-                {formatDateShort(batch.start)}–{formatDateShort(batch.end)}
+                {formatDate(batch.start)}–{formatDate(batch.end)}
               </Text>
             </View>
             <View className="flex-row items-center justify-between">
@@ -310,7 +318,7 @@ function BatchDetailView({ modeBg, account, batch }: { modeBg: string; account: 
                         {r.rawNarration}
                       </Text>
                       <Text className="text-[11px] text-tertiary mt-0.5">
-                        {formatDateShort(r.date)} · you chose not to add
+                        {formatDate(r.date)} · you chose not to add
                       </Text>
                     </View>
                     <Text className="text-xs font-semibold text-primary">{formatCurrency(r.amount)}</Text>

@@ -1,6 +1,9 @@
-// Generic CSV column-mapping engine shared by every import format. Penny/YNAB/Cashew/MoneyView/Custom
-// are each just a *preset* — a priority-ordered synonym list per Penny field — over this one matcher,
+// Generic CSV column-mapping engine shared by every import format. Penny/Cashew/MoneyView/Custom are
+// each just a *preset* — a priority-ordered synonym list per Penny field — over this one matcher,
 // rather than bespoke per-format parsing code (that's what this file replaces; see importParsers.ts).
+// (YNAB was a 5th preset here until 2026-08-23, real-device-testing-pass item 78 — removed entirely,
+// including its own outflow/inflow synonym set below; MoneyView still uses the same split-amount
+// mechanism for its own Debit/Credit columns.)
 //
 // Column resolution is two-pass per field: try every synonym for an EXACT header match first, and only
 // if none match at all, fall back to substring matches. This matters for real files with two
@@ -20,9 +23,9 @@ export interface ColumnSynonyms {
   typeText: string[];
   /** Single signed/unsigned amount column. */
   amount: string[];
-  /** Debit/outflow column, for the split-amount pattern (YNAB Outflow, MoneyView Debit). */
+  /** Debit/outflow column, for the split-amount pattern (MoneyView's own Debit column). */
   outflow: string[];
-  /** Credit/inflow column, for the split-amount pattern (YNAB Inflow, MoneyView Credit). */
+  /** Credit/inflow column, for the split-amount pattern (MoneyView's own Credit column). */
   inflow: string[];
   /** Explicit income boolean/flag column (Cashew's `income` TRUE/FALSE). */
   incomeFlag: string[];
@@ -37,6 +40,19 @@ export interface ColumnSynonyms {
   /** Raw account-type text column (e.g. MoneyView's "Account Type": `bank`/`cash`/`debit-card`/
    *  `credit-card`) — same 2026-08-14 addition, same "not in PENNY_FIELDS" reasoning as `bankName` above. */
   accountType: string[];
+  /** Penny's own "IOU Person" export column (2026-08-23, real-device-testing-pass item 76/77) — the
+   *  person a row is linked to via `LedgerEntry.linkedTxnId`/`personId`, round-tripped through a plain
+   *  text column since `Expense` itself has no direct person field. Only the `penny` preset maps this.
+   *  Deliberately NOT surfaced in `MapColumnsStep.tsx`'s Custom-format UI (item 79's mockup — confirmed
+   *  final — lists exactly Tags/Type/Bank name/Account type in its "More fields" disclosure, not this) —
+   *  Custom format has no manual picker for it; only auto-recognised for a `penny`-format file re-import. */
+  iouPerson: string[];
+  /** Penny's own "Shared To Group" export column — a purely INFORMATIONAL note (e.g. "Shared to: Trip to
+   *  Goa"), never treated as an actionable group link on import; `importParsers.ts`'s `parseWithMapping`
+   *  folds its raw text straight into the row's `notes` (appended, not overwriting) rather than exposing
+   *  a separate field on `ParsedRow`. Same "not surfaced in MapColumnsStep.tsx" reasoning as `iouPerson`
+   *  above — Custom format has no manual picker for it either. */
+  sharedToGroupNote: string[];
 }
 
 export interface ColumnMapping {
@@ -54,6 +70,8 @@ export interface ColumnMapping {
   incomeFlag: number;
   bankName: number;
   accountType: number;
+  iouPerson: number;
+  sharedToGroupNote: number;
 }
 
 export const PENNY_FIELDS: (keyof ColumnMapping)[] = [
@@ -85,7 +103,9 @@ const EMPTY_SYNONYMS: ColumnSynonyms = {
   inflow: [],
   incomeFlag: [],
   bankName: [],
-  accountType: []
+  accountType: [],
+  iouPerson: [],
+  sharedToGroupNote: []
 };
 
 function findColumn(header: string[], synonyms: string[]): number {
@@ -118,7 +138,9 @@ export function guessColumnMapping(header: string[], synonyms: Partial<ColumnSyn
     inflow: findColumn(h, s.inflow),
     incomeFlag: findColumn(h, s.incomeFlag),
     bankName: findColumn(h, s.bankName),
-    accountType: findColumn(h, s.accountType)
+    accountType: findColumn(h, s.accountType),
+    iouPerson: findColumn(h, s.iouPerson),
+    sharedToGroupNote: findColumn(h, s.sharedToGroupNote)
   };
 }
 

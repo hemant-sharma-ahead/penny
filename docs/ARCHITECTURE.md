@@ -1621,12 +1621,12 @@ group UX (create/invite/join/split/settle) lands in E2–E5. See
 
 ## Context providers
 
-| Context                  | Stored in                    | Key values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PrivacyContext`         | React state + localStorage   | `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding |
-| `SettingsContext`        | localStorage                 | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()`                                                                                                                                  |
-| `EventModeContext`       | Dexie (`hashtags` store)     | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it.                                                                                                                            |
+| Context                  | Stored in                    | Key values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PrivacyContext`         | React state + localStorage   | **`apps/web-react` (frozen) — unchanged:** `mode: PrivacyMode`, `setMode()`, `maskValue()`, `shouldMask(sensitive)`, `canUseAI()`, `openModeExpiresAt: number \| null` — `shouldMask` is the single source of truth for amount masking: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Open is never a persistent state — `mode` always starts at `defaultPrivacyMode` (Safe or Privacy) on launch, and `setMode('open')` arms an auto-revert `setTimeout` (duration from `openModeDurationMinutes`) plus an immediate revert on `visibilitychange`/backgrounding. **`apps/mobile` diverged 2026-08-18** — `PrivacyMode` is `'safe' \| 'open'` only (no `'privacy'`, no `openModeExpiresAt`/timer); `shouldMask` behavior for Safe/Open is unchanged; `mode` always starts at `'safe'`; Open auto-reverts to Safe on `AppState` backgrounding instead of `visibilitychange`. See `docs/PRIVACY.md`. |
+| `SettingsContext`        | localStorage                 | `moduleVisibility`, `safeModeVisibility` (`loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`, all default visible), `fontScale`, `theme`, `defaultPrivacyMode: PersistedPrivacyMode` (Safe/Privacy only — Open excluded from the type, legacy `'open'` values coerce to Safe), `openModeDurationMinutes` (1/5/10/15/30, default 1) + `setOpenModeDurationMinutes()`, `setModule()`, `setSafeModeVisibility()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `EventModeContext`       | Dexie (`hashtags` store)     | `activeEvent`, `addEvent()`, `stopEvent()`, `promoteHashtagToEvent()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `OnboardingDraftContext` | React state (in-memory only) | `fullName`/`username`/`dob`/`employmentType`, Life & household fields (`maritalStatus`/`children`/`homeOwner`/`riskAppetite`), `accountsToCreate: DraftAccount[]`, `backupChoice`, `fromDemoMode` (set from router location state when reached via Exit Demo Mode) + `setDraft(patch)`. Scoped to the `/onboarding/*` route tree (mounted by `OnboardingLayout`) — nothing here persists until the final vault step writes it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ---
 
@@ -2046,6 +2046,8 @@ potential.
 
 **Rationale:** Keeps each feature independently testable and understandable. Prevents the "everything imports everything" antipattern. Also necessary for React Native migration — each feature can be ported independently since it only depends on `core/`.
 
+**Reinforced 2026-08-18:** the same rule tripped 3 separate times in one pass (`PersonTypeahead.tsx`, `WizardProgress.tsx`, `useServerActionError.ts` — see the real-device-testing-pass decision entry below) when a second feature needed a component/hook that had only ever lived inside another feature's own folder. The fix was identical each time: promote the file out into `components/shared/` or `hooks/`, never let one feature import from another's folder. If two features need the same component, it belongs in `components/shared`/`hooks/` from the start — not a special case, the expected outcome of this rule.
+
 ### Decision: buildUserContext() as the only Anthropic path
 
 **Rationale:** The PII pipeline cannot be bypassed by accident. Any developer who wants to call the Anthropic API must go through `buildUserContext()`, which enforces all PII stripping rules. The `@anthropic-ai/sdk` import restriction in ESLint makes it impossible to call the SDK from anywhere else.
@@ -2128,23 +2130,1493 @@ long-term react-native-web vision, which this same principle also feeds.
 
 ---
 
+### Decision: SMS-Based Transaction Tracking (Android only) — a third recording method, own native module (2026-08-15)
+
+**Rationale:** full design in [`docs/plans/sms-transaction-tracking.md`](plans/sms-transaction-tracking.md).
+A few structural choices worth recording here specifically:
+
+- **`core/sms-import/` is a deliberately separate module** from both `core/bank-import/` and
+  `core/import/` — SMS Tracking is a third, independent way to _record_ a transaction (alongside
+  manual entry and CSV import), not a replacement for or variant of Bank Statement Import, which
+  stays the separate reconciliation feature. It reuses only the matching _algorithm_ shape from
+  `core/bank-import/matcher.ts` (`matchesDirection` was exported and generalized to a minimal
+  `{ direction }` structural type specifically so `core/sms-import/smsTransactionMatch.ts` could
+  reuse it instead of duplicating it), never Bank Statement Import's own types or role.
+- **`BankPresetId` and `paymentModeInference.ts` were promoted out of `core/bank-import/`** into
+  `core/db/types/index.ts` (next to `AccountType`, since that file is deliberately self-contained
+  with zero imports of its own) and `core/expenses/`, respectively, once SMS Tracking needed the
+  same identifier set and rail-keyword vocabulary as Bank Statement Import. `bank-import/types.ts`
+  re-exports `BankPresetId` so its own ~16 internal `from './types'` imports kept resolving it
+  unchanged; `paymentModeInference.ts`'s 6 real consumers were repointed directly (small enough
+  list that a compatibility re-export shim wasn't worth it).
+- **`BucketCard.tsx`/`useBucketExpansion.ts` were promoted out of `features/import/review/`** into
+  `components/shared/`/`hooks/` respectively, once `features/sms-tracking/` needed the same
+  bucket-shell UI — a feature module importing directly from another feature module's internals is
+  an ESLint violation (feature modules may only import from `core/`, `components/`, `context/`,
+  `hooks/`, `lib/`), so this is a straight move, not a fork; the 3 pre-existing CSV-import
+  consumers were repointed to the new shared path with zero behavior change.
+- **`processRawSmsCore()`/`deriveStatusForAccount()` live in `packages/core`, not only inside the
+  `useSmsTracking` React hook** — a Headless JS task (the native live-capture path's background
+  processing step) has no React tree to call a hook from, so the "what happens when one raw SMS
+  needs to become a `SmsTransactionRecord`" logic had to be reachable from a plain async function.
+  The hook wraps these core functions rather than reimplementing them — exactly one place this
+  logic lives, consumed identically by the foreground manual-scan path and the headless task.
+- **`apps/mobile/modules/expo-sms-capture/` is Penny's first bespoke local Expo Module** (Kotlin,
+  Expo Modules API) — not a third-party npm package. Chosen deliberately: off-the-shelf SMS-reading
+  libraries mostly stop at "hand you the SMS text on a broadcast," and the durable
+  `BroadcastReceiver` → `WorkManager` → Headless JS plumbing this feature actually needs is custom
+  work regardless of the base library; writing it as an owned local module avoids depending on an
+  unaudited third-party package touching sensitive SMS content, consistent with this app's
+  privacy-first ethos. Scaffolded via the real `create-expo-module@latest --local` CLI. A
+  `BroadcastReceiver` (`SmsReceiver.kt`) does the absolute minimum allowed by Android's ~10s
+  execution budget (persist to a small SharedPreferences-backed queue, `SmsQueueStore.kt`, then
+  enqueue one `WorkManager` job) rather than any real parsing/matching/DB work inline.
+  `SmsProcessingWorker.kt` starts `SmsHeadlessTaskService.kt` (RN's real `HeadlessJsTaskService`),
+  which drains that queue through the exact same `processRawSmsCore` pipeline the manual scan uses.
+  `startService()` is wrapped in try/catch since Android 8+'s background-service-start
+  restrictions can legitimately reject it when the app process is fully backgrounded — this is the
+  plan's own documented, accepted fallback (messages stay durably queued natively until the app's
+  own next-foreground drain picks them up), not a bug.
+- **The Headless JS task checks `keystore.isUnlocked()` before touching anything** — a headless
+  context spun up because the app process was fully killed has no Data Master Key available to
+  decrypt an `EncryptedRepository` read/write, and there's no way to prompt for a passphrase from a
+  headless context. In that case it's a no-op and the native queue stays intact for the next
+  foreground drain; never a silent data-loss path.
+- **`apps/mobile/src/lib/smsCapture.ts` (a single unsuffixed stub) became a real
+  `.native.ts`/`.web.ts` pair** once Android gained a real implementation (iOS/RN-Web still have
+  none — no SMS API exists on either). The native module itself is loaded via a lazy dynamic
+  `import()`, not a top-level import, specifically so the file loading on iOS (which Metro's
+  `.native.ts` resolution covers too) never crashes at import time, since
+  `expo-sms-capture`'s `expo-module.config.json` declares `platforms: ["android"]` only.
+
+### Decision: "Did You Know" tips — three delivery tiers, one shared content library (2026-08-16)
+
+**Rationale:** full design in [`docs/features/did-you-know-tips.md`](features/did-you-know-tips.md).
+A whole-app sweep found a large amount of genuinely useful, non-obvious capability with nowhere
+surfacing it — the design question was how to tell users without cluttering the UI or nagging them.
+Settled on three tiers rather than one: **contextual nudges** (earned by real behavior, fire once
+ever), a **rotating/daily card** (ambient, low-stakes), and a **"Discover Penny" hub** (on-demand, the
+full catalogue). A few structural choices worth recording:
+
+- **One content library (`packages/core/src/core/tips/didYouKnowFacts.ts`), tagged `curated: boolean`
+  per fact** — rather than maintaining separate lists per tier. Only `curated: true` facts (~39,
+  hand-picked for genuine surprise/value) ever feed contextual nudges or the rotating cards; "Discover
+  Penny" shows the full library regardless of the flag. This is also why the flag lives on the fact
+  itself, not on the tier — the same fact can be curated-and-ambient AND full-catalogue-browsable at
+  once, with zero duplication.
+- **`features/tax/DidYouKnow.tsx` (the one pre-existing precedent — a Tax-only, non-persisted
+  fact-cycling card) was generalized into a shared `DidYouKnowCard`, not left as a special case.**
+  `taxFacts.ts` stays the single source of truth for those specific facts, folded into the shared
+  library as `module: 'tax'` entries; Tax's own screen becomes a thin wrapper passing `module="tax"`,
+  with no behavior change for that screen.
+- **Home's daily card (`DailyTipCard.tsx`) is a genuinely separate component from the ambient
+  `DidYouKnowCard`**, not a variant/prop of it — its sequential "reveal one new curated tip per
+  calendar day, stop once all have been shown" state machine is meaningfully different from
+  `DidYouKnowCard`'s simpler "always show something, tap cycles freely" ambient behavior (used by
+  Analytics and Tax). Keeping them separate avoided forcing one component to carry two different
+  state models behind a mode flag.
+  - Its placement (the very top of Home, above the at-a-glance summary) was a real back-and-forth —
+    an initial mockup placed it lower (below the Financial Health Card) specifically to avoid
+    displacing the numbers users open the app to check; the user reconsidered and asked for the very
+    top instead, reasoning Home is the most-visited screen and deserves the highest-visibility spot.
+    Deferred to that explicit call after voicing the tradeoff once.
+- **Dismiss/seen persistence follows the exact existing `Set<string>`-JSON-in-AsyncStorage convention**
+  already used by `penny_vacation_note_dismissed`/`penny_recurring_due_dismissed`/
+  `penny_milestone_seen` (`apps/mobile/src/lib/tipsStorage.ts`) — no new persistence pattern introduced.
+- **Trigger conditions (`core/tips/tipTriggers.ts`) are plain, unit-tested pure functions taking
+  primitives** (a count, a boolean, a computed "months tracked" number) — never coupled to a specific
+  screen's hook shape, so each screen computes its own already-available state and just calls the
+  matching trigger function, keeping the core logic screen-agnostic and cheaply testable.
+- **Deliberately no cross-surface "only one new fact app-wide per day" coordination** between Home's
+  daily card and the ambient cards (Analytics/Tax) — considered and simplified away: Home's card alone
+  carries the "special, once-a-day" framing; the ambient cards staying simple, always-on tap-cycle
+  surfaces (matching the original Tax precedent's own simplicity) was judged not worth the added
+  cross-component state-coordination complexity for the marginal anti-repetition benefit.
+
+### Decision: `tools/` — a new top-level home for dev tooling, outside the pnpm workspace (2026-08-16)
+
+**Rationale:** the SMS parser needed a way for non-developer testers (people with years of real bank SMS
+history, not codebases) to test the real parsing logic without needing the app, a device, or Node/pnpm
+installed. `tools/sms-parser-verifier/` is the first thing here — a standalone, offline HTML page (see
+`docs/features/sms-tracking.md`'s own section and the tool's own README) bundling the **real**
+`packages/core/src/core/sms-import/{smsParser,smsPatterns}.ts` (via `esbuild`, `scripts/build-sms-verifier.mjs`,
+`pnpm build:sms-verifier`) into one dependency-free file, rather than hand-duplicating the matching logic
+into a second copy anywhere. A few choices worth recording:
+
+- **`tools/` is deliberately NOT added to `pnpm-workspace.yaml`'s `packages` list** — nothing inside it
+  needs its own `package.json`/dependencies or participates in the monorepo's `tsc -b` project-reference
+  graph; it's built by a root-level script using a root-level `esbuild` devDependency, mirroring how
+  `apps/mobile/builds/`'s committed APKs are generated artifacts living outside any package boundary. A
+  small standalone `tools/sms-parser-verifier/tsconfig.json` exists purely so a developer can manually
+  `tsc --noEmit` the tool's own glue code after an edit — esbuild itself only transpiles, never type-checks.
+- **The generated HTML is committed, not gitignored** — same precedent as the mobile APKs: the intended
+  audience (real-world testers) needs to be able to grab and open a single file with no build step of
+  their own, not run `pnpm install`.
+- **`import.meta.env` (Vite-only, used transitively by `core/net/apiBase.ts`) is statically replaced with
+  `{}` at build time** (esbuild's `define` option) rather than avoided by not importing the real
+  `smsPatterns.ts` module — this tool only ever calls `parseSms()` directly against the bundled
+  `SMS_PATTERNS_FALLBACK`, never `getSmsPatternBundle()`'s live-fetch path by default, so the resulting
+  `undefined` env values are harmless; importing the unmodified production file (rather than a trimmed
+  copy) is what keeps this a single source of truth.
+- **A real bug caught before shipping:** the build script's first version used
+  `template.replace('/*__SCRIPT__*/', script)` (a string replacer) to inline the bundled JS into the HTML
+  shell — `String.replace` interprets `$`-patterns (`$&`, `$1`, etc.) in a _string_ replacement argument
+  even when the search value is a plain string, and the bundled JS legitimately contains a literal `$&`
+  (from a regex-escaping helper elsewhere in `packages/core`), corrupting the output. Fixed by using a
+  function replacer (`() => script`), whose return value is always inserted verbatim — a real,
+  non-obvious gotcha worth remembering for any future "inline this string into a template" script.
+
+**Follow-up — Command Center redesign (2026-08-16):** after user feedback that the first version's two
+plain tabs hid too much ("the parsers are hidden, there is no way to know if a message was checked
+against all configured [templates] or only a single one"), the tool was rebuilt around a real diagnostic
+primitive rather than just a nicer skin:
+
+- **`traceSms()` added to `smsParser.ts`** (`packages/core/src/core/sms-import/smsParser.ts`) — a full
+  per-template match trace (`SmsParseTrace`/`SmsTemplateTraceEntry`), with `parseSms()` reduced to a thin
+  `return traceSms(...).outcome` wrapper so there remains exactly one copy of the matching logic, and
+  every existing caller/test is unaffected (verified by rerunning the full pre-existing test suite before
+  adding new `traceSms`-specific tests). Recording `attempted: false` (not "didn't match") for any
+  template after an earlier one already won is the key faithfulness detail — it mirrors `parseSms`'s real
+  "first structural match wins, stop looking" short-circuit instead of implying an ambiguity production
+  code never actually reaches.
+- **Capture-group highlighting everywhere, always on:** the regex is additionally compiled with the `d`
+  (`hasIndices`) flag inside `traceSms()` only (parseSms's own historical `i`-only compilation is
+  untouched) to recover each named group's character offsets, letting the UI wrap the exact matched
+  substring in a colored `<mark>` — one shared rendering helper used by both the browse view and the
+  test-your-own view, not two implementations.
+- **A 3-mode "Command Center" shell** (persistent bank sidebar + main content, dark theme) replacing the
+  old 2 tabs: Known templates (every configured template per bank, not just a synthetic pass/fail),
+  Test your own (paste/upload, reworked into filter tabs + a dense one-line-per-message table with
+  click-to-expand trace detail — a full-width card per message, the first version's approach, doesn't
+  scale to the thousands of real messages testers actually have), and a new Add a parser mode (drafts a
+  candidate template, session-scoped via `localStorage`, live-tested against pasted samples, exportable
+  as ready-to-paste `SmsTemplateEntry` code — never auto-written to any file).
+- Followed the project's mockup-first workflow throughout: `docs/mockups/proposals/sms-verifier-redesign-v1.html`
+  (3 alternative designs, Command Center recommended) then `-v2.html` (same file, iterated twice within
+  one approval cycle per this doc's own "one file per discussion" convention) before any of the above was
+  implemented.
+
+**Follow-up — Add-a-parser split-pane (2026-08-16):** real usage of the Command Center's "Add a parser"
+mode surfaced a UX bug — the New-bank-ID and Sender-ID-pattern fields updated form state but never
+re-triggered a live re-test, so fixing a broken regex and only touching those two fields left the preview
+looking silently stale. Fixed alongside a requested redesign
+(`docs/mockups/proposals/sms-verifier-add-parser-redesign-v1.html`, Option B chosen): a split pane (fields
+left, bulk paste-and-test right, reusing "Test your own"'s `---`-block format instead of a single
+sender/body pair) with an explicit ▸ Test button replacing continuous auto-retest — one deliberate action
+that always re-tests off the full current form state, regardless of which field was last edited.
+
+**Follow-up — "Unified Workspace" redesign (2026-08-16):** further real-usage feedback found the 3-mode
+split itself to be the root cause of several complaints at once, not three independent gaps: "why 3
+tabs," "can't define a sender for a new template on an existing bank," "can't edit a known template,"
+"no way to export everything," "the results table needs richer inline info," "test any sender freely
+isn't discoverable," and "help users write a new regex." Rather than patching each individually on the
+existing 3-mode shell, `entry.ts` was rebuilt around one workspace per sidebar selection — a bank, or a
+pinned "Bulk test — all banks" entry — with:
+
+- **A new session-state model** (`SessionState`: `newBankIds`, `extraSenderPatterns`, `newTemplates`,
+  `overrides`, replacing the old flat `DraftTemplate[]`/`smsVerifierCustomTemplates`) — `overrides` is new:
+  a session-local replacement of an official bank's template at a given array index, never mutating
+  `SMS_PATTERNS_FALLBACK` itself; "Revert to official" just removes the entry. `effectiveBundle()` is the
+  one place all four pieces merge, read by every other function in the file.
+- **Regex ↔ message side-by-side, same color mapping**: `findNamedGroupSpans()` statically parses a
+  regex's own `(?<name>...)` spans (a balanced-paren walk over the pattern source, not a runtime match);
+  the previous `highlightedText()` was refactored into a lower-level `markedNodes()` primitive that both
+  the message-highlighting and the new `highlightedPattern()` build on — one shared "wrap ranges in
+  colored `<mark>`" implementation, not two. While editing, the live preview re-tests the in-progress
+  regex against that template's own original sample (`smsSampleMessages.ts`) on every keystroke.
+- **Editable sender patterns for every bank** (not just brand-new ones) with a live, non-blocking overlap
+  warning: `literalFragments()`/`sharesSignificantPrefixOrSubstring()` pull out and compare a pattern's
+  literal uppercase "bank code" run against every other bank's patterns — cheap and explainable rather
+  than executing arbitrary regexes against candidate strings. The same heuristic powers a "did you mean
+  `<bank>`?" suggestion for an unrecognized sender in the results table (e.g. "SBIPSG" sharing SBI's
+  "SBIINB" prefix), one click away from being added as that bank's own custom sender pattern.
+- **Results table upgrade** (shared by the bank-scoped tester and Bulk test — one `renderResultsTableInto()`,
+  not two): the Message column renders through the real highlighting primitive instead of flat gray text,
+  plus a compact trace-strip column (colored dot per template attempt: matched/tried-no-match/skipped).
+- **Auto-detect vs Force-against-this-bank** tester toggle — Force builds a synthetic single-bank bundle
+  with `senderIdPatterns: ['.*']` so a message's body can be tested against a bank's current templates
+  independent of whether its sender is recognized yet, isolating the two questions.
+- **Export/Import** — Export serializes `effectiveBundle()` to JSON (confirmed, by reading
+  `workers/api-proxy/src/index.ts`'s actual `/sms-patterns` handler, to be identical in shape to its real
+  response — not assumed); Import parses a same-shaped JSON and merges every bank/template into the
+  session's drafts additively (never attempting fine-grained per-template conflict resolution — a
+  deliberately simple v1 scope, disclosed as such rather than over-built).
+- **Regex helper panel** next to every pattern field: a curated "common patterns" snippet list grounded by
+  grepping the real, already-shipped `smsPatterns.ts` for its actual capture-group idioms (not invented),
+  click-to-insert-at-cursor, plus a general regex-syntax cheat sheet tab.
+- Followed the mockup-first workflow again:
+  `docs/mockups/proposals/sms-verifier-unified-workspace-v1.html`, iterated in place through several
+  rounds of feedback within one approval cycle (adding the fuzzy-suggestion/overlap-warning/import ideas,
+  then the regex↔message side-by-side pairing) before any of this was implemented.
+
+**Follow-up — "Unified Workspace v2" light-theme redesign + module split (2026-08-16):** real feedback on
+the v1 dark theme was sharp and specific: the dark theme itself was hard to use, and — the bigger
+structural problem — a bank's page put its 3 templates ahead of the actual testing space, when testing
+thousands of messages per bank is the tool's primary job, not a secondary one. Rebuilt around a real,
+interactive prototype rather than another static mockup (`docs/mockups/proposals/sms-verifier-unified-
+workspace-v2.html` — built with a fake 2,400-row dataset specifically so real pagination/search/progress-
+bar behavior could be seen working before any app code changed, since static mockups had repeatedly proven
+"confusing... I do not realize until it's built" per that same feedback):
+
+- **Light theme, three columns**: left sidebar (banks + pinned Bulk test, drag-resizable), middle column
+  dedicated ENTIRELY to test input + results (never templates/sender patterns — that was the root cause
+  being fixed), right panel as a read-only-at-a-glance reference (sender patterns + template "paper"
+  cards, also drag-resizable via a plain mousedown/mousemove/mouseup handle, no library).
+- **`entry.ts` split into focused modules** after separate, explicit feedback that one ~1,874-line file was
+  itself making edits slower and more error-prone ("Maybe longer files are creating a problem for you to
+  properly edit them without breaking?"): `state.ts` (session/data layer, zero dependency on rendering
+  code — `SessionState`, `effectiveBundle()`/`effectiveBundleForTesting()`, later also the editable Common
+  Patterns library), `dom.ts` (the `el()` builder, clipboard-with-legacy-fallback, download, toast),
+  `highlighting.ts` (the one shared `markedNodes()` "wrap ranges in colored `<mark>`" primitive), and
+  `regexAuthoring.ts` (compile checks, fuzzy heuristics, the regex helper panel). The convention: a
+  reassigned (not just mutated) module-level primitive needs an explicit setter function for cross-module
+  writes (`setSelection()`, `setModal()`, etc.) since ES module named imports are live bindings for reads
+  only. Verified the split preserved 100% of existing behavior via a full functional smoke-test re-run
+  (jsdom driving the actual built HTML) before any further feature work — every subsequent round of fixes
+  in this file then stayed small, targeted edits rather than repeated full-file rewrites.
+- Two large sequential rounds of concrete UX fixes followed on this new foundation, each fully verified
+  (jsdom functional tests against the real built HTML + the standard `tsc`/eslint/prettier/vitest/PII-gate
+  sweep) before being reported back: an 11-item round (drag-resizable sidebars; an editable original
+  sample instead of read-only; disable-vs-delete for templates so a toggled-off one stays visible to
+  re-enable; a real in-tool "New bank" popup replacing a native `prompt()`; bank-scoped Export actually
+  downloading, not just copying; results hidden until Test/Parse is actually clicked; a Trace column
+  replacing redundant expanded-row content; the per-row copy icon moved inside the message cell; a Bank
+  column; a sender-recognized/unrecognized color cue; a template's sender field actually re-tested against
+  the bank's real patterns instead of a silent `.*` catch-all); then a 4-item round (a new/edited
+  template's test message persisted as its real reference sample — which is also what makes its matched/
+  no-match pill appear at all; the results table's Message column no longer truncated with an ellipsis).
+- **Follow-up — further hardening (2026-08-16):** a later pass added: a fully editable Common Patterns
+  library (add/edit any entry, live duplicate detection that visually highlights the existing match, not
+  just a text warning); a proactive warning when a template's regex names a capture group the real parser
+  doesn't recognize (explains, rather than leaves a mystery, why a field silently isn't highlighted in a
+  real test message — `CAPTURE_GROUP_NAMES` was exported from `smsParser.ts` specifically so the tool could
+  check against the SAME closed list production code reads, not a hand-copied duplicate of it); a post-save
+  suggestion to catalog a template's own uncatalogued capture-group sub-pattern into Common Patterns;
+  dynamic per-distinct-name color assignment for capture groups (previously only a fixed handful of names
+  colored at all, leaving any custom name uncolored — extended the palette from 4 to 6 colors so `ref`/
+  `balance`/`dateStr` also stopped sharing one color); a clear inline error (instead of an empty results
+  block quietly rendering) when Test/Parse is clicked with nothing pasted and no file uploaded; the Test
+  sender/Test message body fields moved to sit directly below the regex pattern field in the same column
+  (filling space that used to sit empty next to the taller helper panel) instead of their own separate
+  full-width row; and every modal made user-resizable via the native CSS `resize` property (opt-in, from
+  the bottom-right corner, with sane min/max bounds) rather than a fixed size.
+
+**Follow-up — TRAI 2025 sender-header-suffix support (2026-08-17):** TRAI's SMS header suffix mandate
+(effective 6 May 2025, per the amended TCCCPR regulations) requires every registered header to carry a
+single-letter category suffix appended after the existing 6-character brand code: `-T`
+(Transactional), `-S` (Service — real-world DLT registrations show plenty of banks' own transactional
+alerts filed under this category, not just `-T`), `-P` (Promotional), `-G` (Government). Every bank in
+`smsPatterns.ts`/`workers/api-proxy/src/smsPatterns.ts` (kept in sync, confirmed byte-identical data)
+gained two additive `-[TSPG]`-tolerant sender patterns (prefixed and unprefixed) alongside its
+originals — old, un-suffixed patterns are untouched, since a historical multi-year scan keeps
+encountering plenty of genuine pre-May-2025 messages that never had a suffix at all. Caught one real
+bug this surfaced in the tool: `literalFragments()` (the fuzzy sender-suggestion heuristic) was reading
+a `[TSPG]` character class as a literal 4-letter fragment — fixed by stripping bracket expressions
+before matching.
+
+**Follow-up — sender/message exclusion, both the tool and the real app (2026-08-17):** real usage
+surfaced that "Partial/Unparsed" was conflating two genuinely different things: a real coverage gap
+(recognized bank, wrong wording — worth a new template) vs. not a transaction at all (OTP, promotional,
+government, non-financial service pings — no template should ever be written for these). Both surfaces
+gained the same split, though with different mechanics given their different stakes:
+
+- **The tool** (session-only, low-stakes test data): `-P`/`-G` senders auto-bucket into an Excluded
+  filter (reversible per-sender via `autoExcludeOverrides`, since suffix categorization isn't
+  guaranteed accurate); manual exclusion exists at BOTH sender level (`excludedSenders`) and per-message
+  level (`excludedMessageKeys`, keyed by `` `${sender}::${body}` ``), since a sender can genuinely mix
+  real transactions with noise. A new "Senders in this batch" summary strip doubles as the "select a
+  sender to see all its messages" drill-down (reuses the existing search box rather than a second
+  filter mechanism). `effectiveOutcomeKind()`/`exclusionReasonFor()` in `state.ts` are the one place
+  every stat card/filter/badge/export reads the EFFECTIVE bucket from, rather than the raw
+  `traceSms()` outcome directly.
+- **The real app** (durable, touches actual user data — a deliberately more conservative design given
+  the higher stakes of auto-excluding real financial messages): a new `sms_excluded_senders` Dexie
+  table (schema v15, `docs/SCHEMA.md`), sender-level only (no per-message durable exclusion — the
+  existing per-message `dismissed` status already covers that case for one already-created record). No
+  auto-exclusion by suffix at all — every exclusion here is an explicit "Exclude sender" tap on the
+  already-shipped Unparsed Messages sender-group accordion. `processRawSmsCore` checks
+  `ProcessRawSmsContext.excludedSenders` before parsing at all, dropping a match exactly like an
+  `unrecognized_sender` — applies uniformly across historical scan, foreground live capture, and the
+  Headless JS background path, since all three funnel through this one function. "Exclude sender" also
+  dismisses that sender's currently-showing `'unparsed'` records (via the existing `dismissUnparsed`),
+  so excluding clears the current batch immediately rather than only preventing future recurrence.
+
+**Follow-up — HDFC/IndusInd/HSBC real-world templates + capture-group schema rename (2026-08-18):**
+HDFC's 3 templates (previously synthetic) and IndusInd/HSBC's single invented templates were replaced
+with a verified real-world set (9/8/10 templates respectively), sourced from real, user-verified
+message wording. The provided regexes were kept as-given rather than "cleaned up" — every named group
+(currency, bank name, description, etc.) is preserved exactly as provided even where the schema
+doesn't read it, and `account`/`card` capture the FULL masked token each bank's SMS actually presents
+(e.g. IndusInd's `159***660960`), not a trimmed last-4-digit substring. This means
+`smsAccountMatch.ts`'s exact-string auto-linking won't match for these three banks' real messages — a
+known, accepted gap (`docs/features/sms-tracking.md`'s "Current limitations") rather than something
+patched around in the regex. Three HSBC wordings that captured `credited|debited` at match time were
+split into matched credit/debit template pairs, since `transactionType` is a fixed property per
+template here, not something derivable from a capture at runtime — extending the parser to support a
+capture-driven `transactionType` was considered and explicitly declined in favor of keeping the split.
+One genuine regex defect was fixed (not a stylistic change): HDFC's debit-card-alert wording was
+missing an optional `On ` that 2 of its own 4 real samples actually have.
+
+Separately, `SmsCaptureGroupName` (`smsParser.ts`) was renamed from `acctLast4`/`cardLast4`/`ref`/
+`dateStr` to `account`/`card`/`reference`/`date` — adopting the verified source's own naming
+convention as Penny's canonical schema, rather than renaming the provided regexes to fit Penny's
+prior names. This is a global rename (all 12 banks' templates, `CAPTURE_GROUP_NAMES`, the verifier
+tool's `GROUP_COLOR_CLASS`/`BUILTIN_SNIPPETS`/UI label text) — `ParsedSmsCandidate`'s own output field
+names (`accountLast4`, `cardLast4`, `referenceNumber`, `date`) are a separate, already-decoupled layer
+(explicitly mapped inside `traceSms()`) and were not touched, so no consumer of a parsed candidate
+needed any change. `workers/api-proxy/src/smsPatterns.ts` was updated identically (confirmed
+byte-identical `pattern` strings against the core file) and redeployed live.
+
+**Real bug found via this same on-device pass, not yet fixed:** rolling out the HDFC/IndusInd/HSBC
+templates above to a real device that already had an earlier Penny install exposed that
+`getSmsPatternBundle()`'s local cache (`penny_sms_patterns_v1`, `smsPatterns.ts`) has **no version/hash
+check** — it trusts anything under 7 days old regardless of whether it matches what the current build
+actually ships, so an APK update-in-place (not uninstall/reinstall) can silently keep running a
+pre-update template set for up to a week. See `docs/features/sms-tracking.md`'s "Current limitations"
+for the full detail and the intended fix (stamp the cache with a version/hash of the shipped bundle,
+invalidate on mismatch).
+
+### Decision: Real-device-testing-pass Phases 1–3 (2026-08-18) — `apps/mobile` + `packages/core` + `workers/groups` only
+
+**Rationale:** a batch of real-device testing findings, fully detailed in
+[`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md). `apps/web-react` is
+frozen, so none of this touches it — mobile diverges further from web on every item below, by design.
+A few pieces worth a durable architectural note beyond what the feature docs (`docs/features/iou.md`,
+`docs/features/groups.md`, `docs/features/backup.md`, `docs/features/sms-tracking.md`) already cover:
+
+- **`apps/mobile/src/lib/modalStack.ts` (new)** — a tiny module-level open-modal counter fixing "toast
+  blocks app interactivity." Root cause: Android's Dialog-backed `Modal` window intercepts every touch
+  within its bounds at the OS level, before RN's own `pointerEvents` logic ever runs — no prop can opt a
+  Modal's window out of this, it's inherent to how Android dispatches touches. `~/components/ui/Modal.tsx`
+  registers itself here on mount/unmount; `ToastContext.tsx` only wraps a toast in a real `<Modal>` when
+  another modal is already open (the one case that still needs to stack above it) — otherwise it renders
+  as a plain high-`zIndex` sibling `View`, letting taps and the hardware back button reach whatever's
+  underneath with zero interception.
+- **`packages/core/src/core/db/normalizeHashtagCase.ts` (new)** — a boot-time idempotent repair pass
+  lowercasing every `Hashtag.name`/`Expense.hashtags[]` entry and merging any that collapse to the same
+  lowercase form, following the exact same pattern as `repairCategoryIcons()`/`reconcileDefaultCategories()`
+  in `dedupeDemoCategories.ts` (safe to run every app start, cheap no-op once already normalized) rather
+  than a versioned Dexie migration — chosen because encrypted stores can't use Dexie's `.upgrade()`
+  hooks at all (same reasoning as the pre-existing IOU `personal_ious` migration).
+- **`packages/core/src/core/iou/personResolver.ts` (new)** — consolidates three independent
+  reimplementations of "resolve a typed name to a Person, creating one if needed"
+  (`useIou.ts`/`useExpenses.ts`/`useBankImport.ts`'s own `resolvePerson`) into one function that always
+  re-reads `personsRepo` fresh rather than matching against a caller's possibly-stale in-memory array —
+  the real root cause of a duplicate-person bug (typing the same name in two different, already-mounted
+  screens created two `Person` rows instead of resolving to one). `useBankImport.ts`'s own
+  `resolvePerson` already did this correctly; this generalizes from that reference rather than inventing
+  a new approach.
+- **Three cross-feature shared-component extractions, same underlying pattern each time** —
+  `apps/mobile/src/components/shared/PersonTypeahead.tsx` (out of `features/iou/PersonPicker.tsx`, needed
+  by `components/shared/ExpenseForm.tsx`'s Lent/Borrowed panel), `apps/mobile/src/components/shared/
+WizardProgress.tsx` (moved from `features/import/`, needed by the new `BulkAddToIouModal.tsx` and
+  `PromoteToGroupWizard.tsx`), and `apps/mobile/src/hooks/useServerActionError.ts` (moved from
+  `features/groups/`, needed by `PromoteToGroupWizard.tsx`, an `features/iou/` file). All three hit the
+  exact same wall: **a `features/` module cannot be imported by `components/shared` or by another
+  `features/` module** (the existing "Feature module isolation" decision above) — confirmed 3 times in
+  one pass that this rule holds and that the fix is always the same (promote the shared file out of
+  whichever feature folder it happened to be born in), not a new rule.
+- **A real bug found via audit, not a bug report:** `packages/core/src/core/db/seedDemoData.ts`'s Student
+  persona's simulated Cash account actually went to **−₹920** on a seeded date — an unscaled "wobble"
+  term in the simulation broke proportionally at the Student persona's low expense scale (a term sized
+  for a salaried persona's larger numbers became disproportionately large relative to a student's small
+  ones). Fixed, plus a new regression test covering all 5 employment-type personas
+  (`packages/core/tests/db/seedCash.test.ts`) so this can't silently regress again.
+- **Groups (Track E) redesign — the largest single piece of this pass:** see
+  [`docs/features/groups.md`](../features/groups.md) for the full detail (new event types, static
+  members, admin-less server-side protection, delete-when-empty, orphaned-shared-transaction
+  tombstoning, the `groupFeed()` dedup bug fix, write-off/undo-write-off) and
+  [`docs/features/iou.md`](../features/iou.md) for the personal-ledger-side changes (duplicate-person
+  fix, person type-ahead, real delete/archive confirmation, bulk-add-to-ledger, edit-mode type toggle,
+  cash-negative warnings, promote-to-group).
+
+### Decision: Real-device-testing-pass Phases 4–6c (2026-08-19) — account cards, About Penny, Analytics, backup/restore, CSV import
+
+**Rationale:** continues the same real-device-testing pass above, fully detailed in
+[`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md). `apps/web-react` stays
+untouched (frozen). Durable architectural notes beyond what the feature docs
+(`docs/features/accounts.md`, `docs/features/backup.md`, `docs/features/expenses.md`,
+`docs/DESIGN_GUIDELINES.md`) already cover in full:
+
+- **Account list: gradient mini card replaced with a grouped flat list + tap-to-reveal actions.**
+  `AccountList.tsx` rewritten wholesale — see `docs/DESIGN_GUIDELINES.md`'s "Grouped flat list +
+  tap-to-reveal actions" entry (its "Identity-colour gradient mini card" predecessor is marked
+  superseded there, not deleted, for history) and `docs/features/accounts.md`. `accountCardPalette()`/
+  `JEWEL_PALETTE`/`GREEN_PALETTE` (`~/lib/color.ts`) are removed, not left as dead code. New
+  `apps/mobile/src/components/shared/BankLogo.tsx` is the single resolution seam for "what icon does
+  this account show" (real per-bank logo when `account.bankId` matches a sourced mark, else the
+  existing generic `Icon`/`account.color` fallback) — every account-icon render site should go through
+  it rather than calling `<Icon>` directly, so sourcing a new bank's logo only means adding one entry to
+  `BANK_LOGOS`, not rewiring call sites. Now covers HDFC/ICICI/Axis/HSBC (Simple Icons CC0 marks,
+  verified against two independent CDN mirrors, not fabricated); the remaining 8 presets checked again
+  and confirmed to have no safely-redistributable logo _mark_ — but colors aren't copyrightable, so
+  `bankAccentColor()` (`components/shared/bankAccentColor.ts` — its own file, not `BankLogo.tsx`, since
+  a component file can't carry a second non-component export under `react-refresh/only-export-
+components`) tints the generic fallback icon/badge with each bank's real brand color for 3 of those 8
+  (SBI, Kotak, IndusInd) where that color was verified; the other 5 (BoB, Yes Bank, PNB, Canara, IDFC
+  First) have no verified color either and stay on the plain account-type default.
+- **About Penny + a new standalone Privacy Promise page (`AboutPennyPage.tsx`,
+  `PrivacyPromisePage.tsx`, `whatsNew.ts`, `apps/mobile/src/lib/appVersion.ts`,
+  `apps/mobile/src/features/onboarding/privacyPillars.ts`) — mobile-only, no `apps/web-react`
+  equivalent, same precedent as `PennyLoader`/"Did You Know."** The existing onboarding
+  `PrivacyPromiseScreen` has no header/back button by design (meant to be seen exactly once,
+  pre-unlock) — linking an already-onboarded user there from Settings would strand them with no way
+  back, so a second screen with identical content plus a real back button was added rather than adding
+  a back button to the onboarding screen itself (which would have changed onboarding's own flow for no
+  reason). Both screens now read from one shared `privacyPillars.ts` (mission statement + pillar
+  content factored out of `PrivacyPromiseScreen.tsx`) so the two copies can't drift apart. Routes
+  registered in `HomeStack.tsx`, not `MainNavigator.tsx` (only holds `MainTabs`/`OnboardingFlow`).
+- **`MonthScrubBar.tsx`: a native-bridge measurement call is not a portable fix for an RN-Web bug.**
+  The previous fix for its auto-scroll race used `View.measureLayout` for a fresh same-tick read —
+  correct on real native devices, but `react-native-web`'s shim for that call doesn't reliably return
+  scroll-aware coordinates, so the bug reappeared on RN Web specifically. Replaced with a plain
+  `onLayout`-cached offset (identical on every platform) plus deferring the read two
+  `requestAnimationFrame` ticks, fixing the actual underlying race (a state update landing before its
+  own layout pass has run) instead of trying to win it with a platform-specific measurement call.
+  Worth remembering for any future fix that reaches for `measureLayout`/`measureInWindow`/similar
+  native-bridge measurement APIs: verify on RN Web too, not just native, before calling it done.
+- **Backup/restore: two severe bugs found via a real "can't restore any backup" report** — a missing
+  `await` on `expo-file-system`'s async `File.write()` in six call sites, and `BACKUP_STORES` having
+  silently drifted 8 real tables behind `schema.ts` (`accounts` most severely — every
+  `Expense.accountId` references it). Full detail in `docs/features/backup.md`. Worth a standing habit,
+  not just a one-time fix: whenever a new encrypted Dexie store is added to `schema.ts`, check whether
+  it belongs in `backupManager.ts`'s `BACKUP_STORES` in the same change — nothing currently enforces
+  that the two stay in sync.
+- **CSV import: the 2026-08-13 bulk-import render-cap rule (`CLAUDE.md`'s Reliability non-negotiables)
+  had an incomplete application, not a wrong one.** `TransactionsStage.tsx` capped the _rows_ inside one
+  tile (`TileRowList.tsx`) but rendered the _tiles themselves_ — `needsInputGroups`/`stagedGroups`/
+  `skippedGroups` — via a plain unbounded `.map()`. Same "Show N more" pattern added to all three, plus
+  `review/CarryForwardExcluded.tsx`'s own previously-uncapped row list. A reminder that this rule needs
+  checking at every `.map()` over bulk/imported data in a render tree, not just the first one found.
+
+### Decision: Real-device-testing-pass follow-up session (items 59–68) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a further round of real-device findings on top of the two entries above, fully detailed
+in [`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md)'s "7th batch" (plus
+items 59–64). `apps/web-react` stays untouched (frozen). Most items are one-file bug fixes already fully
+covered by `docs/features/backup.md`, `docs/features/expenses.md`, and `docs/SCHEMA.md` — one is a
+genuinely reusable lesson worth its own note here:
+
+- **A dynamic `zIndex` toggle on Android can recreate a native view mid-keystroke and silently dismiss
+  the soft keyboard.** `PersonTypeahead.tsx` (the shared person-suggestion field used by
+  `ExpenseForm.tsx`'s Lent/Borrowed panel and `BulkAddToIouModal.tsx`) toggled its outer wrapper's
+  `zIndex` between `50` and `undefined` depending on whether its suggestion dropdown was showing. On
+  Android, changing a view's `zIndex` at the native rendering layer isn't a cheap style tweak — it can
+  force that view to be torn down and recreated, and when that happened to land mid-keystroke while the
+  soft keyboard's IME still held focus, the IME was dismissed with no error, no crash, just a keyboard
+  that silently closed while typing. This is the _real_ root cause of a bug two earlier fix rounds
+  (items 24/36, a missing `onShow`+ref pattern for `autoFocus` inside a `Modal`) had misattributed —
+  that pattern is real and still correct for its own bug (`ExpenseForm.tsx`'s description field), but it
+  never explained this one, and wasn't confirmed end-to-end on-device before being treated as the fix.
+  The actual fix: keep `zIndex` fixed at all times, and toggle only the dropdown's own
+  `display: 'flex'/'none'` to show/hide it — never let a visibility toggle double as a style change that
+  can trigger a native view remount. Worth checking for on any other Android-facing component that
+  conditionally applies `zIndex` (or other native-remount-prone style props) based on transient UI state,
+  not just this one.
+- New mobile-only `apps/mobile/src/components/shared/BackupProviderLogo.tsx` (`DriveLogo`, `AppleLogo`,
+  `DRIVE_BLUE`) — real colored Drive/Apple marks for the Automatic Backup card's destination tabs,
+  rendered via `IconBadge`'s `iconElement` prop; see `docs/features/backup.md`.
+- `apps/mobile/src/components/ui/Card.tsx` gained an optional `style` prop (mobile's `Card`, distinct
+  from the `className`-based web-react `Card.tsx` documented in the Component inventory above) so
+  `IpoTab.tsx` could render a colored left-edge GMP stripe without a one-off wrapper component.
+- **A live-preview path and a final-commit path in the same pipeline can drift out of sync, and a fix
+  applied only to one of them won't be visible to the user until commit.** The Cashew CSV import
+  transfer-pairing bug (item 68) took 3 rounds to actually close: rounds 1–2 were real, correct fixes in
+  isolation (a category-defaulting improvement, then a pure function that resolved confirmed transfer
+  pairs) but both landed only in the commit-time path (`useImport.ts`'s `commitAndImport()`) while the
+  _live_ `rowActions` memo — the thing actually driving what the categorization UI shows the user while
+  reviewing — kept re-poisoning the same rows. Round 3 applied the identical resolution at the live memo
+  too. Worth checking both paths, not just the one a unit test can reach, whenever a bug report describes
+  something the user sees mid-flow (not just in the final imported result).
+
+### Decision: Real-device-testing-pass 8th/9th batches (2026-08-23) — MoneyView CSV import review + Penny CSV export/import + Groups-leave review
+
+**Rationale:** two dedicated reviews on top of the general real-device-testing pass above, fully detailed
+in [`docs/plans/real-device-testing-pass.md`](../plans/real-device-testing-pass.md)'s "8th batch" (items
+69–75, MoneyView CSV import) and "9th batch" (items 76–80, Penny CSV export/import + a Groups fix found
+while investigating it). `apps/web-react` stays untouched (frozen). Full detail already covered by
+`docs/features/expenses.md`'s two new dated entries and `docs/features/groups.md`'s new "Leaving a group"
+section; one cross-cutting note worth keeping here:
+
+- **New files**: `packages/core/src/core/import/importCashWithdrawalGrouping.ts`
+  (`groupCashWithdrawalCandidates`, unit-tested) partitions a cash-withdrawal category's rows by resolved
+  source account _before_ generating suggestions, so a category spanning several real accounts produces
+  one accurate suggestion per account instead of one vague "Multiple accounts" fallback.
+  `apps/mobile/src/features/import/review/CashWithdrawalSeeAllModal.tsx` (virtualized date+amount list,
+  same `Modal` shell as `TransactionBrowserModal.tsx`), `DuplicatesSeeAllModal.tsx` (same shell, reused
+  for a duplicates group's own paired-card list), and `DuplicatePairRow.tsx` (the paired CSV-row/matched-
+  expense card, extracted so `DuplicatesBucket.tsx`'s inline list and its new "See all" modal share one
+  implementation instead of two).
+- **A generic import pipeline paying off again**: item 77 (resolving a re-imported Penny CSV's IOU-person
+  column) needed zero bespoke branching anywhere in `importPipeline.ts`/`importAccountResolution.ts`/
+  `importCategoryResolution.ts`/`importWriter.ts` — confirming the same "Penny/Cashew/MoneyView/Custom are
+  presets over one generic engine, not per-format code paths" design (see the platform-variance
+  decision above and `docs/features/expenses.md`'s Import section) held up cleanly for a fully new column
+  a year after the engine was first built.
+- **`GroupStatus` gaining `'left'`** (`leaveGroup()` no longer deletes the local group/`group_events` on
+  leave) is the same event-sourced, never-delete-history principle the rest of Groups already follows
+  (balances/feed are folded projections, never mutated in place) — leaving is now just another status
+  transition alongside `closed`/`active`, not a special-cased hard delete.
+- Two pre-existing lint errors (unrelated to this batch, found only because it happened to touch the same
+  test files) were fixed while here rather than left to block the eventual commit — see the plan doc's
+  8th-batch verification note for the exact commits they trace to.
+
+### Decision: PPF import/manual-entry fixes, onboarding Add-Account reuse, Backup History, controlled-input bug class (2026-08-24)
+
+**Rationale:** four independent items landed in one session, none part of the real-device-testing-pass
+punch list above — full detail in `docs/features/portfolio/retirement.md` (PPF), `docs/features/
+onboarding.md` (Add Accounts), and `docs/features/backup.md` (Backup History). Cross-cutting notes worth
+keeping here:
+
+- **PPF's multi-year import bug and its manual-entry counterpart are the same root cause, one FY apart**:
+  `ppfReconciliation.ts` computing a FY's "Calculated" interest against a balance basis missing a prior
+  FY's own already-credited interest. The import fix scoped an over-broad exclusion filter; the manual-
+  entry fix (`earliestBlockingPpfFy()`) is a forward-looking guard against the same gap being created by
+  hand. `investedAmount`'s staleness fix is the third instance of the exact bug class EPF's `currentValue`
+  fix already established (a derived value never written back on save) — now fixed at the same
+  `RetirementSection.tsx` `saveHolding()` choke point for a second asset class.
+- **Onboarding's "Add your accounts" now stages drafts through the real `AccountFormModal`** instead of a
+  bespoke inline form — the general principle (never invent a one-off account-creation UI; every entry
+  point injects its own `saveAccount` into the one shared `useAccountForm`) already existed
+  (`CashWithdrawalSuggestionCard.tsx`, `ResolveAccountModal.tsx`) but onboarding had drifted from it. The
+  fix needed a real data-model change (`OnboardingDraftContext`'s `DraftAccount` widened to the full
+  `AccountInput` shape), not just a UI swap, since a fake in-memory `saveAccount` needs somewhere to stage
+  the same fields the modal collects.
+- **Backup History turns a single-overwrite-file model into a real rolling log** — see `docs/features/
+backup.md`'s own writeup for the naming/retention/backward-compat design. Architecturally notable:
+  `CloudProvider`'s new `list()`/`delete()`/`downloadEntry()` members are **optional**, specifically so
+  the frozen `apps/web-react`-only `googleDriveProvider.ts` and the still-dormant `icloudProvider.ts`
+  don't need touching at all to keep compiling — an interface-widening technique worth reusing whenever a
+  capability is being added to some, not all, implementations of a shared interface that spans a
+  frozen/dormant surface.
+- **A recurring controlled-`TextInput` bug class, now fixed at its second occurrence**: forcing a JS-
+  transformed string (`.toUpperCase()`) back into a controlled `TextInput`'s own `value` on every
+  keystroke desyncs the native text buffer from React state — on Android this manifests as duplicated/
+  re-inserted characters, not just a case mismatch. First seen in `VehicleFields.tsx` (partially fixed —
+  only the redundant CSS-transform layer was removed, the underlying re-injection risk wasn't), then
+  `StockFields.tsx` (the actual reported bug). Both now let the native keyboard handle it via
+  `autoCapitalize="characters"` and uppercase only at the point of use. Promoted to a full
+  `CLAUDE.md` non-negotiable rule (Reliability section) given it's now recurred once already.
+- **`react-hooks/set-state-in-effect` fix pattern reused twice more** (`RetirementSheets.tsx`'s PPF
+  calc-prefill effect, `BackupHistoryModal.tsx`'s load-on-mount effect) — wrap the actual state-setting
+  call in a same-tick `setTimeout(fn, 0)` with a matching `clearTimeout` cleanup, the same mechanical fix
+  `useLivePrice.ts` already established. Now documented as a standing convention in `CONTRIBUTING.md`'s
+  TypeScript standards rather than left to be independently rediscovered per effect.
+
+### Decision: onboarding's Add-Account-modal reuse — release-only fresh-install crash, reverted then root-caused and re-shipped (2026-08-25)
+
+**Rationale:** the previous entry's onboarding Add-Account-modal-reuse fix was committed and pushed as
+part of v1.6.0's release APK without being verified on a real device first (a real process failure, not
+a tooling gap — the build succeeded and the embedded version string was verified with `aapt`, which is
+not the same thing as the app actually running). It crashed 100% of the time on a genuinely fresh
+install, immediately at launch (`TypeError: Cannot read property 'create' of undefined`, RN's
+`[runtime not ready]` prefix, surfacing natively as `std::terminate()` → `SIGABRT`).
+
+Bisection findings (each confirmed by an actual rebuild + on-device test, not inferred):
+
+- **Debug (Metro-served JS) never reproduced it** — only a release build did, ruling out a plain logic
+  bug reproducible in dev.
+- **A `./gradlew clean` failure + building anyway** (the exact cause of the _prior_ 2026-08-23 v1.5.2
+  incident — `clean` fails on a known CMake/ninja codegen ordering issue, and running `assembleRelease`
+  straight after reuses a mix of stale and fresh build outputs) was suspected first, since it matched
+  known prior art, but a **genuinely clean rebuild** (`rm -rf android/app/build android/app/.cxx
+android/build` before `assembleRelease`) **still crashed identically** — ruling that out as the cause
+  this time, though it remains a real, separate gotcha worth avoiding regardless (see `CONTRIBUTING.md`'s
+  "Building a standalone Android APK" gotchas).
+- **Disabling JS minification did not fix it either** — this result was initially reported as a fix but
+  was invalid: Gradle's `createBundleReleaseJsAndAssets` task reported `UP-TO-DATE` (it never actually
+  re-ran with the new flag), so the "successful" test was unknowingly re-testing the exact same bundle.
+  Confirmed by re-testing that same cached build 5 times in a row afterward with no crash at all — which
+  led to the next, correct finding below rather than a false minifier conclusion.
+- **The real variable was fresh-install vs. warm-relaunch, not minification or determinism.** A
+  genuinely fresh install (`adb uninstall` then install) crashed 5/5 times; a warm relaunch
+  (`am force-stop` + relaunch) of an _already-installed_ app with existing data survived 5/5 times, using
+  literally the same APK. This is what actually explains the earlier "flaky" result — the two test
+  conditions were never actually the same scenario.
+- **The pre-session release APK (extracted from git history, commit `21a7f75`) did not crash on a fresh
+  install** — confirming this was introduced by the current session's diff, not a latent pre-existing bug
+  finally surfacing.
+- **File-level bisection** (temporarily reverting individual files to their pre-session versions,
+  rebuilding, re-testing fresh-install each time) isolated it to `AddAccountsScreen.tsx` specifically —
+  reverting just that file (keeping `OnboardingDraftContext.tsx`/`SetupCredentialsScreen.tsx` at their
+  new versions) already fixed the crash. The exact mechanism inside that file was **not** pinned down to
+  a single line/import before the fix shipped — the leading hypothesis is a module-evaluation-order/
+  timing issue specific to Hermes-bytecode release compilation exposed by this file's new import graph
+  (`AccountFormModal`/`useAccountForm`/`ACCOUNT_TYPE_META`, none of which are new to the app, just new to
+  this _screen_'s — and thus the Onboarding stack's — early-loaded import graph), but this remains
+  unconfirmed via an actual symbolicated JS stack trace.
+
+**Interim fix shipped** (v1.6.1): all three touched onboarding files (`AddAccountsScreen.tsx`,
+`OnboardingDraftContext.tsx`, `SetupCredentialsScreen.tsx`) reverted byte-for-byte to their pre-2026-08-24
+state (verified via `git diff` against the last known-good commit showing zero diff) — the onboarding
+Add-Account consistency fix fully rolled back, not partially, to get a known-working build shipped first.
+
+**Root cause found and the feature re-shipped the same day (v1.6.2).** With a device available again,
+live instrumentation (each of `AddAccountsScreen.tsx`'s imports individually wrapped in its own
+try/catch, rebuilt and re-tested fresh-install each time) isolated the crash to one single line: the
+static `import { useAccountForm } from '~/hooks/useAccountForm'`. Confirmed by minimal bisection —
+converting every _other_ import in the file back to a normal static `import` one at a time while
+leaving only `useAccountForm` as a plain `require()` call never crashed (6/6 on-device launches: 3 fresh
+installs, 3 warm relaunches); converting `useAccountForm` itself back to a static `import` reproduced the
+crash again immediately. `useAccountForm.ts` has no circular import in its own dependency graph
+(`@/core/accounts/meta`/`accountValidation.ts` only import types), and the identical named export is
+already statically imported without issue from `AccountsPage.tsx` elsewhere in the app — so this isn't
+"the hook is broken," it's specific to `AddAccountsScreen.tsx` being one of the _first_ consumers of that
+export reached during cold boot (Onboarding's stack is eagerly `require()`'d by the root navigator,
+confirmed directly from the built bundle's own require-graph — confirming, incidentally, that the
+require-graph itself is NOT gated on onboarding status the way the leading hypothesis in the interim fix
+above assumed). The leading theory: a Babel/Metro ESM-interop live-binding timing race specific to
+Hermes-bytecode release compilation, where a plain `require()` snapshot sidesteps whatever the compiled
+`import` statement's interop wrapper does differently for an early cold-boot consumer. Never reproduced
+in a debug/Metro-served build, nor on a warm relaunch of an already-onboarded install — only a genuinely
+fresh install did, at 100% before the fix and 0% after (6/6 clean launches). Fix: `AddAccountsScreen.tsx`
+now imports `useAccountForm` via an explicit, heavily-commented `require()` instead of a static `import`,
+with the full investigation trail written into the code comment itself so nobody "cleans this up" back to
+a normal import without reading why first. This is a targeted workaround for one call site, not a fix to
+the underlying Babel/Metro/Hermes interaction — if the same symptom appears in a different early-loaded
+screen's import in the future, this same require()-based workaround is the known escape hatch, but the
+real upstream cause is still open.
+
+**Process fix** (the actual point of this entry, and the reason it's written up this thoroughly): this is
+the second time in three days a committed release APK crashed on launch after being shipped without
+on-device verification (v1.5.2's `./gradlew clean`-failure incident, then this one). `CONTRIBUTING.md`'s
+"Building a standalone Android APK" section and `CLAUDE.md`'s Reliability rules both now require running
+the new `apps/mobile/scripts/verify-release-apk.sh` — not hand-typed `adb` commands, a real script — before
+ever committing a rebuilt release APK. It verifies a real connected device launches the APK on **both** a
+genuinely fresh install (`adb uninstall` first) **and** 3 warm relaunches of that same install, exiting
+non-zero with the crash signature if either fails. Both are required — this incident is direct proof the
+two are genuinely different code paths that crash independently of each other; a fresh-install check alone
+would have looked "verified" while still missing a warm-relaunch-only crash, or vice versa. The manual
+`adb`-command version of this rule (written into the same commit as this incident's interim revert) was
+followed correctly for both fixes in this incident, but turning it into a real script removes any future
+reliance on remembering/retyping the exact command sequence correctly under time pressure — the actual
+failure mode that let the _first_ two incidents (v1.5.2, then v1.6.0) ship with no check running at all.
+
+### Decision: IOU/Goals sync-bug pass + Add IOU/Settle Up redesign + Health Score staleness fix (2026-08-26/27) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a real user's screenshot/repro chain surfaced a cluster of "two things that should stay
+in sync silently drift apart" bugs across IOU, Goals, and Portfolio — the same root pattern
+(`notifyTxnChanged()`/`useTxnRefresh` — this app's hand-rolled pub/sub — either never called from a
+mutation path, or a hook bypassing its own repository wrapper to write directly) already documented
+once for `useExpenses.ts` (2026-08-10) and now confirmed recurring. Full per-bug detail lives in
+`docs/features/iou.md`/`goals.md`/`health-score.md`/`portfolio/overview.md`; this entry is the
+cross-cutting architectural summary.
+
+- **Origin-agnostic linking.** `reconcileExpenseLink`/`reconcileGoalLink` (`packages/core/src/core/iou/
+expenseLink.ts` / `core/goals/goalLink.ts`) used to match an existing linked record only by
+  `origin === 'expense'`, making an entry/contribution created the _other_ way invisible to a
+  same-transaction edit from the other side — fixed to match on `linkedTxnId` alone in both, `origin`
+  preserved (not forced) since UI elsewhere still reads it.
+- **Direct-repo-bypass staleness.** `IouView.tsx`/`useGoals.ts` had mutation functions calling
+  `expensesRepo.put()`/`.delete()` directly instead of their own `useRepository`/`useLoggedRepository`
+  wrappers — since `useRepository` only loads once at mount with no refresh subscription, a screen's
+  local array could go stale (including from its own prior write) and mint a duplicate record on a
+  second edit within the same visit. `useGoals.ts`'s `linkTransaction` had an independent instance of
+  the same bug, plus a fully missing `notifyTxnChanged()` call.
+- **Holdings joined the refresh bus for the first time.** `usePortfolioHoldings.ts` never broadcast on
+  save/remove at all — confirmed root cause of a stock add-then-delete leaving Health Score unchanged.
+  `useHealthScore.ts` also had zero refresh subscription of its own (loaded once at mount) — both fixed.
+- **`kindForIouCategory()`** (new, `core/iou/ledger.ts`) is the one place "which of the 4 IOU category
+  ids means which ledger `kind`/`settleDirection`" now lives — `ExpenseForm.tsx`'s Lent/Borrowed panel
+  used to derive `kind` from the transaction's `type` alone, ignoring the actual category, silently
+  mislabeling a "Return Borrowed" expense as a new "lent" entry instead of a settlement.
+  `EntryForm.tsx`'s 4-tile picker was refactored onto the same helper, replacing its own duplicate
+  inline derivation.
+- **Add IOU / Settle Up visual redesign** (mockup-gated, `docs/mockups/proposals/
+iou-popups-expenseform-alignment-v1.html`): new shared `apps/mobile/src/components/shared/
+IouCategoryChips.tsx` — the same icon-chip-row visual `AccountChips`/`PaymentModeChips`/the real
+  category picker's own quick-pick row already use — replaces the `OptionButton` 2×2 grid in both
+  `EntryForm.tsx` and `SettleUpModal.tsx`; `SettleUpModal.tsx`'s account field moved from a plain
+  `SelectInput` to `AccountChips` to match. `ExtraCircle.tsx` gained a second, distinct disabled-visual
+  prop — `locked` (dimmed + a small lock badge, `onPress` still fires so the caller can explain why via
+  a toast) — kept separate from the pre-existing `disabled` (a real native `Pressable.disabled`, still
+  used by `BulkCategorizeModal.tsx`/`ImportCategorizeModal.tsx`'s own older "locked ON" Lent/Borrowed
+  circle, deliberately untouched by this pass) since the two need genuinely different behavior: one
+  still needs to be tappable to explain itself, the other doesn't.
+- **Category-gating decision.** Following a design discussion on where a shared/split cost belongs,
+  `ExpenseForm.tsx`'s Lent/Borrowed panel dropped its free-standing toggle — the panel now only opens
+  for the 4 real IOU categories, full stop (with a legacy-link escape hatch so a pre-existing link under
+  a non-IOU category doesn't silently vanish on next save). Shared/partial costs under an unrelated
+  category are explicitly Groups' job now, not personal IOU's — see `docs/features/iou.md`'s matching
+  entry and the exploratory `docs/mockups/proposals/iou-split-vs-groups-v1.html` for the fuller reasoning
+  (kept as a discussion record even though its "editable split amount" direction wasn't the one chosen).
+- **Two small CSV-import bugs, same pass:** `ImportCategorizeModal.tsx`/`BulkHashtagModal.tsx`'s
+  "Frequent"/suggestion tag chips never highlighted a match against the current field value (fixed in
+  both — same gap, same original pattern); `DoneStep.tsx`'s "Undo this import" had no confirmation at
+  all before removing a whole batch (now gated behind `ConfirmDialog`).
+
+### Decision: Bank Import review-pass fixes + default/closed accounts (2026-08-27) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a real-device review of Bank Statement Import surfaced 6 gaps (unmatch not reachable at
+import time, Full Ledger's own escape hatch disappearing whenever an unrelated finding was open, cash
+transfers being withdrawal-only with a real direction bug baked in, an unsorted icon-less bank picker,
+and two year-less date spots) — full per-item detail in `docs/features/bank-import.md`'s matching
+2026-08-27 entry, not duplicated here. Alongside that, a genuinely new feature: a default account +
+payment mode, and a real "Closed" account status distinct from the still-unused `isArchived`.
+
+- **`Account.isDefault`/`Account.isClosed`** (both new, optional, no migration) — at most one account
+  may be default; closed is mutually exclusive with default on the same account. The cross-account
+  exclusivity (clearing `isDefault` from whichever OTHER account previously held it) couldn't live
+  inside any single feature's `saveAccount` implementation — this codebase has 3+ independent ones
+  (`useAccounts.ts`, `ExpenseForm.tsx`'s and `IouView.tsx`'s own inline "+ Add account" flows), since
+  the no-cross-feature-imports rule means none of them can call another's. It lives instead in
+  `useAccountForm.ts`'s `save()` — the one hook genuinely shared by all of them — which calls the
+  injected `saveAccount` callback a second time (for whichever account is losing default) after the
+  user confirms a popup. New pure core helper: `core/accounts/accountDefaults.ts`'s
+  `findPreviousDefaultAccount()`.
+- **`BankPickerModal.tsx`** (new, `apps/mobile/src/components/shared/`) — real logo/brand-color icon +
+  name, alphabetical, replacing a plain `SelectInput` in two places (`AccountFormModal.tsx`'s bank
+  field, Bank Import's `SetupStep.tsx`) that had the identical gap.
+- **`isCashWithdrawalNarration` renamed `isCashTransferNarration`**, gained a `direction` filter — and
+  `applyCashTransferConversion()`'s real bug (always treating the bank account as transfer source,
+  backwards for a deposit) is fixed to branch on the matched expense's own `type`, mirroring
+  `matcher.ts`'s `convertCandidateToTransfer`. `BankCashWithdrawalCode` gained an optional `direction`
+  field; existing rows default to `'withdrawal'`, no migration.
+
+**Same-day follow-up round** — two more real-device findings plus a resulting app-wide sweep:
+
+- **Transactions' Account filter missed transfers into an account.** `useTransactionFilters.ts` only
+  ever matched `e.accountId` — for a transfer that's the source account only, so a transfer landing in
+  the filtered account via `toAccountId` was silently excluded. Fixed to match either field, the same
+  `accountId === X || toAccountId === X` convention already used everywhere else account-scoped
+  (`useHome.ts`, `FullLedgerPage.tsx`, `AccountDetailModal.tsx`, etc.) — this hook was the one outlier.
+- **The year-less-date bug, found in Full Ledger's own range header, turned out to be a recurring
+  pattern, not a one-off.** Full Ledger's "from" date used `formatDateShort()` while the "to" date used
+  `formatDate()` — the identical asymmetric-range shape as the row-date bug fixed just above. Auditing
+  every date-formatting call site in `apps/mobile` for the same shape found and fixed it in
+  `EventsModal.tsx` (Events "Tracked" list), plus plain missing-year dates in `BankImportHistoryPage.tsx`,
+  `SetupStep.tsx`, `verificationCopy.ts`, Goals, IOU ledger entries, SMS tracking review, per-item
+  edit-history timestamps, the IPO tracker, and subscriptions' "last charged" — full list in
+  `docs/features/bank-import.md`'s matching entry. Dates paired with self-disambiguating relative
+  wording ("Due", "Renews in N days", "Overdue") were deliberately left alone — not the same bug shape.
+  Full Ledger's "Load earlier transactions" button also switched from a plain bordered `Pressable` to
+  the shared `Button` component (`variant="primary"`).
+
+### Decision: Transaction-storage performance fix — cache, notify coalescing, indexed queries (2026-08-28) — `apps/mobile` + `packages/core` only
+
+**Rationale:** real-device report — at ~10k transactions, app open took seconds, screen switches
+showed nothing for a while, and editing a single transaction took ~20 seconds (confirmed live via
+logcat: `Skipped 2062 frames!`, one continuous Choreographer stall). Root cause traced to the storage
+layer, not any one screen: `RowStore` can only `get(id)` or `toArray()` (full scan) — every field but
+`id` is opaque AES-GCM ciphertext, so no table can ever be filtered/sorted without decrypting
+everything first. On top of that, 12 independent call sites each called `expensesRepo.getAll()` with
+no sharing, and `notifyTxnChanged()` had 14 independent subscribers — so a single write fanned out
+into up to 14 redundant full-table decrypts, serialized through op-sqlite's single connection. Fixed
+in 3 parts (referred to during the session as "Tier 1/2/3" — unrelated to the Track 4 provider-porting
+tiers referenced elsewhere in this doc's early Track 4 entries):
+
+- **In-memory cache inside `EncryptedRepository`** (`packages/core/src/core/db/repository.ts`) — every
+  repo is a true module-level singleton (`repositories.ts`), so caching lives at exactly the right
+  level to be shared by every caller with zero call-site changes. `getAll()` caches its decrypted
+  result and de-dupes concurrent in-flight calls into one real decrypt; `put()`/`delete()` patch the
+  cache (always a NEW array reference, never mutated in place — plenty of code keys a `useMemo`/
+  `useEffect` off that reference's identity). The only 4 writes that bypass `EncryptedRepository`
+  entirely (`securityManager.ts`'s `wipeAllData()`, `seedDemoData.ts`'s `wipeDemoData()`,
+  `backupManager.ts`'s `importBackup`/`mergeBundle`) call the new `invalidateAllRepositoryCaches()`
+  immediately after. `packages/core/tests/setup.ts` gained a global `beforeEach` calling the same
+  function — the whole test suite's `db.<table>.clear()` reset pattern would otherwise leave a
+  previous test's cached rows visible to the next one.
+- **Coalesced `notifyTxnChanged()`** (`useTxnRefresh.ts`/`.native.ts`) — onto a microtask, so several
+  near-simultaneous calls collapse into one flush instead of firing every listener N times over.
+- **Real indexed queries for `expenses`** — the one table with genuine row-count pressure. New
+  `IndexedExpenseRow`/`ExpenseRowStore` (`store.ts`) — 5 plaintext, indexed columns (`date`,
+  `accountId`, `toAccountId`, `categoryId`, `type`) alongside the normal `id`/`iv`/`ciphertext`
+  envelope, a deliberate, documented reversal of `schema.ts`'s "index id only" rule for exactly these
+  5 structural/opaque-id fields — amount, description, hashtags, and notes stay fully encrypted as
+  before. Implemented natively in `schema.native.ts` (real SQL `ALTER TABLE`/indexes/`WHERE` queries)
+  and mirrored in `schema.ts` (Dexie `.where(...)`) since `apps/web-react` (frozen) and the entire
+  vitest suite run against the Dexie file, not the SQLite one, per this codebase's own established
+  rule. `EncryptedRepository` gained `queryByDateRange`/`queryByAccount`/`queryByCategory` — real on
+  `expensesRepo` (constructed with the indexed store + a field extractor in `repositories.ts`), a
+  correctness-preserving `getAll()` + JS-filter fallback on every other repo. A one-time backfill
+  (`useExpenses.ts`, flag `penny_expense_index_v1`, same pattern as `penny_merchant_memory_v3`) fills
+  the 5 columns for rows written before this shipped. `FullLedgerPage.tsx`/`CheckpointTimelinePage.tsx`
+  switched their own account-scoped `expenses` load from `getAll()` to `queryByAccount()` — every use
+  of that data in both files was already scoped to one account, so this was a transparent swap.
+  Deliberately NOT swapped: `useExpenses.ts`'s own core `expenses` state (feeds too many other
+  consumers — merchant-memory backfill, IOU seeding, hashtag counts — that genuinely need the full
+  table; Tier 1's cache already makes that full read cheap after the first decrypt per session).
+- Considered indexing `hashtags`/IOU `personId` too — declined. Tags are user-authored free text (can
+  be genuinely sensitive, e.g. "therapy"), not an opaque id, and need a multi-entry/junction index, not
+  a plain column; `Expense` has no `personId` field at all (IOU links live on the much smaller
+  `ledger_entries` table instead) — not part of this table's scaling problem.
+- Loading indicators added for the "shows nothing for a while" half of the report: `HomePage.tsx`
+  (`GlanceHeader`/`AccountsStrip`'s slot), `AccountsPage.tsx`/`AccountList.tsx` (new `loading` flag on
+  `useAccounts.ts` — previously indistinguishable from "genuinely zero accounts," both start as `[]`),
+  and `FullLedgerPage.tsx`/`CheckpointTimelinePage.tsx` (previously showed "Account not found" during
+  every cold load, not just a real deletion, since both repos start empty pre-fetch).
+- Verified live on-device (OnePlus 8T): pre-fix, editing a transaction produced `Skipped 2062 frames!`
+  (~20s stall); post-fix (Tier 1 + coalescing only, same device, same data, installed as an update —
+  not a fresh install), zero Choreographer stall events across the same flow, worst single frame 218ms.
+
+**Same-day follow-ups, found continuing the real-device pass:**
+
+- **Batched the one-time index backfill.** The original `Promise.all` of ~10,000 individual
+  `backfillIndexColumns()` calls cost a real, measurable ~2s one-time stall on its only run (confirmed
+  via a controlled repeat-cold-open test: stall present on the first post-upgrade open, gone on the
+  next two). Replaced with `backfillIndexColumnsBatch()` — one `executeBatch()` call natively (same
+  "many statements, one transaction" primitive `restoreTables()` already uses) and one real
+  `db.transaction()` on Dexie — cutting ~10,000 autocommit writes down to one round-trip.
+- **Fixed a real, separate bug in `useAccounts.ts`**: `.filter().sort()` always allocates a new array,
+  even when the underlying `accountsRepo.getAll()` result is the identical (Tier-1-cached) reference —
+  so `useAccountVerification.ts`'s own `useMemo` (checkpoint diagnostics for every account) recomputed
+  on every screen focus regardless of whether anything changed. Fixed by skipping the transform when
+  the raw `getAll()` reference is unchanged since last time.
+- **Found and fixed the real account-tile bottleneck** (traced via temporary `console.log` timing
+  instrumentation on a debug build, then removed): `groupExpensesByDate()` — 700ms–1.5s for ~5,000
+  rows, and running TWICE per tap. The double-run was `AccountDetailModal.tsx`'s own `accountTxns`
+  being a plain, unmemoized `.filter()` computed fresh on every render (this component reliably
+  re-renders twice on open) — `EntityTransactionsModal.tsx`'s `groupExpensesByDate` is itself
+  `useMemo`'d on that array's identity, so a fresh reference each render defeated the memo entirely.
+  Fixed with a real `useMemo` there. The per-call cost itself was `groupExpensesByDate`
+  (`core/expenses/filterAndAggregate.ts`) grouping into a `Map` first, then separately `.sort()`ing AND
+  spread-copying every individual day's own item array — thousands of tiny sort/copy operations for an
+  account with transactions spread across thousands of distinct days. Rewritten to sort the whole array
+  once, globally, then do a single O(n) grouping pass with no further sorting/copying (same-day rows
+  are already contiguous once sorted). New test coverage: `tests/expenses/filterAndAggregate.test.ts`.
+- **Fixed a real, separate race in bank-import matching**: `useBankImport.ts`'s `confirmMapping()` (the
+  "Continue to review" action, 3 separate entry points) ran the two-tier matcher against whatever
+  `importRecords`/`allExpenses`/etc. happened to be loaded at that instant — none of the underlying
+  `useRepository()` loads were gated. Reaching that action before `importRecords` finished its first
+  load meant Tier 1's exact-provenance lookup found nothing for a previously-imported statement, and
+  Tier 2's fuzzy fallback (which excludes already-checkpointed expenses by design) couldn't help either
+  — landing rows in "unmatched" that should have provenance-matched instantly. Fixed with a `dataLoading`
+  flag gating the action itself (not just one button), so no future entry point can reintroduce the race.
+- **Found, but reverted, a separate real matching bug**: `matcher.ts`'s `findProvenanceMatch()` has no
+  way to avoid re-matching the same stored import record to two DIFFERENT statement rows when they
+  share identical accountId/date/amount/narration (e.g. two same-day cash withdrawals of the same
+  amount) — the first row claims the record correctly, the second gets the identical record back, sees
+  its linked expense already claimed, and falls through to Tier 2's checkpoint exclusion into
+  "unmatched" even though its real counterpart is sitting right there. A fix (excluding already-claimed
+  records from the lookup) was implemented and unit-tested, but reverted the same day after an
+  unresolved, ambiguous real-device crash (`TypeError: Cannot read property 'create' of undefined` at
+  startup) that could not be cleanly reproduced in an isolated debug-build+emulator bisection — leaving
+  genuine ambiguity about whether this function was really the cause or a stale release-build cache
+  was. Left in place as a documented known limitation (`findProvenanceMatch`'s own doc comment,
+  `matcher.test.ts`'s matching test kept as `it.skip`) rather than re-risked without a clean bisection.
+- **Real build-tooling trap, hit twice**: `./gradlew assembleRelease` can report `packageRelease
+UP-TO-DATE`/`createBundleReleaseJsAndAssets UP-TO-DATE` and skip re-bundling the JS entirely even
+  after `packages/core`/`apps/mobile` source changed — silently shipping a stale bundle with an
+  installed-looking-successful build. Confirmed by explicitly checking for the `Android Bundled Xms
+apps/mobile/index.ts` line in the build output, not just `BUILD SUCCESSFUL`; forcing a real re-bundle
+  requires deleting `apps/mobile/android/app/build/generated/assets/react` before rebuilding. See
+  `CONTRIBUTING.md`'s release-APK build steps for the now-explicit warning.
+
+### Decision: retire `apps/web-react` entirely; `schema.ts` drops Dexie (2026-08-29)
+
+**Rationale:** `apps/web-react` had been frozen since 2026-07-31 (see the Mobile Migration decision
+above) — kept only as a historical design/behavior reference, never updated past that point, with
+`apps/mobile` fully superseding it in every module. Once a DB-structure review (prompted by a
+performance investigation into Analytics/Subscriptions) surfaced that `packages/core/src/core/db/
+schema.ts` (Dexie/IndexedDB) existed purely to serve two consumers — `apps/web-react`'s own runtime,
+and the entire `vitest` suite (`schema.native.ts`, what `apps/mobile` actually runs on, has zero
+automated test coverage by this codebase's own established rule) — retiring the frozen app made the
+Dexie dependency itself removable, not just the app.
+
+**The one real blocker, handled first:** deleting `schema.ts`'s Dexie backing without giving
+`EncryptedRepository`'s tests something else to run against would have deleted the DB layer's entire
+automated safety net at the same time — exactly the "tests pass, real engine breaks" gap that already
+caused one real bug (`backupManager.ts`'s `.bulkPut()`, a Dexie-only method called against
+`schema.native.ts`). Sequencing: rewrote `schema.ts` in place (same filename, same import path,
+same exported shape — `db`, `expensesIndexedStore`, `restoreTables()`) as a plain in-memory
+`Map`-backed implementation of the exact same `RowStore<T>`/`ExpenseRowStore` contract
+`schema.native.ts` already implements, confirmed the full 1224-test suite still passed unchanged
+against it, **then** deleted `apps/web-react`.
+
+**Why the file kept its name/path instead of being deleted and replaced with a new test double:**
+every consumer (`repositories.ts`, `securityManager.ts`, `backupManager.ts`, `seedDemoData.ts`,
+`priceCache.ts`, the market-data clients) already imports the bare specifier `./schema`/
+`@/core/db/schema`, and Metro's platform-extension resolution already sends `apps/mobile` to
+`schema.native.ts` for that same bare specifier. Keeping the filename meant zero import-site changes
+anywhere in the codebase — the same "swap the engine underneath, callers never notice" property
+`store.ts`'s `RowStore<T>` seam was always designed to give every prior storage-engine swap (expo-
+sqlite → MMKV → op-sqlite, see `schema.native.ts`'s own history comment).
+
+**What changed as a result:**
+
+- `packages/core/package.json`: `dexie` + `fake-indexeddb` dependencies removed entirely.
+- `eslint.config.js`: the "Dexie may only be imported from `packages/core/src/core/db/`" rule is now
+  "Dexie must never be imported anywhere" (no override left for `core/db/`, since nothing there needs
+  it anymore) — kept as a defensive rule against reintroduction, not deleted outright.
+- `packages/core/tests/backup/backupManager.test.ts`'s rollback-regression test now spies on
+  `db.accounts.put` instead of Dexie's `bulkPut` — `restoreTables()`'s own snapshot/rollback (added to
+  the new in-memory `schema.ts`, mirroring the atomicity Dexie's `transaction()`/op-sqlite's
+  `executeBatch()` already gave the two real engines) is what the test now exercises.
+- Root `tsconfig.json` (dropped the `apps/web-react` project reference), root `package.json` (`dev`/
+  `build`/`test` scripts no longer target `web-react`), `pnpm-workspace.yaml` (needed no change — its
+  `apps/*` glob just naturally stopped matching a deleted directory).
+- Retired alongside the app itself (nothing left for them to do): `docs/MOBILE_PARITY.md`,
+  `docs/ANDROID_EMULATOR.md` (both docs), and `.claude/agents/web-developer.md`/
+  `.claude/agents/parity-auditor.md`/`.claude/skills/parity-sweep/` (both agents + the skill existed
+  solely to work on or audit against `apps/web-react`). `mobile-developer`/`ui-designer`/
+  `code-reviewer`/`test-writer`'s agent definitions and `ui-design-check`'s skill had their
+  web-react-comparison instructions removed (cross-platform consistency checking has no second
+  platform to check against anymore).
+- **Explicitly NOT swept**: the very large number of historical "ported from `apps/web-react`'s X"
+  provenance comments scattered across `apps/mobile/src/` (a legitimate, still-accurate record of
+  where each piece of code originated, not a functional dependency) — rewriting all of those was
+  judged disproportionate to this task and would destroy real historical context for no functional
+  benefit. Also not swept: whether any `.native.ts`/`.web.ts` pair's _unsuffixed_ base file (e.g. the
+  `googleDriveProvider.ts`/`.web.ts`/`.native.ts` trio) is now genuinely dead code because its only
+  reason to exist was serving `apps/web-react`'s Vite bundler specifically — flagged here as a real,
+  separate follow-up audit, not chased down in this pass.
+
+**Verification:** `tsc -b` clean across the whole workspace, `eslint packages/*/src apps/*/src` clean,
+full `vitest` suite (`packages/core` + root `workers/` tests) passing identically before and after
+(1224 passed/1 skipped in `@penny/core`, 43 passed at root).
+
+### Decision: DB-structure review — future-restructure shape decided in advance, never store personal data server-side (2026-08-29)
+
+**Rationale:** a performance investigation into Analytics/Subscriptions surfaced a broader question —
+should Penny move toward real DB-level referential integrity (real `FOREIGN KEY` constraints, no
+duplicate plaintext/encrypted columns) instead of Tier 2's current duplicate-column pattern
+(`docs/SCHEMA.md`'s `expenses` "Storage note")? Full analysis lived in a session plan file, not
+committed as its own doc; the two durable conclusions are recorded here so they survive even though
+the bigger restructure itself was **not** undertaken now (a cheap JS consistency-checker for
+referential integrity was recommended instead — not yet built; a real, separate follow-up).
+
+**1. If the restructure is ever done, use the hybrid shape — not true per-field encryption, and not
+Tier 2's duplication, extended everywhere:**
+
+| Approach                                      | Shape                                                                                                                                                                                         | Why not                                                                                                                                                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| True per-field encryption                     | Every sensitive field gets its own `iv`/`ciphertext` pair, as separate columns                                                                                                                | Real IV+auth-tag overhead (~28 bytes) **per encrypted field, per row** — multiplies storage cost for no benefit over the alternative below                                                             |
+| Tier 2's duplication, extended to every table | Real plaintext columns alongside an unchanged, still-full encrypted blob                                                                                                                      | A field lives in two places at once — the exact "why 2 columns?" question Tier 2 already had to answer for `expenses` specifically; fine for one table, not a pattern to generalize                    |
+| **Hybrid (recommended, if ever done)**        | One small `ciphertext` blob holding _only_ the still-sensitive fields (amount, description, notes, free text) + separate real plaintext columns for everything structural (ids, dates, enums) | One encrypt/decrypt op per row like today, zero duplication (a field lives in exactly one place), and real plaintext id columns make genuine SQL `FOREIGN KEY` constraints possible for the first time |
+
+**2. Never store personal transaction data in Cloudflare — encrypted or not — reaffirming
+`docs/BACKEND_STRATEGY.md`'s settled Model B decision (2026-06-27), not a new question.** Raised again
+in this session as a hypothetical ("what if we stored a heavy user's full history in D1"); walked
+through concretely rather than dismissed on principle alone:
+
+- **Storage:** ~300 MB estimated for one 1M-row user's `expenses` table alone → **~16 such users**
+  before D1's entire 5 GB free tier is gone.
+- **Reads:** a single All-Time Analytics view for one such user is ~1M row-reads — **20% of the
+  entire free tier's daily 5M-read budget, in one screen tap, from one user.**
+- **Performance:** would make the app _slower_, not faster, for Penny's actual access pattern
+  (single-user, single-device, local SQLite reads are sub-millisecond; a Cloudflare round-trip is
+  100s of ms and fails entirely offline — a real regression for the BRD's India/patchy-connectivity
+  target market).
+- **Privacy:** even encrypted, reverses "server holds ciphertext or nothing" into "server holds every
+  user's full history" — a single breach exposes everyone at once, a fundamentally different risk
+  class than one compromised phone; at "unencrypted" (as the hypothetical also considered), it ends
+  the "local-first, zero backend" claim entirely.
+
+No code or docs changed to reverse Model B — this is a confirmation, filed here (not only in
+`docs/BACKEND_STRATEGY.md`) because the concrete numbers above are new and worth keeping alongside
+the rest of this session's DB-structure findings.
+
+### Decision: referential-integrity consistency checker + Analytics lazy view computation (2026-08-29)
+
+**Rationale:** the two lowest-risk, highest-value follow-ups from the DB-structure review above,
+picked up the same day. A third (a cached running balance to eliminate `computeBalance()`'s repeated
+full-array scans on Home/Analytics/IOU) was deliberately deferred — see below.
+
+**1. `packages/core/src/core/db/consistencyCheck.ts` — `findOrphanedReferences()`.** The cheap
+alternative to a full per-field-encryption/real-`FOREIGN KEY` restructure: scans every FK-shaped
+relationship this codebase actually relies on (the ER diagram in the entry above) after decryption,
+and reports any reference pointing at an id that doesn't exist in the table it's supposed to
+reference. Read-only, reports only, never repairs. Checked: `expenses.accountId`/`toAccountId`/
+`categoryId`, `expense_categories.parentId` (self), `goal_contributions.goalId`/`linkedTxnId`,
+`ledger_entries.personId`/`linkedTxnId`, `persons.promotedToGroupId`, `group_members.linkedPersonId`,
+`bank_statement_imports.accountId`/`linkedTxnId`, `sms_transactions.accountId`/`linkedTxnId`.
+Deliberately NOT checked (see `consistencyCheck.ts`'s own doc comment): `hashtags` (matched by name,
+not id), `activity_log.entityId` (genuinely polymorphic), `bankId` fields (a shared enum, not a table
+reference), and the lower-risk `categoryId`/`accountId`/`paymentMode` fields on `subscriptions`/
+`transaction_templates`/`merchant_memory`/`sms_transactions`. Covered by
+`packages/core/tests/db/consistencyCheck.test.ts` (a fully-consistent dataset reports zero issues; a
+dataset with one dangling reference per checked relationship is caught exactly once each; an absent
+optional reference is correctly never flagged). Not yet wired into anything that runs automatically
+(no CI job, no on-device diagnostic) — that's its own future step if it proves useful.
+
+**2. Analytics eager 3-view computation → lazy, active-view-only.** `useExpenseAnalytics.ts` gained a
+new required `analyticsView: 'monthly' | 'annual' | 'allTime'` input (threaded from
+`AnalyticsSlice.tsx`'s existing `analyticsView` state, previously not passed to the hook at all).
+Every one of the ~25 real `expenses`-array-scanning computations (`buildGroupData`/
+`buildSetAsideData`/`buildIncomeData`/`buildEventsData`/`buildHashtagSummary`/`buildAnnualSeries`/
+`biggestMovers`/`computeCashFlowSummary`/the hand-rolled `monthTotal`/`annualRecap`/`allTimeTotal`/
+`allTimeNet`/`allTimeRecap`/`allTimeAvgPerDay` loops) is now gated behind `isMonthly`/`isAnnual`/
+`isAllTime` and returns a cheap, correctly-typed empty default (`[]`, `0`, or an empty
+recap/Map shape) when its view isn't the one on screen — cutting steady-state cost by roughly 2/3 and
+removing the tax of recomputing all three every time `expenses` changes anywhere in the app
+(including in the background, while a different tab is focused). Purely derived values (totals/maxes
+computed by reducing an already-small, already-gated array) were left ungated — they're already cheap
+once their base input is empty. Switching to a previously-viewed tab still recomputes that tab's real
+data from scratch (deliberate, matches "lazily compute... on switch," not a full per-view cache) —
+cheap because it only happens on a user-initiated tab switch, not on every background write.
+
+**3. Cached running balance — deferred, not built.** The higher-risk alternative fix for
+`computeBalance()`/`computeCashFlowSummary()`'s repeated full-`expenses`-array scans (Home's
+still-open Phase 3 item, Analytics' Cash Flow tile, `IouView.tsx`) was explicitly not built this
+round. Two real options exist: (a) a persisted, incrementally-updated `accounts.cachedBalance` field
+— genuinely O(1) reads, but requires an exhaustive, perpetually-maintained audit of every
+`expenses`-writing code path (manual add/edit/delete, bulk delete/move, CSV/bank/SMS import, backup
+restore/merge, reconciliation, goal contributions, IOU settle-up) to keep it in sync, with silent
+balance drift — no error, just a wrong number — as the failure mode if any path is ever missed; or
+(b) a safer single memoized grouped pass computing every account's balance in one `O(n)` scan over
+`expenses`, shared across Home/Analytics/IOU and automatically self-healing on every `expenses`
+change (no persisted field, nothing to keep in sync, but doesn't reach true O(1)). Flagged to the
+user as a real risk trade-off before starting; the user chose to pick this up later rather than
+decide between the two now.
+
+### Decision: Real-device-testing-pass 10th batch — 16-item punch list (2026-08-29) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a 16-item punch list the user provided directly in one message, unrelated to any
+prior testing batch — split per the user's own explicit two-step gate into "fix now, no mockup
+needed" and "one combined mockup, then implement together" before any code changed. Full per-item
+writeup lives in `docs/plans/real-device-testing-pass.md`'s 10th batch (items 81-95); this entry
+covers only the pieces that are genuinely architectural.
+
+**New `coverage.ts` pattern — a non-badge signal living alongside a closed finding system.**
+`accountVerification.ts`'s `VerificationFindingKind` is a deliberately closed 3-kind priority system
+(its own doc comment says so explicitly). The new "unverified tail" sweep (transactions recorded
+after an account's last verified statement date, with no import link) is a genuinely different kind
+of signal — not negative/actionable in the same sense — so it was built as two new, independent pure
+functions in `coverage.ts` (`computeVerifiedThroughDate()`, `findUnverifiedTailExpenses()`) rather
+than as a 4th finding kind. Precedent for future signals of this shape: extend the closed enum only
+for things that genuinely compete for the *same* one-badge slot; build a parallel, independent
+pure-function signal (surfaced by the UI layer alongside, not instead of, the badge) for anything
+that doesn't.
+
+**New hook: `apps/mobile/src/components/privacy/useOpenModeGate.tsx`.** Extracted the PIN +
+pre-Open shoulder-surfing-warning modal flow out of `PrivacyModeSwitcher.tsx` (`requestOpen(onConfirmed?)`
++ `modal`) so the new Settings "default to Open" row could drive the exact same gate rather than a
+second, parallel PIN check. Any future entry point into Open mode should go through this hook, not
+re-implement the PIN/warning flow inline.
+
+**New lib: `packages/core/src/lib/defaultOpenMode.ts`.** Platform-agnostic helpers for the 3-day
+default-to-Open feature (arm duration, urgency threshold, countdown-label formatting) — kept in
+`packages/core` rather than `apps/mobile` despite having exactly one caller today, since it's pure
+date-math with no RN dependency, consistent with this repo's general preference for
+platform-agnostic logic to live in `packages/core` even before a second consumer exists.
+
+**`App.tsx` provider order changed:** `ToastProvider` now wraps `SettingsProvider`/`PrivacyProvider`
+(previously nested between them) — `PrivacyContext`'s new default-to-Open reconciliation effect
+needs `useToast()` to show the one-time "switched back to Safe" expiry toast. Every existing
+`useToast()` call site is unaffected, since `RootNavigator` (and everything under it) sits inside
+all three providers regardless of their relative order — only `PrivacyContext`/`SettingsContext`
+themselves could have been affected by the reorder, and neither calls `useToast()` except for this
+new effect.
+
+**`PrivacyContext.tsx`'s existing `AppState`-background auto-revert-to-Safe now has a real
+exception**, not just a future one hypothesized: it skips itself while a default-to-Open window is
+armed (`defaultOpenArmedUntil` in the future). See `docs/PRIVACY.md`'s "3-day default-to-Open"
+entry for the full privacy-relevant writeup of this behavior and its accepted trade-off.
+
+### Decision: two unrelated real-device bugs found chasing one EPF PDF import report — `apps/mobile` + `packages/core` only (2026-08-30)
+
+**Rationale:** a real user report ("import passbook PDF selects a file, then nothing happens")
+uncovered two completely independent, previously-unknown bugs during investigation — one blocking
+every release build from launching at all, the other specific to real (larger, non-Latin-font)
+passbook PDFs. Recorded together since both were found in the same investigation session and both
+needed real-device/emulator instrumentation (console logging alone wasn't enough for either) to
+actually root-cause, not just work around.
+
+**1. Release-build-only launch crash: `apps/mobile/src/lib/reactNativeShim.ts`'s `import * as
+RealReactNative from 'react-native'`.** Confirmed via a symbolicated Hermes crash stack (using the
+release build's own generated sourcemap + `metro-symbolicate`, not guessed): every release build
+crashed on launch with `TypeError: Cannot read property 'create' of undefined`, traced to
+`apps/mobile/src/features/home/stories/ShareCard.tsx`'s `StyleSheet.create(...)` — one of only two
+call sites in the whole app still using classic `StyleSheet.create` instead of NativeWind. Root
+cause: real React Native's own `index.js` exports several properties (`StyleSheet` included) as
+lazy getters; Babel's ESM-interop copy for `import * as X from 'react-native'` against this shim's
+own module evaluation only broke — specifically under Hermes bytecode's evaluation order — in a
+real release build, never in a debug/Metro-interpreted session, which is why this was never caught
+before. Fixed by switching to a plain `require('react-native')` (no interop copy, forwards straight
+to RN's own live getters) — confirmed crash-free across a fresh install and 3 warm relaunches, on
+both a real device and the Android emulator. Separately, added a missing `react-native-screens`
+ProGuard keep rule (`apps/mobile/plugins/withProguardRules.js`, a new config plugin, since
+`android/app/proguard-rules.pro` is gitignored/regenerated by every `expo prebuild`) — found while
+investigating this same crash; not the actual cause, but a real, separately-missing protection
+worth keeping now that R8 minification is on.
+
+**2. EPF passbook PDF parsing hangs indefinitely on-device — a real Hermes/React Native bug in its
+own built-in `structuredClone`.** `packages/core/src/core/portfolio/epfPassbookParser.ts`'s
+`getDocumentProxy()`/`extractText()` (via `unpdf`) hung forever on a real, larger passbook PDF —
+reproduced identically on a real device and the Android emulator, in both debug and release builds
+— despite the exact same call completing in ~30ms against the exact same file under plain Node.js.
+Root-caused via direct runtime instrumentation (not guesswork): isolated an in-process `PDFWorker`
+handshake (instant, correct), ruled out `structuredClone` itself for small payloads, ruled out
+`Promise.withResolvers`, ruled out any network `fetch` involvement (the only fetches observed were
+Metro's own unrelated dev-server symbolication calls), then patched `globalThis.structuredClone`
+with a logging wrapper and caught it *throwing* `TypeError: Cannot read property 'json' of null` —
+specifically on the *reply* message PDF.js's internal "fake worker" message-passing protocol
+(`LoopbackPort.postMessage()`) sends back after successfully parsing the document; the *request*
+message clones fine every time. Since that internal message-passing has no error handling around
+the clone call, the reply is silently dropped and the original caller's promise waits forever for a
+response that will never arrive — a genuine bug in Hermes's/RN's own `structuredClone`
+implementation, not in PDF.js, `unpdf`, or this app's own code. Fixed by replacing
+`globalThis.structuredClone` globally with a manual recursive deep-clone
+(`ensureWorkingStructuredClone()`) before PDF.js ever runs — safe here specifically because PDF.js's
+"fake worker" never actually crosses a real thread boundary (confirmed `typeof Worker ===
+'undefined'` in this environment; PDF.js's own serverless build is hard-coded to skip the real-
+`Worker` path entirely), so a plain copy is behaviorally equivalent to a true structured clone for
+this use case. Also disabled PDF.js's font-substitution path (`useSystemFonts: false,
+disableFontFace: true` — this file's embedded legacy Devanagari font otherwise triggers
+browser-only font-substitution machinery `extractText()` never actually needs) and added a 15s hard
+timeout as a defensive safety net for any other, still-undiscovered on-device PDF.js issue. **General
+lesson, worth remembering beyond this one bug**: any library using a `postMessage`/`structuredClone`-
+based message-passing protocol internally (common for libraries originally written for
+worker-thread or cross-realm use, like PDF.js) is a real risk area on Hermes — verify it against a
+realistic, real-world-sized payload on an actual device or emulator, not just a small synthetic
+fixture under a debug/Metro session, before trusting a "works on-device" spike result.
+
+### Decision: EPF passbook-import sixth round — line-wrap parsing gap, multi-event reconciliation collapse, mid-year transfer-in interest gap, checkpoint-drift compounding, stale-snapshot modal bug, pending-transfer resolution overhaul, hike detection, two new rate tables (2026-08-30) — `apps/mobile` + `packages/core` + `workers/api-proxy` only
+
+**Rationale:** found chasing a real multi-employer EPF transfer report end to end — one real
+transfer surfaced a parsing gap, which once fixed surfaced a reconciliation bug, which once fixed
+surfaced an interest-calculation gap, plus two longer-standing correctness/UX gaps (a modal
+snapshot-staleness bug, a chronologically-naive transfer-successor guess) found investigating the
+same report. Recorded together since they were all found and fixed in one session against the same
+underlying data, alongside two new, unrelated capabilities (hike detection, two new Cloudflare-backed
+rate tables) added in the same pass.
+
+**1. pdf.js text extraction can split ONE transaction row across several physical lines —
+previously silently invisible rows.** `epfPassbookParser.ts`'s `ROW_PATTERN` only ever matched a row
+complete on one line; a row with long particulars text (routinely true for a real "TRANSFER IN - Old
+Member Id ..." row) can have its date+CR/DR prefix, its wrapped particulars, and its trailing numeric
+columns land on three or more separate lines — such a row never even reached `classifyRow`, so a real
+transfer-in credit could be completely absent from Penny despite being genuinely present in the
+passbook's own text. Fixed with a new `reflowWrappedRows()`, run before `parseRows`: whenever a line
+matches ONLY a row's own date+CR/DR prefix with nothing else on it, greedily absorbs following lines
+onto the same line until the merged result is a complete, matchable row — stopping at a blank line, the
+start of a genuinely new row, or a defensive hard cap, never guessing how many lines to absorb. A row
+already complete on one line is untouched. Confirmed against a real sample: 4 genuine `transfer_in`
+rows recovered, all previously silently dropped, zero false merges against every other already-correct
+sample checked.
+
+**2. A single FY can contain SEVERAL distinct transfer_in/withdrawal events — the old
+aggregate-by-type-per-FY reconciliation model silently collapsed them into one, wrong-dated entry.**
+`epfImportLogic.ts`'s `reconcileUnit` used to group every non-contribution row in a unit by type and
+sum them into one combined item dated to the LATEST row — correct only if at most one such event
+happens per FY per type, which a real passbook (once bug 1 above stopped hiding wrapped rows) proved
+false: e.g. the actual principal transfer posting on one date, followed months later by a separate
+"TRANSFER IN - INTEREST AMOUNT ONLY" catch-up credit. The old aggregation silently discarded the real,
+earlier date the principal actually moved on. Fixed with a new `reconcileEpfBalanceEventAtDate()`
+(`epfReconciliation.ts`), matching by each row's own exact real date instead of `(type, FY)` — every
+genuinely distinct event now stays its own item. `itemKey()` (`epfImportLogic.ts`) was also fixed in
+the same pass: it used to be `item.wagesMonth ?? item.type` alone, which collapsed two distinct
+non-contribution items of the same type in one unit onto an identical review-screen key (one checkbox
+toggle silently affecting both) — now `` `${item.type}-${item.date}` ``, unique in practice.
+
+**3. A mid-year transfer-in was invisible to the interest simulation for the exact year it
+landed in.** `sumEpfBalanceBeforeFy` already correctly folded a transfer-in into every LATER year's
+opening balance, but `calculateEpfInterestForYear`/`buildEpfInterestInput`
+(`epfInterestCalculator.ts`) had no concept of an in-year transfer at all — the year the credit
+actually arrived silently computed interest as if the transferred balance had earned nothing for the
+months after it landed. Fixed by adding `monthlyTransfersIn` (mirroring `monthlyWithdrawals`'s existing
+shape/timing exactly): added to the balance at month-end, after that month's own interest is already
+computed, so it starts earning interest from the following month — a transfer posts on its own real
+date, not subject to a contribution's wage-deposit lag, so no offset is applied the way a contribution's
+`wagesMonth` gets one.
+
+**4. Balance-seed drift compounded forward year over year for an employer with a same-FY switch
+settlement Penny can't fully reconstruct.** `sumEpfBalanceBeforeFy` (`apps/mobile`'s
+`epfInterestOnDemand.ts`) always re-derived an FY's opening balance by re-summing every earlier
+transaction — any small drift from the real passbook (e.g. a settlement with no corresponding
+transfer-in row to reconstruct it from) fed forward into every subsequent year's own calculation,
+since each year built its opening balance from the previous year's already-drifted total rather than
+ever re-anchoring to a real, stated value. Fixed to prefer a real passbook-stated
+`EpfBalanceCheckpoint` (`latestCheckpointBeforeFy`) whenever one exists for the employer — a value
+already captured at import time (`epfImportLogic.ts`'s `mergeCheckpoints`) but never actually read
+anywhere until now — falling back to the historical transaction sum only when no checkpoint was ever
+imported. Removes the compounding entirely for any employer with real passbook checkpoints.
+
+**5. "Save ratio doesn't work" — a modal holding a snapshot object instead of re-resolving its
+subject live, by id, on every render.** `EpfEmployerDetailModal.tsx` (new) originally took an
+`EpfEmployer` object captured at tap time; a save made from ITS OWN stacked child popup (e.g. the
+pending-transfer confirm sheet) correctly updated the parent `holding`, but the modal kept rendering
+the stale snapshot object it was opened with, so a value written by the child action appeared to not
+have saved at all when reflected back in this modal's own UI. Fixed by taking `employerId` instead and
+re-resolving `allEmployers.find((e) => e.id === employerId)` fresh from `holding` on every render,
+rendering nothing if the employer no longer exists rather than crashing. **General pattern worth
+remembering**: a modal/popup that can itself open a further child action capable of mutating the same
+parent data it displays must re-derive its own subject from the parent's live data by id on every
+render — never hold onto the object it was opened with, even though "just pass the object" looks
+simpler and works fine until exactly this stacked-mutation shape happens.
+
+**6. Pending-transfer suggestion assumed the wrong destination — real EPFO transfers target
+whichever Member ID is CURRENTLY ACTIVE, not "whichever job came next."** `epfHasPendingTransfer`
+used to always suggest the chronologically-next employer by `fromDate` and considered a gap "resolved"
+only once THAT specific employer had any `transfer_in` at all. Real career data broke this: two
+different old, closed employers (jobs held years apart) can both correctly transfer into the SAME
+later, still-current employer, filed together, skipping right over an employer that happened to sit
+chronologically in between — the old logic never recognized the skipped employer's gap as resolved.
+Rebuilt as `epfPendingTransferSuccessor()` (renamed from `epfHasPendingTransfer`, which now wraps it as
+a boolean convenience): defaults the suggestion to the CURRENTLY ACTIVE employer (no `toDate`) when one
+exists, falling back to the chronologically-next employer only when nothing is currently active — but
+it's always just a default, never enforced; the confirm flow (new `useEpfPendingTransfer.ts` hook +
+`EpfPendingTransferModal.tsx`) lets the user pick any other employer instead. "Already resolved" is now
+tracked via a new `EpfTransaction.transferredFromEmployerId` (see `docs/SCHEMA.md`) — an exact link back
+to the specific old employer, checked across every employer in the holding, not just whichever one
+happens to be suggested this time. A companion `epfImportLogic.ts` function,
+`resolveTransferSourceEmployerId()`, auto-attributes this same field on a freshly IMPORTED transfer_in
+row too, by matching the passbook's own "Old Member Id" text against a known employer's `memberId` — a
+real, deterministic identification (the same value that employer's own passbook import already stored
+as its `memberId`), not a heuristic guess.
+
+**7. New: hike detection from real imported wage data (`findUnrecordedEpfHikes`,
+`epfCalculations.ts`).** Real reported gap: `EpfEmployer.basicSalary`/`hikeTimeline` is set once from
+whichever unit is the FIRST ever imported for an employer; a later re-import extends date coverage but
+never re-examines wage data for a change, so a multi-year employer built from several yearly passbooks
+had its entire CTC/Gross/Net Monthly display frozen at the first imported year's wage, silently
+ignoring every real raise later years' own passbooks already proved happened. Scans an employer's real
+`EpfTransaction.epfWages` for a sustained increase over what `epfGetSalaryForMonth` currently predicts
+that isn't yet in `hikeTimeline`, requiring the row immediately after a candidate to still be at/above
+the new level (so one anomalous row can't be mistaken for a real raise) and skipping the employer's own
+joining/leaving wage month. Detection only — never silently writes to `hikeTimeline`; the card's new
+"hike detected" nudge banner always asks the user to confirm/adjust before adding (or dismiss via the
+new `EpfEmployer.dismissedHikeMonths`, see `docs/SCHEMA.md`).
+
+**8. New: two Cloudflare-backed rate tables, mirroring the existing EPF/PPF interest-rate
+architecture exactly** — `packages/core/src/core/portfolio/epfBasicToGrossRates.ts` (`/epf-basic-to-
+gross-rates`) and `epfIncomeTaxRates.ts` (`/epf-income-tax-rates`), both offline-first with a 30-day
+cache and a baked-in fallback table, both registered in `docs/EXTERNAL_APIS.md`. The Basic-to-Gross
+table replaces a single flat `EPF_DEFAULT_BASIC_TO_GROSS_PCT` default (50%) used for every era with a
+real convention change (40% pre-Nov-2025 Code on Wages, 50% after) — found via a real mismatch reported
+against a 2014 hike point. The income-tax table models BOTH the Old Regime (frozen at its FY2019-20
+shape, still valid today) and New Regime (from FY2020-21) independently, shown side by side rather than
+asserting one — the first version of this file computed only the New Regime, silently assuming everyone
+from FY2020-21 onward had chosen it, caught by a direct question before shipping. Powers a new "In Hand
+Monthly" (post-tax) figure in the EPF hike breakdown popup, alongside the existing pre-tax "Net
+Monthly." Both tables are deliberately labelled estimates/conventions, never asserted as fact, same
+principle as every other computed-on-behalf-of-the-user value in this feature.
+
+**Smaller fixes in the same round:** the Employer Detail popup (`EpfEmployerDetailModal.tsx`, new)
+replaces tapping an employer row going straight into its transaction ledger — company identity,
+editable exact dates, per-employer totals (`epfEmployerTotals`, new), and the full hike table now live
+there, reached by tapping the row, with the ledger one explicit "See all transactions" tap away.
+`Modal.tsx`'s title now gets `flex-1`+`numberOfLines={1}` (a long title, e.g. an employer name appended
+to a sheet title, had no bound and could squeeze the close button off-screen). `EpfImportFlow.tsx`'s
+batch-summary screen gained `scrollable`+`footer` plus a 15-file render cap with "Show all" — a large
+batch previously made the confirm button unreachable. `EpfAllTransactionsSheet`'s contribution-row
+total previously silently excluded EPS (pension) from both the per-month row and the FY-header
+subtotal — now includes it. `EpfEmployerPickerSheet.tsx` now shows a per-employer "N need review"
+badge (previously only a card-level total existed).
+
+---
+
+### Decision: three unrelated bug fixes — delete-modal-race, Cashew day-truncated dedup, `notifyTxnChanged()` gap in `useLoggedRepository` (2026-08-31) — `apps/mobile` + `packages/core` only
+
+**Rationale:** three independent reports investigated and fixed in the same session, alongside the
+Insurance redesign below; recorded together since none shares a root cause with the others.
+
+**1. "Delete from an open form modal" could background/close the whole app.** Every portfolio-holdings
+section's delete-from-form flow called `onRemove(id).then(close)` — remove first, close after. The Undo
+toast `useLoggedRepository.remove()` fires checks whether another native `Modal` is still open; since the
+form's own modal hadn't closed yet, the toast rendered as a **second stacked native Android Dialog**, and
+both tearing down together could background the whole app. Fixed by flipping the order (`close(); void
+onRemove(id).catch(...)` — close first, remove after) in `RetirementSection.tsx`, `RealAssetsSection.tsx`,
+`EquitySection.tsx`, `PreciousMetalsSection.tsx`, `FixedIncomeSection.tsx` (all under
+`apps/mobile/src/features/portfolio/holdings/`), and `GoalsTab.tsx`, plus `.catch(() => console.warn(...))`
+guards so a failed delete doesn't produce a silent unhandled rejection. **General pattern worth
+remembering:** a delete triggered from inside a still-open native `Modal`, where the delete's own
+side-effect (an Undo toast, another modal) also render-gates on modal state, must close its own modal
+*before* firing the mutation, not after — otherwise two native dialogs briefly coexist and tear down
+together. Also added a defensive try/catch to `AutoBackupCard.tsx`'s `backupNowToCloud()` for consistency
+with the file's other handlers — the Google-Drive-backup variant of this same symptom was **not**
+confirmed via static analysis as sharing this exact root cause; flag as unconfirmed/defensive-only if it
+recurs.
+
+**2. Cashew CSV import didn't catch a duplicate against a manually-added expense.** `importPipeline.ts`'s
+`dedupKey()` compares full epoch-ms timestamps — a manually-entered expense carries the real wall-clock
+time it was saved at, while Cashew's CSV export is always midnight-local with no time-of-day, so an
+otherwise-identical (day/amount/description) row never matched. Fixed with a new `dedupDayKey()`
+(day-truncated), used **only** when matching an imported row against **existing DB expenses**
+(`buildResolvedPreviewRowsByIndex`'s `existingExpenseIdsByKey`, populated by `useImport.ts`'s
+`loadReferenceData`) — in-batch/same-file matching stays on the original exact `dedupKey()` (a **different**
+already-fixed bug, see `docs/features/expenses.md`'s Import section, required that one to stay
+exact — day-truncating it would reintroduce false-positive collisions between two genuinely distinct
+same-day transactions in one file). The existing "Not a duplicate — import anyway" per-row override
+(`useImport.ts`'s `unflagDuplicate`) remains the safety valve for any resulting false positives from the
+new day-truncated comparison. Tests: `packages/core/tests/import/importPipeline.test.ts`.
+
+**3. Insurance's Home-card never disappeared after adding a policy, not even via pull-to-refresh — two
+independent gaps.** (a) `useLoggedRepository.ts` (the shared base for Insurance/Loans/Goals/Budgets/IOU/
+Subscriptions) never broadcast `notifyTxnChanged()` on save/remove — fixed by adding that broadcast
+directly inside its `save`/`remove`, covering all 5 consumers that lacked it at once
+(`usePortfolioHoldings.ts`/`useGoals.ts` already had their own workaround calls; calling it twice there is
+harmless, since `notifyTxnChanged()` is coalesced onto one microtask flush). (b) Home's pull-to-refresh
+only ever reloaded `useHome()`'s net-worth summary, never the separate `useHomeStats()` hook
+(insurance-cover/loans-outstanding figures, previously privately instantiated inside `MoneyStatsCard.tsx`
+with no way for a parent to reach its `reload`) — fixed by lifting `useHomeStats()` into
+`apps/mobile/src/features/home/HomePage.tsx` (now returns `{ stats, reload }` instead of just `stats`),
+folding its `reload` into `HomePage`'s pull-to-refresh via a new `combinedReload`, and passing `stats` down
+to `MoneyStatsCard` as a prop instead of it calling the hook itself.
+`apps/mobile/src/features/home/useRetirementProjection.ts` updated for the new return shape (only ever
+needed `stats`). **General pattern worth remembering — this is at least the third time this exact class of
+bug has recurred** (see the 2026-08-26/27 IOU/Goals/Portfolio entry above): a hook that loads data once at
+mount, with no subscription to `notifyTxnChanged()`/`useTxnRefresh`, goes stale the moment anything else
+writes the same data, since bottom-tab screens stay mounted rather than unmounting on tab switch — and a
+hook that's only ever privately instantiated inside a child component (no `reload` reachable by a parent's
+own pull-to-refresh) is a second, independent way the same symptom can show up even once the broadcast
+itself is fixed.
+
+---
+
+### Decision: Insurance feature redesign — premium-schedule/due-date engine, insurer picklists, dense 2-column form relayout (2026-08-31) — `apps/mobile` + `packages/core` only
+
+**Rationale:** the original Insurance module (ported as-is from `apps/web-react` in Track 4) stored a
+policy's coverage/premium/renewal-date as one flat annual figure regardless of type — adequate for
+Health/Vehicle/Home/Travel/Other's genuinely-annual renewal model, but wrong for Term/Life, where a
+lapsed premium is the single highest-stakes thing this module could let slip through unnoticed. Went
+through several mockup rounds (`docs/mockups/proposals/insurance-redesign-v1.html` through `v4.html` for
+the whole-feature exploration, then a separate follow-up — `insurance-form-layout-options-v1.html`/`v2.html`
+— after the user tried the first shipped form and disliked its layout).
+
+**1. New `packages/core/src/core/insurance/` module** — `insurers.ts` (WebSearch-researched real,
+IRDAI-registered insurer picklists: 11 life / 8 health / 11 general, the last shared by Vehicle/Home/Travel
+since they're the same regulatory category in India), `insurerMemory.ts` ("Other"-insurer suggestion
+memory, mirroring `core/expenses/merchantMemory.ts`'s exact pattern — new encrypted store
+`insurer_memory`, see `docs/SCHEMA.md`), `premiumSchedule.ts` (all due-date/grace-period/revival-window/
+discount math — `gracePeriodDays` 15 days Monthly / 30 days Quarterly-Half-yearly-Annual, WebSearch-verified
+against GoDigit/Axis Max Life/Kotak Life/PayBima; `revivalWindowYears` 3 years ULIP / 5 years non-linked,
+per IRDAI's June 2024 Master Circular; `applyMarkAsPaid`/`isPaidUp`/`computeDueStatus`'s 5-state machine),
+`expenseLinking.ts` (`findCandidateExpenses`/`buildPremiumExpense` for the mark-as-paid expense-linking
+choices). `InsuranceType` itself was renamed/collapsed in the same pass (`'term_life' | 'whole_life' |
+'endowment' | 'ulip' | ... | 'property' | ...` → `'term' | 'life' | ... | 'home' | ...`, with the former
+Whole-Life/Endowment/ULIP distinction now carried by a single `isULIP` flag on `'life'`) — see
+`docs/SCHEMA.md`'s `insurance_policies` entry for the full field-level diff.
+
+**2. Cash-flow forecaster and Reminders now understand a real payment schedule, not just an annual
+guess.** `forecaster.ts`'s insurance block branches: a Term/Life policy with a real schedule
+(`paymentFrequency !== 'S'` and `nextPremiumDueDate` set) emits one `CashFlowEvent` (carrying a new
+`policyId`) per real due-schedule occurrence via `scheduledOccurrencesWithin()`, instead of one flat annual
+event; every other case keeps the original flat event; a genuinely paid-up policy (`isPaidUp()`) emits
+nothing. `reminders.ts` gained a `'mark_paid'` `ReminderAction` + `policyId` on `Reminder` so a due premium
+surfaces in the existing header Reminders bell with its own action — deliberately not a new bespoke
+notification component. A new shared hook, `apps/mobile/src/hooks/useInsurancePremiumActions.ts`
+(`markPremiumPaid`/`unmarkLastPremiumPayment`/`candidateExpensesForPolicy`), lives in `hooks/` rather than
+`features/insurance/` specifically because both `features/insurance/useInsurance.ts` and the unrelated
+`hooks/useReminders.ts` need to call the exact same real repo write — this codebase's established
+"promote to hooks/ for cross-consumption" convention, avoiding either a feature-to-feature import
+(architecture-rule violation) or a duplicated write path.
+
+**3. Real bug fixed mid-session: a Limited Pay policy never reached "Paid up."** A policy that pays for
+N years while cover continues longer (`premiumPaymentTerm === 'limited'`) kept generating due-date/
+mark-as-paid prompts forever past year N — `nextPremiumDueDate` always rolled forward on every
+`applyMarkAsPaid()` call with no completion check. Fixed inside `applyMarkAsPaid()` itself (returns
+`nextPremiumDueDate: undefined` once the pay term completes) plus a new `isPaidUp()` helper, used
+consistently by the forecaster (no stale event), `useInsurance.ts`'s sort order (a paid-up policy sorts to
+the end instead of falling back to a stale `renewalDate`), and the form's own UI (a "Paid up — cover
+continues without further premiums." banner replaces the due-date section).
+
+**4. Dense 2-column form relayout — a real, user-driven second pass, not a one-shot design.** The form
+was rewritten twice: an initial type-conditional layout (matching the `-redesign-v4.html` mockup), then a
+full second relayout after the user tried the shipped form on-device and gave specific, detailed
+complaints about it — the exact field arrangement of the final layout (hero coverage field + preset pills;
+paired [Insurer|Premium]/[Plan|Policy #]/[Start|End date] rows; a full-row payment-frequency pill group
+instead of a cramped segmented control sharing a row with Premium; duration presets living directly under
+the date row with no separate label since their only purpose is setting End date; Mark-as-paid moved
+before Nominee(s) rather than after) was specified by the user by hand, not designed from scratch by an
+agent. **Rationale worth generalizing:** a mockup being "approved" before implementation (per this
+project's own mandatory-mockup rule) doesn't guarantee the shipped layout survives real on-device use
+unchanged — a dense, many-field form is exactly the kind of screen where a static HTML mockup can look
+right but feel cramped/awkward once real interaction (frequency picker + premium sharing a row, duration
+presets reading like their own separate feature instead of a shortcut for one field) is tried on a real
+device. When a user reports "I tried it and don't like the layout" for a form that already went through
+mockup approval, treat that as a legitimate second mockup-quality design pass (a fresh, explicit
+`-v2.html`/follow-up mockup discussion, per the "never edit an existing mockup without asking" rule), not
+as scope creep to push back on.
+
+**5. `InsurancePage.tsx` holds `editingPolicyId: string | null`, never the policy object** — the same
+"never snapshot, always re-resolve live by id" rule first established for the EPF employer-detail modal
+(see the 2026-08-30 entry above), applied here because the form can trigger its own child mutation
+(mark-as-paid) while still open, which would otherwise leave the form rendering a stale snapshot of the
+policy it was opened with.
+
+**6. New shared UI pieces:** `apps/mobile/src/features/insurance/InsurerField.tsx` (centered-Modal radio
+list scoped to the policy type's insurer category, plus an "Other" free-text row with locally-remembered
+suggestions) and `apps/mobile/src/features/insurance/Chip.tsx` (a small single-select pill — label/active/
+onPress — distinct from the pre-existing `components/ui/DismissibleChip`, which always has an "×" for
+removable tags, not single-select). See `docs/DESIGN_GUIDELINES.md` §3 for the design-pattern writeup.
+
+**Deliberate, documented scope limits** (not oversights): un-marking a payment only ever reverses the
+most recent entry; `installmentAmount()`'s even-division-by-frequency math doesn't model real insurers'
+~3–5%/year "modal loading" surcharge for non-annual modes; "link an existing expense" candidates aren't
+restricted to the premium category; Health's co-pay is a single flat percentage; Vehicle's new
+registration/IDV/NCB% fields are intentionally unlinked from the pre-existing, separate vehicle-insurance
+fields on a Real Assets Vehicle holding (two independent places by the user's own explicit decision); only
+Term/Life got the new due-date mechanics and full card visual treatment — Health/Vehicle/Home/Travel/Other
+kept a lighter restyle of the original simple annual-renewal card. Full writeup:
+`docs/features/insurance.md`.
+
+### Decision: real app-crashing toast/`SettingsProvider` bug, Penny CSV template drift, Bank Import raw-file preview (2026-09-01) — `apps/mobile` + `packages/core` only
+
+**Rationale:** a small follow-up session after the Insurance redesign above; three unrelated items,
+recorded together since none shares a root cause with the others.
+
+**1. Any toast anywhere in the app crashed it outright — found via real-device logcat, not the theory
+from the previous session.** `App.tsx` deliberately renders `<ToastProvider>` above (outside)
+`<SettingsProvider>` — a 2026-08-29 change so `PrivacyContext.tsx` could call `useToast()` directly. But
+every `<Text>` in the app is aliased (via `metro.config.js`'s `resolveRequest`) to
+`apps/mobile/src/components/AppText.tsx`, which calls `useFontScale()`
+(`apps/mobile/src/theme/fontScale.ts`), which called the throwing `useSettings()`
+(`apps/mobile/src/context/SettingsContext.tsx`). `ToastProvider` renders its own toast card as a
+**sibling of `{children}`, not nested inside them** — so despite `SettingsProvider` being a descendant of
+`ToastProvider` everywhere else in the tree, the toast card itself sits outside `SettingsProvider`'s
+subtree. Any toast that rendered — "Backed up just now," the Undo toast on every delete — hit
+`useSettings()`'s "must be used within SettingsProvider" throw the instant it tried to render text,
+crashing the whole app. This has been broken since 2026-08-29; the previous session's "close-before-remove"
+delete-flow fix (see the three-unrelated-bug-fixes entry above) was a real, separate, valid fix to a
+different race, but was a red herring for *this* symptom, corrected only once real crash logs were
+captured. **Fix:** a new non-throwing `useSettingsOptional(): SettingsContextValue | null` export on
+`SettingsContext.tsx`, documented as existing only for `useFontScale()`'s use — every other consumer must
+keep using the throwing `useSettings()`, which correctly catches real usage-order bugs elsewhere.
+`useFontScale()` now falls back to the unscaled `'default'` font scale (multiplier 1) when no
+`SettingsProvider` is present, rather than crashing — font scale is a cosmetic preference, not a
+correctness-critical value, so degrading gracefully is the right trade-off here specifically. **General
+pattern worth remembering:** a provider that renders its own UI content (here, a toast card) as a
+*sibling* of `{children}` rather than nested inside it can silently escape a descendant provider's
+subtree, despite that descendant provider wrapping `{children}` everywhere else in the tree — anything
+that content renders (here, `<Text>` via the global Metro alias) sees the tree as if the descendant
+provider were never mounted. Worth checking for again any time a provider is deliberately reordered
+relative to another, if that provider renders any of its own JSX outside `{children}`.
+
+**2. "Download Penny CSV template" had stale, mismatched columns.** The export-side CSV header
+(`packages/core/src/core/export/exportCsv.shared.ts`) gained `Account`/`IOU Person`/`Shared To Group`
+columns on 2026-08-23, and the importer's own `FORMAT_COLUMNS.penny`/`FORMAT_SYNONYMS.penny` hints
+(`packages/core/src/core/import/importParsers.ts`) were updated at the same time — but the actual
+downloadable `PENNY_TEMPLATE` sample CSV (same file) was never updated and still only had the original 8
+columns, found via a real user report after comparing the downloaded template against a real export.
+Fixed: `PENNY_TEMPLATE` now has all 11 columns matching the real export header exactly, with realistic
+sample values.
+
+**3. New feature — Bank Import "Raw file preview" table.** `apps/mobile/src/features/bank-import/
+SetupStep.tsx` now shows a small preview table below the "Continue to review" button once a file's
+headers are known — the file's own literal header row plus its first 5 raw data rows, column-major and
+horizontally scrollable (plain RN `View`/`ScrollView`, no new shared table component). Each header cell
+matched by Penny's column-mapping guess gets a small green "→ Date" etc. tag under it, so a wrong guess is
+visually obvious against the real file content; every raw column shows, not just the 5 mapped ones (an
+unmapped column is itself useful — confirms nothing was silently dropped). `useBankImport.ts` exposes a new
+`rawPreviewRows` (`tokenizedRows.slice(1, 6)`) alongside the pre-existing `headers`. Own mockup:
+`docs/mockups/proposals/bank-import-raw-preview-v1.html`, approved as-is. See
+`docs/features/bank-import.md` for the user-facing writeup.
+
+---
+
 ## Dependency graph (simplified)
 
+**Updated 2026-08-29** — this used to describe `apps/web-react`'s entry chain
+(`main.tsx`/`App.tsx`/`router/index.tsx`/`AppShell`/`BottomNav`); that app is retired. Below is
+`apps/mobile`'s real equivalent.
+
 ```
-main.tsx
+index.ts
   └─► App.tsx
         ├─► PrivacyContext
         ├─► SettingsContext
         ├─► EventModeContext
-        └─► router/index.tsx
+        └─► navigation/RootNavigator.tsx
               └─► AuthGuard
-                    └─► AppShell
-                          ├─► BottomNav
-                          └─► <feature pages>
-                                ├─► src/core/<domain>
-                                │     └─► src/core/db/repositories
-                                │           └─► src/core/crypto/keystore
-                                ├─► src/components/ui/<primitives>
-                                ├─► src/components/privacy/<masking>
-                                └─► src/context/<PrivacyContext, etc.>
+                    └─► MainNavigator.tsx
+                          └─► MainTabs.tsx (persistent tab bar + header chrome)
+                                └─► HomeStack / ExpensesStack / <other per-tab stacks>
+                                      └─► <feature pages>
+                                            ├─► @/core/<domain>
+                                            │     └─► @/core/db/repositories
+                                            │           └─► @/core/crypto/keystore
+                                            ├─► components/ui/<primitives>
+                                            ├─► components/privacy/<masking>
+                                            └─► context/<PrivacyContext, etc.>
 ```

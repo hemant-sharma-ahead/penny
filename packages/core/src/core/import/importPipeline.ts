@@ -1,5 +1,6 @@
 import type { ExpenseCategory } from '@/core/db/types';
 import { CATEGORY_MIGRATION_MAP } from '@/core/db/defaultCategories';
+import { toDateKey } from '@/lib/date';
 import type { ParsedRow } from './importParsers';
 import type { CategoryResolution } from './importCategoryResolution';
 import type { TransferPair } from './importTransferPairing';
@@ -22,6 +23,27 @@ import type { TransferPair } from './importTransferPairing';
  *  day/amount/description are no longer falsely conflated. */
 export function dedupKey(date: number, amount: number, desc: string): string {
   return `${date}|${amount}|${desc.toLowerCase().trim()}`;
+}
+
+/** Day-truncated sibling of `dedupKey` — used ONLY when matching an imported row against EXISTING DB
+ *  expenses (`buildResolvedPreviewRowsByIndex`'s `existingExpenseIdsByKey`), never for in-batch/same-file
+ *  matching, which must stay on the full-epoch-ms key above (see that function's own doc comment for why
+ *  day-truncation there caused real data loss for genuinely-distinct same-day rows within one file).
+ *
+ *  Real reported bug (2026-08-31): importing a 10-row Cashew CSV where 2 of those transactions had
+ *  ALREADY been manually added to Penny still imported all 10, none flagged as duplicates. Root cause: a
+ *  manually-entered expense's date carries whatever wall-clock time the user happened to be filling the
+ *  form in (`ExpenseForm.tsx` defaults a new entry's time to `Date.now()`), while a budgeting-app CSV
+ *  export's date column has no time-of-day at all (Cashew's own export is always midnight-local for every
+ *  row) — comparing full epoch-ms therefore never matches even when the day, amount, and description all
+ *  genuinely agree. Day-truncating only the DB-comparison side fixes this without reopening the original
+ *  same-file collision bug: the DB-match consumption is already 1:1 (one existing expense id is popped per
+ *  matching row, never shared across multiple import rows — see `buildResolvedPreviewRowsByIndex`), and
+ *  the "Not a duplicate — import anyway" per-row override (`useImport.ts`'s `unflagDuplicate`) already
+ *  exists as the safety valve for the rarer case where two genuinely-distinct same-day/amount/description
+ *  transactions cause an over-eager false match here. */
+export function dedupDayKey(date: number, amount: number, desc: string): string {
+  return `${toDateKey(date)}|${amount}|${desc.toLowerCase().trim()}`;
 }
 
 // ─── Legacy pipeline (apps/mobile's current import wizard) ─────────────────────
@@ -104,6 +126,18 @@ export interface ResolvedPreviewRow {
   /** True against an existing DB expense OR an earlier row in this same batch. */
   duplicate: boolean;
   sourceRef: string;
+  /** The specific existing DB expense (by id) this row matched against — set ONLY when `duplicate` came
+   *  from a real DB match (`buildResolvedPreviewRowsByIndex`'s `existingExpenseIdsByKey` consumption),
+   *  never for a same-batch "repeated line in this file" match, since there's no second DB row to point
+   *  at in that case. Added 2026-08-16 so the "Already imported" bucket UI can show a real side-by-side
+   *  comparison against the actual matched `Expense` (date/amount/description/category/account), not just
+   *  a static "same date, amount & description" caption with nothing concrete backing it. */
+  matchedExpenseId?: string;
+  /** Raw "IOU Person" text carried straight through from `ParsedRow.iouPerson` (2026-08-23, real-
+   *  device-testing-pass item 77) — resolution into a real `Person` + `LedgerEntry` happens at commit
+   *  time (`useImport.ts`'s `commitAndImport`, mirroring `seedIouFromExpense`'s linking logic), not here;
+   *  this field only survives the row transforms between parsing and writing. */
+  iouPersonName?: string;
 }
 
 export type ConfirmedCategoryMap = Map<
@@ -132,11 +166,24 @@ export type ConfirmedCategoryMap = Map<
  *  category-move override without an explicit tag still inherits the group's own tag. Deliberately
  *  narrower than a full `CategoryAction`: a row-level override only ever supports "move to this EXISTING
  *  category" (via the same `CategoryPickerModal` already used for group-level "Map Existing"), never
- *  'create'/'skip'/'transfer' — those remain exclusively group-level decisions. */
+ *  'create'/'skip' — those remain exclusively group-level decisions.
+ *
+ *  2026-08-23 (item 71 follow-up, apps/mobile only): `type`/`toAccountId` are a NARROW, ADDITIVE
+ *  exception to "never 'transfer'" above — set only by `useImport.ts`'s `acceptCashWithdrawalTransfer`,
+ *  when a cash-withdrawal suggestion (now split one-per-source-account, never a whole category group) is
+ *  accepted, so that row commits as a transfer to the chosen Cash account regardless of its own category
+ *  group's OWN decided-state — the group can no longer represent "this ONE sub-group of my rows goes to
+ *  account A, that other sub-group goes to account B" as a single group-level `CategoryAction`.
+ *  `buildResolvedPreviewRowsByIndex` below is the ONLY consumer that honors these two fields;
+ *  `buildResolvedPreviewRows` (the name-keyed sibling `apps/web-react`'s frozen pipeline still uses)
+ *  deliberately does NOT — that keeps its "an override never means transfer" contract exactly as
+ *  documented above for every existing/future web caller, since web never sets these fields anyway. */
 export interface RowOverride {
   categoryId?: string;
   categoryName?: string;
   tag?: string;
+  type?: 'transfer';
+  toAccountId?: string;
 }
 
 /** Builds the confirmed source-category-name → final-category map from the user's reviewed
@@ -240,7 +287,8 @@ export function buildResolvedPreviewRows(
       accountId: resolveAccountId(row),
       skipped: override ? false : !!resolved?.skip,
       duplicate,
-      sourceRef: ref
+      sourceRef: ref,
+      ...(row.iouPerson && { iouPersonName: row.iouPerson })
     };
   });
 }
@@ -286,6 +334,61 @@ export function applyConfirmedTransferPairs(rows: ResolvedPreviewRow[], pairs: T
   return merged;
 }
 
+/** Un-does an over-broad category-GROUP-level skip for any row that's ALSO a member of a still-paired
+ *  `TransferPair` — a group's `RowAction` is built ONCE per group and applied to EVERY row index the
+ *  group owns, uniformly (see apps/mobile's `useImport.ts`, both the live `rowActions` memo and
+ *  `commitAndImport()`'s `finalRowActions`), which is wrong for a paired row for TWO independent real
+ *  reasons found via 2026-08-22 real-device tests against the same file:
+ *
+ *  1. **An unready group** (`!g.transactionsReady`, `commitAndImport()`): a file with 16 genuine paired
+ *     "Balance Correction" transfers plus 7 unpaired single-leg stragglers (each needing its own manual
+ *     destination-account pick) left the ENTIRE "Balance Correction::expense"/`::income` groups
+ *     undecided, force-skipping all 39 rows they own — including the 32 rows belonging to the 16
+ *     confirmed pairs — even though each pair individually already satisfied `confirmedTransferPairs`'s
+ *     own narrower gate and was correctly shown in the "Linked transfers" card (whose count is sourced
+ *     from every DETECTED pair, `transferPairs`, never from this write path — nothing about that card
+ *     would have caught pairs silently writing zero rows on commit).
+ *  2. **A DECIDED-but-wrong group** (the live `rowActions` memo): a category tile only ever DISPLAYS its
+ *     unpaired rows (`groupRowsForTransactionsStage` correctly excludes both legs of every pair from the
+ *     tile's own row list) — but a decision made ON that tile (e.g. the user explicitly tapping "Skip"
+ *     for the 7 stragglers they can actually see) is recorded at the GROUP's key, and applies to every
+ *     row the group owns, including the 32 invisible paired rows the user never saw and never intended
+ *     to affect. Left unfixed, THIS is the more insidious of the two — it poisons `preview[i].skipped`
+ *     for the paired rows upstream of `confirmedTransferPairs` itself, so by the time reason #1's fix
+ *     runs at commit, `confirmedTransferPairs` is already empty for these rows and there is nothing left
+ *     to release.
+ *
+ *  Both call sites matter — the live `rowActions` memo (passing every currently-still-paired
+ *  `transferPairs` entry, so `confirmedTransferPairs` itself comes out correct) AND `commitAndImport()`'s
+ *  `finalRowActions` (passing the resulting `confirmedTransferPairs`, since that map is freshly rebuilt
+ *  from each group's commit-time `effectiveSuggestion` and doesn't reuse `rowActions` at all). A
+ *  category-wide "needs review"/"skip" decision should only ever hold back the OTHER, non-paired rows
+ *  sharing that category name — never a row already independently decided at the pair level, unless the
+ *  user explicitly un-pairs it (which removes it from `transferPairs` entirely, so it no longer reaches
+ *  this function at all and correctly falls through to normal per-row category handling).
+ *
+ *  Call this AFTER building a group-derived `RowAction` map and BEFORE any subsequent per-row override
+ *  pass that has a LEGITIMATE reason to still skip a row (e.g. an unconfirmed account) — such a pass must
+ *  keep running after this one so it can still correctly re-skip a paired row whose account genuinely
+ *  isn't ready; this function only ever reverses a GROUP-level skip, never any other skip reason. Returns
+ *  a NEW map (existing `RowAction`s not touched by a pair are the exact same object references), matching
+ *  this file's other transform functions' immutable-input convention. */
+export function releaseConfirmedPairsFromGroupSkip(
+  actions: Map<number, RowAction>,
+  pairs: TransferPair[],
+  transferFallback: { id: string; name: string }
+): Map<number, RowAction> {
+  const result = new Map(actions);
+  for (const pair of pairs) {
+    for (const i of [pair.outgoingIndex, pair.incomingIndex]) {
+      const current = result.get(i);
+      if (!current?.skip) continue; // already a normal, non-forced-skip action — leave it alone
+      result.set(i, { categoryId: transferFallback.id, categoryName: transferFallback.name, type: 'transfer' });
+    }
+  }
+  return result;
+}
+
 // ─── Row-index-keyed pipeline (2026-08-14, CSV-import redesign Chunk B, apps/mobile only) ────────────
 // `buildResolvedPreviewRows` above is keyed by source CATEGORY NAME (`ConfirmedCategoryMap`) — correct
 // for the flow apps/web-react's frozen `useImport.ts` still uses, but genuinely insufficient for the new
@@ -307,21 +410,76 @@ export interface RowAction {
 
 /** Row-index-keyed sibling of `buildResolvedPreviewRows` — identical shape/behavior otherwise (same
  *  dedup-against-DB-and-batch check, same `RowOverride` precedence, same tag-layering rule), just reads
- *  each row's resolution from `rowActions.get(i)` instead of `categoryMap.get(row.categoryName)`. */
+ *  each row's resolution from `rowActions.get(i)` instead of `categoryMap.get(row.categoryName)`, PLUS
+ *  a real over-counting fix `buildResolvedPreviewRows` doesn't have (2026-08-16, real user report: a
+ *  re-import's "Already imported" bucket showed MORE duplicate rows than the account actually had
+ *  recorded — 231 flagged against 218 real recorded expenses). Two independent contributors, both fixed:
+ *
+ *  1. **DB-match had no consumption limit.** `existingKeys` used to be a plain `Set<string>` —
+ *     `existingKeys.has(ref)` is a boolean membership test, so if the DB has exactly ONE expense
+ *     matching a given `dedupKey`, EVERY file row sharing that key independently matched `true`, with
+ *     no 1:1 correspondence enforced. Fixed by taking, per key, the actual LIST of matching existing DB
+ *     expense ids (`existingExpenseIdsByKey`) and popping one id per row that claims a match — once a
+ *     key's list is exhausted, further same-key rows can no longer claim a DB match. This list (not just
+ *     a count) is also what makes `matchedExpenseId` below possible — the UI needs to know WHICH real
+ *     expense a row matched, not just that some count was decremented.
+ *  2. **Same-batch matching was ALSO keyed on the bare 3-field `dedupKey`, which silently defeated fix
+ *     #1 on its own** (found while verifying #1 actually changes anything observable — it didn't, on
+ *     its own): `seenInBatch` used to add/check the same `ref` as the DB check, so once ANY row with a
+ *     given key was seen once, EVERY later row sharing that key was flagged via `seenInBatch` regardless
+ *     of whether the DB-match pool for that key was already exhausted — silently re-introducing
+ *     unlimited flagging through the back door. This conflates two different things: a genuine same-file
+ *     duplicate (an export glitch repeating the identical source line — the ORIGINAL 2026-07-28 reason
+ *     this check exists at all) vs. several genuinely DIFFERENT transactions that merely happen to share
+ *     date+amount+description (the day-precision-collision case `dedupKey`'s own doc comment already
+ *     measured at "149 collisions / 334 rows" in one real file — different category, payment mode, or
+ *     notes is real evidence they're NOT the same line repeated). Fixed by keying the same-batch check on
+ *     a fuller row signature (date/amount/description PLUS category/payment-mode/notes/type) instead of
+ *     just the 3-field key — two rows only suppress each other now if they look identical across every
+ *     field this pipeline actually captures, not merely the 3 fields `dedupKey` hashes for DB comparison.
+ *
+ *  This does NOT fully solve every residual false-positive (an unrelated, coincidentally-identical
+ *  expense elsewhere in the DB — from a manual entry or a different import entirely — can still count
+ *  as a real "DB match," since the comparison pool is intentionally the whole DB, not scoped to one
+ *  prior import; the plan doc's own flagged "a wider matching window could still resurface false
+ *  positives" case would need bank-import's row-index-based disambiguation to fully close, deferred),
+ *  but it does make both the DB-match and same-batch portions honestly bounded rather than either
+ *  silently amplifying the other.
+ *
+ *  @param existingExpenseIdsByKey Keyed by `dedupDayKey` (day-truncated), not `dedupKey` — see that
+ *    function's own doc comment for why the DB-match side needs day-level tolerance while same-batch
+ *    matching (via `ref`/`fullRowSignature` above) stays on the exact full-epoch-ms key. Callers (see
+ *    `useImport.ts`'s `loadReferenceData`) must build this map with `dedupDayKey`, not `dedupKey`. */
 export function buildResolvedPreviewRowsByIndex(
   rows: ParsedRow[],
   rowActions: Map<number, RowAction>,
   resolveAccountId: (row: ParsedRow) => string,
-  existingKeys: Set<string>,
+  existingExpenseIdsByKey: Map<string, string[]>,
   rowOverrides?: Map<number, RowOverride>
 ): ResolvedPreviewRow[] {
-  const seenInBatch = new Set<string>();
+  const seenFullRowSignatures = new Set<string>();
+  // Local, deep-copied mutable working set — arrays are consumed via `.pop()` below, so a shallow `new
+  // Map(existingExpenseIdsByKey)` would still share (and mutate) the caller's own array instances; this
+  // function may run again (re-renders, re-computed memos) against the same reference.
+  const remainingExistingMatches = new Map<string, string[]>();
+  for (const [key, ids] of existingExpenseIdsByKey) remainingExistingMatches.set(key, [...ids]);
   return rows.map((row, i) => {
     const resolved = rowActions.get(i);
     const override = rowOverrides?.get(i);
     const ref = dedupKey(row.date, row.amount, row.description);
-    const duplicate = existingKeys.has(ref) || seenInBatch.has(ref);
-    seenInBatch.add(ref);
+    // DB match uses the day-truncated key (see `dedupDayKey`'s own doc comment) — `ref` above stays the
+    // full-epoch-ms key for `sourceRef`/same-batch matching, which must stay exact.
+    const dbRef = dedupDayKey(row.date, row.amount, row.description);
+    const remainingIds = remainingExistingMatches.get(dbRef);
+    const matchedExpenseId = remainingIds && remainingIds.length > 0 ? remainingIds.pop() : undefined;
+    const matchesExistingExpense = matchedExpenseId !== undefined;
+    // Fuller signature than `ref` alone (see this function's own doc comment, fix #2) — two rows only
+    // suppress each other as "same file, repeated line" if they agree on every field captured here, not
+    // merely date/amount/description.
+    const fullRowSignature = `${ref}|${row.categoryName}|${row.paymentMode ?? ''}|${row.notes ?? ''}|${row.type}`;
+    const isSameFileRepeat = seenFullRowSignatures.has(fullRowSignature);
+    seenFullRowSignatures.add(fullRowSignature);
+    const duplicate = matchesExistingExpense || isSameFileRepeat;
     const effectiveTag = override?.tag ?? resolved?.tag;
     const hashtags =
       effectiveTag && !row.hashtags.includes(effectiveTag) ? [...row.hashtags, effectiveTag] : row.hashtags;
@@ -329,10 +487,16 @@ export function buildResolvedPreviewRowsByIndex(
       date: row.date,
       amount: row.amount,
       description: row.description,
-      type: override?.categoryId ? row.type : (resolved?.type ?? row.type),
-      ...(!override?.categoryId && resolved?.type === 'transfer' && resolved.toAccountId
-        ? { toAccountId: resolved.toAccountId }
-        : {}),
+      // An override's own `type: 'transfer'` (2026-08-23, item 71 follow-up — see `RowOverride`'s doc
+      // comment) takes precedence even over its own `categoryId` presence, which otherwise always forces
+      // a row back to its natural expense/income type; every other override (a plain category move)
+      // keeps that original "override never means transfer" behavior unchanged.
+      type: override?.type === 'transfer' ? 'transfer' : override?.categoryId ? row.type : (resolved?.type ?? row.type),
+      ...(override?.type === 'transfer' && override.toAccountId
+        ? { toAccountId: override.toAccountId }
+        : !override?.categoryId && resolved?.type === 'transfer' && resolved.toAccountId
+          ? { toAccountId: resolved.toAccountId }
+          : {}),
       ...(row.paymentMode && { paymentMode: row.paymentMode }),
       hashtags,
       ...(row.notes && { notes: row.notes }),
@@ -341,7 +505,9 @@ export function buildResolvedPreviewRowsByIndex(
       accountId: resolveAccountId(row),
       skipped: override ? false : !!resolved?.skip,
       duplicate,
-      sourceRef: ref
+      sourceRef: ref,
+      ...(matchedExpenseId ? { matchedExpenseId } : {}),
+      ...(row.iouPerson && { iouPersonName: row.iouPerson })
     };
   });
 }

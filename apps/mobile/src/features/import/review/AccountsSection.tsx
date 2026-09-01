@@ -1,7 +1,8 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { View, Text } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Pressable, Text } from 'react-native';
 import { Button, SelectInput, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { BankLogo } from '~/components/shared/BankLogo';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
 import type { Account, AccountType } from '@/core/db/types';
@@ -9,24 +10,14 @@ import type { ParsedRow } from '@/core/import/importParsers';
 import type {
   AccountResolutionOrSkip,
   AccountActionOrSkip,
-  CardAccountMergeSuggestion
+  CardAccountMergeSuggestion,
+  CardAccountMergeAmbiguity
 } from '@/core/import/importAccountResolution';
+import { ACCOUNT_TYPE_META } from '@/core/accounts/meta';
+import type { AccountInput } from '~/hooks/useAccountForm';
 import type { RowTriage } from '../useImport';
 import { suggestAccountMerges } from './accountMergeSuggestion';
 import { Pill } from './Pill';
-
-/** Same border-notched-label wrapper CategoryTile uses — label stays visible on the field's top border
- *  instead of a separate label row or a placeholder that vanishes once a value is set. */
-function BorderLabelField({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <View className="relative" style={{ paddingTop: 8 }}>
-      <View className="absolute left-2.5 px-1 bg-surface rounded z-10" style={{ top: -1 }}>
-        <Text className="text-[9px] font-semibold text-tertiary">{label}</Text>
-      </View>
-      {children}
-    </View>
-  );
-}
 
 const ACCOUNT_TYPE_OPTIONS: { value: AccountType; label: string }[] = [
   { value: 'bank', label: 'Bank' },
@@ -47,38 +38,59 @@ interface AccountsSectionProps {
   parsedRows: ParsedRow[];
   rowTriage: RowTriage[];
   /** Card→account merge suggestions (2026-08-14, redesign doc §9.7, Issue #9) — a debit/credit-card row
-   *  sharing a Bank Name with another resolution. Visually distinct from the two existing merge types
-   *  above (info-blue credit-card icon, not the green ✦ sparkle) since it's a different signal (shared
-   *  bank identity + card type), not "these names look alike". */
+   *  sharing a Bank Name with another resolution. Visually distinct from the same-file/fuzzy suggestions
+   *  (info-blue credit-card icon) since it's a different signal (shared bank identity + card type). */
   cardMergeSuggestions?: CardAccountMergeSuggestion[];
+  /** Ambiguous card→account merges (2026-08-23, item 70) — a card-type row whose Bank Name matches 2+
+   *  OTHER non-card resolutions, so no single confident target exists. Rendered with a distinct
+   *  "Ambiguous · pick one" treatment instead of `cardMergeSuggestions`' confident "Merge → X" banner —
+   *  see this component's own render logic below for exactly what changes. */
+  cardMergeAmbiguities?: CardAccountMergeAmbiguity[];
   onAcceptCardMerge?: (cardSourceName: string, targetSourceName: string, paymentMode: string) => void;
   onDismissCardMerge?: (cardSourceName: string) => void;
-  /** Accepted card→account merges (code-review fix), keyed by the card's own source name, valued by its
-   *  target's — see `useImport.ts`'s `cardMergeTargets` doc comment. When a row's sourceName is a key
-   *  here, its `suggestion` (already live-mirrored from the target by `effectiveAccountResolutions`) is
-   *  shown as a simplified read-only "merged into X" indicator instead of the normal editable kind-
-   *  dropdown/conditional fields — editing THIS row's own fields would silently have no effect (the
-   *  mirror always wins while merged), so those controls are never shown for it in the first place. */
+  /** Accepted card→account merges, keyed by the card's own source name, valued by its target's — see
+   *  `useImport.ts`'s `cardMergeTargets` doc comment. A row whose sourceName is a key here shows a
+   *  simplified read-only "merged into X" indicator instead of the normal paired match card. */
   cardMergeTargets?: Map<string, string>;
   onUnmergeCardAccount?: (cardSourceName: string) => void;
   /** Restricts which rows are actually RENDERED to just this set of source names (2026-08-14, manual-
-   *  testing gap #2 — Accounts stage's new Needs Review/Ready/Skipped bucket grouping). Merge-suggestion
+   *  testing gap #2 — Accounts stage's Needs Review/Ready/Skipped bucket grouping). Merge-suggestion
    *  detection (`mergeSuggestions`/`cardMergeSuggestions`) deliberately still considers the FULL
    *  `accountResolutions` list regardless — a same-file merge pair can legitimately span two different
-   *  buckets (e.g. one side already touched, one not), and filtering the detection input itself would
-   *  silently miss those pairs. Omit to render every row (unchanged behavior). */
+   *  buckets. Omit to render every row (unchanged behavior). */
   onlyRenderSourceNames?: Set<string>;
-  /** Source names the user has explicitly acted on (2026-08-14, manual-testing gap #2) — see
-   *  `useImport.ts`'s `accountTouchedSourceNames` doc comment. Drives the "Looks good, use this"
-   *  shortcut below; omit both this and `onAcknowledgeAccount` to hide it entirely (unchanged
-   *  behavior). */
+  /** Source names the user has explicitly CONFIRMED via the paired card's Confirm button (2026-08-20,
+   *  item 41 flow redesign) — see `useImport.ts`'s `accountTouchedSourceNames` doc comment. Every row
+   *  needs this now, not just an unconfirmed 'create' guess. */
   touchedSourceNames?: Set<string>;
   onAcknowledgeAccount?: (sourceName: string) => void;
+  /** Creates a real `Account` immediately (2026-08-20, item 41 flow redesign) — backs the same-file
+   *  merge-accept action below (`acceptMerge`), which used to defer to a `'create'` suggestion resolved
+   *  at commit time; now creates the merged account right away and resolves both source rows straight to
+   *  `'existing'`, since a per-row `'create'` kind no longer exists in the redesigned UI. See
+   *  `useImport.ts`'s `createAccount` doc comment. */
+  createAccount: (data: AccountInput, editing: Account | null) => Promise<Account>;
 }
 
-/** RN port of apps/web-react/src/features/import/review/AccountsSection.tsx. Section 1 of the review
- *  screen — one dense row per distinct source account name, or (when the file has no account column)
- *  the existing single-account-picker fallback. */
+/**
+ * RN port of apps/web-react/src/features/import/review/AccountsSection.tsx. Section 1 of the review
+ * screen — one paired match-card per distinct source account name, or (when the file has no account
+ * column) the existing single-account-picker fallback.
+ *
+ * 2026-08-20, item 41 flow redesign (docs/mockups/proposals/fourth-batch-redesigns-v5.html §2) — the
+ * per-row "New account" kind option is gone entirely (a new account is only ever created via the
+ * Accounts stage's top "+ Create Account" button, or immediately by a same-file merge-accept below); each
+ * row is now `DuplicatesBucket.tsx`'s exact paired-card visual language (left plain `bg-surface-2` CSV
+ * name, right `border-l border-dashed` matched-account dropdown) instead of a kind-pill + conditional
+ * fields. Confirm is now a REQUIRED explicit tap for every row, including a confident 'existing' guess —
+ * a deliberate behavior change from the prior auto-ready-on-pick model (see `useImport.ts`'s
+ * `accountTouchedSourceNames` doc comment). The old dedicated "same account, written differently?" fuzzy-
+ * match banner is folded into this new card directly — `r.fuzzyExistingMatch` now PRE-FILLS the matched-
+ * account dropdown (still requiring the same Confirm tap) rather than needing its own separate accept
+ * banner; the same-file merge banner (`isFirstOfMerge`) and the card→account merge banner (`cardMerge`)
+ * are unrelated suggestion sources (spanning two rows, or requiring a distinct payment-mode side effect)
+ * and are kept exactly as before, layered above the paired card.
+ */
 export function AccountsSection({
   accountResolutions,
   accounts,
@@ -91,18 +103,20 @@ export function AccountsSection({
   parsedRows,
   rowTriage,
   cardMergeSuggestions = [],
+  cardMergeAmbiguities = [],
   onAcceptCardMerge,
   onDismissCardMerge,
   cardMergeTargets,
   onUnmergeCardAccount,
   onlyRenderSourceNames,
   touchedSourceNames,
-  onAcknowledgeAccount
+  onAcknowledgeAccount,
+  createAccount
 }: AccountsSectionProps) {
   const theme = useThemeColors();
   const [wantNewAccount, setWantNewAccount] = useState(false);
   const [dismissedMerges, setDismissedMerges] = useState<Set<string>>(new Set());
-  const [dismissedFuzzyMatches, setDismissedFuzzyMatches] = useState<Set<string>>(new Set());
+  const [openPickerKey, setOpenPickerKey] = useState<string | null>(null);
   const accountOptions = accounts.map((a) => ({ value: a.id, label: a.name }));
 
   const statsByAccount = useMemo(() => {
@@ -122,11 +136,59 @@ export function AccountsSection({
     [accountResolutions]
   );
 
-  function acceptMerge(sourceA: string, sourceB: string, mergedName: string) {
+  /** Resolves a card-merge target's raw CSV `sourceName` (`CardAccountMergeSuggestion.targetSourceName`,
+   *  or `cardMergeTargets`' live pointer — both are deliberately the target row's RAW source name, per
+   *  `suggestCardAccountMerges()`'s 2026-08-14 design decision, "show regardless of the bank row's own
+   *  resolution state") to that row's CURRENT resolved display name, when it has one — read at render
+   *  time from `accountResolutions` (this component's live, possibly-just-updated prop) rather than
+   *  baked into the suggestion object, since the target row's resolution can change as the user makes
+   *  decisions elsewhere in this same list. Falls back to the raw source name exactly as before when the
+   *  target is still unresolved (or was skipped) — a real bug fix: a target row that's already an
+   *  'existing' match (possibly via fuzzy-matching to a differently-spelled real account, e.g. CSV
+   *  "HDFC-x8112" → real "HDFC XX8112") used to show the raw CSV name in the merge banner/label instead
+   *  of the real account name. */
+  function resolveMergeTargetDisplayName(sourceName: string): string {
+    const target = accountResolutions.find((r) => r.sourceName === sourceName);
+    if (!target) return sourceName;
+    if (target.suggestion.kind === 'existing') return target.suggestion.accountName;
+    if (target.suggestion.kind === 'create') return target.suggestion.suggestedName;
+    return sourceName;
+  }
+
+  /** Renders an ambiguous card merge's candidate list as prose — `"X" or "Y"` for 2, `"X", "Y" or "Z"`
+   *  for 3+ (2026-08-23, item 70 — "scales to 3+ same-bank candidates by just growing the banner's
+   *  account list", per the approved mockup's residual note). Each name is already resolved to its
+   *  current display name via `resolveMergeTargetDisplayName` by the caller. */
+  function joinCandidateNames(names: string[]): string {
+    const quoted = names.map((n) => `"${n}"`);
+    if (quoted.length <= 1) return quoted[0] ?? '';
+    return `${quoted.slice(0, -1).join(', ')} or ${quoted[quoted.length - 1]}`;
+  }
+
+  /** Accepts a same-file "written two ways" merge suggestion — 2026-08-20, item 41 flow redesign: since
+   *  a per-row 'create' kind no longer exists, this now creates the merged account for real, IMMEDIATELY
+   *  (via the shared `createAccount`, same as the "+ Create Account" button), and resolves BOTH source
+   *  rows straight to 'existing' pointing at it — never leaves either row sitting in a half-resolved
+   *  'create' state with no way to reach Confirm. */
+  async function acceptMerge(sourceA: string, sourceB: string, mergedName: string) {
     const aRes = accountResolutions.find((r) => r.sourceName === sourceA);
     const existingType = aRes?.suggestion.kind === 'create' ? aRes.suggestion.suggestedType : 'bank';
-    onUpdateAccount(sourceA, { kind: 'create', suggestedName: mergedName, suggestedType: existingType });
-    onUpdateAccount(sourceB, { kind: 'create', suggestedName: mergedName, suggestedType: existingType });
+    const meta = ACCOUNT_TYPE_META[existingType];
+    const record = await createAccount(
+      {
+        name: mergedName,
+        type: existingType,
+        openingBalance: 0,
+        color: meta.color,
+        icon: meta.icon,
+        includeInNetWorth: existingType !== 'credit_card',
+        isDefault: false,
+        isClosed: false
+      },
+      null
+    );
+    onUpdateAccount(sourceA, { kind: 'existing', accountId: record.id, accountName: record.name });
+    onUpdateAccount(sourceB, { kind: 'existing', accountId: record.id, accountName: record.name });
     setDismissedMerges((prev) => new Set(prev).add(`${sourceA}|${sourceB}`));
   }
 
@@ -184,60 +246,86 @@ export function AccountsSection({
             !dismissedMerges.has(`${m.sourceA}|${m.sourceB}`)
         );
         const isFirstOfMerge = merge && merge.sourceA === r.sourceName;
-        const fuzzy =
-          r.suggestion.kind === 'create' && !dismissedFuzzyMatches.has(r.sourceName) ? r.fuzzyExistingMatch : undefined;
         const cardMerge = cardMergeSuggestions.find((c) => c.cardSourceName === r.sourceName);
         const mergedIntoName = cardMergeTargets?.get(r.sourceName);
-
-        // Same 3-way vocabulary as CategoryTile: an outstanding merge/fuzzy suggestion not yet
-        // accepted-or-dismissed is a real pending decision, so it counts as 'attention' even though
-        // resolveAccounts always pre-fills a valid default. An already-merged card is always 'ready' —
-        // there's nothing left pending on its own row (it fully tracks its target).
-        const hasPendingSuggestion = !mergedIntoName && (!!isFirstOfMerge || !!fuzzy || !!cardMerge);
-        const allDuplicate = !!stats && stats.ready === 0 && stats.attention === 0 && stats.duplicate > 0;
         const isSkipped = r.suggestion.kind === 'skip';
-        const status: 'ready' | 'attention' | 'duplicate' | 'skipped' = isSkipped
-          ? 'skipped'
-          : hasPendingSuggestion
-            ? 'attention'
-            : allDuplicate
-              ? 'duplicate'
-              : 'ready';
-        const statusColor =
-          status === 'attention'
-            ? theme.warning
-            : status === 'duplicate' || status === 'skipped'
-              ? theme.neutral
-              : theme.success;
 
-        const kindOptions = [
-          { value: 'existing', label: 'Map existing' },
-          { value: 'create', label: 'New account' },
-          { value: 'skip', label: 'Skip this account' }
-        ];
+        // Assigned to a local const first — TS control-flow narrowing on `r.suggestion.kind` doesn't
+        // survive into the `.find()` callback's nested closure otherwise (a known TS limitation; a plain
+        // local variable's narrowed type does survive).
+        const rowSuggestion = r.suggestion;
+        const matchedAccount =
+          rowSuggestion.kind === 'existing' ? accounts.find((a) => a.id === rowSuggestion.accountId) : undefined;
+        // Ambiguous card→account merge (2026-08-23, item 70) — a card-type row whose Bank Name matches
+        // 2+ real candidates, so no confident guess exists. Only ambiguous UNTIL the user has explicitly
+        // resolved this row to a real account via the dropdown (`rowSuggestion.kind === 'existing'`) —
+        // once picked, `matchedAccount` above already reflects that real choice, so this row renders
+        // exactly like any other resolved row from then on (never permanently stuck ambiguous).
+        const ambiguousMerge =
+          rowSuggestion.kind === 'existing'
+            ? undefined
+            : cardMergeAmbiguities.find((a) => a.cardSourceName === r.sourceName);
+        const isAmbiguous = !!ambiguousMerge;
+        // Smart best-guess prefill (2026-08-20) — folds the old separate "same account, written
+        // differently?" banner directly into the paired card: a normalized-fuzzy match against a real
+        // existing account, shown as the dropdown's pre-filled value even though nothing's been picked
+        // yet. Still requires the same Confirm tap as any other pick — never auto-applied. Suppressed
+        // entirely when ambiguous (item 70) — showing ANY pre-filled guess here (even a fuzzy one) is
+        // exactly the false-confidence bug this fix removes; the row goes back to the same dashed "Choose
+        // account…" placeholder any other unresolved row shows.
+        const fuzzyMatch = !isAmbiguous && rowSuggestion.kind === 'create' ? r.fuzzyExistingMatch : undefined;
+        const fuzzyGuessAccount =
+          !matchedAccount && fuzzyMatch ? accounts.find((a) => a.id === fuzzyMatch.accountId) : undefined;
+        const displayedAccount = isAmbiguous ? undefined : (matchedAccount ?? fuzzyGuessAccount);
+        const confirmed = !!matchedAccount && !!touchedSourceNames?.has(r.sourceName);
 
-        return (
-          <View
-            key={r.sourceName}
-            className="rounded-xl overflow-hidden p-3 gap-2"
-            style={{
-              backgroundColor: tint(statusColor, status === 'ready' ? 10 : 20),
-              borderWidth: 1.5,
-              borderColor: statusColor
-            }}
-          >
-            <View className="flex-row items-center justify-between gap-2">
-              <Text className="text-xs font-bold text-primary flex-1" numberOfLines={1}>
-                {isFirstOfMerge ? `"${merge.sourceA}" & "${merge.sourceB}"` : `"${r.sourceName}"`}
-              </Text>
-              <Text className="text-[10.5px] text-tertiary flex-shrink-0">{r.count} rows</Text>
-            </View>
+        function handleConfirm() {
+          if (!displayedAccount) return;
+          if (!matchedAccount) {
+            onUpdateAccount(r.sourceName, {
+              kind: 'existing',
+              accountId: displayedAccount.id,
+              accountName: displayedAccount.name
+            });
+          }
+          // 2026-08-20, on-device feedback — Confirm now absorbs what the removed "Keep as separate
+          // account" button used to do: resolving this row via the dropdown (its own Confirm) already
+          // achieves "don't merge with the card-suggested account", so explicitly dismiss any pending
+          // card-merge suggestion here too, rather than leaving it to linger/reappear for this row.
+          if (cardMerge) {
+            onDismissCardMerge?.(cardMerge.cardSourceName);
+          }
+          onAcknowledgeAccount?.(r.sourceName);
+        }
 
-            {mergedIntoName ? (
-              // Already merged (code-review fix) — a simplified read-only indicator + Unmerge action,
-              // never this row's own editable kind/name fields (editing them would silently have no
-              // effect while `effectiveAccountResolutions` keeps live-mirroring the target — see
-              // `useImport.ts`'s `cardMergeTargets` doc comment).
+        function handleSkip() {
+          setOpenPickerKey(null);
+          onUpdateAccount(r.sourceName, { kind: 'skip' });
+        }
+
+        // "Map instead" (un-skip) — returns to the unmatched pick-required state rather than trying to
+        // restore whatever suggestion existed before Skip was tapped (overwritten by then), so the user
+        // always re-confirms a real pick rather than silently reviving a stale guess.
+        function handleUnskip() {
+          onUpdateAccount(r.sourceName, { kind: 'create', suggestedName: r.sourceName, suggestedType: 'bank' });
+        }
+
+        if (mergedIntoName) {
+          // Already merged into another account's own resolution (code-review fix) — a simplified
+          // read-only indicator + Unmerge action, never this row's own match card (editing it would
+          // silently have no effect while `effectiveAccountResolutions` keeps live-mirroring the target).
+          return (
+            <View
+              key={r.sourceName}
+              className="rounded-xl border overflow-hidden bg-surface p-3 gap-2"
+              style={{ borderColor: theme.success }}
+            >
+              <View className="flex-row items-center justify-between gap-2">
+                <Text className="text-xs font-bold text-primary flex-1" numberOfLines={1}>
+                  &quot;{r.sourceName}&quot;
+                </Text>
+                <Text className="text-[10.5px] text-tertiary flex-shrink-0">{r.count} rows</Text>
+              </View>
               <View className="flex-row items-center justify-between gap-2">
                 <View className="flex-row items-center gap-1.5 flex-1">
                   <Icon name="ti-link" size={12} color={theme.success} />
@@ -246,224 +334,302 @@ export function AccountsSection({
                     style={{ color: theme.success }}
                     numberOfLines={1}
                   >
-                    Merged into &quot;{mergedIntoName}&quot;
+                    Merged into &quot;{resolveMergeTargetDisplayName(mergedIntoName)}&quot;
                   </Text>
                 </View>
                 <Pill onPress={() => onUnmergeCardAccount?.(r.sourceName)}>Unmerge</Pill>
               </View>
-            ) : (
-              <>
-                {isFirstOfMerge && (
-                  <>
-                    <View className="flex-row items-center gap-1">
-                      <Text className="text-[10px]" style={{ color: theme.success }}>
-                        ✦ Same account, written two ways?
-                      </Text>
-                    </View>
-                    <View className="flex-row gap-1.5 flex-wrap">
-                      <Pill active onPress={() => acceptMerge(merge.sourceA, merge.sourceB, merge.mergedName)}>
-                        Merge → &quot;{merge.mergedName}&quot;
-                      </Pill>
-                      <Pill
-                        onPress={() =>
-                          setDismissedMerges((prev) => new Set(prev).add(`${merge.sourceA}|${merge.sourceB}`))
-                        }
-                      >
-                        Keep separate
-                      </Pill>
-                    </View>
-                  </>
-                )}
+            </View>
+          );
+        }
 
-                {fuzzy && (
-                  <>
-                    <View className="flex-row items-center gap-1">
-                      <Text className="text-[10px]" style={{ color: theme.success }}>
-                        ✦ Same account, written differently?
-                      </Text>
-                    </View>
-                    <View className="flex-row gap-1.5 flex-wrap">
-                      <Pill
-                        active
-                        onPress={() => {
-                          onUpdateAccount(r.sourceName, {
-                            kind: 'existing',
-                            accountId: fuzzy.accountId,
-                            accountName: fuzzy.accountName
-                          });
-                          setDismissedFuzzyMatches((prev) => new Set(prev).add(r.sourceName));
-                        }}
-                      >
-                        Merge → &quot;{fuzzy.accountName}&quot;
-                      </Pill>
-                      <Pill onPress={() => setDismissedFuzzyMatches((prev) => new Set(prev).add(r.sourceName))}>
-                        Keep separate
-                      </Pill>
-                    </View>
-                  </>
-                )}
+        if (isSkipped) {
+          return (
+            <View
+              key={r.sourceName}
+              className="rounded-xl border overflow-hidden bg-surface"
+              style={{ borderColor: theme.border }}
+            >
+              <View className="p-2.5 bg-surface-2">
+                <Text className="text-[8.5px] font-extrabold uppercase tracking-wide text-tertiary">CSV account</Text>
+                <Text className="text-xs font-bold text-primary mt-0.5" numberOfLines={1}>
+                  {r.sourceName}
+                </Text>
+                <Text className="text-[9px] text-tertiary mt-0.5">{r.count} rows</Text>
+              </View>
+              <View
+                className="flex-row items-center gap-1.5 px-2.5 py-2 border-t border-theme"
+                style={{ backgroundColor: tint(theme.textTertiary, 10) }}
+              >
+                <Icon name="ti-player-skip-forward" size={12} color={theme.textTertiary} />
+                <Text className="flex-1 text-[9.5px] text-tertiary">
+                  This account&apos;s {r.count} row{r.count !== 1 ? 's' : ''} will be excluded from the import.
+                </Text>
+                <Pressable onPress={handleUnskip} hitSlop={6}>
+                  <Text className="text-[9.5px] font-bold" style={{ color: theme.primary }}>
+                    Map instead
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        }
 
-                {/* Card→account merge suggestion (2026-08-14, redesign doc §9.7) — deliberately a
-                 *  DIFFERENT visual (info-blue credit-card icon, not the green ✦ used above) since the
-                 *  signal here is "shares a Bank Name + is a card row", not name-similarity. Independent
-                 *  per card — no bulk "merge all cards on this bank" (confirmed 2026-08-14,
-                 *  post-mockup-review). */}
-                {cardMerge && (
-                  <>
-                    <View className="flex-row items-center gap-1.5">
-                      <Icon name="ti-credit-card" size={12} color={theme.info} />
-                      <Text className="text-[10px]" style={{ color: theme.info }}>
-                        Looks like a card on your &quot;{cardMerge.targetSourceName}&quot; account?
-                      </Text>
-                    </View>
-                    <View className="flex-row gap-1.5 flex-wrap">
-                      <Pill
-                        active
-                        onPress={() =>
-                          onAcceptCardMerge?.(
-                            cardMerge.cardSourceName,
-                            cardMerge.targetSourceName,
-                            cardMerge.paymentMode
-                          )
-                        }
-                      >
-                        Merge → &quot;{cardMerge.targetSourceName}&quot;
-                      </Pill>
-                      <Pill onPress={() => onDismissCardMerge?.(cardMerge.cardSourceName)}>
-                        Keep as separate account
-                      </Pill>
-                    </View>
-                    <View
-                      className="flex-row items-center gap-1.5 rounded-lg px-2 py-1.5"
-                      style={{ backgroundColor: tint(theme.info, 12) }}
-                    >
-                      <Icon name="ti-info-circle" size={11} color={theme.info} />
-                      <Text className="text-[9.5px] flex-1" style={{ color: theme.info }}>
-                        Merging sets this row&apos;s payment mode to {cardMerge.paymentMode} instead of creating a new
-                        account
-                      </Text>
-                    </View>
-                  </>
-                )}
-
-                {/* Kind dropdown — pill-styled, same treatment as CategoryTile's Row 2 */}
-                <SelectInput
-                  value={r.suggestion.kind}
-                  options={kindOptions}
-                  triggerClassName="!rounded-full !py-1.5 justify-center"
-                  onChange={(kind) => {
-                    if (kind === 'create') {
-                      onUpdateAccount(r.sourceName, {
-                        kind: 'create',
-                        suggestedName: r.sourceName,
-                        suggestedType: 'bank'
-                      });
-                    } else if (kind === 'skip') {
-                      onUpdateAccount(r.sourceName, { kind: 'skip' });
-                    } else {
-                      const first = accounts[0];
-                      onUpdateAccount(r.sourceName, {
-                        kind: 'existing',
-                        accountId: first?.id ?? '',
-                        accountName: first?.name ?? ''
-                      });
-                    }
-                  }}
-                />
-
-                {/* "Skip this account" (2026-08-14, manual-testing gap #1) — excludes this source
-                 *  account and every one of its rows from the import entirely; never needs a category
-                 *  resolved, since nothing from it will ever be written. */}
-                {isSkipped && (
-                  <View
-                    className="rounded-lg px-2 py-1.5 flex-row items-center gap-1.5"
-                    style={{ backgroundColor: tint(theme.textTertiary, 10) }}
+        return (
+          <View
+            key={r.sourceName}
+            className="rounded-xl overflow-hidden bg-surface"
+            style={{
+              borderWidth: 1,
+              borderColor: confirmed ? theme.border : theme.warning,
+              // Distinct "Ambiguous · pick one" visual treatment (2026-08-23, item 70) — a dashed border,
+              // matching the approved mockup, so this row reads as structurally different from a plain
+              // unconfirmed row (solid warning border) rather than just "also needs a decision".
+              borderStyle: isAmbiguous ? 'dashed' : 'solid'
+            }}
+          >
+            {isAmbiguous && (
+              <View className="flex-row items-center px-2.5 pt-2.5">
+                <View
+                  className="flex-row items-center gap-1 rounded-full px-2 py-0.5"
+                  style={{ backgroundColor: tint(theme.warning, 22) }}
+                >
+                  <Icon name="ti-git-branch" size={9} color={theme.warning} />
+                  <Text
+                    className="text-[7.5px] font-extrabold uppercase tracking-wide"
+                    style={{ color: theme.warning }}
                   >
-                    <Icon name="ti-player-skip-forward" size={11} color={theme.textTertiary} />
-                    <Text className="text-[9.5px] text-tertiary flex-1">
-                      This account&apos;s {r.count} row{r.count !== 1 ? 's' : ''} will be excluded from the import.
-                    </Text>
-                  </View>
-                )}
+                    Ambiguous · pick one
+                  </Text>
+                </View>
+              </View>
+            )}
 
-                {/* "Looks good, use this" (2026-08-14, manual-testing gap #2) — accepts an unconfirmed
-                 *  'create' suggestion reviewed-and-accepted-as-is, without editing any field, so it can
-                 *  move out of the Accounts stage's new "Needs Review" bucket. Mirrors
-                 *  `CategoryResolutionRow`'s identical shortcut. */}
-                {r.suggestion.kind === 'create' &&
-                  touchedSourceNames &&
-                  onAcknowledgeAccount &&
-                  !touchedSourceNames.has(r.sourceName) && (
-                    <Pill onPress={() => onAcknowledgeAccount(r.sourceName)}>Looks good, use this</Pill>
+            {isFirstOfMerge && (
+              <View className="p-3 gap-2 border-b border-dashed border-theme">
+                <Text className="text-[10px]" style={{ color: theme.success }}>
+                  ✦ Same account, written two ways? &quot;{merge.sourceA}&quot; &amp; &quot;{merge.sourceB}&quot;
+                </Text>
+                <View className="flex-row gap-1.5 flex-wrap">
+                  <Pill active onPress={() => void acceptMerge(merge.sourceA, merge.sourceB, merge.mergedName)}>
+                    Merge → &quot;{merge.mergedName}&quot;
+                  </Pill>
+                  <Pill
+                    onPress={() => setDismissedMerges((prev) => new Set(prev).add(`${merge.sourceA}|${merge.sourceB}`))}
+                  >
+                    Keep separate
+                  </Pill>
+                </View>
+              </View>
+            )}
+
+            {/* Paired match card (2026-08-20, item 41 flow redesign) — DuplicatesBucket.tsx's exact
+             *  visual language: left plain bg-surface-2 (CSV account), right border-l border-dashed
+             *  (matched account, a bordered chevron-down pill). */}
+            <View className="flex-row">
+              <View className="flex-1 p-2.5 bg-surface-2">
+                <Text className="text-[8.5px] font-extrabold uppercase tracking-wide text-tertiary">CSV account</Text>
+                <Text className="text-xs font-bold text-primary mt-0.5" numberOfLines={1}>
+                  {r.sourceName}
+                </Text>
+                <Text className="text-[9px] text-tertiary mt-0.5">{r.count} rows</Text>
+              </View>
+              <View className="flex-1 p-2.5 border-l border-dashed border-theme">
+                <Text className="text-[8.5px] font-extrabold uppercase tracking-wide text-tertiary mb-1">
+                  Matched account
+                </Text>
+                <Pressable
+                  onPress={() => setOpenPickerKey((k) => (k === r.sourceName ? null : r.sourceName))}
+                  className="flex-row items-center gap-1.5 rounded-lg border px-2 py-1.5"
+                  style={{
+                    borderColor: displayedAccount ? theme.border : theme.warning,
+                    borderStyle: displayedAccount ? 'solid' : 'dashed',
+                    backgroundColor: theme.surfaceTertiary
+                  }}
+                >
+                  {displayedAccount ? (
+                    <View
+                      className="w-[18px] h-[18px] rounded-md items-center justify-center"
+                      style={{ backgroundColor: displayedAccount.color }}
+                    >
+                      <BankLogo account={displayedAccount} size={10} color="#fff" />
+                    </View>
+                  ) : (
+                    <View
+                      className="w-[18px] h-[18px] rounded-md items-center justify-center border border-dashed"
+                      style={{ borderColor: theme.textTertiary }}
+                    >
+                      <Icon name="ti-help-circle" size={10} color={theme.textTertiary} />
+                    </View>
                   )}
+                  <Text
+                    className="flex-1 text-[10.5px] font-bold"
+                    numberOfLines={1}
+                    style={{ color: displayedAccount ? theme.textPrimary : theme.warning }}
+                  >
+                    {displayedAccount?.name ?? 'Choose account…'}
+                  </Text>
+                  <Icon name="ti-chevron-down" size={10} color={theme.textTertiary} />
+                </Pressable>
+              </View>
+            </View>
 
-                {/* Conditional fields — border-notched labels, same convention as CategoryTile's Row 3 */}
-                {r.suggestion.kind === 'existing' && (
-                  <BorderLabelField label="Existing account">
-                    <SelectInput
-                      value={r.suggestion.accountId}
-                      onChange={(v) => {
-                        const a = accounts.find((x) => x.id === v);
-                        onUpdateAccount(r.sourceName, { kind: 'existing', accountId: v, accountName: a?.name ?? v });
+            {openPickerKey === r.sourceName && (
+              <View className="rounded-lg border border-theme overflow-hidden mx-2.5 mb-2.5">
+                {accounts.length === 0 ? (
+                  <Text className="text-xs text-tertiary p-2.5">
+                    No accounts yet — use &quot;+ Create Account&quot; above.
+                  </Text>
+                ) : (
+                  accounts.map((a, i) => (
+                    <Pressable
+                      key={a.id}
+                      onPress={() => {
+                        onUpdateAccount(r.sourceName, { kind: 'existing', accountId: a.id, accountName: a.name });
+                        setOpenPickerKey(null);
                       }}
-                      options={accountOptions}
-                    />
-                  </BorderLabelField>
+                      className="flex-row items-center gap-2 px-2.5 py-2"
+                      style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: theme.border }}
+                    >
+                      <View
+                        className="w-[18px] h-[18px] rounded-md items-center justify-center"
+                        style={{ backgroundColor: a.color }}
+                      >
+                        <BankLogo account={a} size={10} color="#fff" />
+                      </View>
+                      <Text className="flex-1 text-[10.5px] font-medium text-primary" numberOfLines={1}>
+                        {a.name}
+                      </Text>
+                      {a.id === displayedAccount?.id && <Icon name="ti-check" size={12} color={theme.primary} />}
+                    </Pressable>
+                  ))
                 )}
-                {r.suggestion.kind === 'create' && (
-                  <View className="flex-row gap-2">
-                    <View style={{ flex: 2 }}>
-                      <BorderLabelField label="Type">
-                        <SelectInput
-                          value={r.suggestion.suggestedType}
-                          onChange={(v) =>
-                            onUpdateAccount(r.sourceName, {
-                              kind: 'create',
-                              suggestedName: (r.suggestion as { suggestedName: string }).suggestedName,
-                              suggestedType: v as AccountType
-                            })
-                          }
-                          options={ACCOUNT_TYPE_OPTIONS}
-                        />
-                      </BorderLabelField>
-                    </View>
-                    <View style={{ flex: 3 }}>
-                      <BorderLabelField label="New account name">
-                        <TextInput
-                          value={r.suggestion.suggestedName}
-                          onChange={(v) =>
-                            onUpdateAccount(r.sourceName, {
-                              kind: 'create',
-                              suggestedName: v,
-                              suggestedType: (r.suggestion as { suggestedType: AccountType }).suggestedType
-                            })
-                          }
-                        />
-                      </BorderLabelField>
-                    </View>
-                  </View>
+              </View>
+            )}
+
+            {/* Card→account merge suggestion (2026-08-14, redesign doc §9.7; repositioned 2026-08-20 per
+             *  on-device feedback) — now sits below the paired card, above the action row, so the CSV/
+             *  matched-account resolution is always seen before the merge offer. The old dedicated "Keep
+             *  as separate account" pill is gone: the row's own Confirm action (below) already resolves
+             *  this row to the picked/matched account instead of the merge target, and now explicitly
+             *  dismisses this suggestion too (see `handleConfirm`) — so there's no separate dismiss button
+             *  needed here. */}
+            {cardMerge && (
+              <View className="px-2.5 py-2 gap-1.5 border-t border-dashed border-theme">
+                <View className="flex-row items-center gap-1.5">
+                  <Icon name="ti-credit-card" size={12} color={theme.info} />
+                  <Text className="text-[10px] flex-1" style={{ color: theme.info }}>
+                    Looks like a card on your &quot;{resolveMergeTargetDisplayName(cardMerge.targetSourceName)}
+                    &quot; account?
+                  </Text>
+                </View>
+                <View
+                  className="flex-row items-center gap-1.5 rounded-lg px-2 py-1.5"
+                  style={{ backgroundColor: tint(theme.info, 12) }}
+                >
+                  <Icon name="ti-info-circle" size={11} color={theme.info} />
+                  <Text className="text-[9.5px] flex-1" style={{ color: theme.info }}>
+                    Merging sets this row&apos;s payment mode to {cardMerge.paymentMode} instead of creating a new
+                    account
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Ambiguous card→account merge banner (2026-08-23, item 70) — replaces the confident
+             *  `cardMerge` banner above (mutually exclusive: `suggestCardAccountMerges` never returns a
+             *  suggestion for a card this component is treating as ambiguous) with a single merged
+             *  message that keeps BOTH pieces of context the old design would otherwise split across two
+             *  separate banners: "this looks like a card" (why it was flagged at all) and "which of your
+             *  N same-bank accounts it could be" (why it's ambiguous). No accept button — the row's
+             *  existing "Matched account" dropdown above is the only picker; Confirm below stays disabled
+             *  until a real pick is made. */}
+            {ambiguousMerge && (
+              <View
+                className="px-2.5 py-2 gap-1.5 border-t border-dashed border-theme"
+                style={{ backgroundColor: tint(theme.warning, 10) }}
+              >
+                <View className="flex-row items-start gap-1.5">
+                  <Icon name="ti-credit-card" size={12} color={theme.warning} />
+                  <Text className="text-[10px] flex-1" style={{ color: theme.warning }}>
+                    Looks like a card — could be for{' '}
+                    {joinCandidateNames(ambiguousMerge.candidateSourceNames.map(resolveMergeTargetDisplayName))}. Pick
+                    the right one above.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {confirmed ? (
+              <View className="flex-row items-center justify-between px-2.5 py-2 border-t border-dashed border-theme">
+                <View className="flex-row items-center gap-1.5">
+                  <Icon name="ti-check" size={13} color={theme.success} />
+                  <Text className="text-[10.5px] font-bold" style={{ color: theme.success }}>
+                    Confirmed
+                  </Text>
+                </View>
+                <Pressable onPress={handleSkip} hitSlop={6}>
+                  <Text className="text-[10px] font-semibold" style={{ color: theme.textTertiary }}>
+                    Skip
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View className="flex-row gap-2 px-2.5 py-2 border-t border-dashed border-theme">
+                {/* 2026-08-20, on-device feedback — Skip on the left, Confirm next, and (when this row has
+                 *  a pending card-merge suggestion) Merge to Confirm's right as a third action — no longer
+                 *  its own separate button row under the banner. Uneven flex weights (not equal thirds) so
+                 *  "Skip" isn't given more width than its short label needs while "Merge → '<name>'" (the
+                 *  longest label in the row) gets the extra space instead of wrapping to a second line,
+                 *  which would otherwise grow this row's height unevenly across the three buttons. */}
+                <Button variant="secondary" size="sm" style={{ flex: cardMerge ? 0.7 : 1 }} onPress={handleSkip}>
+                  Skip
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  style={{ flex: 1 }}
+                  disabled={!displayedAccount}
+                  onPress={handleConfirm}
+                >
+                  Confirm
+                </Button>
+                {cardMerge && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    color={theme.info}
+                    style={{ flex: 1.4 }}
+                    onPress={() =>
+                      onAcceptCardMerge?.(cardMerge.cardSourceName, cardMerge.targetSourceName, cardMerge.paymentMode)
+                    }
+                  >
+                    Merge → &quot;{resolveMergeTargetDisplayName(cardMerge.targetSourceName)}&quot;
+                  </Button>
                 )}
-              </>
+              </View>
             )}
 
             {stats && (
-              <Text className="text-[10.5px] text-secondary">
-                <Text style={{ color: theme.success, fontWeight: '700' }}>{stats.ready} ready</Text>
-                {stats.attention > 0 && (
-                  <>
-                    <Text className="text-tertiary"> · </Text>
-                    <Text style={{ color: theme.warning, fontWeight: '700' }}>{stats.attention} attention</Text>
-                  </>
-                )}
-                {stats.duplicate > 0 && (
-                  <>
-                    <Text className="text-tertiary"> · </Text>
-                    <Text className="text-tertiary" style={{ fontWeight: '700' }}>
-                      {stats.duplicate} duplicate
-                    </Text>
-                  </>
-                )}
-              </Text>
+              <View className="px-2.5 pb-2">
+                <Text className="text-[10.5px] text-secondary">
+                  <Text style={{ color: theme.success, fontWeight: '700' }}>{stats.ready} ready</Text>
+                  {stats.attention > 0 && (
+                    <>
+                      <Text className="text-tertiary"> · </Text>
+                      <Text style={{ color: theme.warning, fontWeight: '700' }}>{stats.attention} attention</Text>
+                    </>
+                  )}
+                  {stats.duplicate > 0 && (
+                    <>
+                      <Text className="text-tertiary"> · </Text>
+                      <Text className="text-tertiary" style={{ fontWeight: '700' }}>
+                        {stats.duplicate} duplicate
+                      </Text>
+                    </>
+                  )}
+                </Text>
+              </View>
             )}
           </View>
         );

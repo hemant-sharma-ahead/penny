@@ -25,7 +25,16 @@
 // confidently pair just render normally as two separate transactions — this is a nice-to-have
 // simplification of the preview, never a hard requirement.
 import type { ParsedRow } from './importParsers';
-import { isLikelyTransfer } from './importCategoryResolution';
+import { isLikelyTransfer, isLikelySelfAccountMovement, isLikelyCashWithdrawal } from './importCategoryResolution';
+
+// `isLikelySelfAccountMovement`/`isLikelyCashWithdrawal` are DEFINED in `importCategoryResolution.ts`
+// (alongside `isLikelyTransfer`/`isLikelyIouSuspect`/`isLikelyInvestmentMovement` — all the "does this
+// category name look like X" predicates live together there) and re-exported here for every existing
+// caller of this file (apps/mobile's `useImport.ts`, this file's own tests) — moved 2026-08-22 so
+// `importCategoryResolution.ts`'s `suggestForNameDirectional` can use `isLikelySelfAccountMovement` for
+// its own category-default-suggestion fix without a circular import (this file already imports
+// `isLikelyTransfer` FROM `importCategoryResolution.ts`, so the reverse import would cycle back here).
+export { isLikelySelfAccountMovement, isLikelyCashWithdrawal };
 
 export interface TransferPair {
   /** Index into the original rows array of the outgoing (expense-type) row. */
@@ -130,34 +139,6 @@ export function detectTransferPairs(rows: ParsedRow[]): TransferPair[] {
 // above), not a parallel system — but is its OWN new function, never a modification of
 // `detectTransferPairs` itself, so `apps/web-react`'s frozen direct call to that function keeps its
 // exact existing behavior.
-
-/** Keywords for a self-account movement NOT already covered by `TRANSFER_KEYWORDS`
- *  (importCategoryResolution.ts's `isLikelyTransfer`) — cash withdrawal and CC bill payment phrasing.
- *  Kept as its own list (not an addition to `TRANSFER_KEYWORDS`) for the same reason
- *  `isLikelyIouSuspect`/`isLikelyInvestmentMovement` are their own lists in importCategoryResolution.ts:
- *  `isLikelyTransfer` feeds `resolveCategories()`, which `apps/web-react` calls directly — broadening
- *  that shared list would silently change web's category-resolution suggestions too. This list only
- *  ever feeds `detectSelfAccountMovementPairs` below, used exclusively by apps/mobile's new Categories
- *  wizard stage. */
-const SELF_ACCOUNT_MOVEMENT_KEYWORDS = [
-  'cash withdrawal',
-  'atm withdrawal',
-  'cash wdl',
-  'wallet recharge',
-  'wallet reload',
-  'wallet load',
-  'add money',
-  'credit card bill',
-  'credit card payment',
-  'cc bill',
-  'cc payment',
-  'card bill payment'
-];
-
-export function isLikelySelfAccountMovement(categoryName: string): boolean {
-  const lower = categoryName.toLowerCase().trim();
-  return SELF_ACCOUNT_MOVEMENT_KEYWORDS.some((k) => lower.includes(k));
-}
 
 /** Same conservative pairing algorithm as `detectTransferPairs` (identical amount/date-window/opposite-
  *  direction gates — see this file's header comment), but with a BROADER "does this look like one

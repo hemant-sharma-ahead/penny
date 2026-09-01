@@ -1,4 +1,4 @@
-import { useSettings, FONT_SCALE_MAP } from '~/context/SettingsContext';
+import { useSettingsOptional, FONT_SCALE_MAP } from '~/context/SettingsContext';
 
 /**
  * RN counterpart of web's `--font-scale` CSS variable. Web's mechanism is a single line in
@@ -39,8 +39,15 @@ import { useSettings, FONT_SCALE_MAP } from '~/context/SettingsContext';
  *
  * This hook itself remains the escape hatch for anything that needs the raw multiplier directly (rare —
  * `AppText` is the normal path now).
+ *
+ * **Uses `useSettingsOptional()`, not `useSettings()`** (2026-09-01 real-device crash fix) — every
+ * `<Text>` in the app is silently `AppText` (see this hook's own file-level doc comment above), including
+ * `ToastProvider`'s own toast card, which `App.tsx` deliberately renders outside `SettingsProvider`'s
+ * subtree (see `useSettingsOptional`'s own doc comment for the full provider-order explanation). Falls
+ * back to the unscaled default (`1`) rather than crashing when rendered there — font scale is a cosmetic
+ * preference, not something worth taking down the whole app over.
  */
 export function useFontScale(): number {
-  const { fontScale } = useSettings();
-  return FONT_SCALE_MAP[fontScale];
+  const settings = useSettingsOptional();
+  return FONT_SCALE_MAP[settings?.fontScale ?? 'default'];
 }

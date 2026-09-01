@@ -1,7 +1,8 @@
-import { View, FlatList, Text } from 'react-native';
+import { View, FlatList, RefreshControl, Text } from 'react-native';
 import { Card, Button, TextInput, SelectInput, SegmentedControl, SectionLabel, AmountInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import type { AmortizationRow } from '@/core/loans/amortization';
 import { PlannerSummaryCard, PlannerScheduleHeader, PlannerScheduleFooter, PlannerScheduleRow } from './PlannerResults';
 import type { usePlanner } from './usePlanner';
@@ -11,6 +12,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 interface PlannerTabProps {
   planner: ReturnType<typeof usePlanner>;
   masked: boolean;
+  reload: () => unknown;
 }
 
 /**
@@ -22,9 +24,10 @@ interface PlannerTabProps {
  * schedule rows are the *only* thing actually virtualized/windowed — everything else still renders once,
  * same as before.
  */
-export function PlannerTab({ planner, masked }: PlannerTabProps) {
+export function PlannerTab({ planner, masked, reload }: PlannerTabProps) {
   const p = planner;
   const theme = useThemeColors();
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
   const showResults = p.isValid && p.result.rows.length > 0;
   const rows = showResults ? p.result.rows : [];
 
@@ -210,6 +213,7 @@ export function PlannerTab({ planner, masked }: PlannerTabProps) {
           {empty}
         </View>
       }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
     />
   );
 }

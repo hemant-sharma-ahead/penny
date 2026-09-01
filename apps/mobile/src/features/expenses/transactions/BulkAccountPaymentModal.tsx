@@ -21,7 +21,8 @@ export function BulkAccountPaymentModal({ accounts, count, onApply, onAddAccount
   const [paymentMode, setPaymentMode] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const activeAccounts = useMemo(() => accounts.filter((a) => !a.isArchived), [accounts]);
+  // Closed accounts (2026-08-27), same as archived, are never a valid bulk-reassign target.
+  const activeAccounts = useMemo(() => accounts.filter((a) => !a.isArchived && !a.isClosed), [accounts]);
   const selectedAccount = useMemo(() => accounts.find((a) => a.id === accountId), [accounts, accountId]);
 
   function handleAccountSelect(id: string) {

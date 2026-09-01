@@ -3,7 +3,7 @@
 // already-built, already-tested core primitives (`buildEpfInterestInput`, `calculateEpfInterestForYear`,
 // `getInterestRateForFy`), specific to how *this* screen (`RetirementCard.tsx`/`RetirementSheets.tsx`)
 // needs to call them. Nothing here recomputes or second-guesses the core accrual rule itself.
-import type { EpfEmployer, EpfTransaction } from '@/core/db/types';
+import type { EpfBalanceCheckpoint, EpfEmployer, EpfTransaction } from '@/core/db/types';
 import {
   buildEpfInterestInput,
   calculateEpfInterestForYear,
@@ -22,24 +22,53 @@ export function fyLabel(fyStartYear: number): string {
   return `FY ${fyStartYear}-${String(fyStartYear + 1).slice(2)}`;
 }
 
+/** The latest passbook-stated balance checkpoint strictly before a financial year's start — real
+ *  ground truth straight from a genuine imported passbook's own "OB Int. Updated upto"/"Closing
+ *  Balance as on" rows (`EpfEmployer.balanceCheckpoints`), when one exists. Preferred by
+ *  `sumEpfBalanceBeforeFy` below over re-summing every historical transaction from scratch — a
+ *  passbook's own stated balance can never silently drift the way an independently re-derived running
+ *  total can (a rounding difference, a not-yet-imported year, an employer-switch settlement Penny has
+ *  no way to fully reconstruct — see `epfEmployerScoping.ts`'s `epfHasPendingTransfer`) — any such gap
+ *  should show up as a one-time reconciliation difference against real EPFO data, not compound forward
+ *  silently for every later year's interest calculation. `null` when no checkpoint predates the FY at
+ *  all (a brand-new account, or years entered manually rather than imported from a real passbook). */
+function latestCheckpointBeforeFy(employer: EpfEmployer, fyStartYear: number): EpfBalanceCheckpoint | null {
+  const fyStartMs = new Date(fyStartYear, 3, 1).getTime();
+  const candidates = (employer.balanceCheckpoints ?? []).filter((cp) => cp.asOfDate < fyStartMs);
+  if (candidates.length === 0) return null;
+  return [...candidates].sort((a, b) => b.asOfDate - a.asOfDate)[0] ?? null;
+}
+
 /**
- * Sums every already-logged EPF transaction dated before a financial year's start into a plain
- * employee/employer balance total — the "prior closing balance" seed for an on-demand interest
- * calculation (`computeEpfInterestOnDemand` below) when no explicit `EpfBalanceCheckpoint` exists yet.
- * Deliberately a flat historical sum, not a recursive re-simulation of every earlier year's interest —
- * Penny never invents interest for a year the user didn't actually log or import (see the design doc's
- * "never silently invented" principle) — this only totals what's REALLY already on the ledger.
+ * The "prior closing balance" seed for an on-demand interest calculation (`computeEpfInterestOnDemand`
+ * below) — prefers a real passbook-stated `EpfBalanceCheckpoint` (`latestCheckpointBeforeFy`) when one
+ * exists for this employer, falling back to summing every already-logged EPF transaction dated before
+ * the FY's start into a plain employee/employer total only when no checkpoint is available yet.
  *
- * Non-contribution types (interest/transfer_in/withdrawal/advance) carry one combined `amount` unless
- * they were themselves imported with a real employee/employer split (see `EpfImportFlow.ts`'s commit
- * logic) — this mirrors the exact convention `epfReconciliation.ts`'s own `existingAmounts()` already
- * uses, for consistency between "does this look like a conflict" and "what's the running balance".
+ * 2026-08-30 fix — real reported bug: interest recalculations for a company's LATER years kept
+ * disagreeing with the real passbook's own recorded figures, worsening year over year. Root cause:
+ * this always re-derived the opening balance by re-summing transactions, even for an employer whose
+ * own real passbook had ALREADY stated the correct balance at that exact point (`openingCheckpoint`/
+ * `closingCheckpoint`, captured at import time but never actually read anywhere until now — see
+ * `epfImportLogic.ts`'s `mergeCheckpoints`). Any small drift between Penny's derived sum and the real
+ * passbook figure (e.g. a same-FY employer-switch settlement with no corresponding transfer-in
+ * anywhere to reconstruct it from) compounded forward through every subsequent year's own calculation,
+ * since each year's opening balance was built from the previous year's already-drifted total rather
+ * than ever re-anchoring to a real, stated value. Preferring the checkpoint whenever one exists removes
+ * that compounding entirely — falls back to the historical sum only where no checkpoint was ever
+ * imported for this employer.
  *
- * 2026-08-xx fix — scoped to ONE employer via `epfResolveTxnEmployer`, not the whole holding. Before
- * this fix, an interest calculation's OPENING balance for the FY was silently summed across every
- * employer's transactions ever logged, not just the target employer's own — the same cross-employer
- * contamination class as `buildEpfInterestInput`'s own fix (packages/core), just for the seed value
- * instead of the in-year deposits.
+ * The transaction-sum fallback is deliberately a flat historical sum, not a recursive re-simulation of
+ * every earlier year's interest — Penny never invents interest for a year the user didn't actually log
+ * or import (see the design doc's "never silently invented" principle) — this only totals what's
+ * REALLY already on the ledger. Non-contribution types (interest/transfer_in/withdrawal/advance) carry
+ * one combined `amount` unless they were themselves imported with a real employee/employer split (see
+ * `EpfImportFlow.ts`'s commit logic) — this mirrors the exact convention `epfReconciliation.ts`'s own
+ * `existingAmounts()` already uses, for consistency between "does this look like a conflict" and
+ * "what's the running balance". Scoped to ONE employer via `epfResolveTxnEmployer`
+ * (2026-08-xx) — an interest calculation's opening balance must never silently pick up another
+ * employer's own transactions, the same cross-employer contamination class as `buildEpfInterestInput`'s
+ * own fix (packages/core), just for the seed value instead of the in-year deposits.
  */
 export function sumEpfBalanceBeforeFy(
   employer: EpfEmployer,
@@ -47,6 +76,14 @@ export function sumEpfBalanceBeforeFy(
   transactions: EpfTransaction[],
   fyStartYear: number
 ): { employee: number; employer: number } {
+  const checkpoint = latestCheckpointBeforeFy(employer, fyStartYear);
+  if (checkpoint) {
+    return {
+      employee: Math.max(0, checkpoint.employeeBalance),
+      employer: Math.max(0, checkpoint.employerBalance)
+    };
+  }
+
   const fyStartMs = new Date(fyStartYear, 3, 1).getTime();
   let employee = 0;
   let employer0 = 0;

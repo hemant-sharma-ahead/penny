@@ -5,7 +5,7 @@
 // Membership lifecycle: create → invite (link/QR) → redeem → an admin grants the Group Key → the joiner
 // unwraps it and can finally read the name/feed. Leaving rotates the key so the departed member can't
 // read new activity.
-import { profileRepo, groupsRepo, groupMembersRepo } from '@/core/db/repositories';
+import { profileRepo, groupsRepo, groupMembersRepo, groupEventsRepo } from '@/core/db/repositories';
 import { NotClaimedError } from '@/core/identity/signedFetch';
 import type { Group, GroupHistoryVisibility, GroupMember, GroupRole, GroupType } from '@/core/db/types';
 import * as api from './groupsClient';
@@ -215,14 +215,17 @@ export async function setMemberRole(groupId: string, userId: string, role: Group
   if (rec) await groupMembersRepo.put({ ...rec, role, updatedAt: Date.now() });
 }
 
-/** Leave a group: tell the server, drop the local mirror. The caller should trigger rotation from an
- *  admin device (a leaver can't rotate for others). */
+/** Leave a group: tell the server, drop the caller's own local membership row, and mark the group
+ *  `left` so it stays on-device as read-only history — the `groups` record and its `group_events`
+ *  are kept intact (not deleted) so GroupDashboard can keep rendering everything that happened
+ *  before the leave, frozen. The caller should trigger rotation from an admin device (a leaver
+ *  can't rotate for others). */
 export async function leaveGroup(groupId: string): Promise<void> {
   const userId = await currentUserId();
   await api.leaveGroup(groupId);
   await groupMembersRepo.delete(`${groupId}:${userId}`);
   const group = await groupsRepo.get(groupId);
-  if (group) await groupsRepo.delete(groupId);
+  if (group) await groupsRepo.put({ ...group, status: 'left', updatedAt: Date.now() });
 }
 
 /**
@@ -271,17 +274,23 @@ export async function reopenGroup(groupId: string): Promise<void> {
 /**
  * Share a personal expense into a group as an equal-split `shared_expense` (the lightweight
  * "Share with a group" path from the personal Expense form, and the trip↔group flow). The payer is
- * you; participants default to all active members. Returns the mirrored event's id so the caller can
- * store it on the personal expense's `shareWith` link.
+ * you; participants default to all active members. Returns the mirrored event's `expenseId`.
+ *
+ * `input.expenseId` should be the personal `Expense.id` whenever this call is backing a real personal
+ * transaction (every current caller passes it) — using the SAME id as the fold engine's logical
+ * `expenseId` is what lets {@link notifyExpenseDeletedToGroups} later tombstone this exact event when
+ * the personal expense is deleted, without needing a separate id-mapping table. Falls back to a fresh
+ * random id only when the caller has no personal expense to key off of (kept for that case + so
+ * existing tests that don't pass one keep working).
  */
 export async function shareExpenseToGroup(
   groupId: string,
-  input: { amount: number; description: string; categoryId?: string; participants?: string[] }
+  input: { expenseId?: string; amount: number; description: string; categoryId?: string; participants?: string[] }
 ): Promise<string> {
   const userId = await currentUserId();
   const active = (await groupMembersRepo.getAll()).filter((m) => m.groupId === groupId && m.status === 'active');
   const participants = input.participants?.length ? input.participants : active.map((m) => m.userId);
-  const expenseId = crypto.randomUUID();
+  const expenseId = input.expenseId ?? crypto.randomUUID();
   await appendGroupEvent(groupId, 'shared_expense', {
     expenseId,
     amount: input.amount,
@@ -291,6 +300,121 @@ export async function shareExpenseToGroup(
     ...(input.categoryId ? { categoryId: input.categoryId } : {})
   });
   return expenseId;
+}
+
+/**
+ * Tombstone a shared expense out of every group it was shared to, when the personal `Expense` that
+ * backed it is deleted (item 9, "orphaned shared transactions" — until this fix, `group_events` kept a
+ * stale `shared_expense` referencing a transaction that no longer existed forever). `expenseId` must be
+ * the same value `shareExpenseToGroup` was called with (the personal `Expense.id`) — `foldGroupBalances`/
+ * `groupFeed` (split.ts) already match `expense_delete.expenseId` against `shared_expense.payload.expenseId`
+ * and filter/exclude it, so this is pure wiring, no new fold logic.
+ *
+ * Best-effort per group: a group that's closed, was already left, or is temporarily unreachable must
+ * never block the personal delete (see CLAUDE.md's reliability rule) — the local tombstone event is
+ * still durably queued by `appendGroupEvent` before any network push, so it resyncs the next time this
+ * device opens that group (`GroupDashboard.tsx`'s `syncGroup` call) even if the push here fails/throws.
+ * Safe to call unconditionally for every group id in `Expense.shareWith`, even one that never actually
+ * holds a matching `shared_expense` (e.g. a bridged reflection txn) — an unmatched `expenseId` is simply
+ * ignored by the fold engine.
+ */
+export async function notifyExpenseDeletedToGroups(expenseId: string, groupIds: string[]): Promise<void> {
+  for (const groupId of groupIds) {
+    try {
+      await appendGroupEvent(groupId, 'expense_delete', { expenseId });
+    } catch {
+      // Group closed/unknown locally, or the network push failed — the event is already persisted
+      // locally (appendGroupEvent writes it before pushing), so it isn't lost, just delayed.
+    }
+  }
+}
+
+// ─── Flags — "flag as not needed" (item 9) ─────────────────────────────────────
+
+/** Raise a lightweight "not needed" flag on someone else's `shared_expense` — durable, sync-carried
+ *  state (no push-notification infra exists in this app); the recorder sees it next time they open/
+ *  sync the group. Does not touch the ledger itself. */
+export async function flagSharedExpense(groupId: string, expenseId: string, note?: string): Promise<void> {
+  await appendGroupEvent(groupId, 'expense_flag', { expenseId, ...(note ? { note } : {}) });
+}
+
+/** The recorder "Keep"s a flagged expense — dismisses the flag without touching the ledger. (Choosing
+ *  "Delete" instead just emits the existing `expense_delete`, which already resolves any pending flag
+ *  on that id too — see `groupFlags` in groupSync.ts.) */
+export async function clearExpenseFlag(groupId: string, expenseId: string): Promise<void> {
+  await appendGroupEvent(groupId, 'expense_flag_clear', { expenseId });
+}
+
+// ─── Write-off marking (item 17) ───────────────────────────────────────────────
+
+/** Reverse a settlement (real repayment or write-off) — the fold engine excludes a voided settlement
+ *  entirely (split.ts), restoring the balance to exactly what it was before. Primarily meant for
+ *  undoing a write-off ("never coming back" → "actually, still outstanding"), but works for any
+ *  settlement that carries an `id` (older, pre-this-feature settlements without one can't be voided). */
+export async function voidSettlement(groupId: string, settlementId: string): Promise<void> {
+  await appendGroupEvent(groupId, 'settlement_void', { settlementId });
+}
+
+// ─── Static (non-app) members (item 17) ────────────────────────────────────────
+
+/**
+ * Add a name-only "placeholder" member — no real account, can't sync/confirm anything itself; a real
+ * member manages their splits/settlements on their behalf. Uses a locally-generated pseudo `userId`
+ * (`static:<uuid>`) as the fold-engine key, so it composes with `computeShares`/`foldGroupBalances`
+ * exactly like a real member. Emits a `member_joined` event carrying the placeholder's identity so
+ * every OTHER member's device materializes the same local `GroupMember` row on their next sync (see
+ * `syncGroupMembers` in groupSync.ts) — the worker never sees the name (Model B, ciphertext only).
+ *
+ * `linkedPersonId` is set when this call is backing a personal-ledger→Group promotion (item 17's other
+ * half) — the promoted person starts out as a placeholder in the new group (no account yet) until they
+ * redeem the invite generated alongside it.
+ */
+export async function addStaticMember(
+  groupId: string,
+  displayName: string,
+  opts: { linkedPersonId?: string } = {}
+): Promise<GroupMember> {
+  const userId = `static:${crypto.randomUUID()}`;
+  const now = Date.now();
+  const member: GroupMember = {
+    id: `${groupId}:${userId}`,
+    groupId,
+    userId,
+    displayName,
+    role: 'member',
+    status: 'active',
+    accountless: true,
+    ...(opts.linkedPersonId ? { linkedPersonId: opts.linkedPersonId } : {}),
+    joinedAt: now,
+    createdAt: now,
+    updatedAt: now
+  };
+  await groupMembersRepo.put(member);
+  await appendGroupEvent(groupId, 'member_joined', {
+    userId,
+    displayName,
+    accountless: true,
+    ...(opts.linkedPersonId ? { linkedPersonId: opts.linkedPersonId } : {})
+  });
+  return member;
+}
+
+// ─── Delete-when-empty for creator (item 9) ────────────────────────────────────
+
+/**
+ * Creator-only, irreversible: deletes the group on the server for every member, then drops the local
+ * mirror (members + events + the group itself). Callers must confirm eligibility themselves (zero
+ * non-deleted `shared_expense`/`expense_edit` events — see `groupFeed` in groupSync.ts) before calling;
+ * the worker enforces creator-only but can't re-derive "is it empty" from ciphertext it can't read.
+ */
+export async function deleteGroup(groupId: string): Promise<void> {
+  await api.deleteGroup(groupId);
+  const [members, events] = await Promise.all([groupMembersRepo.getAll(), groupEventsRepo.getAll()]);
+  await Promise.all([
+    ...members.filter((m) => m.groupId === groupId).map((m) => groupMembersRepo.delete(m.id)),
+    ...events.filter((e) => e.groupId === groupId).map((e) => groupEventsRepo.delete(e.id))
+  ]);
+  await groupsRepo.delete(groupId);
 }
 
 // ─── Local reads ────────────────────────────────────────────────────────────────

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { reconcileEpfContributionRows, reconcileEpfBalanceEvent } from '@/core/portfolio/epfReconciliation';
+import {
+  reconcileEpfContributionRows,
+  reconcileEpfBalanceEvent,
+  reconcileEpfBalanceEventAtDate
+} from '@/core/portfolio/epfReconciliation';
 import type { ParsedEpfPassbookRow } from '@/core/portfolio/epfPassbookParser';
 import type { EpfTransaction } from '@/core/db/types';
 
@@ -222,5 +226,76 @@ describe('reconcileEpfBalanceEvent', () => {
     const fyEndMs = new Date(2025, 2, 31, 23, 59, 59, 999).getTime();
     expect(result?.date).toBe(fyEndMs);
     expect(result?.sourceParticulars).toBe('Int. Updated — FY2024-25');
+  });
+});
+
+// Real bug this covers (2026-08-30, found against a real multi-employer transfer): a single FY can
+// genuinely contain SEVERAL distinct transfer_in/withdrawal events (e.g. the real principal transfer,
+// followed months later by a separate "TRANSFER IN - INTEREST AMOUNT ONLY" catch-up credit) —
+// `reconcileEpfBalanceEvent`'s "one event per (type, FY)" model can't represent that; this matches by
+// each event's own EXACT date instead.
+describe('reconcileEpfBalanceEventAtDate', () => {
+  const amounts = { employeeAmount: 60000, employerAmount: 20000, pensionAmount: 0 };
+
+  it('is "new" when nothing exists at this exact date', () => {
+    const result = reconcileEpfBalanceEventAtDate('transfer_in', amounts, new Date(2019, 9, 1).getTime(), 'p', []);
+    expect(result.kind).toBe('new');
+  });
+
+  it('treats two genuinely distinct same-type events in one FY as two separate items, not one aggregate', () => {
+    const principalDate = new Date(2019, 9, 1).getTime(); // 1 Oct 2019
+    const interestOnlyDate = new Date(2020, 2, 1).getTime(); // 1 Mar 2020 — same FY2019-20
+    const principal = reconcileEpfBalanceEventAtDate(
+      'transfer_in',
+      amounts,
+      principalDate,
+      'TRANSFER IN - Old Member Id ABC',
+      []
+    );
+    const interestOnly = reconcileEpfBalanceEventAtDate(
+      'transfer_in',
+      { employeeAmount: 900, employerAmount: 300, pensionAmount: 0 },
+      interestOnlyDate,
+      'TRANSFER IN - INTEREST AMOUNT ONLY (Old Member Id-:ABC)',
+      []
+    );
+    expect(principal.date).toBe(principalDate);
+    expect(interestOnly.date).toBe(interestOnlyDate);
+    expect(principal.kind).toBe('new');
+    expect(interestOnly.kind).toBe('new');
+  });
+
+  it('matches an existing transaction only at the EXACT same date, not just the same FY', () => {
+    const existing: EpfTransaction = {
+      id: 'x1',
+      type: 'transfer_in',
+      date: new Date(2019, 9, 1).getTime(),
+      employeeAmount: 60000,
+      employerAmount: 20000,
+      amount: 80000
+    };
+    const sameDate = reconcileEpfBalanceEventAtDate('transfer_in', amounts, new Date(2019, 9, 1).getTime(), 'p', [
+      existing
+    ]);
+    const differentDate = reconcileEpfBalanceEventAtDate('transfer_in', amounts, new Date(2019, 11, 1).getTime(), 'p', [
+      existing
+    ]);
+    expect(sameDate.kind).toBe('matches');
+    expect(differentDate.kind).toBe('new');
+  });
+
+  it('flags a conflict when the exact same date already has a DIFFERENT amount logged', () => {
+    const existing: EpfTransaction = {
+      id: 'x1',
+      type: 'transfer_in',
+      date: new Date(2019, 9, 1).getTime(),
+      employeeAmount: 1,
+      employerAmount: 1,
+      amount: 2
+    };
+    const result = reconcileEpfBalanceEventAtDate('transfer_in', amounts, new Date(2019, 9, 1).getTime(), 'p', [
+      existing
+    ]);
+    expect(result.kind).toBe('conflict');
   });
 });

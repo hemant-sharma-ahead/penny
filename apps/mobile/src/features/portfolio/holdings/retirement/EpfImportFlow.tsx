@@ -25,6 +25,10 @@ import {
 import { EpfImportReviewSheet } from './EpfImportReviewSheet';
 import { EpfNewEmployerSetupSheet } from './EpfNewEmployerSetupSheet';
 
+/** Render cap for the batch summary's file list (2026-08-30) — this project's own "any `.map()` over
+ *  user-imported/bulk data needs a render cap" rule; "Show all" reveals the rest on demand. */
+const FILE_LIST_CAP = 15;
+
 interface EpfImportFlowProps {
   /** `null` when there's no EPF holding yet — the untracked "Track EPF" CTA's "or import passbook PDF"
    *  path (doc §10.1) creates a brand-new holding from the import instead of extending an existing one. */
@@ -56,6 +60,7 @@ export function EpfImportFlow({ holding, files, onSave, onClose }: EpfImportFlow
     };
   });
   const [saving, setSaving] = useState(false);
+  const [filesExpanded, setFilesExpanded] = useState(false);
   const [batchId] = useState(() => crypto.randomUUID());
   const [totals, setTotals] = useState({ newCount: 0, matchedCount: 0, conflictCount: 0 });
 
@@ -121,14 +126,35 @@ export function EpfImportFlow({ holding, files, onSave, onClose }: EpfImportFlow
   }
 
   if (step === 'summary') {
+    // Render cap (this project's own "any .map() over user-imported/bulk data needs a render cap"
+    // rule) + the real reported bug: with no `scrollable`/footer split, a batch large enough to
+    // overflow the screen left the confirm button completely unreachable — found with a real 20-file
+    // batch. `scrollable` + `footer` keeps the action button fixed and reachable regardless of list
+    // length; the cap keeps the list itself cheap to render even for a much larger real batch.
+    const visibleFiles = filesExpanded ? files : files.slice(0, FILE_LIST_CAP);
     return (
-      <Modal onClose={onClose} title="Import passbooks">
+      <Modal
+        onClose={onClose}
+        title="Import passbooks"
+        scrollable
+        footer={
+          readyFiles.length > 0 ? (
+            <Button variant="primary" fullWidth onPress={() => setStep('review')}>
+              Review {readyFiles.length} statement{readyFiles.length === 1 ? '' : 's'}
+            </Button>
+          ) : (
+            <Button variant="secondary" fullWidth onPress={onClose}>
+              Close
+            </Button>
+          )
+        }
+      >
         <View className="-mt-2 gap-2">
           <Text className="text-xs text-secondary">
             {files.length} file{files.length === 1 ? '' : 's'} selected
           </Text>
 
-          {files.map((f) => {
+          {visibleFiles.map((f) => {
             const skipped = f.status !== 'ready';
             const badgeColor =
               f.status === 'ready' ? theme.success : f.status === 'duplicate' ? theme.warning : theme.danger;
@@ -164,20 +190,16 @@ export function EpfImportFlow({ holding, files, onSave, onClose }: EpfImportFlow
             );
           })}
 
+          {!filesExpanded && files.length > FILE_LIST_CAP && (
+            <Button variant="ghost" size="sm" fullWidth onPress={() => setFilesExpanded(true)}>
+              Show all {files.length} files
+            </Button>
+          )}
+
           <Text className="text-[10px] text-tertiary mt-1">
             {readyFiles.length} of {files.length} ready
             {duplicateCount + unreadableCount > 0 && ` · ${duplicateCount + unreadableCount} will be skipped`}
           </Text>
-
-          {readyFiles.length > 0 ? (
-            <Button variant="primary" fullWidth onPress={() => setStep('review')} className="mt-1">
-              Review {readyFiles.length} statement{readyFiles.length === 1 ? '' : 's'}
-            </Button>
-          ) : (
-            <Button variant="secondary" fullWidth onPress={onClose} className="mt-1">
-              Close
-            </Button>
-          )}
         </View>
       </Modal>
     );

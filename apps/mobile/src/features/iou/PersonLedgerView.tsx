@@ -1,6 +1,6 @@
 import { View, Pressable, Text } from 'react-native';
 import type { LedgerEntry, Person } from '@/core/db/types';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 import { Modal, Button, Badge } from '~/components/ui';
 import { ListRow, DueDateBadge } from '~/components/shared';
 import { Icon } from '~/components/Icon';
@@ -19,6 +19,9 @@ interface PersonLedgerViewProps {
   onAddEntry: () => void;
   onSettle: () => void;
   onEditPerson: () => void;
+  /** Opens the "promote this ledger to a Group" wizard (item 17) — omitted when Groups isn't usable
+   *  yet (no claimed username), matching the entry point's own gating in `IouView.tsx`. */
+  onPromote?: () => void;
   onEditEntry: (entry: LedgerEntry) => void;
   onDeleteEntry: (id: string) => void;
   onClose: () => void;
@@ -43,6 +46,7 @@ export function PersonLedgerView({
   onAddEntry,
   onSettle,
   onEditPerson,
+  onPromote,
   onEditEntry,
   onDeleteEntry,
   onClose
@@ -83,22 +87,37 @@ export function PersonLedgerView({
               </Text>
             )}
           </View>
-          <Pressable
-            onPress={onEditPerson}
-            className="w-9 h-9 items-center justify-center rounded-lg"
-            accessibilityLabel="Edit person"
-          >
-            <Icon name="ti-pencil" size={16} color={theme.textTertiary} />
-          </Pressable>
+          <View className="flex-row">
+            {onPromote && (
+              <Pressable
+                onPress={onPromote}
+                className="w-9 h-9 items-center justify-center rounded-lg"
+                accessibilityLabel="Promote to a group"
+              >
+                <Icon name="ti-users-plus" size={16} color={theme.primary} />
+              </Pressable>
+            )}
+            <Pressable
+              onPress={onEditPerson}
+              className="w-9 h-9 items-center justify-center rounded-lg"
+              accessibilityLabel="Edit person"
+            >
+              <Icon name="ti-pencil" size={16} color={theme.textTertiary} />
+            </Pressable>
+          </View>
         </View>
 
         <View className="gap-2">
           {entries.map((e) => {
             const color = entryColor(e, theme);
             const linked = !!e.linkedTxnId;
-            // Manual lent/borrowed entries are editable (editing re-syncs any linked transaction).
-            // Expense-origin entries are owned by their expense — edit there; settlements aren't edited.
-            const editable = e.kind !== 'settlement' && e.origin !== 'expense';
+            // 2026-08-26: `origin` no longer gates editability — both reconcile directions
+            // (`reconcileExpenseLink`/`syncLinkedTxn`) are origin-agnostic now, so editing an
+            // expense-origin entry here re-syncs its linked transaction correctly, same as a manual
+            // one. Only settlements stay non-editable-by-tap (a settlement's "edit" is really "undo and
+            // redo it" — no edit form exists for one here). Delete is always available on every row
+            // regardless (see `right` below), decoupled from `editable`.
+            const editable = e.kind !== 'settlement';
             const row = (
               <ListRow
                 icon={
@@ -116,7 +135,7 @@ export function PersonLedgerView({
                 subtitle={
                   <View className="flex-row items-center gap-1.5">
                     <Text className="text-xs text-tertiary">
-                      {entryLabel(e)} · {formatDateShort(e.date)}
+                      {entryLabel(e)} · {formatDate(e.date)}
                     </Text>
                     {linked && <Badge label="in account" color={theme.info} size="sm" />}
                   </View>
@@ -129,15 +148,13 @@ export function PersonLedgerView({
                     {e.dueDate !== undefined && e.kind !== 'settlement' && (
                       <DueDateBadge dueDateMs={e.dueDate} nowMs={nowMs} />
                     )}
-                    {!editable && (
-                      <Pressable
-                        onPress={() => onDeleteEntry(e.id)}
-                        className="w-7 h-7 items-center justify-center rounded-lg"
-                        accessibilityLabel="Delete entry"
-                      >
-                        <Icon name="ti-trash" size={13} color={theme.textTertiary} />
-                      </Pressable>
-                    )}
+                    <Pressable
+                      onPress={() => onDeleteEntry(e.id)}
+                      className="w-7 h-7 items-center justify-center rounded-lg"
+                      accessibilityLabel="Delete entry"
+                    >
+                      <Icon name="ti-trash" size={13} color={theme.textTertiary} />
+                    </Pressable>
                   </View>
                 }
               />

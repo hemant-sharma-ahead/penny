@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, PageHeader, TabStrip, ListContainer, EmptyState, SearchInput, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -15,6 +15,7 @@ import { PrivacyReceipt } from './components/PrivacyReceipt';
 import { MoneyStory } from './components/MoneyStory';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 type TimelineTab = 'story' | 'timeline' | 'deleted';
 type ActionFilter = 'all' | 'added' | 'edited' | 'deleted' | 'moved';
@@ -48,6 +49,7 @@ export function TimelinePage() {
   const [query, setQuery] = useState('');
   const [actionFilter, setActionFilter] = useState<ActionFilter>('all');
   useDefaultHeaderBack('Timeline');
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   const filtering = query.trim().length > 0 || actionFilter !== 'all';
   const filteredGrouped = useMemo(() => {
@@ -138,7 +140,11 @@ export function TimelinePage() {
         onChange={setTab}
       />
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         {loading ? (
           <Text className="text-sm text-tertiary text-center py-10">Loading…</Text>
         ) : tab === 'story' ? (

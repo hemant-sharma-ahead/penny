@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SMS Parser Verifier — "Add a parser" redesign, v1</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg: #0b0f14; --surface: #161b22; --border: #2d333b; --primary: #00a86b; --blue: #3b82f6;
+        --danger: #ef4444; --amber: #f59e0b; --pink: #ec4899;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070a; color: #e6edf3; -webkit-font-smoothing: antialiased; }
+      h1 { text-align: center; margin: 30px 16px 4px; font-size: 22px; color: #fff; }
+      .sub { text-align: center; margin: 0 16px 14px; color: #9aa5b1; font-size: 14px; max-width: 900px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+      .topnav { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 0 16px 34px; }
+      .topnav a { font-size: 12px; font-weight: 700; color: #cfe9db; background: #0f2419; border: 1px solid #1c3d2a; padding: 7px 14px; border-radius: 999px; text-decoration: none; }
+      .sectionband { border-top: 1px solid #1b222b; padding-top: 36px; margin-top: 10px; }
+      .sectiontitle { text-align: center; font-size: 16px; font-weight: 800; color: #fff; margin: 0 0 4px; }
+      .sectiontitle .num { display: inline-block; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #04140d; font-size: 12px; line-height: 22px; margin-right: 8px; }
+      .sectionsub { text-align: center; color: #9aa5b1; font-size: 12.5px; max-width: 780px; margin: 0 auto 18px; line-height: 1.65; }
+      .groundnote { max-width: 820px; margin: 0 auto 20px; background: #12181f; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; color: #9aa5b1; font-size: 12px; line-height: 1.7; }
+      .groundnote code { background: #1c2128; padding: 1px 5px; border-radius: 5px; font-size: 10.5px; color: #c3ccd6; }
+      .groundnote b { color: #d5dbe3; }
+      .frame { max-width: 860px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.5); border: 1px solid #232a34; background: #0d1117; }
+      .recommend { max-width: 820px; margin: 16px auto 6px; background: #0f2419; border: 1px solid #1c3d2a; border-radius: 16px; padding: 18px 22px; color: #d7f5e6; font-size: 13.5px; line-height: 1.7; }
+      .recommend b { color: #7ee6b8; }
+      .legend { max-width: 820px; margin: 14px auto 60px; background: #0e141b; border: 1px solid #1e2733; border-radius: 16px; padding: 22px 26px; color: #c3ccd6; font-size: 13px; line-height: 1.7; }
+      .legend h2 { font-size: 14px; margin: 0 0 8px; color: #fff; }
+      .legend code { background: #1c2128; padding: 1px 6px; border-radius: 5px; font-size: 11.5px; }
+      .legend li { margin-bottom: 6px; }
+      .badbox { max-width: 820px; margin: 0 auto 24px; background: #1a1013; border: 1px solid #3d1c22; border-radius: 12px; padding: 14px 18px; color: #f3b4b4; font-size: 12px; line-height: 1.7; }
+      .badbox b { color: #ff8a8a; }
+
+      /* form primitives — same tokens as the shipped tool, tightened */
+      .panel { padding: 18px 20px; }
+      .formgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+      .formgrid.cols3 { grid-template-columns: 1.3fr 1fr 1fr; }
+      .formfield { display: flex; flex-direction: column; gap: 4px; }
+      .formfield.full { grid-column: 1 / -1; }
+      .formfield label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: #6b7684; }
+      .formfield input, .formfield select, .formfield textarea { background: #0d1117; border: 1px solid #232a34; border-radius: 6px; padding: 6px 9px; color: #d5dbe3; font-size: 11px; font-family: ui-monospace, Menlo, monospace; outline: none; }
+      .formfield select { font-family: -apple-system, sans-serif; }
+      .regexstatus { display: flex; align-items: center; gap: 5px; font-size: 10px; margin-top: 3px; }
+      .regexstatus.ok { color: #10b981; }
+      .regexstatus.err { color: #ef4444; }
+      .formbtn { font-size: 10.5px; font-weight: 700; padding: 7px 13px; border-radius: 7px; font-family: -apple-system, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+      .formbtn.primary { background: var(--primary); color: #04140d; }
+      .formbtn.ghost { background: #151b23; color: #b7c0cc; border: 1px solid #232a34; }
+      .formbtnrow { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+      .draftbadge { font-size: 8px; font-weight: 800; text-transform: uppercase; background: rgba(59,130,246,.18); color: #93c5fd; padding: 2px 6px; border-radius: 999px; }
+      .divider { border-top: 1px dashed #1d232c; margin: 14px 0; }
+
+      .console { background: #0d1117; border: 1px solid #232a34; border-radius: 8px; overflow: hidden; }
+      .console-top { display: flex; gap: 5px; padding: 6px 9px; background: #131820; border-bottom: 1px solid #232a34; }
+      .console-top span { width: 8px; height: 8px; border-radius: 50%; }
+      .console textarea { width: 100%; background: transparent; border: none; color: #b7c0cc; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; padding: 9px 11px; resize: none; outline: none; line-height: 1.6; }
+      .runbtn { background: var(--primary); color: #04140d; font-weight: 800; font-size: 10.5px; padding: 7px 14px; border-radius: 7px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+
+      .smstext { font-family: ui-monospace, Menlo, monospace; font-size: 10px; color: #8b949e; background: #0d1117; border-radius: 6px; padding: 8px 9px; line-height: 1.6; }
+      .smstext mark { background: rgba(0,168,107,.28); color: #7ee6b8; border-radius: 3px; padding: 0 2px; font-weight: 700; }
+      .smstext mark.f2 { background: rgba(59,130,246,.28); color: #93c5fd; }
+      .smstext mark.f3 { background: rgba(236,72,153,.28); color: #f9a8d4; }
+      .smstext mark.f4 { background: rgba(245,158,11,.28); color: #fcd34d; }
+      .fields { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+      .fchip { font-size: 9px; background: #1a2028; border: 1px solid #232a34; border-radius: 6px; padding: 3px 7px; color: #9ea8b5; font-family: ui-monospace, Menlo, monospace; }
+      .fchip b { color: #d5dbe3; }
+      .fchip.f2 b { color: #93c5fd; }
+      .fchip.f3 b { color: #f9a8d4; }
+      .fchip.f4 b { color: #fcd34d; }
+
+      .badge { font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+      .badge.pass { background: rgba(16,185,129,.15); color: #10b981; }
+      .badge.fail { background: rgba(239,68,68,.15); color: #ef4444; }
+
+      /* Option A — compact bulk-tester list */
+      .miniresults { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+      .miniresult { background: #131820; border: 1px solid #232a34; border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+      .miniresult .row { display: flex; align-items: center; gap: 8px; font-size: 10.5px; }
+      .miniresult .row .snd { color: #d5dbe3; font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; }
+      .miniresult .row .snippet { flex: 1; color: #7d8794; font-family: ui-monospace, Menlo, monospace; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .miniresult .expanded { margin-top: 8px; }
+      .counttag { font-size: 10px; color: #6b7684; margin-left: auto; }
+
+      /* Option B — split pane */
+      .splitpane { display: flex; gap: 0; }
+      .splitpane .left { flex: 0 0 46%; padding: 18px 20px; border-right: 1px solid #1d232c; }
+      .splitpane .right { flex: 1; padding: 18px 20px; background: #0a0e13; }
+      .paneheader { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #5b6472; margin-bottom: 10px; }
+
+      /* Option C — 2-step tabs */
+      .steps { display: flex; gap: 6px; padding: 14px 20px 0; }
+      .step { font-size: 10.5px; font-weight: 700; padding: 7px 14px; border-radius: 999px; background: #131820; border: 1px solid #232a34; color: #8b949e; }
+      .step.active { background: rgba(0,168,107,.15); border-color: rgba(0,168,107,.4); color: #7ee6b8; }
+      .step .n { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: #1a2028; font-size: 8.5px; margin-right: 5px; }
+      .step.active .n { background: var(--primary); color: #04140d; }
+    </style>
+  </head>
+  <body>
+    <h1>"Add a parser" redesign — concise form + bulk tester</h1>
+    <p class="sub">Real usage found this screen sprawling, missing bulk-message testing, showing field-chip labels
+      that don't match the regex's actual capture-group names, and silently going stale after fixing a broken
+      regex (retriggers only on some field edits, not others). Three layout options below fix all four; pick
+      one to build.</p>
+    <div class="topnav">
+      <a href="#problems">What's actually wrong</a>
+      <a href="#optA">Option A — Compact form + bulk tester (recommended)</a>
+      <a href="#optB">Option B — Split pane, form + live tester side by side</a>
+      <a href="#optC">Option C — 2-step: Define → Test</a>
+    </div>
+
+    <!-- ================= PROBLEMS ================= -->
+    <div class="sectionband" id="problems">
+      <div class="sectiontitle">What's actually wrong today</div>
+      <div class="badbox">
+        <b>1. Sprawling, low-density layout</b> — huge all-caps labels with wide letter-spacing, "New bank ID"
+        and "Sender ID patterns" stacked full-width instead of side by side, a redundant "TEST AGAINST"
+        sub-header — the whole form runs several screens tall for ~8 actual fields.<br><br>
+        <b>2. Field-chip names don't match the regex you just wrote</b> — the pattern textarea's placeholder
+        and label both say <code>acctLast4</code>/<code>cardLast4</code>, but the live-match preview shows
+        <code>acct</code>/<code>card</code>. Same underlying value, different label — confusing when you're
+        checking whether your named group actually captured.<br><br>
+        <b>3. No way to test more than one message</b> — "Test against" is exactly one Sender + one Body. A
+        real new-template session usually starts with 3-10 real messages of the same wording variant (or the
+        same bank under 2 different sender shortcodes) — today that means re-pasting one at a time.<br><br>
+        <b>4. Silently stale after a fix</b> — this one's a real bug, not just a UX complaint: the "New bank
+        ID" and "Sender ID patterns" fields update their state but never re-trigger the live match check.
+        Fix your regex, and the preview doesn't refresh until you also touch Sender or Body again — it looks
+        like the fix didn't work.
+      </div>
+    </div>
+
+    <!-- ================= OPTION A ================= -->
+    <div class="sectionband" id="optA">
+      <div class="sectiontitle"><span class="num">A</span>Compact form + bulk tester<span style="color:#7ee6b8;font-size:11px;font-weight:800;margin-left:8px">RECOMMENDED</span></div>
+      <div class="sectionsub">Tightens the form to a dense 2-3 column grid, puts New bank ID + Sender patterns
+        side by side, replaces the single Sender/Body pair with the exact same paste box + <code>---</code>
+        block format already used in "Test your own" (one convention, not two), and adds an explicit
+        <b style="color:#d5dbe3">▸ Test</b> button — no more silent auto-retry, and no more per-field
+        inconsistency in what re-triggers it.</div>
+      <div class="groundnote">Results render as a compact one-line-per-message list (not full trace — there's
+        only one candidate template here) — click a line to expand into highlighted text + field chips, same
+        interaction already established in "Test your own"'s table.</div>
+      <div class="frame">
+        <div class="panel">
+          <div class="formgrid cols3">
+            <div class="formfield"><label>Bank</label><select><option>+ New bank…</option></select></div>
+            <div class="formfield"><label>Transaction type</label><select><option>debit</option></select></div>
+            <div class="formfield"><label>Date format</label><input value="DD-MM-YY" /></div>
+          </div>
+          <div class="formgrid">
+            <div class="formfield"><label>New bank ID</label><input value="idbi" /></div>
+            <div class="formfield"><label>Sender ID patterns (one per line)</label><input value="^[A-Z]{2}-IDBIBK$" /></div>
+          </div>
+          <div class="formfield full" style="margin-bottom:10px">
+            <label>Label</label><input value="current-era UPI debit, 2026-08" />
+          </div>
+          <div class="formfield full" style="margin-bottom:6px">
+            <label>Regex pattern (amount, acctLast4, cardLast4, counterparty, ref, balance, dateStr)</label>
+            <textarea rows="2">IDBI Bank: Rs\.?(?&lt;amount&gt;[\d,]+\.?\d*) debited from a/c (?&lt;acctLast4&gt;\d{4}) on (?&lt;dateStr&gt;\d{2}-\d{2}-\d{2}) to VPA (?&lt;counterparty&gt;[\w.@]+) \(UPI Ref No (?&lt;ref&gt;\d+)\)</textarea>
+            <div class="regexstatus ok"><i class="ti ti-circle-check"></i> Valid regex syntax</div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="formfield full" style="margin-bottom:8px">
+            <label>Test against (same sender-line / <code style="background:#1c2128;padding:1px 5px;border-radius:4px;font-size:9.5px">---</code>-separated format as "Test your own")</label>
+            <div class="console">
+              <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+              <textarea rows="4">VM-IDBIBK
+IDBI Bank: Rs.750.00 debited from a/c 5678 on 16-08-26 to VPA merchant@idbi (UPI Ref No 987654321098)
+---
+VM-IDBIBK
+IDBI Bank: Rs.220.50 debited from a/c 5678 on 17-08-26 to VPA another@ybl (UPI Ref No 112233445566)
+---
+IDBIBK
+IDBI Bank: Rs.99.00 debited from a/c 5678 on 18-08-26 to VPA third@okaxis (UPI Ref No 998877665544)</textarea>
+            </div>
+          </div>
+          <div class="runbtn">▸ Test against 3 messages</div>
+
+          <div class="miniresults">
+            <div class="miniresult">
+              <div class="row"><i class="ti ti-chevron-down" style="color:#4a5361"></i><span class="snd">VM-IDBIBK</span><span class="snippet">IDBI Bank: Rs.750.00 debited from a/c 5678 on 16-08-26 to VPA merchant@idbi…</span><span class="badge pass">✓ Matched</span></div>
+              <div class="expanded">
+                <div class="smstext">IDBI Bank: Rs.<mark>750.00</mark> debited from a/c <mark class="f2">5678</mark> on <mark class="f4">16-08-26</mark> to VPA <mark class="f3">merchant@idbi</mark> (UPI Ref No <mark class="f4">987654321098</mark>)</div>
+                <div class="fields">
+                  <span class="fchip">amount <b>₹750</b></span>
+                  <span class="fchip f2">acctLast4 <b>5678</b></span>
+                  <span class="fchip f4">dateStr <b>16-08-26</b></span>
+                  <span class="fchip f3">counterparty <b>merchant@idbi</b></span>
+                  <span class="fchip f4">ref <b>987654321098</b></span>
+                </div>
+              </div>
+            </div>
+            <div class="miniresult">
+              <div class="row"><i class="ti ti-chevron-right" style="color:#4a5361"></i><span class="snd">VM-IDBIBK</span><span class="snippet">IDBI Bank: Rs.220.50 debited from a/c 5678 on 17-08-26 to VPA another@ybl…</span><span class="badge pass">✓ Matched</span></div>
+            </div>
+            <div class="miniresult">
+              <div class="row"><i class="ti ti-chevron-right" style="color:#4a5361"></i><span class="snd">IDBIBK</span><span class="snippet">IDBI Bank: Rs.99.00 debited from a/c 5678 on 18-08-26 to VPA third@okaxis…</span><span class="badge fail">✗ No match</span></div>
+            </div>
+          </div>
+
+          <div class="formbtnrow">
+            <div class="formbtn primary">+ Add to this session <span class="draftbadge">draft</span></div>
+            <div class="formbtn ghost">Copy as code</div>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:14px">Note the 3rd message above (sender <code>IDBIBK</code>, no
+        hyphenated prefix) correctly shows <b style="color:#f3b4b4">✗ No match</b> — a real, useful signal that
+        this sender ID variant isn't covered by the pattern above yet, caught immediately because all 3 real
+        messages were tested together instead of one at a time.</div>
+    </div>
+
+    <!-- ================= OPTION B ================= -->
+    <div class="sectionband" id="optB">
+      <div class="sectiontitle"><span class="num">B</span>Split pane — form left, live tester right</div>
+      <div class="sectionsub">Same field set and bulk-paste tester as Option A, but laid out side by side
+        instead of stacked — lets you tweak the regex on the left and watch the right-hand results update
+        without scrolling past the form each time. Same explicit ▸ Test button, same field-chip naming fix.</div>
+      <div class="groundnote"><b>Chosen direction — per feedback, the field sizing here reads better</b> than
+        Option A's single dense column. Worth keeping an eye on window width in the real build (the sidebar
+        already takes 230px, so a narrow laptop window will size each pane down accordingly), but the layout
+        itself is the one being built.</div>
+      <div class="frame">
+        <div class="splitpane">
+          <div class="left">
+            <div class="paneheader">1 · Define the template</div>
+            <div class="formgrid">
+              <div class="formfield"><label>Bank</label><select><option>+ New bank…</option></select></div>
+              <div class="formfield"><label>Type</label><select><option>debit</option></select></div>
+            </div>
+            <div class="formgrid">
+              <div class="formfield"><label>New bank ID</label><input value="idbi" /></div>
+              <div class="formfield"><label>Date format</label><input value="DD-MM-YY" /></div>
+            </div>
+            <div class="formfield full" style="margin-bottom:8px">
+              <label>Sender ID patterns</label><input value="^[A-Z]{2}-IDBIBK$" />
+            </div>
+            <div class="formfield full">
+              <label>Regex pattern</label>
+              <textarea rows="4">IDBI Bank: Rs\.?(?&lt;amount&gt;[\d,]+\.?\d*) debited from a/c (?&lt;acctLast4&gt;\d{4}) on (?&lt;dateStr&gt;\d{2}-\d{2}-\d{2}) to VPA (?&lt;counterparty&gt;[\w.@]+) \(UPI Ref No (?&lt;ref&gt;\d+)\)</textarea>
+              <div class="regexstatus ok"><i class="ti ti-circle-check"></i> Valid regex syntax</div>
+            </div>
+            <div class="formbtnrow">
+              <div class="formbtn primary">+ Add to this session <span class="draftbadge">draft</span></div>
+              <div class="formbtn ghost">Copy as code</div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="paneheader">2 · Test against real messages</div>
+            <div class="console">
+              <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+              <textarea rows="5">VM-IDBIBK
+IDBI Bank: Rs.750.00 debited from a/c 5678 on 16-08-26 to VPA merchant@idbi (UPI Ref No 987654321098)
+---
+VM-IDBIBK
+IDBI Bank: Rs.220.50 debited from a/c 5678 on 17-08-26 to VPA another@ybl (UPI Ref No 112233445566)</textarea>
+            </div>
+            <div class="runbtn" style="margin:10px 0">▸ Test against 2 messages</div>
+            <div class="miniresults">
+              <div class="miniresult">
+                <div class="row"><i class="ti ti-chevron-down" style="color:#4a5361"></i><span class="snd">VM-IDBIBK</span><span class="snippet">IDBI Bank: Rs.750.00 debited…</span><span class="badge pass">✓ Matched</span></div>
+                <div class="expanded">
+                  <div class="smstext">IDBI Bank: Rs.<mark>750.00</mark> debited from a/c <mark class="f2">5678</mark> on <mark class="f4">16-08-26</mark> to VPA <mark class="f3">merchant@idbi</mark> (UPI Ref No <mark class="f4">987654321098</mark>)</div>
+                  <div class="fields">
+                    <span class="fchip">amount <b>₹750</b></span>
+                    <span class="fchip f2">acctLast4 <b>5678</b></span>
+                    <span class="fchip f4">dateStr <b>16-08-26</b></span>
+                    <span class="fchip f3">counterparty <b>merchant@idbi</b></span>
+                    <span class="fchip f4">ref <b>987654321098</b></span>
+                  </div>
+                </div>
+              </div>
+              <div class="miniresult">
+                <div class="row"><i class="ti ti-chevron-right" style="color:#4a5361"></i><span class="snd">VM-IDBIBK</span><span class="snippet">IDBI Bank: Rs.220.50 debited…</span><span class="badge pass">✓ Matched</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="sectionsub" style="margin-top:14px">Same shared <code>.smstext</code>/<code>fieldChips()</code>
+        rendering as Option A and every other view in the tool — the color-coded highlighting isn't
+        layout-specific, it's a core, always-on part of the result regardless of which option gets built.</div>
+    </div>
+
+    <!-- ================= OPTION C ================= -->
+    <div class="sectionband" id="optC">
+      <div class="sectiontitle"><span class="num">C</span>2-step: Define → Test</div>
+      <div class="sectionsub">Splits the same fields across two explicit steps instead of one long scroll or
+        a side-by-side split — "Define" holds just the template-authoring fields, "Test" holds the bulk paste
+        box + results. A small persistent strip at the top always shows the current regex pattern, so you're
+        never guessing what you're testing while on the Test step.</div>
+      <div class="groundnote"><b>Trade-off:</b> the extra click between steps is friction a single scrolling
+        form doesn't have, and regex iteration (change pattern → immediately see if it matches) is the most
+        common loop here — bouncing between two steps for that loop is worse than Option A's single view.
+        Included for completeness, not the recommendation.</div>
+      <div class="frame">
+        <div class="steps">
+          <div class="step"><span class="n">1</span>Define</div>
+          <div class="step active"><span class="n">2</span>Test</div>
+        </div>
+        <div class="panel">
+          <div class="groundnote" style="margin:0 0 12px;text-align:left">
+            <b>Testing:</b> <code>idbi</code> · debit · <code>IDBI Bank: Rs\.?(?&lt;amount&gt;...) debited from a/c (?&lt;acctLast4&gt;\d{4})...</code>
+            <span style="color:#7ee6b8;cursor:pointer;margin-left:8px">← back to Define</span>
+          </div>
+          <div class="console">
+            <div class="console-top"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#10b981"></span></div>
+            <textarea rows="4">VM-IDBIBK
+IDBI Bank: Rs.750.00 debited from a/c 5678 on 16-08-26 to VPA merchant@idbi (UPI Ref No 987654321098)</textarea>
+          </div>
+          <div class="runbtn" style="margin:10px 0">▸ Test against 1 message</div>
+          <div class="miniresults">
+            <div class="miniresult">
+              <div class="row"><i class="ti ti-chevron-down" style="color:#4a5361"></i><span class="snd">VM-IDBIBK</span><span class="snippet">IDBI Bank: Rs.750.00 debited…</span><span class="badge pass">✓ Matched</span></div>
+              <div class="expanded">
+                <div class="fields">
+                  <span class="fchip">amount <b>₹750</b></span>
+                  <span class="fchip f2">acctLast4 <b>5678</b></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Decision: Option B</b>, per feedback — the split-pane field sizing reads better than Option A's
+      single dense column, now with Option A's color-coded highlighting/field-chip naming folded in (the
+      <code>.smstext</code> mark-highlighting and exact capture-group-name chips are shared rendering, not
+      layout-specific — Option B gets the identical treatment, not a lesser version).
+    </div>
+
+    <div class="legend">
+      <h2>Summary of what changes (Option B)</h2>
+      <ul>
+        <li><b>Layout:</b> two panes side by side inside the main content area — left = template-authoring
+          fields (Bank/Type, New-bank-ID/Date-format, Sender ID patterns, Regex pattern), right = the bulk
+          tester (paste box, ▸ Test button, results list). Tighter label typography throughout (no more full
+          uppercase + wide letter-spacing eating space).</li>
+        <li><b>Field-chip naming fix (real bug, applies everywhere <code>fieldChips()</code> is used — Known
+          templates too, not just here):</b> chips read the exact capture-group name from the regex
+          (<code>acctLast4</code>, <code>cardLast4</code>, <code>counterparty</code>, <code>ref</code>,
+          <code>balance</code>, <code>dateStr</code>, <code>amount</code>) instead of a shortened label
+          (<code>acct</code>/<code>card</code>) that doesn't match what you just typed.</li>
+        <li><b>Color-coded highlighting, same as everywhere else in the tool:</b> the right pane's expanded
+          result shows the full <code>.smstext</code> block with color-coded <code>&lt;mark&gt;</code> spans
+          (green=amount, blue=account/card, pink=counterparty, amber=ref/balance/date) — identical shared
+          rendering to Known templates and Test your own, not a stripped-down variant for this screen.</li>
+        <li><b>Bulk tester:</b> the right pane's "Test against" is the same paste box + <code>---</code>-block
+          format as "Test your own" (<code>splitIntoBlocks()</code>, already implemented — reused, not
+          reinvented), tested against the single draft template, rendered as a compact one-line-per-message
+          list with click-to-expand (highlighted text + field chips), not the full per-template trace (there's
+          only one candidate here).</li>
+        <li><b>Explicit ▸ Test button (real bug fix):</b> replaces continuous auto-retest on every keystroke.
+          Also fixes the actual reported bug — New-bank-ID and Sender-ID-pattern edits currently update state
+          but never re-trigger a re-test, so fixing a regex and only touching those two fields left the
+          preview looking stale. A single explicit action re-tests off the current full form state every
+          time, regardless of which field was last touched.</li>
+      </ul>
+    </div>
+  </body>
+</html>

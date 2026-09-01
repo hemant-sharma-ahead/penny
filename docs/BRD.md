@@ -70,7 +70,9 @@ Track all asset classes in one place:
 - Transaction list (expense/income/transfer) with type-specific display
 - Category system: intentGroup (parent) → ExpenseCategory (child) → Hashtags (free-form tags)
 - Recurring transactions: daily/weekly/bi-weekly/monthly/quarterly/half-yearly/yearly rules with vacation guard
-- Import: Penny CSV template + YNAB/Cashew/MoneyView parsers, 3-step UI
+- Import: Penny CSV template + Cashew/MoneyView parsers (YNAB removed 2026-08-23 — never reached the
+  confirmed-adoption bar the other formats did; Custom/map-your-own-columns covers the same ground), plus
+  a Custom format for any other CSV, 6-step wizard on `apps/mobile`
 - Export: AES-256 password-protected ZIP with CSV, date range picker
 - Analytics tab: spending by category, trends, month comparison
 - Budgets: per-category budget with spend tracking
@@ -146,11 +148,13 @@ Track all asset classes in one place:
 
 ### Privacy system
 
-Three privacy modes accessible from the top header:
+Two privacy modes accessible from the top header (collapsed from three, 2026-08-18 — a
+middle "Privacy" mode and Open's fixed-duration countdown were both removed as overkill
+found via real-device testing):
 
-- **Safe** (amber, default) — amounts masked as ••••
-- **Privacy** (violet) — module names only, no amounts
-- **Open** (red) — all data visible, PIN required to switch to
+- **Safe** (amber, default) — only amounts explicitly flagged sensitive are masked as ••••
+- **Open** (red) — all data visible, PIN + warning screen required to switch to; auto-reverts
+  to Safe when the app backgrounds
 
 PIN lockout with exponential backoff. 21-day PIN rotation reminder.
 

@@ -5,7 +5,7 @@ import { useToast } from '~/context/ToastContext';
 import { createGroup } from '@/core/groups/groupsService';
 import type { GroupHistoryVisibility, GroupType } from '@/core/db/types';
 import { useGroupContext } from '~/context/GroupContext';
-import { useServerActionError } from './useServerActionError';
+import { useServerActionError } from '~/hooks/useServerActionError';
 
 const TYPES: { value: GroupType; label: string }[] = [
   { value: 'family', label: 'Family' },

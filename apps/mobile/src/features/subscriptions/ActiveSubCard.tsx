@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native';
 import { Card, Button, Badge, Banner } from '~/components/ui';
-import { formatCurrency, formatDateShort } from '@/lib/formatters';
+import { formatCurrency, formatDate, formatDateShort } from '@/lib/formatters';
 import { daysBetween } from '@/lib/date';
 import { displayName, intervalLabel, toAnnual, nextRenewal, isDormant } from '@/core/subscriptions/format';
 import type { Subscription } from '@/core/db/types';
@@ -56,7 +56,7 @@ export function ActiveSubCard({ sub, nowMs, masked, onCancel }: ActiveSubCardPro
 
       {dormant && sub.lastChargedAt !== undefined && (
         <Banner variant="warning" icon="ti-zzz">
-          Looks unused — last charged {formatDateShort(sub.lastChargedAt)}. Cancelling saves{' '}
+          Looks unused — last charged {formatDate(sub.lastChargedAt)}. Cancelling saves{' '}
           {!masked ? formatCurrency(annual) : '••••'}/yr.
         </Banner>
       )}

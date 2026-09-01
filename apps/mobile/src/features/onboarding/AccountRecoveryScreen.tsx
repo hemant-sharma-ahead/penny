@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, ScrollView, Pressable, Text, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, ScrollView, Pressable, Text, Platform, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
@@ -14,7 +14,7 @@ import type { Profile } from '@/core/db/types';
 import { reclaimAccount, ReclaimError } from '@/core/identity/claim';
 import { hasEntitlement } from '@/core/entitlement/entitlement';
 import { isValidUsername } from '@/core/profile/username';
-import { Button, TextInput } from '~/components/ui';
+import { Button, TextInput, Banner } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { tint } from '~/lib/color';
@@ -55,10 +55,21 @@ export function AccountRecoveryScreen() {
   const route = useRoute<RouteProp<OnboardingStackParamList, 'Account'>>();
   const initialTab = route.params?.tab ?? 'new';
   const [tab, setTab] = useState<AccountTab>(initialTab);
+  // Navigation lock while `RestoreTab`'s restore is in flight (2026-08-21, real-device testing
+  // feedback — same reasoning as `BackupPage.tsx`'s matching lock). `OnboardingBack` has no back-stack
+  // registration to gate like `useRegisterHeaderScreen` does on the main app's screens, so it's simply
+  // not rendered at all while restoring, same as `ChangePinPage.tsx` hides the header back-chevron
+  // entirely during its own forced-reset lock rather than showing a disabled one.
+  const [restoring, setRestoring] = useState(false);
+  useEffect(() => {
+    if (!restoring) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, [restoring]);
 
   return (
     <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-surface">
-      <OnboardingBack to="Start" />
+      {!restoring && <OnboardingBack to="Start" />}
       <ScrollView className="flex-1 px-6 py-10" contentContainerStyle={{ flexGrow: 1 }}>
         <View className="flex-1 w-full">
           <View className="mb-6 items-center">
@@ -100,7 +111,7 @@ export function AccountRecoveryScreen() {
           </View>
 
           {tab === 'new' && <NewTab onContinue={() => navigation.navigate('LetUsKnowYou')} />}
-          {tab === 'restore' && <RestoreTab />}
+          {tab === 'restore' && <RestoreTab onBusyChange={setRestoring} />}
           {tab === 'reclaim' && <ReclaimTab />}
         </View>
       </ScrollView>
@@ -122,13 +133,21 @@ function NewTab({ onContinue }: { onContinue: () => void }) {
   );
 }
 
-function RestoreTab() {
+function RestoreTab({ onBusyChange }: { onBusyChange: (busy: boolean) => void }) {
   const theme = useThemeColors();
   const cloudEnabled = isCloudBackupConfigured() && hasEntitlement('cloud_backup');
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [passphrase, setPassphrase] = useState('');
-  const [busy, setBusy] = useState<null | 'file' | 'cloud'>(null);
+  const [busy, setBusyState] = useState<null | 'file' | 'cloud'>(null);
   const [error, setError] = useState('');
+
+  // Keeps the parent's navigation lock (`AccountRecoveryScreen`'s `restoring`) in sync with this
+  // tab's own `busy` state — every `setBusy` call site below goes through this instead of the raw
+  // setter, so the lock can never drift out of sync with what's actually in flight.
+  function setBusy(next: null | 'file' | 'cloud') {
+    setBusyState(next);
+    onBusyChange(next !== null);
+  }
 
   async function goToApp() {
     // Flag a post-unlock identity reconcile (handle may have been taken if the account was deregistered).
@@ -151,6 +170,13 @@ function RestoreTab() {
     if (!file || !passphrase || busy) return;
     setBusy('file');
     setError('');
+    // `finally` (code-review finding, 2026-08-21) — the success path used to rely entirely on
+    // `goToApp()`'s `notifyAuthShouldRecheck()` unmounting this screen to implicitly "release" the
+    // lock, with no explicit reset. That's exactly the happy-path-only shape CLAUDE.md's own
+    // nav-lock reliability rule warns against — if the auth-recheck swap were ever delayed or didn't
+    // happen (a bug elsewhere, not this screen's to assume away), the user would be stranded here with
+    // the lock still held and no error shown. A `finally` guarantees release on every exit path,
+    // matching `BackupPage.tsx`'s equivalent flow.
     try {
       // See apps/mobile/src/features/backup/BackupPage.tsx's handleImport for why this branches:
       // expo-file-system's web build is a no-op stub, so `new File(uri)` throws on RN Web —
@@ -160,6 +186,7 @@ function RestoreTab() {
       await goToApp();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Restore failed');
+    } finally {
       setBusy(null);
     }
   }
@@ -168,23 +195,30 @@ function RestoreTab() {
     if (!passphrase || busy) return;
     setBusy('cloud');
     setError('');
+    // See `restoreFromFile`'s comment above on why this is now `finally`-guaranteed.
     try {
       const text = await googleDriveBackup.fetchLatest();
       if (!text) {
         setError('No Penny backup found in your Drive.');
-        setBusy(null);
         return;
       }
       await importBackup(text, passphrase);
       await goToApp();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Restore failed');
+    } finally {
       setBusy(null);
     }
   }
 
   return (
     <View>
+      {busy !== null && (
+        <Banner variant="warning" icon="ti-loader-2" title="Restoring — don't close the app" className="mb-4">
+          This can take a little while on a large history. Leaving or closing the app now could interrupt it.
+        </Banner>
+      )}
+
       <TextInput
         label="Passphrase"
         secureTextEntry

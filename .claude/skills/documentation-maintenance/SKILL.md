@@ -18,11 +18,10 @@ Run `git diff` / `git status` (or review the specific files you just touched) to
 real, concrete change — not a summary of intent. Categorize it:
 
 - New feature / capability in an existing module → likely `docs/features/<module>.md`
-- New Dexie store or field → `docs/SCHEMA.md`
+- New database store or field → `docs/SCHEMA.md`
 - New file/directory/component/hook, or an architectural decision (why X over Y) →
   `docs/ARCHITECTURE.md`
 - New UI pattern, rule, theme, or color token → `docs/DESIGN_GUIDELINES.md`
-- A mobile-vs-web parity gap found or fixed → `docs/MOBILE_PARITY.md`
 - A phase/track status change, or a new architectural decision affecting the roadmap →
   `docs/ROADMAP.md`
 - A new non-negotiable rule (something that should block a future PR if violated) →
@@ -50,9 +49,10 @@ happened before this skill existed: `docs/ROADMAP.md` had duplicated content fro
 Each doc type has an established shape — follow it, don't improvise a new one:
 
 - `docs/features/*.md`: **What it is → User-facing capabilities → How it works → Current
-  limitations → Planned improvements → Ideas welcome**, plus a **Mobile (`apps/mobile`)**
-  section for platform-specific behavior/deviations (not a separate mobile-only doc).
-- `docs/MOBILE_PARITY.md`: one row per module — Status/Last audited/Known gaps/Priority.
+  limitations → Planned improvements → Ideas welcome**. A legacy **Mobile (`apps/mobile`)**
+  subsection may still exist in older docs from before `apps/web-react`'s 2026-08-29
+  retirement — fold that content into the main sections next time the doc is touched,
+  don't add a new one.
 - `docs/ROADMAP.md`: three parts (Shipped / Decided-in-progress / Future ideas) — put new
   content in the right part, don't append to the end regardless of which part it belongs in.
 - `docs/ARCHITECTURE.md`'s decision log: `### Decision: <short name>` followed by a

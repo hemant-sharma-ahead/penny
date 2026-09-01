@@ -43,8 +43,12 @@ export const EquitySection = forwardRef<EquitySectionHandle, EquitySectionProps>
     await onSave(h);
     close();
   };
+  // Close first, then remove — see RetirementSection.tsx's `del` for the full rationale
+  // (closing-after-remove let the Undo toast stack a second native Modal on top of this
+  // one, and both tearing down together could background the whole app).
   const del = (id: string) => {
-    void onRemove(id).then(close);
+    close();
+    void onRemove(id).catch(() => {});
   };
 
   const cfg = HOLDINGS_SUBTABS.find((t) => t.assetClasses.includes(assetClass));

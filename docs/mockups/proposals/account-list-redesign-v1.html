@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Account list card redesign (real feedback: wasted space, no txn count, generic icons)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:21px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 16px; color:#9aa5b1; font-size:13.5px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .sub code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:12px; color:#c3ccd6; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 30px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:34px; margin-top:6px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .tag { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 8px; border-radius:999px; margin-left:8px; vertical-align:2px; }
+      .sectiontitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .sectiontitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:840px; margin:0 auto 18px; line-height:1.65; }
+      .sectionsub b { color:#dfe6ec; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:30px 22px; justify-content:center; align-items:flex-start; padding:6px 20px 10px; }
+      .frame-wrap { width:300px; }
+      .vtitle { font-size:12.5px; font-weight:800; margin:0 2px 3px; color:#fff; }
+      .vsub { font-size:11px; color:#9aa5b1; margin:0 2px 10px; line-height:1.55; }
+
+      /* Real device frame — 300px scaled proportionally, full device height always (matches 390×844 aspect) */
+      .phone { width:300px; height:650px; background:var(--bg); border-radius:34px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); flex-shrink:0; }
+      .statusbar { height:20px; flex-shrink:0; }
+      .header { height:42px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .htitle { flex:1; text-align:center; font-size:13.5px; font-weight:700; color:var(--text); }
+      .backchev { width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--text); }
+      .addbtn { width:26px; height:26px; border-radius:8px; background:var(--surface2); color:var(--text2); display:flex; align-items:center; justify-content:center; font-size:13px; }
+      .content { padding:12px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; flex:1; }
+
+      .totalcard { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; flex-shrink:0; }
+      .totalcard .lbl { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); margin-bottom:4px; }
+      .totalcard .val { font-size:20px; font-weight:800; color:var(--text); }
+      .totalcard .cap { font-size:10px; color:var(--text3); margin-top:3px; }
+
+      /* ===== shared bits ===== */
+      .icn32 { width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .icn32 svg { display:block; }
+      .icn32 i { font-size:15px; }
+      .icn40 { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .icn40 svg { display:block; }
+      .icn40 i { font-size:18px; }
+      .typepill { font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 7px; border-radius:999px; flex-shrink:0; }
+      .actrow { display:flex; align-items:center; gap:6px; }
+      .aicon { width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .aicon i { font-size:13px; }
+
+      /* ===== CURRENT — full-bleed gradient jewel card, heavy padding + dual glow (verbatim from AccountList.tsx) ===== */
+      .herocard { border-radius:16px; padding:12px; position:relative; overflow:hidden; box-shadow:0 10px 16px rgba(0,0,0,.45); flex-shrink:0; }
+      .herocard::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:rgba(255,255,255,.14); }
+      .herocard::after { content:''; position:absolute; top:-55%; left:-25%; width:170%; height:230%; background:linear-gradient(115deg, transparent 40%, rgba(255,255,255,.20) 50%, transparent 60%); transform:rotate(-8deg); pointer-events:none; }
+      .herocard .glow1 { position:absolute; right:-30px; top:-30px; width:150px; height:150px; border-radius:50%; opacity:.35; }
+      .herocard .glow2 { position:absolute; left:-24px; bottom:-34px; width:110px; height:110px; border-radius:50%; opacity:.3; background:#000; }
+      .herocard .toprow { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; position:relative; z-index:1; }
+      .herocard .icn32 { background:rgba(255,255,255,.16); }
+      .herocard .icn32 i { color:#fff; }
+      .herocard .typepill { color:rgba(255,255,255,.65); background:rgba(255,255,255,.12); }
+      .herocard .midrow { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; position:relative; z-index:1; }
+      .herocard .nm { font-size:12.5px; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .herocard .rt { text-align:right; flex-shrink:0; }
+      .herocard .bal { font-size:14.5px; font-weight:800; color:#fff; }
+      .herocard .bal.neg { color:#ffd7d7; }
+      .herocard .cap { font-size:9px; color:rgba(255,255,255,.6); margin-top:2px; }
+      .herocard .divider-soft { height:1px; background:rgba(255,255,255,.14); margin:10px 0 8px; position:relative; z-index:1; }
+      .herocard .actrow { position:relative; z-index:1; }
+      .herocard .aicon { background:rgba(255,255,255,.14); }
+      .herocard .aicon i { color:#fff; }
+      .herocard .aicon.imp { background:rgba(0,168,107,.32); }
+      .herocard .aicon.danger { margin-left:auto; }
+      .herocard .aicon.danger i { color:#ffb3b3; }
+
+      /* ===== OPTION A — refined gradient (compact, single glow, txn count added) ===== */
+      .herocard.a { padding:10px; }
+      .herocard.a .glow2 { display:none; }
+      .herocard.a .glow1 { width:90px; height:90px; opacity:.28; }
+      .herocard.a .toprow { margin-bottom:8px; }
+      .herocard.a .icn40 { background:rgba(255,255,255,.18); }
+      .herocard.a .icn40 i { color:#fff; }
+      .herocard.a .divider-soft { margin:8px 0 6px; }
+      .herocard.a .cap2 { font-size:8.5px; color:rgba(255,255,255,.55); margin-top:1px; }
+
+      /* ===== OPTION B — restrained / token-based (bg-surface, no gradient) ===== */
+      .flatcard { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; flex-shrink:0; }
+      .flatcard .toprow2 { display:flex; align-items:flex-start; gap:10px; }
+      .flatcard .mid { flex:1; min-width:0; }
+      .flatcard .nm { font-size:12.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .flatcard .sub { font-size:10px; color:var(--text3); margin-top:1px; }
+      .flatcard .rt { text-align:right; flex-shrink:0; }
+      .flatcard .bal { font-size:13px; font-weight:700; color:var(--text); }
+      .flatcard .bal.neg { color:var(--danger); }
+      .flatcard .cap { font-size:9px; color:var(--text3); margin-top:2px; }
+      .flatcard .divider { height:1px; background:var(--border); margin:10px 0 8px; }
+      .flatcard .aicon { background:var(--surface2); color:var(--text2); }
+      .flatcard .aicon.imp { background:rgba(0,168,107,.14); color:var(--primary); }
+      .flatcard .aicon.danger { margin-left:auto; color:var(--danger); }
+
+      /* ===== OPTION C — flat + colored left accent bar (RECOMMENDED) ===== */
+      .accentcard { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px 12px 12px 15px; position:relative; overflow:hidden; flex-shrink:0; }
+      .accentcard::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; }
+      .accentcard .toprow2 { display:flex; align-items:flex-start; gap:10px; }
+      .accentcard .mid { flex:1; min-width:0; }
+      .accentcard .nm { font-size:12.5px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .accentcard .sub { font-size:10px; color:var(--text3); margin-top:1px; }
+      .accentcard .rt { text-align:right; flex-shrink:0; }
+      .accentcard .bal { font-size:13px; font-weight:700; color:var(--text); }
+      .accentcard .bal.neg { color:var(--danger); }
+      .accentcard .cap { font-size:9px; color:var(--text3); margin-top:2px; }
+      .accentcard .divider { height:1px; background:var(--border); margin:10px 0 8px; }
+      .accentcard .aicon { background:var(--surface2); color:var(--text2); }
+      .accentcard .aicon.imp { background:rgba(0,168,107,.14); color:var(--primary); }
+      .accentcard .aicon.danger { margin-left:auto; color:var(--danger); }
+      .accentcard .typepill2 { font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); }
+
+      /* toggle */
+      .opttoggle { display:flex; gap:6px; background:var(--surface2); border-radius:13px; padding:4px; max-width:460px; margin:0 auto 16px; }
+      .opttoggle button { flex:1; border:none; background:transparent; color:var(--text2); font-size:11px; font-weight:700; padding:10px 6px; border-radius:10px; cursor:pointer; font-family:inherit; }
+      .opttoggle button.active { background:var(--primary); color:#04140d; }
+      .opttoggle button .star { color:#f0b060; }
+      .opttoggle button.active .star { color:#04140d; }
+      .compare-wrap { display:flex; justify-content:center; gap:36px; flex-wrap:wrap; align-items:flex-start; }
+
+      .callout { max-width:900px; margin:14px auto; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.35); border-radius:12px; padding:12px 16px; color:#fbdca0; font-size:12px; line-height:1.65; display:flex; gap:8px; }
+      .callout i { color:var(--warning); font-size:16px; flex-shrink:0; margin-top:1px; }
+      .callout b { color:#ffd98a; }
+      .callout.good { background:rgba(16,185,129,.1); border-color:rgba(16,185,129,.35); color:#d3f5e6; }
+      .callout.good i { color:var(--success); }
+      .callout.good b { color:#7ee6b8; }
+
+      table.matrix { width:100%; max-width:900px; margin:18px auto; border-collapse:collapse; font-size:12px; }
+      table.matrix th, table.matrix td { border:1px solid var(--border); padding:9px 12px; text-align:left; color:var(--text2); }
+      table.matrix th { background:var(--surface2); color:#fff; font-size:11.5px; }
+      table.matrix td.win { color:#7ee6b8; font-weight:700; }
+      table.matrix td.lose { color:#f0a0a0; }
+      table.matrix tr td:first-child { color:#fff; font-weight:700; }
+
+      .recommend { max-width:900px; margin:20px auto; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:20px 24px; color:#d7f5e6; font-size:13.5px; line-height:1.75; }
+      .recommend b { color:#7ee6b8; }
+      .finding { max-width:900px; margin:16px auto; background:#1a1006; border:1px solid #3d2a0f; border-radius:16px; padding:16px 22px; color:#f3dfb8; font-size:12.5px; line-height:1.7; }
+      .finding b { color:#ffcf7a; }
+      .legend { max-width:900px; margin:16px auto 40px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:18px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.75; }
+      .legend h2 { font-size:14px; margin:16px 0 6px; color:#fff; }
+      .legend h2:first-child { margin-top:0; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11.5px; }
+      .colorkey { display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:center; max-width:900px; margin:0 auto 6px; }
+      .colorkey .ck { display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--text2); }
+      .colorkey .sw { width:12px; height:12px; border-radius:4px; flex-shrink:0; }
+    </style>
+  </head>
+  <body>
+    <h1>Accounts list — card redesign</h1>
+    <p class="sub">
+      Grounded in the real <code>apps/mobile/src/features/accounts/AccountList.tsx</code> +
+      <code>src/lib/color.ts</code> (<code>accountCardPalette</code>/<code>JEWEL_PALETTE</code>/<code>GREEN_PALETTE</code>).
+      Direct user feedback on the current screen: <b>"Does not follow the theme. Lot of space is wasted. Does not show
+      the total transaction count on that account. All bank icons are still not used here."</b> The bank-icon complaint
+      traces to real data, not a rendering bug — <code>BankLogo.tsx</code> is correctly wired for HDFC/ICICI/Axis, it's
+      just that <code>Account.bankId</code> is optional and unset on most real accounts (see the auto-detection proposal
+      in the closing notes). Same 6 accounts used throughout every option below: HDFC/ICICI/Axis (real logos), SBI/IndusInd
+      (honest generic fallback — no logo sourced yet), and a Cash account.
+    </p>
+    <div class="topnav">
+      <a href="#current">Current (today)</a>
+      <a href="#compare">Compare A / B / C</a>
+      <a href="#matrix">Tradeoff matrix</a>
+      <a href="#recommendation">Recommendation</a>
+      <a href="#autodetect">Bank auto-detection proposal</a>
+    </div>
+
+    <!-- CURRENT -->
+    <div class="sectionband" id="current">
+      <div class="sectiontitle">Current (today) <span class="tag cur">as shipped</span></div>
+      <div class="sectionsub">Every card: 12px padding, an inset highlight, a diagonal light-sheen streak, <b>two</b> glow
+        blobs (bright top-right + dark bottom-left), a translucent-white type pill, then an action row. No transaction
+        count anywhere. SBI Savings and IndusInd Credit Card render the honest generic icon (<code>bankId</code> unset)
+        — that part is correct behavior, not a bug, but it reads as "bank icons not used" exactly as reported.</div>
+      <div class="gallery">
+        <div class="frame-wrap" style="width:300px">
+          <div class="vtitle">Full list — 6 accounts</div>
+          <div class="vsub">Six heavy gradient cards, each with real vertical weight — this is the "lot of space is wasted" complaint. Scroll required to see Cash Wallet at all.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content">
+              <div class="totalcard">
+                <div class="lbl">Total Balance</div>
+                <div class="val">₹88,54,523</div>
+                <div class="cap">Across 6 accounts in net worth</div>
+              </div>
+
+              <div class="herocard" style="background:linear-gradient(135deg,#16234f,#0c1530)">
+                <div class="glow1" style="background:#4d7aff"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-building-bank"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">HDFC Bank</div><div class="rt"><div class="bal">₹81,00,884</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard" style="background:linear-gradient(135deg,#4a1d6b,#1f0d2e)">
+                <div class="glow1" style="background:#b06bff"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-building-bank"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">ICICI Salary</div><div class="rt"><div class="bal">₹4,20,150</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard" style="background:linear-gradient(135deg,#5c3a12,#241505)">
+                <div class="glow1" style="background:#f0b060"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-building-bank"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">Axis Bank</div><div class="rt"><div class="bal">₹2,14,900</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard" style="background:linear-gradient(135deg,#7a1d3f,#2e0f1f)">
+                <div class="glow1" style="background:#ff4d7a"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-building-bank"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">SBI Savings</div><div class="rt"><div class="bal">₹1,00,000</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard" style="background:linear-gradient(135deg,#2a1d6b,#100d2e)">
+                <div class="glow1" style="background:#6b7aff"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-credit-card"></i></div><div class="typepill">Credit Card</div></div>
+                <div class="midrow"><div class="nm">IndusInd Credit Card</div><div class="rt"><div class="bal neg">-₹42,562</div><div class="cap">Not counted in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard" style="background:linear-gradient(135deg,#155c3f,#0a2e20)">
+                <div class="glow1" style="background:#10b981"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-cash"></i></div><div class="typepill">Cash</div></div>
+                <div class="midrow"><div class="nm">Cash Wallet</div><div class="rt"><div class="bal">₹18,589</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon"><i class="ti ti-arrows-exchange"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPARE -->
+    <div class="sectionband" id="compare">
+      <div class="sectiontitle">Compare the three options</div>
+      <div class="sectionsub">Same 6 accounts, same real bank logos/fallbacks, transaction count added to every card. Toggle
+        below — left frame always shows "Current" for reference, right frame switches between A / B / C.</div>
+      <div class="opttoggle">
+        <button class="active" data-opt="a" onclick="showOpt('a')">A · Refined gradient</button>
+        <button data-opt="b" onclick="showOpt('b')">B · Restrained / token</button>
+        <button data-opt="c" onclick="showOpt('c')">C · Accent bar <span class="star">★</span> Recommended</button>
+      </div>
+      <div class="compare-wrap">
+        <div class="frame-wrap">
+          <div class="vtitle">Current <span style="color:#9aa5b1;font-weight:600">(reference, unchanged)</span></div>
+          <div class="vsub">Kept alongside for direct visual comparison as you toggle the option on the right.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+              <div class="herocard" style="background:linear-gradient(135deg,#16234f,#0c1530)">
+                <div class="glow1" style="background:#4d7aff"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-building-bank"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">HDFC Bank</div><div class="rt"><div class="bal">₹81,00,884</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+              <div class="herocard" style="background:linear-gradient(135deg,#4a1d6b,#1f0d2e)">
+                <div class="glow1" style="background:#b06bff"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-building-bank"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">ICICI Salary</div><div class="rt"><div class="bal">₹4,20,150</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+              <div class="herocard" style="background:linear-gradient(135deg,#5c3a12,#241505)">
+                <div class="glow1" style="background:#f0b060"></div><div class="glow2"></div>
+                <div class="toprow"><div class="icn32"><i class="ti ti-building-bank"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">Axis Bank</div><div class="rt"><div class="bal">₹2,14,900</div><div class="cap">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle" id="optTitle">A · Refined gradient <span class="tag cur" style="background:#232b35;color:#9aa5b1">fix in place</span></div>
+          <div class="vsub" id="optSub">Same jewel-palette-per-account idea, meaningfully tightened: 10px padding (was 12), the dark bottom-left glow blob removed entirely, top-right glow shrunk ~40%, and a transaction count line added (reusing <code>AccountDetailModal.tsx</code>'s exact <code>${'{'}count{'}'} transaction${'{'}s{'}'}</code> pattern). Bank logo tile upsized to 40px so it reads as the card's focal identity mark, like a real bank card's brand mark.</div>
+
+          <!-- OPTION A -->
+          <div class="phone optview" id="view-a">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+
+              <div class="herocard a" style="background:linear-gradient(135deg,#16234f,#0c1530)">
+                <div class="glow1" style="background:#4d7aff"></div>
+                <div class="toprow"><div class="icn40"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="#ffffff" d="M.572 0v10.842h3.712V4.485h6.381V0Zm12.413 0v4.485h6.383v6.357h4.06V0Zm-4.64 8.53v6.938h6.963V8.53ZM.572 13.153V24h10.093v-4.486h-6.38v-6.361zm18.796 0v6.361h-6.383V24h10.443V13.153Z"/></svg></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">HDFC Bank</div><div class="rt"><div class="bal">₹81,00,884</div><div class="cap">142 transactions</div><div class="cap2">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard a" style="background:linear-gradient(135deg,#4a1d6b,#1f0d2e)">
+                <div class="glow1" style="background:#b06bff"></div>
+                <div class="toprow"><div class="icn40"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="#ffffff" d="M21.9258 2.0961C19.279-1.6476 12.698-.2426 7.2138 5.2416c-5.484 5.475-7.7865 12.9625-5.1397 16.7062.8728 1.2386 2.1837 1.902 3.7386 2.0522 1.0516.0078 1.9129-1.1846 2.6158-2.7774.7252-1.6678 1.1694-3.218 1.5138-4.6592.5077-2.2934.544-3.934.29-4.2786-.435-.5801-1.4321-.435-2.5561.2176-.544.2991-1.26.0997-.408-.9336.8612-1.0425 4.2605-3.5625 5.4933-3.9523 1.3415-.3898 2.8734.136 2.3568 1.6226-.3706 1.0847-5.0473 13.486-1.596 12.2719 1.1049-.747 2.205-1.6497 3.2639-2.7086 5.4841-5.475 7.7865-12.9625 5.1396-16.7063zm-5.3662 3.209c-1.0969 1.0968-2.52 1.4865-3.1364.852-.6617-.6345-.272-2.0577.8249-3.1726 1.1058-1.115 2.529-1.4594 3.1454-.834.6345.6436.2448 2.0487-.834 3.1545z"/></svg></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">ICICI Salary</div><div class="rt"><div class="bal">₹4,20,150</div><div class="cap">89 transactions</div><div class="cap2">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard a" style="background:linear-gradient(135deg,#5c3a12,#241505)">
+                <div class="glow1" style="background:#f0b060"></div>
+                <div class="toprow"><div class="icn40"><svg width="20" height="20" viewBox="0 0 24 24"><path fill="#ffffff" d="M11.978 1.596 0 22.404h7.453l8.265-14.369Zm.027 12.896 4.533 7.903H24l-4.533-7.903z"/></svg></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">Axis Bank</div><div class="rt"><div class="bal">₹2,14,900</div><div class="cap">34 transactions</div><div class="cap2">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard a" style="background:linear-gradient(135deg,#7a1d3f,#2e0f1f)">
+                <div class="glow1" style="background:#ff4d7a"></div>
+                <div class="toprow"><div class="icn40"><i class="ti ti-building-bank" style="color:#fff"></i></div><div class="typepill">Bank</div></div>
+                <div class="midrow"><div class="nm">SBI Savings</div><div class="rt"><div class="bal">₹1,00,000</div><div class="cap">56 transactions</div><div class="cap2">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard a" style="background:linear-gradient(135deg,#2a1d6b,#100d2e)">
+                <div class="glow1" style="background:#6b7aff"></div>
+                <div class="toprow"><div class="icn40"><i class="ti ti-credit-card" style="color:#fff"></i></div><div class="typepill">Credit Card</div></div>
+                <div class="midrow"><div class="nm">IndusInd Credit Card</div><div class="rt"><div class="bal neg">-₹42,562</div><div class="cap">71 transactions</div><div class="cap2">Not counted in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="herocard a" style="background:linear-gradient(135deg,#155c3f,#0a2e20)">
+                <div class="glow1" style="background:#10b981"></div>
+                <div class="toprow"><div class="icn40"><i class="ti ti-cash" style="color:#fff"></i></div><div class="typepill">Cash</div></div>
+                <div class="midrow"><div class="nm">Cash Wallet</div><div class="rt"><div class="bal">₹18,589</div><div class="cap">23 transactions</div><div class="cap2">Included in net worth</div></div></div>
+                <div class="divider-soft"></div>
+                <div class="actrow"><div class="aicon"><i class="ti ti-arrows-exchange"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- OPTION B -->
+          <div class="phone optview" id="view-b" style="display:none">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+
+              <div class="flatcard">
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(59,130,246,.13)"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#3b82f6" d="M.572 0v10.842h3.712V4.485h6.381V0Zm12.413 0v4.485h6.383v6.357h4.06V0Zm-4.64 8.53v6.938h6.963V8.53ZM.572 13.153V24h10.093v-4.486h-6.38v-6.361zm18.796 0v6.361h-6.383V24h10.443V13.153Z"/></svg></div>
+                  <div class="mid"><div class="nm">HDFC Bank</div><div class="sub">Bank · 142 transactions</div></div>
+                  <div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="flatcard">
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(59,130,246,.13)"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#3b82f6" d="M21.9258 2.0961C19.279-1.6476 12.698-.2426 7.2138 5.2416c-5.484 5.475-7.7865 12.9625-5.1397 16.7062.8728 1.2386 2.1837 1.902 3.7386 2.0522 1.0516.0078 1.9129-1.1846 2.6158-2.7774.7252-1.6678 1.1694-3.218 1.5138-4.6592.5077-2.2934.544-3.934.29-4.2786-.435-.5801-1.4321-.435-2.5561.2176-.544.2991-1.26.0997-.408-.9336.8612-1.0425 4.2605-3.5625 5.4933-3.9523 1.3415-.3898 2.8734.136 2.3568 1.6226-.3706 1.0847-5.0473 13.486-1.596 12.2719 1.1049-.747 2.205-1.6497 3.2639-2.7086 5.4841-5.475 7.7865-12.9625 5.1396-16.7063zm-5.3662 3.209c-1.0969 1.0968-2.52 1.4865-3.1364.852-.6617-.6345-.272-2.0577.8249-3.1726 1.1058-1.115 2.529-1.4594 3.1454-.834.6345.6436.2448 2.0487-.834 3.1545z"/></svg></div>
+                  <div class="mid"><div class="nm">ICICI Salary</div><div class="sub">Bank · 89 transactions</div></div>
+                  <div class="rt"><div class="bal">₹4,20,150</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="flatcard">
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(59,130,246,.13)"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#3b82f6" d="M11.978 1.596 0 22.404h7.453l8.265-14.369Zm.027 12.896 4.533 7.903H24l-4.533-7.903z"/></svg></div>
+                  <div class="mid"><div class="nm">Axis Bank</div><div class="sub">Bank · 34 transactions</div></div>
+                  <div class="rt"><div class="bal">₹2,14,900</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="flatcard">
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(59,130,246,.13)"><i class="ti ti-building-bank" style="color:#3b82f6"></i></div>
+                  <div class="mid"><div class="nm">SBI Savings</div><div class="sub">Bank · 56 transactions</div></div>
+                  <div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="flatcard">
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(239,68,68,.13)"><i class="ti ti-credit-card" style="color:#ef4444"></i></div>
+                  <div class="mid"><div class="nm">IndusInd Credit Card</div><div class="sub">Credit Card · 71 transactions</div></div>
+                  <div class="rt"><div class="bal neg">-₹42,562</div><div class="cap">not in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="flatcard">
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(16,185,129,.13)"><i class="ti ti-cash" style="color:#10b981"></i></div>
+                  <div class="mid"><div class="nm">Cash Wallet</div><div class="sub">Cash · 23 transactions</div></div>
+                  <div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon"><i class="ti ti-arrows-exchange"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- OPTION C -->
+          <div class="phone optview" id="view-c" style="display:none">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+
+              <div class="accentcard"><div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#4d7aff"></div>
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(77,122,255,.15)"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4d7aff" d="M.572 0v10.842h3.712V4.485h6.381V0Zm12.413 0v4.485h6.383v6.357h4.06V0Zm-4.64 8.53v6.938h6.963V8.53ZM.572 13.153V24h10.093v-4.486h-6.38v-6.361zm18.796 0v6.361h-6.383V24h10.443V13.153Z"/></svg></div>
+                  <div class="mid"><div class="nm">HDFC Bank</div><div class="sub">Bank · 142 transactions</div></div>
+                  <div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="accentcard"><div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#b06bff"></div>
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(176,107,255,.15)"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#b06bff" d="M21.9258 2.0961C19.279-1.6476 12.698-.2426 7.2138 5.2416c-5.484 5.475-7.7865 12.9625-5.1397 16.7062.8728 1.2386 2.1837 1.902 3.7386 2.0522 1.0516.0078 1.9129-1.1846 2.6158-2.7774.7252-1.6678 1.1694-3.218 1.5138-4.6592.5077-2.2934.544-3.934.29-4.2786-.435-.5801-1.4321-.435-2.5561.2176-.544.2991-1.26.0997-.408-.9336.8612-1.0425 4.2605-3.5625 5.4933-3.9523 1.3415-.3898 2.8734.136 2.3568 1.6226-.3706 1.0847-5.0473 13.486-1.596 12.2719 1.1049-.747 2.205-1.6497 3.2639-2.7086 5.4841-5.475 7.7865-12.9625 5.1396-16.7063zm-5.3662 3.209c-1.0969 1.0968-2.52 1.4865-3.1364.852-.6617-.6345-.272-2.0577.8249-3.1726 1.1058-1.115 2.529-1.4594 3.1454-.834.6345.6436.2448 2.0487-.834 3.1545z"/></svg></div>
+                  <div class="mid"><div class="nm">ICICI Salary</div><div class="sub">Bank · 89 transactions</div></div>
+                  <div class="rt"><div class="bal">₹4,20,150</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="accentcard"><div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#f0b060"></div>
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(240,176,96,.15)"><svg width="16" height="16" viewBox="0 0 24 24"><path fill="#f0b060" d="M11.978 1.596 0 22.404h7.453l8.265-14.369Zm.027 12.896 4.533 7.903H24l-4.533-7.903z"/></svg></div>
+                  <div class="mid"><div class="nm">Axis Bank</div><div class="sub">Bank · 34 transactions</div></div>
+                  <div class="rt"><div class="bal">₹2,14,900</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="accentcard"><div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#ff4d7a"></div>
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(255,77,122,.15)"><i class="ti ti-building-bank" style="color:#ff4d7a"></i></div>
+                  <div class="mid"><div class="nm">SBI Savings</div><div class="sub">Bank · 56 transactions</div></div>
+                  <div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="accentcard"><div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#6b7aff"></div>
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(107,122,255,.15)"><i class="ti ti-credit-card" style="color:#6b7aff"></i></div>
+                  <div class="mid"><div class="nm">IndusInd Credit Card</div><div class="sub">Credit Card · 71 transactions</div></div>
+                  <div class="rt"><div class="bal neg">-₹42,562</div><div class="cap">not in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon imp"><i class="ti ti-upload"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+
+              <div class="accentcard"><div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:#10b981"></div>
+                <div class="toprow2">
+                  <div class="icn32" style="background:rgba(16,185,129,.15)"><i class="ti ti-cash" style="color:#10b981"></i></div>
+                  <div class="mid"><div class="nm">Cash Wallet</div><div class="sub">Cash · 23 transactions</div></div>
+                  <div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div>
+                </div>
+                <div class="divider"></div>
+                <div class="actrow"><div class="aicon"><i class="ti ti-arrows-exchange"></i></div><div class="aicon"><i class="ti ti-pencil"></i></div><div class="aicon danger"><i class="ti ti-trash"></i></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <i class="ti ti-alert-triangle"></i>
+        <div><b>Option B's real flaw, not a hypothetical one:</b> toggle to B above and look at HDFC Bank, ICICI Salary,
+        Axis Bank, and SBI Savings — all four render the <b>identical</b> blue icon tile. This isn't a mockup shortcut:
+        <code>AccountFormModal.tsx</code> has no colour picker at all — <code>useAccountForm.ts</code>'s
+        <code>selectType()</code> always sets <code>color: meta.color</code>, the fixed per-<i>type</i> default. Since
+        most real users have 2+ "Bank" accounts, B genuinely regresses per-account distinguishability versus what
+        ships today, the moment the bank logo itself isn't sourced yet (SBI here has no logo, so its icon tile is the
+        only differentiator — and B gives it none).</div>
+      </div>
+      <div class="callout good">
+        <i class="ti ti-check"></i>
+        <div><b>Option C avoids that flaw</b> by keying its accent bar + icon tint off <code>accountCardPalette(id, isCashLike)</code>
+        (hashed on the account's <code>id</code>, exactly like today's gradient) rather than off <code>acc.color</code> —
+        so HDFC/ICICI/Axis/SBI stay visually distinct even though they're all "Bank" type and all share the same unset
+        <code>color</code> field.</div>
+      </div>
+    </div>
+
+    <!-- MATRIX -->
+    <div class="sectionband" id="matrix">
+      <div class="sectiontitle">Tradeoff matrix</div>
+      <table class="matrix">
+        <tr><th>Dimension</th><th>A · Refined gradient</th><th>B · Restrained / token</th><th>C · Accent bar ★</th></tr>
+        <tr><td>Vertical space vs. today</td><td>~20–25% shorter per card</td><td class="win">~40% shorter per card</td><td class="win">~40% shorter per card</td></tr>
+        <tr><td>Semantic-token purity</td><td class="lose">Still fixed white-on-gradient (documented exception, like <code>ShareCard</code>)</td><td class="win">100% <code>bg-surface</code>/<code>border-theme</code></td><td class="win">100% body is tokens; only the 4px bar + icon tint are domain-style accent colour</td></tr>
+        <tr><td>Per-account visual identity</td><td class="win">Strong — full jewel-tone card, hash-assigned</td><td class="lose">Weak — <code>acc.color</code> is always the type default (see callout above)</td><td class="win">Strong — same hash-assigned palette, just used as an accent, not a fill</td></tr>
+        <tr><td>Consistency with <code>AccountsStrip.tsx</code></td><td class="lose">Still disagrees (Home strip is flat/token-based, this stays gradient)</td><td class="win">Matches exactly</td><td>Closer than today, not identical — the accent bar is new relative to the strip's icon-only tint</td></tr>
+        <tr><td>Dark/light theme correctness</td><td>Fine — fixed-white text works in both themes by construction, same as today</td><td class="win">Automatic — pure tokens</td><td class="win">Automatic — pure tokens; accent bar/tint are absolute hex like today's gradient, already theme-safe by design</td></tr>
+        <tr><td>Implementation cost</td><td class="win">Lowest — tune existing JSX/constants only</td><td>Low-medium — new layout, drop <code>LinearGradient</code></td><td>Low-medium — new layout, keep <code>accountCardPalette</code>, add one accent-bar view</td></tr>
+        <tr><td>Reads as "distinctive fintech app" vs. generic list</td><td class="win">Keeps the boldest visual signature</td><td class="lose">Most generic of the three</td><td>Middle ground — still has colour identity, just quieter</td></tr>
+      </table>
+    </div>
+
+    <!-- RECOMMENDATION -->
+    <div class="sectionband" id="recommendation">
+      <div class="recommend">
+        <b>Recommendation: Option C (flat card + coloured left accent bar).</b> It's the one option that actually
+        resolves the tension this task named up front — <code>AccountsStrip.tsx</code> (Home) already uses a plain
+        <code>bg-surface</code>/token card, while <code>AccountList.tsx</code> (Accounts) uses a heavy full-bleed
+        gradient; today the same accounts look like two different products depending which screen you're on. Option B
+        would fix that by making Accounts match the strip exactly, but at a real cost demonstrated above: it throws away
+        per-account colour identity for any user with more than one account of the same type (the common case), because
+        <code>Account.color</code> is never anything but the type default today. Option C keeps the strong per-account
+        identity signal (still hashed off <code>id</code>, still immune to the "two bank accounts look identical" problem)
+        while giving up the literal full-bleed-gradient treatment that was the direct target of "does not follow the
+        theme" — the card body itself is now indistinguishable from every other <code>bg-surface</code> card in the app,
+        it just keeps one clearly-scoped, intentional accent instead of none.
+        <br/><br/>
+        <b>Where I'd push back if asked to "just tighten the gradient" instead (Option A):</b> A is the safer, cheaper
+        change and legitimately answers "wasted space" and "no transaction count" — but it leaves "does not follow the
+        theme" only partially addressed: the fixed white-on-gradient text is still a special-cased exception living
+        outside the semantic-token system, and it leaves Accounts and the Home strip disagreeing exactly as they do
+        today. If the team wants the smallest possible diff and is fine revisiting theme-consistency later, A is a
+        reasonable interim step — but given the user's own framing ("does not follow the theme"), I'd go straight to C.
+      </div>
+    </div>
+
+    <!-- AUTO-DETECT -->
+    <div class="sectionband" id="autodetect">
+      <div class="sectiontitle">Cross-cutting note — automatic bank detection from account name</div>
+      <div class="finding">
+        <b>Not a UI change — a backend proposal for <code>AccountFormModal.tsx</code>/<code>useAccountForm.ts</code>.</b>
+        The "bank icons not used" complaint is really a data-completeness problem: <code>Account.bankId</code> is
+        optional, there's no way to set it except the "Bank (optional)" picker shown only for bank/credit_card types,
+        and most real account names already say the bank in plain text ("HDFC Savings", "SBI Current", "ICICI Salary
+        A/c") — the exact strings suggested as placeholders in <code>AccountFormModal.tsx</code> today. Proposal: at
+        save time in <code>useAccountForm.ts</code>, if the user hasn't explicitly picked a <code>bankId</code>
+        themselves, run the account's <code>name</code> through a case-insensitive substring match against
+        <code>bankPresetLabels.ts</code>'s existing preset list (its keys/labels are already the exact vocabulary to
+        match against: "HDFC" → <code>hdfc</code>, "ICICI" → <code>icici</code>, "SBI"/"State Bank" → <code>sbi</code>,
+        "Axis" → <code>axis</code>, "IndusInd" → <code>indusind</code>, "Kotak" → <code>kotak</code>, "HSBC" →
+        <code>hsbc</code>, "Bank of Baroda"/"BoB" → <code>bob</code>, "Yes Bank" → <code>yesbank</code>, "PNB"/"Punjab
+        National" → <code>pnb</code>, "Canara" → <code>canara</code>, "IDFC" → <code>idfcfirst</code>) and set
+        <code>bankId</code> automatically when exactly one preset matches. Never overwrite a <code>bankId</code> the
+        user set explicitly; never guess when the name is ambiguous (e.g. matches two presets, or a generic name like
+        "Savings Account" matches none) — silently leaving it unset is strictly better than a wrong guess. This alone
+        would put real logos under HDFC/ICICI/Axis for most existing accounts with zero user action, and the two-logo
+        gap (SBI/IndusInd, still shown honestly generic above) becomes purely "logo not sourced yet," not "feature
+        doesn't work."
+      </div>
+    </div>
+
+    <div class="legend">
+      <h2>Cross-platform status</h2>
+      <p><code>apps/web-react</code>'s own <code>AccountList.tsx</code> is frozen (2026-07-31) and was never given the
+      gradient-card treatment at all — it's always been a plain <code>IconBadge</code> + name + type-label + balance
+      row, no chevron, no drill-down modal, no transaction count, <code>acc.color + '20'</code> as the only tint
+      (functionally closest to Option B already, minus the accent-bar identity fix). The two platforms already
+      disagree today, same as the finding recorded in <code>accounts-list-v1.html</code> — that's expected and
+      accepted: web is a historical reference only. <b>This redesign is mobile-only; no web-react mirroring is
+      needed or proposed.</b> If C ships, mobile's Accounts screen and Home's <code>AccountsStrip.tsx</code> will
+      share the token-card foundation (bg-surface/border-theme) for the first time, while still differing on purpose
+      — the strip stays icon-only (horizontal, glanceable), the full list gains the accent bar + txn count + actions
+      a dedicated management screen needs.</p>
+      <h2>Grounding for this proposal</h2>
+      <ul>
+        <li><b>Real code read:</b> <code>apps/mobile/src/features/accounts/AccountList.tsx</code>,
+          <code>AccountDetailModal.tsx</code> (transaction-count pattern, line ~178), <code>src/lib/color.ts</code>
+          (<code>accountCardPalette</code>/<code>JEWEL_PALETTE</code>/<code>GREEN_PALETTE</code>),
+          <code>src/features/home/AccountsStrip.tsx</code>, <code>components/shared/BankLogo.tsx</code>,
+          <code>components/ui/IconBadge.tsx</code>, <code>components/shared/AccountFormModal.tsx</code>,
+          <code>hooks/useAccountForm.ts</code>, <code>packages/core/src/core/accounts/meta.ts</code>, and
+          <code>apps/web-react/src/features/accounts/AccountList.tsx</code> for the cross-platform comparison above.</li>
+        <li><b>Real bank logo paths/colours</b> (HDFC <code>#004C8F</code>, ICICI <code>#B02A30</code>, Axis
+          <code>#97144D</code>) copied verbatim from <code>BankLogo.tsx</code>'s <code>BANK_LOGOS</code> map — the
+          same Simple-Icons-sourced marks the real app renders, not approximations.</li>
+        <li><b>Palette hashing</b> for Options A/C uses the same 6 curated jewel-tone pairs already in
+          <code>JEWEL_PALETTE</code>/<code>GREEN_PALETTE</code> (sapphire, violet, bronze/gold, wine, indigo,
+          emerald) — not new colours, just a different application of the existing per-account hash.</li>
+      </ul>
+    </div>
+
+    <script>
+      function showOpt(opt) {
+        document.querySelectorAll('.optview').forEach(function (el) { el.style.display = 'none'; });
+        document.getElementById('view-' + opt).style.display = 'flex';
+        document.querySelectorAll('.opttoggle button').forEach(function (b) { b.classList.toggle('active', b.dataset.opt === opt); });
+        var titles = {
+          a: ['A · Refined gradient <span class="tag cur" style="background:#232b35;color:#9aa5b1">fix in place</span>',
+              'Same jewel-palette-per-account idea, meaningfully tightened: 10px padding (was 12), the dark bottom-left glow blob removed entirely, top-right glow shrunk ~40%, and a transaction count line added (reusing <code>AccountDetailModal.tsx</code>\'s exact count pattern). Bank logo tile upsized to 40px so it reads as the card\'s focal identity mark.'],
+          b: ['B · Restrained / token-based',
+              'Matches <code>AccountsStrip.tsx</code>\'s existing pattern exactly: <code>bg-surface</code> card, <code>border-theme</code>, the account\'s own <code>color</code> as a subtle icon-tile tint (<code>color + \'22\'</code>). Most compact, most theme-faithful — but see the callout below the frames for its real cost.'],
+          c: ['C · Flat + accent bar <span class="tag rec">recommended</span>',
+              '<code>bg-surface</code> card body (full token compliance) with a 4px coloured bar down the left edge, drawn from the same per-account hashed palette as today\'s gradient — keeps individual identity without the full-bleed treatment.']
+        };
+        document.getElementById('optTitle').innerHTML = titles[opt][0];
+        document.getElementById('optSub').innerHTML = titles[opt][1];
+      }
+    </script>
+  </body>
+</html>

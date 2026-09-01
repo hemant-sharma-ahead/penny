@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Pressable, Text, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Button, Card, OptionButton, SectionLabel } from '~/components/ui';
+import { Button, Card, OptionButton, PennyLoader, SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { downloadCsv } from '@/core/export/exportCsv';
@@ -36,6 +36,20 @@ interface UploadStepProps {
 export function UploadStep({ format, setFormat, parseError, onText, onError }: UploadStepProps) {
   const theme = useThemeColors();
   const [cleanupOpen, setCleanupOpen] = useState(false);
+  // Item 69 fix (8th batch, real-device testing pass) — `onText()` synchronously runs the full CSV
+  // parse + `goToAccountsStage()`'s O(rows) account-resolution scan in one call stack, with zero loading
+  // state anywhere in between; for a large file this freezes the UI with no feedback before jumping
+  // straight to the Accounts stage. `parsing` shows a `PennyLoader` the INSTANT a file's text is read,
+  // and the actual `onText(text)` call is deferred by one macrotask (`setTimeout(0)`) so React gets a
+  // chance to actually paint that loader before the heavy synchronous work blocks the JS thread — same
+  // "gate behind one extra render, flip via setTimeout(0)" pattern as `ExpensesPage.tsx`'s
+  // `analyticsReady` (its own doc comment explains why `setTimeout(0)`, not `InteractionManager`, is used
+  // here). Purely a feedback fix — the parse itself isn't any faster.
+  const [parsing, setParsing] = useState(false);
+  // If `onText()`'s own parsing fails, `importFromText()` sets `parseError` and leaves the wizard on
+  // this same 'upload' step (never advances to Accounts) — derived (not reset via an effect) so
+  // `parsing` never stays stuck true with no way back to the upload UI short of leaving the screen.
+  const showParsing = parsing && !parseError;
 
   async function pickFile() {
     try {
@@ -50,12 +64,22 @@ export function UploadStep({ format, setFormat, parseError, onText, onError }: U
       // picker asset's own browser File object instead there (see AccountRecoveryScreen.tsx's same fix).
       const asset = result.assets[0];
       const text = Platform.OS === 'web' && asset.file ? await asset.file.text() : await new File(asset.uri).text();
-      onText(text);
+      setParsing(true);
+      setTimeout(() => onText(text), 0);
     } catch {
       // Never let a picker/native-file-read hiccup throw uncaught (2026-08-13) — same `parseError`
       // banner every other unreadable-file case already uses. See `ErrorBoundary.tsx`'s doc comment.
       onError("Couldn't read that file. Try picking it again.");
     }
+  }
+
+  if (showParsing) {
+    return (
+      <View className="flex-1 items-center justify-center gap-3 py-16">
+        <PennyLoader size="lg" />
+        <Text className="text-sm text-secondary">Reading your file…</Text>
+      </View>
+    );
   }
 
   return (

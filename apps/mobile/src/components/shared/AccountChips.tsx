@@ -2,6 +2,7 @@ import { View, Pressable, ScrollView, Text } from 'react-native';
 import type { Account } from '@/core/db/types';
 import { Button } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { BankLogo } from './BankLogo';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { selectionRingStyle } from '~/lib/color';
 
@@ -61,7 +62,7 @@ export function AccountChips({ accounts, value, onChange, showNone, disabledId, 
                 className="w-9 h-9 rounded-[10px] items-center justify-center"
                 style={{ backgroundColor: acc.color }}
               >
-                <Icon name={acc.icon} size={15} color="#fff" />
+                <BankLogo account={acc} size={15} color="#fff" />
               </View>
             </View>
             <Text className="text-[8px] font-medium text-center leading-tight text-secondary w-full" numberOfLines={2}>

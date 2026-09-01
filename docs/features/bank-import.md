@@ -27,6 +27,14 @@ match.
   than a tile grid since the preset list can grow), upload a CSV, then review the resolved column
   mapping inline as a small card (Date/Narration/Debit/Credit/Balance → the file's real headers),
   with a single "Edit mapping" action opening one popup with every field editable together.
+- **Raw file preview (2026-09-01).** Once the file's headers are known, a small preview table sits below
+  the "Continue to review" button (regardless of which of the three post-mapping states — plain button,
+  opening-balance prompt, expense-coverage nudge — is currently active): the file's own literal header row
+  plus its first 5 raw data rows, column-major and horizontally scrollable. Each header cell Penny's
+  column-mapping guess actually matched gets a small green "→ Date" etc. tag under it, so a wrong guess is
+  visually obvious against the real file content; every raw column shows, not just the 5 mapped ones (an
+  unmapped column is itself useful information — confirms nothing was silently dropped). `useBankImport.ts`
+  exposes `rawPreviewRows` (first 5 raw data rows) alongside the pre-existing `headers` for this.
 - A four-bucket review screen:
   1. **Matched** (confident, exact-amount) — collapsed by default, shown as a paired tile
      (statement line + recorded line); any pairing can be manually reassigned by tapping it.
@@ -60,9 +68,11 @@ normalization.ts`) grew a second batch on 2026-08-05 — INFT, TPT, ONL, ECOM, E
   AMB, AQB, VPS, IPS — from the same user-sourced research pass as the cash-withdrawal code table
   below; `SI` and the bare `I`/`W` fragments from "I/W CLG" were deliberately left out as too short/
   generic (real risk of stripping an actual merchant's initials instead of noise).
-- A second global screen, "Cash-withdrawal codes" (2026-08-05, `BankCashWithdrawalCodesPage.tsx`,
-  also from the Accounts page header) — narration codes like ATW/NWD/SELF that identify a statement
-  line as a cash withdrawal, grouped by bank plus a bank-agnostic "Any bank" group (NFS, SELF, ...).
+- A second global screen, **"Cash-transfer codes"** (2026-08-05, renamed from "Cash-withdrawal codes"
+  2026-08-27 once the reverse direction was added — see below; `BankCashWithdrawalCodesPage.tsx`, also
+  from the Accounts page header) — narration codes like ATW/NWD/SELF (withdrawal) or CDM/CASH DEP
+  (deposit) that identify a statement line as a cash transfer, grouped by bank plus a bank-agnostic
+  "Any bank" group, each tagged with its direction.
   Seeded with researched defaults for the 7 supported banks (`core/bank-import/cashWithdrawalCodes.ts`
   documents per-entry confidence — banks don't publish a single canonical code list, so this is a
   well-researched starting point, not a guarantee), but every row including the defaults is fully
@@ -594,6 +604,99 @@ account, leaving its description/category/amount/date untouched — closing the 
 expense, so the cash-withdrawal detector never got a chance to fire, permanently under-crediting the
 linked cash account). Core: `suggestRetroactiveCashTransfer()`/`applyCashTransferConversion()`
 (`core/bank-import/cashWithdrawalCodes.ts`).
+
+**Real-device review pass, 2026-08-27 — several gaps found and fixed:**
+
+- **Unmatch, now reachable at import time too.** The Matched bucket's "tap to re-choose" picker only
+  ever let you swap to a DIFFERENT existing transaction — no way to say "actually, no match at all"
+  for a confident (exact-amount) match that turned out to be a coincidence. It now also offers "Move
+  to 'Not yet logged' for later" (reusing `unclaimExpenseEverywhere`, which already existed for the
+  reassign flow's own internal bookkeeping, just never had a button of its own). The post-import
+  equivalent already existed (`FullLedgerPage.tsx`'s own unmatch, below) — this closes the same gap
+  during the review screen itself.
+- **Full Ledger's "View full ledger ›" entry point used to disappear** whenever the account had ANY
+  active checkpoint finding — even one unrelated to whatever you actually wanted to fix there. Now
+  always shown in `CheckpointTimelinePage.tsx`'s footer, alongside whichever primary action (if any)
+  applies, instead of replacing it.
+- **Cash-withdrawal codes → Cash-transfer codes: the reverse direction (a deposit) is now handled.**
+  Previously withdrawal-only, both by naming and by a real direction bug: `applyCashTransferConversion()`
+  always treated the bank account as the transfer's source — correct for a withdrawal, backwards for a
+  deposit (money arriving at the bank, cash being the real source). Fixed to branch on the matched
+  expense's own `type` (mirrors `matcher.ts`'s `convertCandidateToTransfer`, which already got this
+  right for cross-account transfers). `BankCashWithdrawalCode`/`CashWithdrawalCodeSeed` gained a
+  `direction: 'withdrawal' | 'deposit'` field (optional on the persisted type, defaults to
+  `'withdrawal'` for backward compatibility); `isCashWithdrawalNarration` renamed
+  `isCashTransferNarration` and now filters by direction too, so a withdrawal code can never fire for
+  a deposit-direction row or vice versa. Three new bank-agnostic deposit seeds ship alongside the
+  existing withdrawal ones (CDM, CASH DEP, CDEP — same "well-researched starting point, not a
+  guarantee" caveat as the originals), re-seeded via a bumped `penny_cash_withdrawal_codes_v2` flag so
+  an existing install actually gets them. Settings screen retitled "Cash-transfer codes," each row now
+  shows a Withdrawal/Deposit badge, and "Add code" gained a direction picker. The suggestion chip's
+  copy flips too ("transfer to" vs. "transfer from your cash account") depending on which direction
+  actually matched.
+- **Bank picker, in the setup screen, replaced.** `SetupStep.tsx`'s bank field was a plain `SelectInput`
+  over `bi.banks` in declaration order (not alphabetical), text-only. Now the same shared
+  `BankPickerModal.tsx` popup `docs/features/accounts.md` documents for the Account form's own bank
+  field — real logo/brand-color icon, alphabetical, "Other / Custom" pinned last.
+- **Two year-less date spots fixed.** `FullLedgerPage.tsx`'s and `CheckpointTimelinePage.tsx`'s own
+  row dates used `formatDateShort()` (day + month, no year) — misleading for either table, since both
+  can span a date range from any year. Swapped to `formatDate()` (already includes the year).
+- **Follow-up pass, same day.** Full Ledger's own date-range header had the identical bug one level up:
+  the "from" date used `formatDateShort()` while the "to" date used `formatDate()`, so the range itself
+  read as asymmetric/misleading (e.g. "12 Aug – 20 Aug 2025"). Both sides now show the year. Its
+  "Load earlier transactions" button, previously a plain bordered `Pressable`, now uses the shared
+  `Button` component with `variant="primary"` — more discoverable as the primary way to keep scrolling
+  back through history.
+- **The same year-less-date bug pattern, swept app-wide.** Prompted by the Full Ledger range fix above,
+  audited every date-formatting call site in `apps/mobile`. Found and fixed the identical
+  asymmetric-range bug in the Events "Tracked" list (`EventsModal.tsx`), the identical
+  both-sides-missing-year bug in bank-import's own statement-batch history (`BankImportHistoryPage.tsx`,
+  covered-range + skipped-row dates) and setup coverage-gap message (`SetupStep.tsx`), plus standalone
+  missing-year dates in account-verification banner copy (`verificationCopy.ts`), Goals (contribution
+  list, link-to-goal picker), IOU ledger entries, SMS tracking review, per-item edit-history timestamps,
+  the IPO tracker, and subscriptions' "last charged" date. Deliberately left alone: dates paired with
+  self-disambiguating relative wording ("Due", "Renews in N days", "Trial may end", "Overdue") where a
+  bare day+month isn't actually ambiguous.
+
+**Real-device performance + correctness pass, 2026-08-28:**
+
+- **A real race in the matching step, found via a re-import that should have shown everything already
+  matched but didn't.** `useBankImport.ts`'s "Continue to review" action ran the two-tier matcher
+  against whatever `importRecords`/`allExpenses`/etc. happened to be loaded at that exact instant — none
+  of the underlying repo loads were gated on their own `loading` flag. Reaching that action before
+  `importRecords` finished loading meant Tier 1's exact-provenance lookup found nothing for a
+  previously-imported statement, and Tier 2's fuzzy fallback (which excludes already-checkpointed
+  expenses by design) couldn't help either — rows landed in "unmatched" that should have provenance-
+  matched instantly. Fixed with a `dataLoading` flag gating the action itself, not just one of its 3
+  button entry points, so no future call site can reintroduce the race.
+- **Known, still-open limitation**: two statement rows sharing identical accountId/date/amount/narration
+  (e.g. two same-day cash withdrawals of the same amount) can both resolve to the same stored provenance
+  record on re-import — the first claims it correctly, the second falls through to Tier 2's checkpoint
+  exclusion and lands in "unmatched" even though its real counterpart is sitting right there. A fix was
+  implemented and reverted the same day after an unresolved, ambiguous real-device crash that couldn't be
+  cleanly attributed to it in isolation — see `packages/core/src/core/bank-import/matcher.ts`'s
+  `findProvenanceMatch()` doc comment for the full writeup. Manually reassigning the affected row from
+  the review screen's own picker is the workaround until this is revisited.
+
+**A positive verification signal, and a new "unverified tail" sweep (2026-08-29).** The badge system
+above (`computeAccountVerificationStatus`) only ever fires on a *problem*; a fully-verified account and
+a never-imported one always looked identical at list level — the mockup's own note that documents this
+was accurate until now, for the "at least it's positively confirmed" case:
+
+- `core/bank-import/coverage.ts` gained two new pure functions, siblings to `findStandingCoverageGaps`:
+  `computeVerifiedThroughDate()` (the account's covered-ranges union end — previously computed inline,
+  only inside `AccountDetailModal.tsx`, now shared) and `findUnverifiedTailExpenses()` — expenses dated
+  *after* that date with no bank-import link, a case the existing standing-gap sweep can't see (it only
+  checks *inside* already-covered ranges, never past them).
+- Deliberately **not** folded into `accountVerification.ts`'s closed 3-kind `VerificationFindingKind`
+  priority system (per that file's own doc comment) — this is a separate, non-negative signal, not a
+  4th competing badge kind.
+- `AccountList.tsx`'s row now shows a green "Statement verified till {date}" caption once an account has
+  a bank import and no active finding, or an amber "N new transactions since last verified statement"
+  state when the new sweep finds something (wins over the plain verified caption if both are technically
+  true) — both mutually exclusive with the existing warning-triangle badge. See `docs/features/
+accounts.md` for the full user-facing writeup (also covers the new per-row Import History action and
+  header-icon consistency fix from the same pass).
 
 ## Limitations
 

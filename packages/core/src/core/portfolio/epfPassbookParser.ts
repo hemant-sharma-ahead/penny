@@ -15,9 +15,105 @@
 // matching below is done on the English half only (via distinctive anchor substrings/patterns),
 // exactly as the one real open-source reference parser found during this feature's research
 // (pdfplumber-based, Python) also does — see the design doc's §4 for the verified column layout.
-import { getDocumentProxy, extractText } from 'unpdf';
+import * as pdfjsModule from 'unpdf/pdfjs';
+import { definePDFJSModule, getDocumentProxy, extractText } from 'unpdf';
+
+/** Real, root-caused device bug, 2026-08-29 — see this file's other doc comments below for the full
+ *  investigation. React Native/Hermes's own built-in `structuredClone` throws `TypeError: Cannot read
+ *  property 'json' of null` on certain values PDF.js's internal message-passing protocol sends between
+ *  its "main" and "fake worker" MessageHandler instances (`LoopbackPort.postMessage()` calls
+ *  `structuredClone()` directly) — confirmed via direct instrumentation: the *request* side of a
+ *  `GetDocRequest` clones fine, but the *reply* clone (the worker's response, once parsing succeeds)
+ *  throws. Since `LoopbackPort.postMessage()` has no error handling around that call, the thrown
+ *  exception is swallowed by whatever dispatches the reply, and the reply is simply never delivered —
+ *  the original caller's promise waits forever for a response that will never arrive. This is a bug in
+ *  Hermes's/RN's own `structuredClone` implementation, not in PDF.js or this app's own code. Since
+ *  `LoopbackPort` never actually crosses a real thread boundary (it's an in-process loopback, not a
+ *  real `Worker`), a manual deep-clone that just COPIES rather than truly "structured-clones" is a
+ *  behaviorally-correct replacement here — swapped in globally, once, before PDF.js ever runs. */
+function manualDeepClone<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value as object)) return seen.get(value as object) as T;
+  if (value instanceof Uint8Array) return value.slice() as T;
+  if (ArrayBuffer.isView(value)) {
+    const view = value as ArrayBufferView;
+    return new (view.constructor as new (buf: ArrayBufferLike, byteOffset: number, length: number) => T)(
+      view.buffer.slice(0),
+      view.byteOffset,
+      (view as unknown as { length: number }).length
+    );
+  }
+  if (value instanceof ArrayBuffer) return value.slice(0) as T;
+  if (value instanceof Date) return new Date(value.getTime()) as T;
+  if (value instanceof RegExp) return new RegExp(value.source, value.flags) as T;
+  if (Array.isArray(value)) {
+    const clone: unknown[] = [];
+    seen.set(value, clone);
+    for (const item of value) clone.push(manualDeepClone(item, seen));
+    return clone as T;
+  }
+  if (value instanceof Map) {
+    const clone = new Map();
+    seen.set(value, clone);
+    for (const [k, v] of value) clone.set(manualDeepClone(k, seen), manualDeepClone(v, seen));
+    return clone as T;
+  }
+  if (value instanceof Set) {
+    const clone = new Set();
+    seen.set(value, clone);
+    for (const v of value) clone.add(manualDeepClone(v, seen));
+    return clone as T;
+  }
+  // Plain object (or a PDF.js-internal class instance carried across the loopback "port" as data) —
+  // clone own enumerable properties. `Object.create(null)`-shaped objects and real plain objects both
+  // land here; anything with exotic own accessors is out of scope for this message-passing use case.
+  const clone: Record<string, unknown> = {};
+  seen.set(value, clone);
+  for (const key of Object.keys(value as object)) {
+    clone[key] = manualDeepClone((value as Record<string, unknown>)[key], seen);
+  }
+  return clone as T;
+}
+
+let structuredCloneReplaced = false;
+function ensureWorkingStructuredClone(): void {
+  if (structuredCloneReplaced) return;
+  structuredCloneReplaced = true;
+  globalThis.structuredClone = ((value: unknown) => manualDeepClone(value)) as typeof structuredClone;
+}
 
 export class EpfPassbookParseError extends Error {}
+
+/** Real-device bug, 2026-08-29: `unpdf`'s own internal PDF.js loader (`resolvePDFJSImport()`)
+ *  resolves its ~1.6MB serverless PDF.js bundle via its own `await import('unpdf/pdfjs')` — a dynamic
+ *  import of a third-party submodule, unreliable in this project's Metro/Expo setup (a genuine hang
+ *  in a release build; a different, Metro-dev-server-chunk-fetch-specific error in a debug build).
+ *  Routed around here via a plain static top-level import instead, handed to `unpdf`'s own documented
+ *  escape hatch (`definePDFJSModule`) so `getDocumentProxy`/`extractText` never invoke unpdf's
+ *  internal dynamic-import resolver at all. */
+let pdfjsModuleReady: Promise<void> | null = null;
+function ensurePdfjsModuleDefined(): Promise<void> {
+  pdfjsModuleReady ??= definePDFJSModule(async () => pdfjsModule);
+  return pdfjsModuleReady;
+}
+
+/** Defensive safety net, 2026-08-29. The actual on-device hang was root-caused to a real Hermes/RN
+ *  bug — see `ensureWorkingStructuredClone`'s doc comment above — and is now fixed. Kept as a hard
+ *  timeout regardless, so any *other*, still-undiscovered on-device PDF.js issue fails honestly
+ *  instead of leaving the UI stuck on a loading state forever. */
+const PDF_PARSE_TIMEOUT_MS = 15_000;
+
+async function withParseTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('PDF parsing timed out')), PDF_PARSE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export interface ParsedEpfPassbookRow {
   /** "YYYY-MM" — the wage/salary month this row's contribution relates to. Meaningless for a
@@ -201,9 +297,69 @@ const ROW_PATTERN = new RegExp(
   'gm'
 );
 
+/** Non-global counterpart of `ROW_PATTERN`, used only to TEST whether a single (possibly already
+ *  merged) line is a complete row yet — a global regex's `lastIndex` state makes `.test()` unsafe to
+ *  call repeatedly on different strings, so this exists purely to avoid that footgun in
+ *  `reflowWrappedRows` below. */
+const ROW_PATTERN_SINGLE = new RegExp(ROW_PATTERN.source);
+
+/** A real, previously-silent bug found 2026-08-30 via a genuine multi-employer EPF transfer: pdf.js's
+ *  text extraction can split ONE transaction table row across several physical text lines when its
+ *  particulars text is long enough — routinely true for a real "TRANSFER IN - Old Member Id ..." row,
+ *  which is far longer than a plain "Cont. for Due-Month ..." row. The date+CR/DR prefix lands on its
+ *  own line with nothing else after it, the particulars text (sometimes an old member ID broken across
+ *  more than one line) wraps across one or more further lines, and the row's own 5 trailing numeric
+ *  columns can end up on a line of their OWN, entirely separate from the particulars text. `ROW_PATTERN`
+ *  only ever matches a row that's complete on ONE line — such a row was previously invisible to the
+ *  parser entirely (never even reaching `classifyRow`), which is exactly how a real transfer-in credit
+ *  could be completely absent from Penny even though it's genuinely present in the passbook's own text.
+ *  Confirmed against a real sample: 4 genuine `transfer_in` rows recovered, all previously silently
+ *  dropped, 0 false merges against every other already-correctly-parsing sample checked.
+ *
+ *  Reassembles the text BEFORE `parseRows` runs: whenever a line matches ONLY the row's own date+CR/DR
+ *  prefix (nothing else on it), greedily absorbs the following lines onto the same line until the
+ *  merged result is a complete, matchable row — stopping the moment it hits a blank line, the start of
+ *  a genuinely new row, or a hard cap (defensive — real samples needed at most a handful of lines),
+ *  rather than guessing how many lines to absorb. A row that was already complete on one line is
+ *  untouched (its own line never matches the "prefix only" trigger), so the common case is unaffected —
+ *  confirmed against every other real sample already parsing correctly before this fix. */
+const WRAPPED_ROW_PREFIX_ONLY = /^[A-Za-z]{3}-\d{4}\s+\d{2}[/-]\d{2}[/-]\d{4}\s+(CR|DR)\s*$/;
+const WRAPPED_ROW_PREFIX = /^[A-Za-z]{3}-\d{4}\s+\d{2}[/-]\d{2}[/-]\d{4}\s+(CR|DR)\b/;
+const MAX_WRAPPED_CONTINUATION_LINES = 10;
+
+/** Exported purely for direct unit testing (packages/core/tests/portfolio/epfPassbookParser.test.ts) —
+ *  operates on already-extracted text, so it's testable with plain strings, no real/synthetic PDF
+ *  needed. Not meant to be called from outside this module otherwise. */
+export function reflowWrappedRows(text: string): string {
+  const lines = text.split('\n');
+  const result: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = (lines[i] ?? '').trim();
+    if (!WRAPPED_ROW_PREFIX_ONLY.test(line)) {
+      result.push(lines[i] ?? '');
+      i++;
+      continue;
+    }
+    let merged = line;
+    let absorbed = 0;
+    while (absorbed < MAX_WRAPPED_CONTINUATION_LINES && !ROW_PATTERN_SINGLE.test(merged)) {
+      const next = (lines[i + 1 + absorbed] ?? '').trim();
+      // A blank line or the start of the NEXT real row means this row's own continuation ran out —
+      // stop rather than swallowing unrelated content into a guessed match.
+      if (next === '' || WRAPPED_ROW_PREFIX.test(next)) break;
+      merged += ` ${next}`;
+      absorbed++;
+    }
+    result.push(merged);
+    i += 1 + absorbed;
+  }
+  return result.join('\n');
+}
+
 function parseRows(text: string): ParsedEpfPassbookRow[] {
   const rows: ParsedEpfPassbookRow[] = [];
-  for (const m of text.matchAll(ROW_PATTERN)) {
+  for (const m of reflowWrappedRows(text).matchAll(ROW_PATTERN)) {
     const [, wageMonthRaw, dateRaw, crDr, particulars, epfWages, epsWages, employee, employer, pension] = m;
     const wagesMonth = parseWageMonth(wageMonthRaw ?? '');
     const date = parseDdMmYyyy(dateRaw ?? '');
@@ -276,8 +432,16 @@ function parseCreditedInterest(
 export async function parseEpfPassbookPdf(data: Uint8Array): Promise<ParsedEpfPassbook> {
   let text: string;
   try {
-    const pdf = await getDocumentProxy(data);
-    const extracted = await extractText(pdf, { mergePages: true });
+    await ensurePdfjsModuleDefined();
+    ensureWorkingStructuredClone();
+    // extractText() never needs real glyph rendering, only the text layer — `getDocumentProxy()`'s
+    // own Node-only defaults (`disableFontFace`/`standardFontDataUrl`/`cMapUrl`) never apply outside
+    // Node, so without this, PDF.js would otherwise attempt browser-only font-substitution machinery
+    // for this file's embedded non-standard fonts (a legacy Devanagari font, plus a Latin font) —
+    // verified in plain Node to produce identical extracted text with these options set.
+    const fontOptions = { useSystemFonts: false, disableFontFace: true, isEvalSupported: false };
+    const pdf = await withParseTimeout(getDocumentProxy(data, fontOptions));
+    const extracted = await withParseTimeout(extractText(pdf, { mergePages: true }));
     text = extracted.text;
   } catch {
     throw new EpfPassbookParseError('Could not read this file as a PDF.');

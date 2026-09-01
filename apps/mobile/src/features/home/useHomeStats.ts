@@ -15,7 +15,16 @@ export interface HomeMoneyStats {
   loansOutstanding: number;
 }
 
-export function useHomeStats(): HomeMoneyStats | null {
+/** Returns `{ stats, reload }` — `reload` is exposed (2026-08-31 fix) so a caller with its own manual
+ *  pull-to-refresh gesture (`HomePage.tsx`) can fold this hook's own reload into it. Before this,
+ *  `useHomeStats()` was only ever instantiated privately inside `MoneyStatsCard`, with its `reload`
+ *  reachable by nothing outside that component — `HomePage`'s pull-to-refresh only ever called
+ *  `useHome()`'s own `reload`, which never even queries `insurancePoliciesRepo`/`liabilitiesRepo` at all
+ *  (it's a different summary entirely). So a stale "Track Insurance" prompt couldn't be fixed by pulling
+ *  to refresh even once `notifyTxnChanged()` was added to the save path (see `useLoggedRepository.ts`) —
+ *  that fixes the *live* case (another mounted screen), not a manual user-initiated refresh gesture that
+ *  never touched this hook's state at all. */
+export function useHomeStats(): { stats: HomeMoneyStats | null; reload: () => void } {
   const [stats, setStats] = useState<HomeMoneyStats | null>(null);
 
   const reload = useCallback(() => {
@@ -40,5 +49,5 @@ export function useHomeStats(): HomeMoneyStats | null {
   useEffect(() => reload(), [reload]);
   useTxnRefresh(reload);
 
-  return stats;
+  return { stats, reload };
 }

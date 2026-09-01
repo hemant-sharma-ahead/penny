@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Default account + Closed accounts</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 34px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:820px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:820px; margin:0 auto 20px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 22px; justify-content:center; align-items:flex-start; padding:6px 20px 10px; }
+      .frame-wrap { width:270px; }
+      .vtitle { font-size:12.5px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:10.5px; color:#9aa5b1; margin:0 2px 12px; line-height:1.5; }
+
+      .phone { width:270px; background:var(--bg); border-radius:28px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); gap:8px; }
+      .header .x { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:14px; border:1px solid var(--border); border-radius:8px; }
+      .htitle { flex:1; text-align:center; font-size:13px; font-weight:700; color:var(--text); }
+      .content { padding:10px 12px 12px; flex:1; }
+      .footer { padding:10px 12px; border-top:1px solid var(--border); display:flex; gap:8px; }
+      .btn { flex:1; text-align:center; padding:9px 0; border-radius:10px; font-size:11.5px; font-weight:700; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+      .btn.danger { background:var(--danger); color:#fff; }
+
+      .flabel { font-size:9.5px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .fieldbox { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11px; color:var(--text); margin-bottom:8px; }
+
+      .togglerow { display:flex; align-items:center; gap:9px; padding:9px 0; }
+      .togglerow.dim { opacity:.4; }
+      .toggle { width:34px; height:19px; border-radius:999px; background:var(--surface3); position:relative; flex-shrink:0; }
+      .toggle.on { background:var(--primary); }
+      .toggle .knob { width:15px; height:15px; border-radius:999px; background:#fff; position:absolute; top:2px; left:2px; }
+      .toggle.on .knob { left:17px; }
+      .togglerow .lbl { font-size:12px; font-weight:600; color:var(--text); }
+      .togglerow .sub { font-size:9.5px; color:var(--text3); margin-top:1px; }
+
+      .pill { font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; }
+      .pill.default { background:rgba(0,168,107,.16); color:#3ecf8e; }
+      .pill.closed { background:rgba(107,114,128,.2); color:#9aa5b1; }
+
+      .acctrow { display:flex; align-items:center; gap:9px; padding:9px 10px; border-top:1px solid var(--border); }
+      .acctrow:first-child { border-top:none; }
+      .acctrow.closedrow { opacity:.55; }
+      .accticon { width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .accticon i { font-size:14px; color:#fff; }
+      .acctrow .name { font-size:12px; font-weight:700; color:var(--text); }
+      .acctrow .txns { font-size:9px; color:var(--text3); margin-top:1px; }
+      .acctrow .bal { font-size:12px; font-weight:700; color:var(--text); text-align:right; }
+      .kebab { width:18px; height:18px; border-radius:5px; display:flex; align-items:center; justify-content:center; margin-left:4px; }
+      .kebab i { font-size:11px; color:var(--text3); }
+
+      .backdrop { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; }
+      .popup { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+      .popup .phead { padding:14px 14px 6px; font-size:13px; font-weight:800; color:#fff; }
+      .popup .pbody { padding:6px 14px 12px; font-size:11px; color:var(--text2); line-height:1.55; }
+      .popup .pfooter { padding:10px 14px 14px; display:flex; gap:8px; }
+
+      .recommend { max-width:860px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:16px 20px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:860px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:5px; }
+    </style>
+  </head>
+  <body>
+    <h1>Default account + Closed accounts</h1>
+    <p class="sub">Two new, mutually-exclusive per-account flags (Default / Closed) plus the payment-mode
+      defaults they drive. Grounded in <code>AccountFormModal.tsx</code>'s real "Include in net worth" toggle
+      row and <code>AccountList.tsx</code>'s real current tile/section layout — nothing here is built yet.</p>
+    <div class="topnav">
+      <a href="#s1">① Add/Edit Account — new toggles</a>
+      <a href="#s2">② Same-account exclusivity</a>
+      <a href="#s3">③ Cross-account default swap — confirm popup</a>
+      <a href="#s4">④ Account list — Default pill + Closed section</a>
+      <a href="#s5">⑤ Payment mode defaults</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>Add/Edit Account — two new toggles</div>
+      <div class="sectionsub">Same visual as the existing "Include in net worth" row — just two more of them.
+        Shown only for Bank/Credit Card/Wallet (not Cash, which is already the implicit fallback), in both Add
+        and Edit.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Edit Account — HDFC Salary <span class="tag rec">After</span></div>
+          <div class="vsub">Neither set yet — both off, both fully enabled.</div>
+          <div class="phone" style="height:280px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Edit account</div><div class="x"><i class="ti ti-x"></i></div></div>
+            <div class="content">
+              <div class="flabel">Account name</div>
+              <div class="fieldbox">HDFC Salary</div>
+              <div class="togglerow"><div class="toggle"><div class="knob"></div></div><div><div class="lbl">Include in net worth</div></div></div>
+              <div class="togglerow">
+                <div class="toggle"><div class="knob"></div></div>
+                <div><div class="lbl">Set as default account</div><div class="sub">Pre-fills this account (and its payment mode) on every new transaction</div></div>
+              </div>
+              <div class="togglerow">
+                <div class="toggle"><div class="knob"></div></div>
+                <div><div class="lbl">Closed</div><div class="sub">No longer operational — hidden from every account picker, kept for history</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "Set as default" <span class="tag rec">After — on</span></div>
+          <div class="vsub">Closed dims/disables while Default is on for this account — see §2.</div>
+          <div class="phone" style="height:280px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Edit account</div><div class="x"><i class="ti ti-x"></i></div></div>
+            <div class="content">
+              <div class="flabel">Account name</div>
+              <div class="fieldbox">HDFC Salary</div>
+              <div class="togglerow"><div class="toggle"><div class="knob"></div></div><div><div class="lbl">Include in net worth</div></div></div>
+              <div class="togglerow">
+                <div class="toggle on"><div class="knob"></div></div>
+                <div><div class="lbl">Set as default account</div><div class="sub">Pre-fills this account (and its payment mode) on every new transaction</div></div>
+              </div>
+              <div class="togglerow dim">
+                <div class="toggle"><div class="knob"></div></div>
+                <div><div class="lbl">Closed</div><div class="sub">Can't close your default account — turn off Default first</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>Same-account exclusivity — Default and Closed never both on</div>
+      <div class="sectionsub">Turning one on for THIS account automatically turns the other off — no popup
+        needed here, since it's a direct, unsurprising consequence of the field you just touched (unlike §3's
+        cross-account case).</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Default already on <span class="tag cur">Starting state</span></div>
+          <div class="phone" style="height:130px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="togglerow"><div class="toggle on"><div class="knob"></div></div><div><div class="lbl">Set as default account</div></div></div>
+              <div class="togglerow dim"><div class="toggle"><div class="knob"></div></div><div><div class="lbl">Closed</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "Closed" anyway <span class="tag rec">After — Default auto-clears</span></div>
+          <div class="vsub">Closed becomes enabled and turns on; Default flips off in the same tap — both
+            reflect the new state immediately, no separate confirm for this direction.</div>
+          <div class="phone" style="height:130px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="togglerow"><div class="toggle"><div class="knob"></div></div><div><div class="lbl">Set as default account</div></div></div>
+              <div class="togglerow"><div class="toggle on"><div class="knob"></div></div><div><div class="lbl">Closed</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Cross-account default swap — confirmed before saving</div>
+      <div class="sectionsub">Only one account can be default at all. If you flip Default on for an account
+        while a DIFFERENT account already holds it, Save shows this popup first — since it affects a second
+        account you're not even looking at right now.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Editing "ICICI Salary", tapped Save <span class="tag rec">After — confirm popup</span></div>
+          <div class="vsub">"HDFC Salary" was the previous default. Cancel closes the popup only — nothing is
+            saved, the form stays open exactly as it was.</div>
+          <div class="phone" style="height:270px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead">Change default account?</div>
+                <div class="pbody">
+                  "HDFC Salary" is currently your default account. Making "ICICI Salary" the default will
+                  remove it from HDFC Salary — only one account can be default at a time.
+                </div>
+                <div class="pfooter">
+                  <div class="btn secondary">Cancel</div>
+                  <div class="btn primary">Yes, make this default</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "Yes" <span class="tag rec">After — saved, swapped</span></div>
+          <div class="vsub">Both writes happen together — this account becomes default, HDFC Salary's flag
+            clears — never a moment with two defaults or zero.</div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="acctrow">
+                <div class="accticon" style="background:#004c8f"><i class="ti ti-building-bank"></i></div>
+                <div style="flex:1"><div class="name">ICICI Salary <span class="pill default">Default</span></div><div class="txns">42 transactions</div></div>
+                <div class="bal">₹84,200</div>
+              </div>
+              <div class="acctrow">
+                <div class="accticon" style="background:#004c8f"><i class="ti ti-building-bank"></i></div>
+                <div style="flex:1"><div class="name">HDFC Salary</div><div class="txns">128 transactions</div></div>
+                <div class="bal">₹1,71,336</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Account list — Default pill + a real Closed section</div>
+      <div class="sectionsub">The pill sits right next to the name, same row, matching where
+        <code>needsAttention</code>'s warning glyph already sits today. Closed accounts move into their own
+        collapsed section at the bottom — same pattern IOU's Archived section already uses — dimmed, no
+        kebab actions except Edit (to reopen) and Delete.</div>
+      <div class="groundnote">Real behavior change needed to make this possible:
+        <code>useAccounts.ts</code>'s <code>reload()</code> currently filters <code>!a.isArchived</code> before
+        the list ever sees an account — the identical filter, applied to a new <code>isClosed</code> field,
+        would make a closed account disappear from this screen too, not just other pickers. Fix: this screen
+        keeps every account (closed included) and sections them itself; only the transaction-entry pickers
+        (already filtering independently) keep excluding them.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Bank Accounts group <span class="tag rec">After — Default pill</span></div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="acctrow">
+                <div class="accticon" style="background:#004c8f"><i class="ti ti-building-bank"></i></div>
+                <div style="flex:1"><div class="name">HDFC Salary <span class="pill default">Default</span></div><div class="txns">128 transactions</div></div>
+                <div class="bal">₹1,71,336</div>
+                <div class="kebab"><i class="ti ti-dots-vertical"></i></div>
+              </div>
+              <div class="acctrow">
+                <div class="accticon" style="background:#f37021"><i class="ti ti-building-bank"></i></div>
+                <div style="flex:1"><div class="name">ICICI Salary</div><div class="txns">42 transactions</div></div>
+                <div class="bal">₹84,200</div>
+                <div class="kebab"><i class="ti ti-dots-vertical"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Bottom of list <span class="tag rec">After — Closed section</span></div>
+          <div class="vsub">Collapsed by default, same "tap to expand" chevron row as IOU's Archived section.</div>
+          <div class="phone" style="height:190px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 2px;border-top:1px solid var(--border)">
+                <span style="font-size:11px;font-weight:700;color:var(--text2)">Closed (2)</span>
+                <i class="ti ti-chevron-down" style="color:var(--text3);font-size:12px"></i>
+              </div>
+              <div class="acctrow closedrow">
+                <div class="accticon" style="background:#6b7280"><i class="ti ti-building-bank"></i></div>
+                <div style="flex:1"><div class="name">Old SBI Account <span class="pill closed">Closed</span></div><div class="txns">6 transactions</div></div>
+                <div class="bal">₹0</div>
+                <div class="kebab"><i class="ti ti-dots-vertical"></i></div>
+              </div>
+              <div class="acctrow closedrow">
+                <div class="accticon" style="background:#6b7280"><i class="ti ti-credit-card"></i></div>
+                <div style="flex:1"><div class="name">Old Amex Card <span class="pill closed">Closed</span></div><div class="txns">31 transactions</div></div>
+                <div class="bal">₹0</div>
+                <div class="kebab"><i class="ti ti-dots-vertical"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 5 ================= -->
+    <div class="sectionband" id="s5">
+      <div class="sectiontitle"><span class="num">5</span>Payment mode defaults, by the default account's type</div>
+      <div class="sectionsub">No separate "default payment mode" setting — it's derived purely from which
+        account is default. Cash → Cash (unchanged, already the behavior today). Credit Card → Card (new).
+        Bank/Wallet → UPI (new).</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Add Expense, default = HDFC Salary (Bank) <span class="tag rec">After</span></div>
+          <div class="vsub">Account and "Paid via" both pre-filled the moment the form opens — nothing tapped
+            yet.</div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Account</div>
+              <div class="fieldbox" style="display:flex;align-items:center;gap:6px"><i class="ti ti-building-bank" style="color:#004c8f"></i> HDFC Salary</div>
+              <div class="flabel">Paid via</div>
+              <div class="fieldbox" style="display:flex;align-items:center;gap:6px"><i class="ti ti-qrcode" style="color:#7c3aed"></i> UPI</div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap">
+          <div class="vtitle">Default = Amex Gold (Credit Card) <span class="tag rec">After</span></div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Account</div>
+              <div class="fieldbox" style="display:flex;align-items:center;gap:6px"><i class="ti ti-credit-card" style="color:#5a3e91"></i> Amex Gold</div>
+              <div class="flabel">Paid via</div>
+              <div class="fieldbox" style="display:flex;align-items:center;gap:6px"><i class="ti ti-credit-card" style="color:#3b82f6"></i> Card</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="recommend">
+      <b>Recommendation:</b> ship as designed here. §2's same-account exclusivity intentionally skips the
+      confirm popup — auto-clearing your own other flag on the same account you're already editing isn't a
+      surprise the way silently changing a DIFFERENT, off-screen account's flag would be (§3, which does get
+      one). Everything reuses shipped visual patterns (Toggle rows, `ConfirmDialog`-style popup, the IOU
+      Archived-section chevron) — nothing here is a new component.
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§1 Closed-while-Default-on</b> — modeled as the Closed toggle rendering fully dimmed/disabled
+          rather than tappable-then-auto-clearing-Default. Either reads fine; picked "disabled" so the two
+          rows never visually flicker against each other on a single tap. Flag if you'd rather it be tappable
+          with an auto-clear like the reverse direction (§2) is.</li>
+        <li><b>§3 popup copy</b> — names the specific account losing default ("HDFC Salary") rather than a
+          generic "another account" — more concrete, costs nothing since the form already knows which
+          account currently holds it.</li>
+        <li><b>§4 Closed section scope</b> — one shared "Closed (n)" section spanning all account types
+          (mirrors IOU's single Archived section for all persons), not a separate closed sub-list per type
+          group. Simpler, and closed accounts are expected to be rare enough this shouldn't get long.</li>
+        <li><b>§4 Closed row actions</b> — kept Edit (the only way back to un-close) and Delete; dropped
+          Import/Reconcile from the revealed row for a closed account, since neither makes sense for
+          something no longer operational.</li>
+        <li><b>Scope note, not shown here</b> — <code>Account.isArchived</code> is a separate, distinct,
+          already-existing-but-unused field (per your own Closed-vs-Archived distinction) — this mockup
+          doesn't touch it or build an Archive feature; that stays a future, separate piece of work.</li>
+      </ol>
+    </div>
+  </body>
+</html>

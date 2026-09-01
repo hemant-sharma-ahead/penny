@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Groups redesign (Phase 3, real-device testing pass)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6; --neutral:#8b949e;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 34px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:820px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:860px; margin:0 auto 20px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 22px; justify-content:center; align-items:flex-start; padding:6px 20px 10px; }
+      .frame-wrap { width:270px; }
+      .vtitle { font-size:12.5px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.blk { background:#3a1414; color:#f09090; }
+      .vsub { font-size:10.5px; color:#9aa5b1; margin:0 2px 12px; line-height:1.5; }
+
+      .phone { width:270px; background:var(--bg); border-radius:28px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); gap:8px; }
+      .header .back, .header .x { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:14px; }
+      .htitle { flex:1; text-align:center; font-size:13px; font-weight:700; color:var(--text); }
+      .content { padding:10px 12px 12px; flex:1; }
+      .footer { padding:10px 12px; border-top:1px solid var(--border); display:flex; gap:8px; }
+      .btn { flex:1; text-align:center; padding:9px 0; border-radius:10px; font-size:11.5px; font-weight:700; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+      .btn.danger { background:var(--danger); color:#fff; }
+      .btn.ghost { background:transparent; color:var(--text2); font-weight:600; }
+      .btn.disabled { opacity:.4; }
+
+      /* Backdrop-centered popup, matching mobile Modal.tsx (dim backdrop + centered card, close X right) */
+      .backdrop { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:14px; }
+      .popup { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+      .popup .phead { display:flex; align-items:center; gap:8px; padding:12px 12px 4px; }
+      .popup .ptitle { flex:1; font-size:13px; font-weight:800; color:#fff; }
+      .popup .pbody { padding:8px 12px 12px; font-size:11px; color:var(--text2); line-height:1.55; }
+      .popup .pfooter { padding:10px 12px 12px; display:flex; flex-direction:column; gap:7px; }
+      .popup .pfooter .row { display:flex; gap:7px; }
+
+      /* Feed rows (GroupDashboard) */
+      .feedrow { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px; margin-bottom:8px; }
+      .feedrow .top { display:flex; align-items:center; gap:8px; }
+      .feedrow .icnbox { width:30px; height:30px; border-radius:9px; background:var(--surface3); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .feedrow .icnbox i { font-size:14px; color:var(--text2); }
+      .feedrow .icnbox.success { background:rgba(16,185,129,.15); } .feedrow .icnbox.success i { color:var(--success); }
+      .feedrow .icnbox.neutral { background:rgba(139,148,158,.15); } .feedrow .icnbox.neutral i { color:var(--neutral); }
+      .feedrow .t { flex:1; min-width:0; }
+      .feedrow .t .l { font-size:11.5px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .feedrow .t .s { font-size:9.5px; color:var(--text3); }
+      .feedrow .amt { font-size:12px; font-weight:700; color:var(--text); }
+      .feedrow .actrow { display:flex; justify-content:flex-end; gap:4px; margin-top:6px; }
+      .rowicnbtn { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; background:var(--surface2); }
+      .rowicnbtn i { font-size:12px; color:var(--text2); }
+      .rowicnbtn.danger i { color:var(--danger); }
+      .rowicnbtn.flag i { color:var(--warning); }
+      .flagstrip { margin-top:8px; border-radius:9px; border:1px solid rgba(245,158,11,.35); background:rgba(245,158,11,.1); padding:7px 9px; display:flex; align-items:center; gap:6px; }
+      .flagstrip i { font-size:12px; color:var(--warning); }
+      .flagstrip .m { flex:1; font-size:9.5px; color:#fbdca0; line-height:1.4; }
+      .flagstrip .acts { display:flex; gap:8px; }
+      .flagstrip .acts span { font-size:9.5px; font-weight:700; color:var(--text2); }
+      .flagstrip .acts span.danger { color:var(--danger); }
+      .banner { border-radius:11px; border:1px solid; padding:9px 10px; display:flex; gap:7px; font-size:10px; line-height:1.5; margin-bottom:8px; }
+      .banner.info { border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.12); color:#c8ddfb; }
+      .banner.info i { color:var(--info); font-size:14px; margin-top:1px; }
+      .banner.warning { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.12); color:#fbdca0; }
+      .banner.warning i { color:var(--warning); font-size:14px; margin-top:1px; }
+      .banner.danger { border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.12); color:#fac6c6; }
+      .banner.danger i { color:var(--danger); font-size:14px; margin-top:1px; }
+
+      /* Member rows */
+      .memrow { display:flex; align-items:center; gap:8px; padding:9px 4px; border-bottom:1px solid #1a2029; }
+      .memrow .av { width:26px; height:26px; border-radius:99px; background:var(--surface3); display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:var(--text2); flex-shrink:0; }
+      .memrow .nm { flex:1; font-size:11.5px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-width:0; }
+      .memrow .nm .role { font-size:9.5px; color:var(--text3); font-weight:400; }
+      .memrow .bal { font-size:9.5px; font-weight:600; }
+      .memrow .bal.pos { color:var(--success); }
+      .memrow .bal.neg { color:var(--danger); }
+      .memrow .bal.wo { color:var(--text3); font-style:italic; }
+      .tag-noacct { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; background:rgba(139,148,158,.18); color:var(--text2); }
+      .pillbtn { border-radius:8px; border:1px solid var(--border); padding:4px 8px; font-size:9.5px; font-weight:600; color:var(--text2); }
+      .icnbtn { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+      .icnbtn.trash { color:var(--danger); }
+
+      /* Danger zone card */
+      .dangerzone { border:1px solid rgba(239,68,68,.3); background:rgba(239,68,68,.06); border-radius:14px; padding:10px; margin-top:6px; }
+      .dangerzone .lbl { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:#f09090; margin-bottom:8px; }
+      .helptext { font-size:9.5px; color:var(--text3); margin-top:6px; line-height:1.5; }
+
+      /* Segmented control */
+      .seg2 { display:flex; gap:5px; background:var(--surface2); border-radius:11px; padding:3px; }
+      .seg2 .opt { flex:1; text-align:center; padding:8px 0; border-radius:8px; font-size:11px; font-weight:700; color:var(--text2); display:flex; align-items:center; justify-content:center; gap:5px; }
+      .seg2 .opt.active { background:var(--primary); color:#04140d; }
+      .seg2 .opt.active.wo { background:var(--neutral); color:#0b0f14; }
+      .field { position:relative; margin-top:8px; }
+      .flabel { font-size:9.5px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .field input, .field .fakein { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11.5px; color:var(--text); }
+      .bridgecard { border:1px solid var(--border); border-radius:11px; padding:9px; margin-top:8px; display:flex; align-items:center; gap:8px; }
+      .bridgecard i { font-size:15px; color:var(--primary); }
+      .bridgecard span { flex:1; font-size:10.5px; color:var(--text2); }
+      .toggle { width:32px; height:18px; border-radius:99px; background:var(--primary); position:relative; flex-shrink:0; }
+      .toggle .dot { width:14px; height:14px; border-radius:99px; background:#fff; position:absolute; top:2px; right:2px; }
+      .toggle.off { background:var(--surface3); } .toggle.off .dot { left:2px; right:auto; }
+
+      /* Wizard chrome (matches WizardProgress.tsx / iou-quick-fixes-v1 §4) */
+      .wizprog { display:flex; gap:3px; margin-bottom:8px; }
+      .wizprog .seg { flex:1; height:4px; border-radius:99px; background:var(--surface3); }
+      .wizprog .seg.done { background:var(--success); }
+      .wizprog .seg.now { background:var(--primary); }
+      .wizlabel { font-size:9.5px; font-weight:800; color:var(--text); margin-bottom:10px; }
+      .summarybox { background:var(--surface2); border:1px solid var(--border); border-radius:11px; padding:11px; margin-top:4px; }
+      .summarybox .line { font-size:11px; color:var(--text); line-height:1.85; display:flex; align-items:flex-start; gap:6px; }
+      .summarybox .line i { font-size:11px; color:var(--success); margin-top:2px; }
+      .summarybox .line b { color:#3ecf8e; }
+
+      .recommend { max-width:880px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:16px 20px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:880px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol, .legend ul { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>Groups redesign — Phase 3, real-device testing pass</h1>
+    <p class="sub">The five UI-affecting items from <code>docs/plans/real-device-testing-pass.md</code>'s Phase 3 —
+      grounded in the real current <code>apps/mobile/src/features/groups/*.tsx</code> screens (checked, not designed
+      against memory). Reuses existing patterns throughout: the centered <code>Modal</code>/<code>ConfirmDialog</code>
+      shell, <code>IouView.tsx</code>'s Archived-row icon-button pair, <code>SegmentedControl</code>,
+      <code>Banner</code>, and item 11's wizard-step chrome (<code>WizardProgress.tsx</code>). No new UI primitive is
+      introduced. <code>apps/web-react</code>'s equivalent screens were checked for every item and carry the
+      identical gap in each case (see closing notes) — it is frozen, so nothing here proposes touching it.</p>
+    <div class="topnav">
+      <a href="#s1">① Feed row actions</a>
+      <a href="#s2">② Delete-when-empty</a>
+      <a href="#s3">③ Write-off marking</a>
+      <a href="#s4">④ Promote to Group</a>
+      <a href="#s5">⑤ Static members</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>Feed row actions — edit/delete/flag (item 9)</div>
+      <div class="sectionsub">The recorder gets a direct edit/delete affordance on their own row; another member
+        gets a lighter "flag as not needed" that notifies the recorder rather than unilaterally removing their entry.</div>
+      <div class="groundnote"><code>GroupDashboard.tsx</code>'s <code>FeedRow</code> (line ~235) renders a
+        <code>shared_expense</code> row with zero action affordance today. <b>Chose a direct trailing icon-button
+        pair over both a swipe gesture and an overflow/kebab menu</b>: no overflow-menu pattern exists anywhere in
+        this app (checked), so inventing one would violate "reuse patterns the user already knows"; <code>SwipeableRow</code>
+        exists but is Transactions-tab-only today, and Phase 5 of this same plan doc already earmarks "extend
+        <code>SwipeableRow</code> to … Group feed rows" as its own future item — designing it here would duplicate
+        that scope rather than build on it. The closest real precedent is <code>IouView.tsx</code>'s Archived-person
+        row, which already solves "a list row needs 1-2 lightweight actions" with plain trailing icon buttons, no menu.
+        <code>expense_edit</code>/<code>expense_delete</code> event types and their fold-engine handling already exist
+        in <code>groupSync.ts</code> — only the UI callers are missing.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Shared expense row <span class="tag cur">Current</span></div>
+          <div class="vsub">No action of any kind — not even for the person who recorded it.</div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="feedrow">
+                <div class="top">
+                  <div class="icnbox"><i class="ti ti-receipt"></i></div>
+                  <div class="t"><div class="l">Dinner at Toit</div><div class="s">You paid · split 4 ways</div></div>
+                  <div class="amt">₹3,200</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Your own row <span class="tag rec">After — edit / delete</span></div>
+          <div class="vsub">Trailing icon pair appears only on rows you authored, only while the group is open —
+            same visual weight as IouView's Archived-row Restore/Trash pair.</div>
+          <div class="phone" style="height:170px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="feedrow">
+                <div class="top">
+                  <div class="icnbox"><i class="ti ti-receipt"></i></div>
+                  <div class="t"><div class="l">Dinner at Toit</div><div class="s">You paid · split 4 ways</div></div>
+                  <div class="amt">₹3,200</div>
+                </div>
+                <div class="actrow">
+                  <div class="rowicnbtn"><i class="ti ti-pencil"></i></div>
+                  <div class="rowicnbtn danger"><i class="ti ti-trash"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped delete <span class="tag rec">After — real ConfirmDialog</span></div>
+          <div class="vsub">Standard tap-again pattern — emits <code>expense_delete</code>, splits recompute for everyone.</div>
+          <div class="phone" style="height:230px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead"><div class="ptitle">Delete this expense?</div></div>
+                <div class="pbody">This can't be undone. "Dinner at Toit" (₹3,200) is removed from the shared
+                  ledger and everyone's balance recalculates.</div>
+                <div class="pfooter row">
+                  <div class="btn secondary">Cancel</div>
+                  <div class="btn danger">Delete</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Someone else's row <span class="tag rec">After — flag</span></div>
+          <div class="vsub">A single, lighter "flag" icon — you can't edit or remove another member's entry outright.</div>
+          <div class="phone" style="height:170px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="feedrow">
+                <div class="top">
+                  <div class="icnbox"><i class="ti ti-receipt"></i></div>
+                  <div class="t"><div class="l">Cab to airport</div><div class="s">Priya paid · split 4 ways</div></div>
+                  <div class="amt">₹640</div>
+                </div>
+                <div class="actrow">
+                  <div class="rowicnbtn flag"><i class="ti ti-flag"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped flag <span class="tag rec">After — confirm + optional note</span></div>
+          <div class="vsub">A lightweight ask, not a destructive one — no ledger change happens yet.</div>
+          <div class="phone" style="height:250px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead"><div class="ptitle">Flag as not needed?</div><i class="ti ti-x" style="color:var(--text2)"></i></div>
+                <div class="pbody">Priya will see this on her next sync. It doesn't remove the expense — she can
+                  delete it herself, or dismiss your flag.
+                  <div class="field"><div class="fakein" style="color:var(--text3)">Note (optional) — e.g. "already refunded"</div></div>
+                </div>
+                <div class="pfooter row">
+                  <div class="btn secondary">Cancel</div>
+                  <div class="btn primary">Flag it</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Your view, after flagging <span class="tag rec">After — waiting indicator</span></div>
+          <div class="vsub">A durable inline state, not a toast — visible whenever you reopen the group.</div>
+          <div class="phone" style="height:180px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="feedrow">
+                <div class="top">
+                  <div class="icnbox"><i class="ti ti-receipt"></i></div>
+                  <div class="t"><div class="l">Cab to airport</div><div class="s">Priya paid · split 4 ways</div></div>
+                  <div class="amt">₹640</div>
+                </div>
+                <div class="flagstrip"><i class="ti ti-flag"></i><div class="m">You flagged this — waiting on Priya</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Priya's (the recorder's) view <span class="tag rec">After — actionable</span></div>
+          <div class="vsub">She sees who flagged it and why, with a real choice — not just an FYI.</div>
+          <div class="phone" style="height:180px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="feedrow">
+                <div class="top">
+                  <div class="icnbox"><i class="ti ti-receipt"></i></div>
+                  <div class="t"><div class="l">Cab to airport</div><div class="s">You paid · split 4 ways</div></div>
+                  <div class="amt">₹640</div>
+                </div>
+                <div class="flagstrip"><i class="ti ti-flag"></i><div class="m">Raj flagged this as not needed</div>
+                  <div class="acts"><span>Keep</span><span class="danger">Delete</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Dashboard top <span class="tag rec">After — aggregate nudge</span></div>
+          <div class="vsub">A contextual <code>Banner</code> above the feed when ≥1 flag needs your attention — same
+            "fires only when a real, already-true condition exists" rule as the Did-You-Know nudge pattern.</div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="banner warning"><i class="ti ti-flag"></i><div>2 of your shared expenses were flagged as
+                not needed — review below.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>Delete-when-empty for creator (item 9)</div>
+      <div class="sectionsub">A real "Delete group" action, creator-only, enabled only once the group has zero
+        non-deleted shared-expense events — with a clear explanation and a "Close instead" nudge while it's disabled.</div>
+      <div class="groundnote"><code>GroupMembersModal.tsx</code> today only has Settle &amp; close / Reopen +
+        a "Leave group" danger-tinted <code>Button</code> — no delete anywhere, and "Leave group" isn't isolated
+        into <code>DESIGN_GUIDELINES.md</code> §2's own "red-tinted Danger zone" pattern despite being the one
+        destructive action on the screen. Bundling that consistency fix in here since we're already touching this
+        exact button group. The disabled-button + explanatory helper text under it directly reuses the
+        Phase 1 item-4 precedent (<code>BackupPage.tsx</code>'s "Enter your passphrase above first" helper).</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Group settings <span class="tag cur">Current</span></div>
+          <div class="vsub">Settle &amp; close / Reopen, then a lone "Leave group" — no delete, no danger-zone grouping.</div>
+          <div class="phone" style="height:230px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Goa Trip</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="footer" style="border-top:none;padding:0 0 8px"><div class="btn secondary" style="flex:1">Settle &amp; close</div></div>
+              <div class="footer" style="border-top:1px solid var(--border);padding-top:8px"><div class="btn ghost" style="color:var(--danger);flex:1">Leave group</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Group settings <span class="tag blk">After — activity still present</span></div>
+          <div class="vsub">Creator-only Danger zone card; Delete is visibly disabled with the reason and an
+            explicit nudge toward the action that already works today.</div>
+          <div class="phone" style="height:280px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Goa Trip</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="footer" style="border-top:none;padding:0 0 10px"><div class="btn secondary" style="flex:1">Settle &amp; close</div></div>
+              <div class="dangerzone">
+                <div class="lbl">Danger zone</div>
+                <div class="btn danger disabled" style="margin-bottom:6px">Delete group</div>
+                <div class="helptext">Only available once every shared expense is removed from this group (3
+                  remaining). Use <b style="color:var(--text2)">Settle &amp; close</b> instead to freeze it now.</div>
+                <div class="btn ghost" style="color:var(--danger);margin-top:8px;padding:0">Leave group</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Group settings <span class="tag rec">After — empty, enabled</span></div>
+          <div class="vsub">Same group once its last shared expense is removed — Delete becomes a real solid danger button.</div>
+          <div class="phone" style="height:250px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Goa Trip</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="footer" style="border-top:none;padding:0 0 10px"><div class="btn secondary" style="flex:1">Settle &amp; close</div></div>
+              <div class="dangerzone">
+                <div class="lbl">Danger zone</div>
+                <div class="btn danger" style="margin-bottom:6px">Delete group</div>
+                <div class="helptext">This group has no expenses recorded — deleting it removes it for every member.</div>
+                <div class="btn ghost" style="color:var(--danger);margin-top:8px;padding:0">Leave group</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped Delete <span class="tag rec">After — ConfirmDialog</span></div>
+          <div class="vsub">Standard destructive confirm — reused as-is.</div>
+          <div class="phone" style="height:220px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead"><div class="ptitle">Delete "Goa Trip"?</div></div>
+                <div class="pbody">This can't be undone. Every member loses access and the group disappears from
+                  their list too.</div>
+                <div class="pfooter row">
+                  <div class="btn secondary">Cancel</div>
+                  <div class="btn danger">Delete</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Write-off marking (item 17)</div>
+      <div class="sectionsub">A "never coming back" resolution, distinct from a real settlement — added as a mode
+        inside the existing Settle Up flow, not a separate feature, and shown distinctly afterward so it's never
+        mistaken for an actual repayment.</div>
+      <div class="groundnote"><code>SettleUpGroupModal.tsx</code> today only knows one settlement shape
+        (<code>SettlementPayload {'{'}from, to, amount{'}'}</code> — no "kind"). Adding a segmented toggle at the top,
+        same visual pattern this modal already uses for Direction. Selecting "Write off" hides the account-bridge
+        card entirely (nothing to record — no real money moves) rather than merely disabling it.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Settle Up <span class="tag cur">Current</span></div>
+          <div class="vsub">One implicit mode — every settlement is treated as a real payment.</div>
+          <div class="phone" style="height:260px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Settle up</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="field"><div class="flabel">With</div><div class="fakein">Priya</div></div>
+              <div class="field"><div class="flabel">Amount</div><div class="fakein">₹850</div></div>
+              <div class="bridgecard"><i class="ti ti-building-bank"></i><span>Record ₹850 out of account</span><div class="toggle"><div class="dot"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Settle Up <span class="tag rec">After — mode toggle added</span></div>
+          <div class="vsub">"Real payment" is the default and looks/behaves exactly as today.</div>
+          <div class="phone" style="height:290px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Settle up</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="seg2"><div class="opt active">Real payment</div><div class="opt">Write off</div></div>
+              <div class="field"><div class="flabel">With</div><div class="fakein">Priya</div></div>
+              <div class="field"><div class="flabel">Amount</div><div class="fakein">₹850</div></div>
+              <div class="bridgecard"><i class="ti ti-building-bank"></i><span>Record ₹850 out of account</span><div class="toggle"><div class="dot"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "Write off" <span class="tag rec">After — account bridge removed</span></div>
+          <div class="vsub">Nothing to record, so the whole bridge card is gone, not just disabled — button label changes too.</div>
+          <div class="phone" style="height:270px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Settle up</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="seg2"><div class="opt">Real payment</div><div class="opt active wo">Write off</div></div>
+              <div class="field"><div class="flabel">With</div><div class="fakein">Priya</div></div>
+              <div class="field"><div class="flabel">Amount</div><div class="fakein">₹850</div></div>
+              <div class="helptext" style="margin-top:8px">No money moves — this just marks the ₹850 balance as
+                resolved between you and Priya.</div>
+            </div>
+            <div class="footer"><div class="btn secondary" style="flex:1">Cancel</div><div class="btn" style="flex:1;background:var(--neutral);color:#0b0f14">Mark as written off</div></div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Per-member breakdown <span class="tag rec">After — written-off display</span></div>
+          <div class="vsub">A distinct neutral/italic label + eraser icon — never the green "settled" look, so it
+            can't be misread as a real repayment.</div>
+          <div class="phone" style="height:160px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="memrow"><div class="av">P</div><div class="nm">Priya</div><div class="bal wo"><i class="ti ti-eraser" style="margin-right:3px"></i>written off</div></div>
+              <div class="memrow"><div class="av">R</div><div class="nm">Rahul</div><div class="bal pos">owes you ₹420</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Feed row <span class="tag rec">After — write-off event</span></div>
+          <div class="vsub">Same neutral treatment in the feed as in the breakdown — icon and tint both differ from a real settlement's green check.</div>
+          <div class="phone" style="height:130px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="feedrow">
+                <div class="top">
+                  <div class="icnbox neutral"><i class="ti ti-eraser"></i></div>
+                  <div class="t"><div class="l">You wrote off Priya's balance</div><div class="s">write-off · no money moved</div></div>
+                  <div class="amt">₹850</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Personal ledger → Group promotion (item 17)</div>
+      <div class="sectionsub">A guided, 3-step flow from a person's IOU ledger that creates a real Group, seeds it
+        with that ledger's history, and archives (never deletes) the superseded personal ledger.</div>
+      <div class="groundnote"><code>PersonLedgerView.tsx</code>'s header (name + net balance + an "Edit person"
+        pencil icon, line ~86) is the entry point — <code>GroupMember.linkedPersonId</code> is already reserved in
+        the schema for exactly this bridge, unused today. Step 2 reuses <code>CreateGroupModal.tsx</code>'s exact
+        fields (name/type/history-visibility), pre-seeded from the person. Wizard chrome matches item 11's step bar
+        (<code>WizardProgress.tsx</code>).</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Person ledger header <span class="tag cur">Current</span></div>
+          <div class="vsub">Only "Edit person" — no bridge to Groups at all.</div>
+          <div class="phone" style="height:130px">
+            <div class="statusbar"></div>
+            <div class="content" style="display:flex;align-items:center;justify-content:space-between">
+              <div><div style="font-size:9.5px;color:var(--text3)">Priya owes you</div><div style="font-size:19px;font-weight:800;color:var(--success)">₹850</div></div>
+              <div class="icnbtn"><i class="ti ti-pencil" style="color:var(--text2)"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Person ledger header <span class="tag rec">After — Promote icon added</span></div>
+          <div class="vsub">A second icon beside Edit — same touch-target sizing.</div>
+          <div class="phone" style="height:130px">
+            <div class="statusbar"></div>
+            <div class="content" style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+              <div><div style="font-size:9.5px;color:var(--text3)">Priya owes you</div><div style="font-size:19px;font-weight:800;color:var(--success)">₹850</div></div>
+              <div style="display:flex;gap:2px">
+                <div class="icnbtn"><i class="ti ti-users-plus" style="color:var(--primary)"></i></div>
+                <div class="icnbtn"><i class="ti ti-pencil" style="color:var(--text2)"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Step 1 of 3 <span class="tag rec">Explain</span></div>
+          <div class="vsub">Says exactly what happens to both the new Group and the old ledger, up front.</div>
+          <div class="phone" style="height:280px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="wizprog"><div class="seg now"></div><div class="seg"></div><div class="seg"></div></div>
+              <div class="wizlabel">Step 1 of 3 · Promote Priya to a Group</div>
+              <div style="font-size:10.5px;color:var(--text2);line-height:1.6">This creates a real <b style="color:var(--text)">Group</b> named "Priya", invites her to it, and copies your
+                9 ledger entries in as shared-expense history.</div>
+              <div class="banner info" style="margin-top:10px"><i class="ti ti-archive"></i><div>Your personal ledger with Priya will be archived — kept for your records, but no longer active.</div></div>
+            </div>
+            <div class="footer"><div class="btn secondary" style="flex:1">Cancel</div><div class="btn primary" style="flex:1">Continue</div></div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Step 2 of 3 <span class="tag rec">Group details</span></div>
+          <div class="vsub">Reuses <code>CreateGroupModal</code>'s exact fields, pre-filled.</div>
+          <div class="phone" style="height:300px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="wizprog"><div class="seg done"></div><div class="seg now"></div><div class="seg"></div></div>
+              <div class="wizlabel">Step 2 of 3 · Group details</div>
+              <div class="field"><div class="flabel">Group name</div><div class="fakein">Priya</div></div>
+              <div class="field"><div class="flabel">Type</div>
+                <div class="seg2"><div class="opt active">Other</div><div class="opt">Trip</div><div class="opt">Roommates</div></div>
+              </div>
+              <div class="field"><div class="flabel">History for Priya once she joins</div>
+                <div class="seg2"><div class="opt active" style="font-size:9.5px">Full history</div><div class="opt" style="font-size:9.5px">From join</div></div>
+              </div>
+            </div>
+            <div class="footer"><div class="btn secondary" style="flex:1">Back</div><div class="btn primary" style="flex:1">Continue</div></div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Step 3 of 3 <span class="tag rec">Confirm</span></div>
+          <div class="vsub">Plain-language recap before anything irreversible happens.</div>
+          <div class="phone" style="height:290px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="wizprog"><div class="seg done"></div><div class="seg done"></div><div class="seg now"></div></div>
+              <div class="wizlabel">Step 3 of 3 · Ready to promote</div>
+              <div class="summarybox">
+                <div class="line"><i class="ti ti-check"></i><b>9 ledger entries</b> → seeded as shared expenses in "Priya"</div>
+                <div class="line"><i class="ti ti-check"></i>Your personal ledger with Priya → <b>archived</b></div>
+                <div class="line"><i class="ti ti-check"></i>An invite link is generated for Priya to join</div>
+              </div>
+            </div>
+            <div class="footer"><div class="btn secondary" style="flex:1">Back</div><div class="btn primary" style="flex:1">Create &amp; promote</div></div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Archived IOU section <span class="tag rec">After — promoted marker</span></div>
+          <div class="vsub">Restore/Trash no longer make sense post-promotion — a link into the new Group instead.</div>
+          <div class="phone" style="height:140px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="memrow"><div class="av">P</div><div class="nm">Priya</div><div class="pillbtn" style="color:var(--primary);border-color:var(--primary)">→ Now in "Priya" group</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 5 ================= -->
+    <div class="sectionband" id="s5">
+      <div class="sectiontitle"><span class="num">5</span>Static (non-app) members (item 17)</div>
+      <div class="sectionsub">A lightweight "placeholder member" — name only, no account/invite — that participates
+        in splits and balances but can't sync or confirm anything itself; any real member manages their side.</div>
+      <div class="groundnote"><code>GroupMembersModal.tsx</code>'s only add-path today is "Create invite link" —
+        a real account is always required. Closest precedent, per the plan doc itself: the personal-IOU
+        <code>Person</code> (name-only, no account) — reused conceptually here rather than inventing a new entity.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Add member <span class="tag cur">Current</span></div>
+          <div class="vsub">One path only — a real invite.</div>
+          <div class="phone" style="height:130px">
+            <div class="statusbar"></div>
+            <div class="content"><div class="btn secondary" style="border-style:solid"><i class="ti ti-user-plus" style="margin-right:5px"></i>Create invite link</div></div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Add member <span class="tag rec">After — second path</span></div>
+          <div class="vsub">A second, equally-weighted option for someone without the app.</div>
+          <div class="phone" style="height:170px">
+            <div class="statusbar"></div>
+            <div class="content" style="gap:8px;display:flex;flex-direction:column">
+              <div class="btn secondary" style="border-style:solid"><i class="ti ti-user-plus" style="margin-right:5px"></i>Invite (they'll get an account)</div>
+              <div class="btn secondary" style="border-style:dashed"><i class="ti ti-user-edit" style="margin-right:5px"></i>Add without invite</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "Add without invite" <span class="tag rec">After — name only</span></div>
+          <div class="vsub">Deliberately minimal — no phone/handle field, since there's no account to reach.</div>
+          <div class="phone" style="height:170px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead"><div class="ptitle">Add placeholder member</div><i class="ti ti-x" style="color:var(--text2)"></i></div>
+                <div class="pbody"><div class="field" style="margin-top:0"><div class="fakein">e.g. Grandma</div></div>
+                  You'll manage their splits and settlements — they can't open this group themselves.</div>
+                <div class="pfooter row"><div class="btn secondary">Cancel</div><div class="btn primary">Add</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Member list <span class="tag rec">After — placeholder marker</span></div>
+          <div class="vsub">A muted "no account" tag distinguishes them from real members' <code>· role</code> suffix.</div>
+          <div class="phone" style="height:160px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="memrow"><div class="av">Y</div><div class="nm">You <span class="role">· owner</span></div></div>
+              <div class="memrow"><div class="av">G</div><div class="nm">Grandma <span class="tag-noacct">No account</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Per-member breakdown <span class="tag rec">After — same marker, relabeled action</span></div>
+          <div class="vsub">"Record for them" instead of "Settle up" — a real member always acts on a placeholder's behalf.</div>
+          <div class="phone" style="height:150px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="memrow"><div class="av">G</div><div class="nm">Grandma <span class="tag-noacct">No account</span></div><div class="bal neg" style="margin-right:6px">you owe ₹300</div><div class="pillbtn">Record for them</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CLOSING NOTES ================= -->
+    <div class="recommend">
+      <b>Recommendation:</b> ship all five, but treat them as three tiers of readiness. §2 (delete-when-empty) and
+      §5 (static members) are the most self-contained — small, additive, low product-ambiguity — build those first.
+      §1 (feed actions) and §3 (write-off) both need a small, genuine schema addition (a flag event pair; a
+      settlement <code>kind</code> field) before the UI here means anything — worth confirming those additions with
+      whoever owns <code>groupSync.ts</code>/<code>split.ts</code> before implementation starts, not just inferring
+      them from this mockup. §4 (promotion) is the one with real open product questions below — I'd sequence it
+      last and treat the wizard copy as a strong first draft, not a final spec, until those are resolved.
+      <ul>
+        <li><b>Cross-platform:</b> checked <code>apps/web-react/src/features/groups/GroupDashboard.tsx</code> and
+          <code>GroupMembersModal.tsx</code> — both carry the identical gaps (no feed-row actions, no delete-group,
+          no write-off, no placeholder members, no promotion bridge). Since <code>apps/web-react</code> is frozen,
+          none of this proposes touching it — flagging only because the platforms already agree here (both lack it),
+          which is itself worth recording rather than assuming.</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§1 — how "notify the recorder" actually works.</b> This app has no push-notification
+          infrastructure (local-first, pull/sync-based). I designed the flag as a <em>durable, sync-carried
+          state</em> — the recorder sees it next time they open/sync the group (the same model every other
+          Group update already uses), plus a top-of-dashboard <code>Banner</code> so it's not buried in a long
+          feed. If "notifies" was meant to imply something more immediate (a badge on the tab bar, a daily
+          digest), that's a bigger addition than a UI mockup should silently decide — flagging explicitly.</li>
+        <li><b>§1 — new event types needed.</b> A flag needs at least two new <code>GroupEventType</code>s
+          (raise/clear) or an equivalent field on the existing payload — not decided here on purpose; this is a
+          mockup, and that's a real schema/fold-engine design question for whoever implements it, not a UI one.</li>
+        <li><b>§2 — "Leave group" moved into the new Danger zone card.</b> Not explicitly asked for, but it's the
+          only other destructive action on this exact screen and <code>DESIGN_GUIDELINES.md</code> §2 already
+          mandates isolating destructive actions this way — flagging as a bundled consistency fix rather than
+          scope creep, easy to drop if it should stay a separate follow-up.</li>
+        <li><b>§3 — settlement <code>kind</code> default.</b> Assumed existing/old settlement events implicitly
+          mean <code>kind: 'repayment'</code> for backward compatibility (no migration needed, just an optional
+          field). Confirm that's an acceptable default rather than requiring a backfill.</li>
+        <li><b>§3 — can a write-off be reversed?</b> Not designed here. A real settlement has no "undo" today
+          either, so parity would say no — but a write-off is more of an admin/judgment call than a payment
+          event, so a "reopen this balance" affordance might be worth a follow-up if it comes up in practice.</li>
+        <li><b>§4 — what exactly gets seeded.</b> Assumed 1:1: each historical <code>LedgerEntry</code> becomes
+          one <code>shared_expense</code> event (lent/borrowed), and pre-existing <code>settlement</code> entries
+          in that ledger become <code>settlement</code> events too, so the new Group's balance starts at the same
+          net the personal ledger ended at. This is a real design decision with cost/complexity implications, not
+          just a UI detail — worth explicit confirmation before implementation.</li>
+        <li><b>§4 — does promotion auto-send the invite, or just create the link?</b> Designed the narrower reading
+          — Step 3 only <em>generates</em> the invite link (mirrors today's manual "Create invite link" flow);
+          actually getting it to Priya (share sheet, copy) is a manual follow-up from the new group's own
+          Members screen, not something this wizard automates. Flagging in case the intent was closer to
+          "auto-invite via her known phone number," which would need a real messaging integration this app
+          doesn't have today.</li>
+        <li><b>§4 — is promotion truly one-way?</b> Per the plan doc, yes (archived, not deleted) — but "can I
+          ever unarchive the personal ledger if the Group idea doesn't work out" is a real user question this
+          mockup doesn't answer. Leaning "no, by design" (the Group is now the source of truth) but flagging since
+          it's a permanent decision presented after only a 3-step wizard.</li>
+        <li><b>§5 — does a placeholder member need any settlement-recording capability of their own?</b> Designed
+          as "no" — purely a name in the split, with every action (splitting them in, settling their balance)
+          performed by a real member on their behalf. If the intent was closer to "someone hands me their phone to
+          confirm a settlement," that's a materially different (shared-device) flow not designed here.</li>
+        <li><b>§5 — can a placeholder be upgraded to a real member later</b> (e.g. once they install the app),
+          keeping their balance history? Not designed here — mirrors the same open question the personal-IOU
+          <code>Person</code>→Group bridge (§4) already raises, just in the other direction. Worth deciding once,
+          consistently, for both.</li>
+      </ol>
+    </div>
+  </body>
+</html>

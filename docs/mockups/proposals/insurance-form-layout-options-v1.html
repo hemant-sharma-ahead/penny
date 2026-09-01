@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Insurance Add/Edit form — 5 layout/structure options (v1)</title>
+<style>
+  :root { --primary:#00a86b; --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:40px 24px 120px; background:#05070a; color:#e6edf3; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+  h1 { font-size:21px; margin:0 0 4px; }
+  h2 { font-size:15px; margin:0; color:#fff; }
+  .intro { color:#8b949e; font-size:13px; max-width:980px; line-height:1.65; margin-bottom:14px; }
+  .intro b { color:#e6edf3; } .intro code { background:#1c2128; border:1px solid #2d333b; border-radius:4px; padding:1px 5px; font-size:11.5px; }
+
+  nav.anchors { position:sticky; top:0; z-index:30; display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#05070a; padding:10px 0 14px; margin-bottom:6px; border-bottom:1px solid #1c2128; }
+  nav.anchors a { font-size:12px; font-weight:700; color:#c9d1d9; text-decoration:none; padding:6px 12px; border-radius:999px; border:1px solid #2d333b; background:#161b22; }
+
+  .toolbar { position:sticky; top:46px; z-index:29; display:flex; align-items:center; gap:10px; margin:0 0 22px; background:#05070a; padding-bottom:8px; }
+  .toolbar button { font-family:inherit; font-size:12px; font-weight:700; padding:7px 14px; border-radius:999px; border:1px solid #2d333b; background:#161b22; color:#e6edf3; cursor:pointer; }
+  .toolbar button.active { background:var(--primary); border-color:var(--primary); color:#04140d; }
+  .toolbar .hint { font-size:11.5px; color:#6e7681; }
+
+  section { margin-top:56px; padding-top:6px; scroll-margin-top:100px; }
+  .section-label { display:inline-flex; align-items:center; gap:8px; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#6e7681; border:1px solid #2d333b; border-radius:999px; padding:3px 10px; margin-bottom:8px; }
+  .desc { max-width:900px; font-size:12.5px; color:#8b949e; line-height:1.65; margin:6px 0 16px; }
+  .desc b { color:#e6edf3; } .desc code { background:#1c2128; border:1px solid #2d333b; border-radius:4px; padding:1px 5px; font-size:11px; }
+
+  .finding { max-width:900px; margin:10px 0 18px; border:1px dashed #444c56; border-radius:12px; padding:12px 16px; font-size:12px; line-height:1.7; color:#8b949e; }
+  .finding b { color:#e6edf3; }
+  .finding .tag { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:#f59e0b; border:1px solid rgba(245,158,11,.4); background:rgba(245,158,11,.1); border-radius:999px; padding:2px 8px; margin-right:8px; vertical-align:1px; }
+  .finding.rec .tag { color:#6ee7b7; border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.1); }
+  .finding.bug .tag { color:#f87171; border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.1); }
+
+  .row { display:flex; gap:30px; flex-wrap:wrap; align-items:flex-start; }
+  .col { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .col-label { font-size:11.5px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:#6e7681; text-align:center; }
+  .col-label.new { color:var(--primary); }
+  .col-cap { max-width:300px; font-size:11px; color:#6e7681; line-height:1.6; text-align:center; }
+  .col-cap b { color:#9aa4b0; }
+
+  .phone { width:300px; height:650px; border-radius:34px; border:9px solid #111827; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 16px 34px rgba(0,0,0,.45); flex-shrink:0; }
+  .screen { flex:1; display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .screen[data-theme="light"] { background:#f8fafc; --surface:#ffffff; --surface2:#eff6ff; --surface3:#e2ecfb; --border:#c7d8f0; --text:#0f172a; --text2:#475569; --text3:#94a3b8; }
+  .screen[data-theme="dark"] { background:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --border:#2d333b; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681; }
+
+  .modal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:26px 10px 40px; }
+  .modal-card { width:100%; max-height:100%; background:var(--surface); border:1px solid var(--border); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; }
+  .modal-head { display:flex; align-items:center; gap:8px; padding:12px 12px 8px; flex-shrink:0; }
+  .modal-title { font-size:13px; font-weight:700; color:var(--text); flex:1; }
+  .modal-body { padding:4px 12px 14px; overflow-y:auto; display:flex; flex-direction:column; gap:11px; }
+  .xbtn { width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text3); font-size:14px; flex-shrink:0; }
+  .modal-foot { display:flex; gap:8px; padding:8px 12px 12px; flex-shrink:0; }
+  .btn { text-align:center; font-size:11.5px; font-weight:700; padding:10px 8px; border-radius:11px; cursor:pointer; line-height:1.3; }
+  .btn.primary { background:var(--primary); color:#04140d; flex:1; }
+  .btn.secondary { background:var(--surface3); border:1px solid var(--border); color:var(--text); flex:1; }
+  .btn.ghost { background:transparent; border:1px solid var(--border); color:var(--text2); }
+
+  .field-label { font-size:10px; font-weight:600; color:var(--text2); margin-bottom:5px; display:flex; gap:4px; align-items:baseline; justify-content:space-between; }
+  .field-label .opt { font-weight:400; color:var(--text3); }
+  .field-hint { font-size:9px; color:var(--text3); margin-top:3px; line-height:1.5; }
+  .input-box { width:100%; border-radius:10px; border:1px solid var(--border); background:var(--surface2); padding:9px 10px; font-size:11.5px; color:var(--text); }
+  .input-box.ph { color:var(--text3); }
+  .input-box.trigger { display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+  .input-box.trigger .chv { color:var(--text3); font-size:12px; }
+  textarea.input-box { min-height:40px; resize:none; font-family:inherit; }
+  .row2 { display:flex; gap:8px; } .row2 > div { flex:1; }
+  .field-block { display:flex; flex-direction:column; }
+
+  .type-grid { display:flex; flex-wrap:wrap; gap:6px; }
+  .type-tile { width:23%; display:flex; flex-direction:column; align-items:center; gap:3px; border-radius:11px; border:2px solid var(--border); background:var(--surface2); padding:7px 4px; }
+  .type-tile .ic { font-size:15px; } .type-tile .lb { font-size:9px; font-weight:600; color:var(--text2); text-align:center; line-height:1.2; }
+  .type-tile.active { border-color:var(--tile-color, var(--primary)); background:var(--tile-tint, rgba(0,168,107,.1)); }
+  .type-tile.active .lb { color:var(--tile-color, var(--primary)); font-weight:700; }
+
+  .seg { display:flex; background:var(--surface2); border-radius:11px; padding:3px; gap:2px; }
+  .seg .s { flex:1; text-align:center; font-size:9.5px; font-weight:700; padding:7px 2px; border-radius:9px; color:var(--text2); line-height:1.25; }
+  .seg .s.active { background:var(--primary); color:#04140d; }
+
+  .chiprow { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { padding:6px 10px; border-radius:9px; border:1px solid var(--border); background:var(--surface2); font-size:10px; font-weight:700; color:var(--text2); }
+  .chip.active { background:var(--primary); border-color:var(--primary); color:#04140d; }
+  .chip.locked { opacity:.55; border-style:dashed; }
+
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:2px 0; }
+  .toggle-row .tl { font-size:11px; font-weight:600; color:var(--text); }
+  .toggle-row .ts { font-size:9.5px; color:var(--text3); margin-top:1px; }
+  .switch { width:34px; height:19px; border-radius:99px; background:var(--border); position:relative; flex-shrink:0; }
+  .switch.on { background:var(--primary); }
+  .switch .knob { position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:#fff; }
+  .switch.on .knob { left:17px; }
+
+  .preview-line { background:rgba(0,168,107,.1); border:1px solid rgba(0,168,107,.3); border-radius:10px; padding:8px 10px; font-size:10px; color:var(--text2); line-height:1.6; }
+  .preview-line b { color:var(--primary); }
+  .divider-label { font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); margin:2px 0 -4px; display:flex; align-items:center; gap:6px; }
+  .divider-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* DOB inline-capture affordance (used across options) */
+  .dob-nudge { display:flex; align-items:center; gap:8px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.35); border-radius:10px; padding:8px 10px; }
+  .dob-nudge .ic { font-size:14px; }
+  .dob-nudge .tx { flex:1; font-size:9.5px; color:var(--text2); line-height:1.5; }
+  .dob-nudge .lk { font-size:9.5px; font-weight:800; color:var(--warning); }
+  .dob-capture { display:none; flex-direction:column; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px; }
+  .dob-capture.open { display:flex; }
+  .dob-capture .hd { font-size:10px; font-weight:700; color:var(--text); }
+
+  /* Hero coverage number (fixes complaint #1 — surfaced near top in every option) */
+  .hero-amount { background:linear-gradient(135deg, rgba(0,168,107,.16), rgba(0,168,107,.05)); border:1px solid rgba(0,168,107,.35); border-radius:14px; padding:12px 14px; }
+  .hero-amount .hl { font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--text2); }
+  .hero-amount .hv { font-size:24px; font-weight:800; color:var(--text); margin-top:2px; }
+  .hero-amount .hs { font-size:9.5px; color:var(--text3); margin-top:2px; }
+
+  /* Option 1 — wizard */
+  .wiz-progress { display:flex; align-items:center; gap:6px; padding:2px 0 4px; }
+  .wiz-dot { flex:1; height:4px; border-radius:99px; background:var(--border); }
+  .wiz-dot.done { background:var(--primary); }
+  .wiz-steplbl { font-size:9.5px; font-weight:800; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; }
+  .wiz-step { display:none; flex-direction:column; gap:11px; }
+  .wiz-step.active { display:flex; }
+  .wiz-nav { display:flex; gap:8px; padding-top:4px; }
+  .wiz-review-row { display:flex; justify-content:space-between; font-size:10px; color:var(--text2); padding:5px 0; border-top:1px solid var(--border); }
+  .wiz-review-row:first-child { border-top:none; }
+  .wiz-review-row b { color:var(--text); }
+
+  /* Option 3 — accordion */
+  .acc-section { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--surface); }
+  .acc-head { display:flex; align-items:center; gap:8px; padding:11px 12px; cursor:pointer; }
+  .acc-head .an { width:20px; height:20px; border-radius:6px; background:var(--surface2); color:var(--text2); font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .acc-head .at { flex:1; min-width:0; }
+  .acc-head .att { font-size:11.5px; font-weight:700; color:var(--text); }
+  .acc-head .ats { font-size:9.5px; color:var(--text3); margin-top:1px; }
+  .acc-head .chv { font-size:13px; color:var(--text3); }
+  .acc-body { display:none; flex-direction:column; gap:10px; padding:2px 12px 14px; border-top:1px solid var(--border); }
+  .acc-body.open { display:flex; }
+  .acc-section.primary { border-color:rgba(0,168,107,.35); }
+  .acc-section.primary .acc-head { background:rgba(0,168,107,.08); }
+
+  /* Option 4 — dashboard tiles */
+  .tile-row { display:flex; gap:8px; }
+  .tile-big { flex:1; background:var(--surface); border:1.5px solid var(--border); border-radius:14px; padding:10px; display:flex; flex-direction:column; gap:2px; }
+  .tile-big.primary { border-color:var(--primary); background:rgba(0,168,107,.08); }
+  .tile-big .tl { font-size:8.5px; font-weight:700; text-transform:uppercase; color:var(--text3); }
+  .tile-big .tv { font-size:15px; font-weight:800; color:var(--text); }
+  .tile-big .tv.ph { color:var(--text3); font-weight:700; font-size:11px; }
+  .tile-big.warn { border-color:rgba(245,158,11,.5); background:rgba(245,158,11,.08); }
+  .identity-strip { display:flex; align-items:center; gap:8px; background:var(--surface2); border-radius:10px; padding:8px 10px; }
+  .identity-strip .ic { font-size:16px; } .identity-strip .tx { flex:1; font-size:10.5px; font-weight:700; color:var(--text); }
+  .identity-strip .sub { font-size:9px; color:var(--text3); font-weight:400; }
+  .muted-block { opacity:.85; }
+
+  /* Option 5 — guided one-question */
+  .qflow-summary { display:flex; flex-wrap:wrap; gap:5px; padding-bottom:4px; border-bottom:1px solid var(--border); margin-bottom:2px; }
+  .qflow-chip { font-size:8.5px; font-weight:700; padding:3px 7px; border-radius:99px; background:var(--surface2); color:var(--text2); }
+  .qflow-chip.filled { background:rgba(0,168,107,.14); color:var(--primary); }
+  .qflow-q { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px 4px; text-align:center; }
+  .qflow-q .qn { font-size:9.5px; font-weight:800; color:var(--text3); text-transform:uppercase; letter-spacing:.05em; }
+  .qflow-q .qt { font-size:14px; font-weight:700; color:var(--text); }
+  .qflow-q .qsub { font-size:10px; color:var(--text3); margin-top:-8px; }
+  .qflow-big-input { font-size:26px; font-weight:800; color:var(--text); text-align:center; border-bottom:2px solid var(--primary); padding-bottom:6px; width:80%; background:transparent; }
+  .qflow-choice-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .qflow-choice { padding:10px 16px; border-radius:12px; border:2px solid var(--border); background:var(--surface2); font-size:11px; font-weight:700; color:var(--text2); }
+  .qflow-choice.active { border-color:var(--primary); background:rgba(0,168,107,.12); color:var(--primary); }
+  .qflow-nav { display:flex; justify-content:space-between; padding-top:8px; }
+  .qflow-back { font-size:10px; color:var(--text3); font-weight:700; }
+
+  /* Compact DOB-fix comparison grid */
+  .dob-compare { display:flex; gap:14px; flex-wrap:wrap; max-width:980px; }
+  .dob-mini { width:180px; background:#0d1117; border:1px solid #21262d; border-radius:12px; padding:10px; }
+  .dob-mini .dm-t { font-size:10px; font-weight:800; color:#fff; margin-bottom:8px; }
+  .dob-mini .dm-body { background:#161b22; border-radius:9px; padding:8px; }
+
+  .note { max-width:940px; margin-top:14px; border:1px dashed #2d333b; border-radius:10px; padding:12px 14px; font-size:11.5px; color:#8b949e; line-height:1.65; }
+  .note b { color:#e6edf3; } .note code { background:#1c2128; border:1px solid #2d333b; border-radius:4px; padding:1px 5px; font-size:10.5px; }
+
+  .cmp-table { border-collapse:collapse; max-width:980px; width:100%; font-size:11.5px; margin-top:8px; }
+  .cmp-table th, .cmp-table td { border:1px solid #2d333b; padding:9px 11px; text-align:left; vertical-align:top; }
+  .cmp-table th { background:#161b22; color:#fff; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; }
+  .cmp-table td { color:#c9d1d9; }
+  .cmp-table td.lead { background:rgba(16,185,129,.06); }
+  .cmp-table b { color:#fff; }
+</style>
+</head>
+<body>
+
+<h1>Insurance Add/Edit form — 5 layout/structure options (v1)</h1>
+<p class="intro">
+  Grounded in the <b>real shipped code</b>, read fresh: <code>apps/mobile/src/features/insurance/PolicyForm.tsx</code>
+  + its <code>fields/{'{'}TermLifeFields,HealthFields,VehicleInsuranceFields,HomeFields,TravelFields{'}'}.tsx</code>
+  siblings, <code>Chip.tsx</code>, <code>InsurerField.tsx</code>. The shipped form (built from
+  <code>insurance-redesign-v4.html</code>) has 14+ controls stacked in one scroll for Term: type tiles → plan
+  name → insurer → policy number → start date → duration chips → end date → premium+frequency → discount →
+  installment preview → payment schedule (due date, mark-as-paid, history) → <b>Sum assured</b> +
+  premium-payment-term + nominee → notes. Two confirmed problems drive every option below: <b>(1) Sum
+  Assured sits after all the payment mechanics</b>, reading as buried; <b>(2) "Till 60/65" duration chips
+  silently did nothing with no saved DOB</b> (now toast-fixed in code, but a toast-after-the-fact isn't a
+  real design — the missing prerequisite should be visible in the form itself). <b>Mockup only — no app code
+  touched.</b>
+</p>
+
+<nav class="anchors">
+  <a href="#current">① Current (shipped)</a>
+  <a href="#opt1">② Wizard</a>
+  <a href="#opt2">③ Reordered single-scroll</a>
+  <a href="#opt3">④ Accordion sections</a>
+  <a href="#opt4">⑤ Key-facts dashboard</a>
+  <a href="#opt5">⑥ Guided one-question</a>
+  <a href="#dobfix">⑦ The DOB fix, compared</a>
+  <a href="#recommendation">⑧ Comparison &amp; recommendation</a>
+</nav>
+
+<div class="toolbar">
+  <button id="btn-light" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" class="active" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← affects every phone frame on this page at once</span>
+</div>
+
+<!-- ======================================================================= -->
+<!-- SECTION 1 — CURRENT (SHIPPED)                                           -->
+<!-- ======================================================================= -->
+<section id="current">
+  <div class="section-label">① Current — shipped</div>
+  <h2>The real shipped Add/Edit Insurance form (Term)</h2>
+  <p class="desc">Accurate reconstruction of the actual field order in <code>PolicyForm.tsx</code> today — one long scroll, Sum Assured 12 controls deep.</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="col-label">Shipped form — Term, full scroll</div>
+      <div class="phone" style="height:760px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="field-block">
+                  <div class="field-label">Insurance type</div>
+                  <div class="type-grid">
+                    <div class="type-tile active" style="--tile-color:#ef4444;--tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                    <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+                    <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                    <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                    <div class="type-tile"><span class="ic">🏠</span><span class="lb">Home</span></div>
+                    <div class="type-tile"><span class="ic">✈️</span><span class="lb">Travel</span></div>
+                    <div class="type-tile"><span class="ic">🛡</span><span class="lb">Other</span></div>
+                  </div>
+                </div>
+                <div class="divider-label" style="margin-top:0;">Universal — every type</div>
+                <div class="field-block"><div class="field-label">Policy / plan name</div><div class="input-box">iSelect Smart360 Term Plan</div></div>
+                <div class="field-block"><div class="field-label">Insurer / Company</div><div class="input-box trigger">HDFC Life <span class="chv">▾</span></div></div>
+                <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+                <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 2026 <span class="chv">📅</span></div></div>
+                <div class="field-block">
+                  <div class="field-label">Policy duration</div>
+                  <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip">Till 60</div><div class="chip">Till 65</div><div class="chip">Custom</div></div>
+                </div>
+                <div class="field-block"><div class="field-label">End date (auto)</div><div class="input-box trigger">31 Aug 2041 <span class="chv">📅</span></div></div>
+                <div class="row2">
+                  <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹12,000</div></div>
+                  <div class="field-block"><div class="field-label">Payment frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s">H</div><div class="s active">A</div><div class="s">S</div></div></div>
+                </div>
+                <div class="toggle-row"><div><div class="tl">Apply first-year discount</div></div><div class="switch on"><div class="knob"></div></div></div>
+                <div class="preview-line">= ₹12,000 per year</div>
+                <div class="divider-label">Premium payment schedule</div>
+                <div class="field-block"><div class="field-label">Next premium due (auto)</div><div class="input-box trigger">31 Aug 2027 <span class="chv">📅</span></div></div>
+                <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:8px 14px;">✓ Mark as paid</div>
+                <div class="divider-label">Term-specific</div>
+                <div style="border:1.5px dashed #f87171; border-radius:10px; padding:2px;">
+                  <div class="field-block" style="padding:6px;"><div class="field-label">Sum assured</div><div class="input-box ph">e.g. 10000000</div></div>
+                </div>
+                <div class="field-block"><div class="field-label">Premium payment term</div><div class="seg"><div class="s active">Regular</div><div class="s">Limited pay</div></div></div>
+                <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Sum assured (dashed red box) is the <b>12th</b> control down — after every payment-mechanics field. "Till 60/65" chips give zero indication they depend on a saved DOB.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 2 — OPTION 1: MULTI-STEP WIZARD                                 -->
+<!-- ======================================================================= -->
+<section id="opt1">
+  <div class="section-label">② Option 1</div>
+  <h2>Multi-step wizard — one focused step at a time</h2>
+  <p class="desc">
+    Researched: Acko's own mobile form splits into 4 screens (personal info → coverage → add-ons → review);
+    PolicyBazaar cut quote-step abandonment from 38% to 12% by revealing premium/coverage incrementally
+    instead of all at once. Applied here as 4 steps with a progress bar. <b>Try it — tap Next/Back.</b>
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Wizard — Term, 4 steps</div>
+      <div class="phone" style="height:700px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head"><div class="modal-title" id="wiz-title">Add insurance — Basics</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="wiz-progress">
+                  <div class="wiz-dot done" id="wd1"></div><div class="wiz-dot" id="wd2"></div><div class="wiz-dot" id="wd3"></div><div class="wiz-dot" id="wd4"></div>
+                </div>
+                <div class="wiz-steplbl" id="wiz-steplbl">Step 1 of 4 · Basics</div>
+
+                <div class="wiz-step active" id="wiz-1">
+                  <div class="field-block">
+                    <div class="field-label">Insurance type</div>
+                    <div class="type-grid">
+                      <div class="type-tile active" style="--tile-color:#ef4444;--tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                      <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+                      <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                      <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                    </div>
+                  </div>
+                  <div class="field-block"><div class="field-label">Policy / plan name</div><div class="input-box">iSelect Smart360 Term Plan</div></div>
+                  <div class="field-block"><div class="field-label">Insurer / Company</div><div class="input-box trigger">HDFC Life <span class="chv">▾</span></div></div>
+                  <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+                </div>
+
+                <div class="wiz-step" id="wiz-2">
+                  <div class="hero-amount"><div class="hl">Sum assured</div><div class="hv">₹1,00,00,000</div><div class="hs">The number that matters most for Term</div></div>
+                  <div class="row2">
+                    <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹12,000</div></div>
+                    <div class="field-block"><div class="field-label">Payment frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s">H</div><div class="s active">A</div><div class="s">S</div></div></div>
+                  </div>
+                  <div class="toggle-row"><div><div class="tl">Apply first-year discount</div></div><div class="switch on"><div class="knob"></div></div></div>
+                  <div class="preview-line">= ₹12,000 per year</div>
+                </div>
+
+                <div class="wiz-step" id="wiz-3">
+                  <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 2026 <span class="chv">📅</span></div></div>
+                  <div class="field-block">
+                    <div class="field-label">Policy duration</div>
+                    <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip locked">Till 65</div><div class="chip">Custom</div></div>
+                    <div class="dob-nudge" style="margin-top:6px;"><span class="ic">🎂</span><span class="tx">Add your date of birth to unlock age-based durations.</span><span class="lk" onclick="toggleWizDob()">Add now</span></div>
+                    <div class="dob-capture" id="wiz-dob-capture"><div class="hd">Date of birth</div><div class="input-box ph">DD / MM / YYYY</div><div class="btn primary" style="padding:7px;">Save &amp; unlock</div></div>
+                  </div>
+                  <div class="field-block"><div class="field-label">End date (auto)</div><div class="input-box trigger">31 Aug 2041 <span class="chv">📅</span></div></div>
+                  <div class="field-block"><div class="field-label">Next premium due (auto)</div><div class="input-box trigger">31 Aug 2027 <span class="chv">📅</span></div></div>
+                </div>
+
+                <div class="wiz-step" id="wiz-4">
+                  <div class="field-block"><div class="field-label">Premium payment term</div><div class="seg"><div class="s active">Regular</div><div class="s">Limited pay</div></div></div>
+                  <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                  <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater</div></div>
+                  <div class="divider-label">Review</div>
+                  <div class="wiz-review-row"><span>Term · HDFC Life</span><b>iSelect Smart360</b></div>
+                  <div class="wiz-review-row"><span>Sum assured</span><b>₹1.0Cr</b></div>
+                  <div class="wiz-review-row"><span>Premium</span><b>₹12,000/yr</b></div>
+                  <div class="wiz-review-row"><span>Cover till</span><b>31 Aug 2041</b></div>
+                </div>
+
+                <div class="wiz-nav">
+                  <div class="btn ghost" style="flex:1;" onclick="wizBack()" id="wiz-back-btn">← Back</div>
+                  <div class="btn primary" style="flex:2;" onclick="wizNext()" id="wiz-next-btn">Next →</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Sum assured is now the <b>first thing shown in Step 2</b> — a hero tile, not a buried input. Locked age chips get an inline "Add now" DOB capture.</div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <span class="tag">trade-off</span>
+    Great for a <b>first-time "buy this policy"</b> flow (which is what Acko/PolicyBazaar's research is
+    actually optimizing — new-customer underwriting funnels, not a personal record-keeper). Weaker for
+    <b>editing</b> an existing policy, which this same form also has to do — jumping in to fix one field
+    (e.g. update the premium after a renewal notice) means clicking through steps to find it, or building a
+    second "jump to step" affordance. Penny's own guidelines also lean toward fewer screens/minimal clicks
+    over multi-step flows for maintenance-type forms, not just first-entry ones.
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 3 — OPTION 2: SINGLE SCROLL, REORDERED                          -->
+<!-- ======================================================================= -->
+<section id="opt2">
+  <div class="section-label">③ Option 2</div>
+  <h2>Single scroll, reordered by importance</h2>
+  <p class="desc">
+    Same one-page shape as today — smallest structural change of the 5 — but Sum Assured + Premium move to
+    right after Type/Insurer/Name, and everything payment-mechanical (frequency, discount, due date,
+    mark-as-paid, history) demotes into one clearly-labeled, <b>collapsed-by-default</b> "Payment schedule"
+    sub-section with a one-line summary — reusing Penny's own existing "Collapsible More fields disclosure"
+    pattern rather than inventing a new one.
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Reordered — Term</div>
+      <div class="phone" style="height:760px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="field-block">
+                  <div class="field-label">Insurance type</div>
+                  <div class="type-grid">
+                    <div class="type-tile active" style="--tile-color:#ef4444;--tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                    <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+                    <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                    <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                  </div>
+                </div>
+                <div class="field-block"><div class="field-label">Policy / plan name</div><div class="input-box">iSelect Smart360 Term Plan</div></div>
+                <div class="field-block"><div class="field-label">Insurer / Company</div><div class="input-box trigger">HDFC Life <span class="chv">▾</span></div></div>
+
+                <div class="divider-label" style="color:var(--primary);">Coverage &amp; premium</div>
+                <div class="field-block"><div class="field-label">Sum assured</div><div class="input-box">₹1,00,00,000</div></div>
+                <div class="row2">
+                  <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹12,000</div></div>
+                  <div class="field-block"><div class="field-label">Payment frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s">H</div><div class="s active">A</div><div class="s">S</div></div></div>
+                </div>
+                <div class="field-block"><div class="field-label">Premium payment term</div><div class="seg"><div class="s active">Regular</div><div class="s">Limited pay</div></div></div>
+                <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+
+                <div class="acc-section" style="margin-top:2px;">
+                  <div class="acc-head" onclick="toggleAcc2()">
+                    <div class="an">⏱</div>
+                    <div class="at"><div class="att">Payment schedule</div><div class="ats" id="acc2-summary">Annual · discount on · next due 31 Aug 2027</div></div>
+                    <div class="chv" id="acc2-chv">▾</div>
+                  </div>
+                  <div class="acc-body" id="acc2-body">
+                    <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+                    <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 2026 <span class="chv">📅</span></div></div>
+                    <div class="field-block">
+                      <div class="field-label">Policy duration</div>
+                      <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip locked">Till 65</div><div class="chip">Custom</div></div>
+                      <div class="dob-nudge" style="margin-top:6px;"><span class="ic">🎂</span><span class="tx">Age-based durations need your saved DOB.</span><span class="lk">Add now</span></div>
+                    </div>
+                    <div class="field-block"><div class="field-label">End date (auto)</div><div class="input-box trigger">31 Aug 2041 <span class="chv">📅</span></div></div>
+                    <div class="toggle-row"><div><div class="tl">Apply first-year discount</div></div><div class="switch on"><div class="knob"></div></div></div>
+                    <div class="preview-line">= ₹12,000 per year</div>
+                    <div class="field-block"><div class="field-label">Next premium due (auto)</div><div class="input-box trigger">31 Aug 2027 <span class="chv">📅</span></div></div>
+                    <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:8px 14px;">✓ Mark as paid</div>
+                  </div>
+                </div>
+
+                <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater</div></div>
+              </div>
+              <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Sum assured is now the <b>4th</b> field, right after identity. Payment schedule collapses to one line ("Annual · discount on · next due …") — tap to expand.</div>
+    </div>
+  </div>
+  <div class="finding">
+    <span class="tag">trade-off</span>
+    Smallest implementation diff of the 5 — no new navigation/state machine, just reordered JSX plus one
+    collapsible wrapper around the existing due-schedule block. Doesn't reduce total field count or add any
+    new structure for someone genuinely overwhelmed by a 15-field Term form — it just puts the two most
+    important numbers first and hides the rest one tap deeper.
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 4 — OPTION 3: ACCORDION SECTIONS                                -->
+<!-- ======================================================================= -->
+<section id="opt3">
+  <div class="section-label">④ Option 3</div>
+  <h2>Card / accordion sections — named, scannable, one open at a time</h2>
+  <p class="desc">
+    4 named sections, each a summary line when collapsed so the whole form is scannable without opening
+    anything. "Coverage &amp; Premium" auto-expands by default (it's the primary content, same
+    auto-expand-if-important precedent as Penny's existing "More fields" disclosure) — the other three start
+    collapsed. <b>Tap any header to expand/collapse.</b>
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Accordion — Term</div>
+      <div class="phone" style="height:700px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+
+                <div class="acc-section" id="term-acc-1">
+                  <div class="acc-head" onclick="toggleAccT(1)">
+                    <div class="an">①</div>
+                    <div class="at"><div class="att">Basics</div><div class="ats" id="term-sum-1">Term · HDFC Life · iSelect Smart360</div></div>
+                    <div class="chv" id="term-chv-1">▾</div>
+                  </div>
+                  <div class="acc-body" id="term-body-1">
+                    <div class="field-block">
+                      <div class="field-label">Insurance type</div>
+                      <div class="type-grid">
+                        <div class="type-tile active" style="--tile-color:#ef4444;--tile-tint:rgba(239,68,68,.1);"><span class="ic">☂️</span><span class="lb">Term</span></div>
+                        <div class="type-tile"><span class="ic">❤️</span><span class="lb">Life</span></div>
+                        <div class="type-tile"><span class="ic">🏥</span><span class="lb">Health</span></div>
+                        <div class="type-tile"><span class="ic">🚗</span><span class="lb">Vehicle</span></div>
+                      </div>
+                    </div>
+                    <div class="field-block"><div class="field-label">Policy / plan name</div><div class="input-box">iSelect Smart360 Term Plan</div></div>
+                    <div class="field-block"><div class="field-label">Insurer / Company</div><div class="input-box trigger">HDFC Life <span class="chv">▾</span></div></div>
+                    <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+                  </div>
+                </div>
+
+                <div class="acc-section primary" id="term-acc-2">
+                  <div class="acc-head" onclick="toggleAccT(2)">
+                    <div class="an">②</div>
+                    <div class="at"><div class="att">Coverage &amp; Premium</div><div class="ats" id="term-sum-2">₹1.0Cr cover · ₹12,000/yr</div></div>
+                    <div class="chv" id="term-chv-2">▾</div>
+                  </div>
+                  <div class="acc-body open" id="term-body-2">
+                    <div class="field-block"><div class="field-label">Sum assured</div><div class="input-box">₹1,00,00,000</div></div>
+                    <div class="row2">
+                      <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹12,000</div></div>
+                      <div class="field-block"><div class="field-label">Payment frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s">H</div><div class="s active">A</div><div class="s">S</div></div></div>
+                    </div>
+                    <div class="toggle-row"><div><div class="tl">Apply first-year discount</div></div><div class="switch on"><div class="knob"></div></div></div>
+                    <div class="preview-line">= ₹12,000 per year</div>
+                    <div class="field-block"><div class="field-label">Premium payment term</div><div class="seg"><div class="s active">Regular</div><div class="s">Limited pay</div></div></div>
+                  </div>
+                </div>
+
+                <div class="acc-section" id="term-acc-3">
+                  <div class="acc-head" onclick="toggleAccT(3)">
+                    <div class="an">③</div>
+                    <div class="at"><div class="att">Dates &amp; Payment Schedule</div><div class="ats" id="term-sum-3">Started 31 Aug 2026 · next due 31 Aug 2027</div></div>
+                    <div class="chv" id="term-chv-3">▾</div>
+                  </div>
+                  <div class="acc-body" id="term-body-3">
+                    <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 2026 <span class="chv">📅</span></div></div>
+                    <div class="field-block">
+                      <div class="field-label">Policy duration</div>
+                      <div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip locked">Till 60</div><div class="chip locked">Till 65</div><div class="chip">Custom</div></div>
+                      <div class="dob-nudge" style="margin-top:6px;"><span class="ic">🎂</span><span class="tx">Age-based durations need your saved DOB.</span><span class="lk">Add now</span></div>
+                    </div>
+                    <div class="field-block"><div class="field-label">End date (auto)</div><div class="input-box trigger">31 Aug 2041 <span class="chv">📅</span></div></div>
+                    <div class="field-block"><div class="field-label">Next premium due (auto)</div><div class="input-box trigger">31 Aug 2027 <span class="chv">📅</span></div></div>
+                    <div class="btn primary" style="align-self:flex-end; flex:0 0 auto; padding:8px 14px;">✓ Mark as paid</div>
+                  </div>
+                </div>
+
+                <div class="acc-section" id="term-acc-4">
+                  <div class="acc-head" onclick="toggleAccT(4)">
+                    <div class="an">④</div>
+                    <div class="at"><div class="att">Nominee &amp; Notes</div><div class="ats" id="term-sum-4">Nominee: Spouse</div></div>
+                    <div class="chv" id="term-chv-4">▾</div>
+                  </div>
+                  <div class="acc-body" id="term-body-4">
+                    <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box">Spouse, Child</div></div>
+                    <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater</div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Sum assured is the <b>first field visible on open</b> (its section auto-expands). The whole form is scannable via 4 summary lines without opening anything.</div>
+    </div>
+
+    <div class="col">
+      <div class="col-label">Same accordion — Vehicle (generalization check)</div>
+      <div class="phone" style="height:560px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="acc-section">
+                  <div class="acc-head"><div class="an">①</div><div class="at"><div class="att">Basics</div><div class="ats">Vehicle · HDFC ERGO · Comprehensive</div></div><div class="chv">▾</div></div>
+                </div>
+                <div class="acc-section primary">
+                  <div class="acc-head"><div class="an">②</div><div class="at"><div class="att">Coverage &amp; Premium</div><div class="ats">IDV ₹5.8L · ₹9,800/yr</div></div><div class="chv">▾</div></div>
+                  <div class="acc-body open">
+                    <div class="field-block"><div class="field-label">IDV (Insured Declared Value)</div><div class="input-box">₹5,80,000</div></div>
+                    <div class="row2">
+                      <div class="field-block"><div class="field-label">Annual premium</div><div class="input-box">₹9,800</div></div>
+                      <div class="field-block"><div class="field-label">Payment frequency</div><div class="seg"><div class="s active">A</div><div class="s">S</div></div></div>
+                    </div>
+                    <div class="field-block"><div class="field-label">No-Claim Bonus</div><div class="chiprow"><div class="chip active">20%</div><div class="chip">35%</div></div></div>
+                  </div>
+                </div>
+                <div class="acc-section"><div class="acc-head"><div class="an">③</div><div class="at"><div class="att">Dates</div><div class="ats">Started 2 Jan 2026 · renews 2 Jan 2027</div></div><div class="chv">▾</div></div></div>
+                <div class="acc-section"><div class="acc-head"><div class="an">④</div><div class="at"><div class="att">Details &amp; Notes</div><div class="ats">Reg. KA03AB1234</div></div><div class="chv">▾</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Same 4-section shape, no age chips/mark-as-paid (Vehicle doesn't have them) — proves the structure isn't Term-specific.</div>
+    </div>
+  </div>
+  <div class="finding rec">
+    <span class="tag">leading candidate</span>
+    Reuses a pattern this codebase <b>already has</b> (the "Collapsible More fields disclosure" convention,
+    <code>docs/DESIGN_GUIDELINES.md</code> §3) rather than introducing a new one — lowest net-new pattern
+    risk of the 5. Fixes both complaints directly: Sum Assured's section auto-opens on load, and the DOB
+    nudge sits exactly where the broken chips are. Generalizes cleanly to every type (shown for Vehicle
+    above) since section count/names stay fixed regardless of which type-specific fields fill "Coverage &amp;
+    Premium".
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 5 — OPTION 4: KEY-FACTS DASHBOARD                               -->
+<!-- ======================================================================= -->
+<section id="opt4">
+  <div class="section-label">⑤ Option 4</div>
+  <h2>"Key facts" dashboard-style entry</h2>
+  <p class="desc">
+    Inspired by how Jupiter/Groww-style fintech apps foreground one dominant number before secondary detail,
+    and Penny's own "Big Number Hero" pattern already used elsewhere (Real Assets card mockups). The 2-3
+    biggest numbers become large tappable tiles filled first; identity is a compact strip; everything else
+    sits in a visually quieter scroll below. This is also where the DOB dependency gets its <b>most
+    prominent</b> treatment of all 5 options — a first-class dashboard tile of its own, not a caption.
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Key-facts dashboard — Term</div>
+      <div class="phone" style="height:760px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%;">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body">
+                <div class="identity-strip">
+                  <span class="ic">☂️</span>
+                  <div class="tx">Term <span class="sub">· HDFC Life · iSelect Smart360</span></div>
+                  <div class="chv">✎</div>
+                </div>
+
+                <div class="tile-row">
+                  <div class="tile-big primary"><div class="tl">Sum assured</div><div class="tv">₹1.0Cr</div></div>
+                  <div class="tile-big primary"><div class="tl">Annual premium</div><div class="tv">₹12,000</div></div>
+                </div>
+                <div class="tile-row">
+                  <div class="tile-big"><div class="tl">Next due</div><div class="tv" style="font-size:13px;">31 Aug 2027</div></div>
+                  <div class="tile-big warn" onclick="toggleDashDob()"><div class="tl">🎂 Cover till age</div><div class="tv ph" id="dash-dob-tile">Add DOB to unlock →</div></div>
+                </div>
+                <div class="dob-capture" id="dash-dob-capture" style="margin-top:-4px;">
+                  <div class="hd">Date of birth — unlocks "Till 60/65" durations</div>
+                  <div class="input-box ph">DD / MM / YYYY</div>
+                  <div class="btn primary" style="padding:7px;" onclick="saveDashDob()">Save &amp; unlock</div>
+                </div>
+
+                <div class="divider-label">Details</div>
+                <div class="muted-block">
+                  <div class="row2">
+                    <div class="field-block"><div class="field-label">Payment frequency</div><div class="seg"><div class="s">M</div><div class="s">Q</div><div class="s">H</div><div class="s active">A</div><div class="s">S</div></div></div>
+                    <div class="field-block"><div class="field-label">Premium payment term</div><div class="seg"><div class="s active">Reg.</div><div class="s">Limited</div></div></div>
+                  </div>
+                  <div class="toggle-row"><div><div class="tl">Apply first-year discount</div></div><div class="switch on"><div class="knob"></div></div></div>
+                  <div class="field-block"><div class="field-label">Start date</div><div class="input-box trigger">31 Aug 2026 <span class="chv">📅</span></div></div>
+                  <div class="field-block"><div class="field-label">Policy duration</div><div class="chiprow"><div class="chip active">15Y</div><div class="chip">20Y</div><div class="chip">Custom</div></div></div>
+                  <div class="field-block"><div class="field-label">Policy number <span class="opt">(optional)</span></div><div class="input-box ph">e.g. P-12345678</div></div>
+                  <div class="field-block"><div class="field-label">Nominee(s) <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Spouse, Child</div></div>
+                  <div class="field-block"><div class="field-label">Notes <span class="opt">(optional)</span></div><div class="input-box ph">e.g. Family floater</div></div>
+                </div>
+              </div>
+              <div class="modal-foot"><div class="btn primary" style="flex:2;">Add policy</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Sum assured is a <b>large tile, visible with zero scrolling</b>. DOB gap is its own warm-amber dashboard tile — tap it, fill DOB inline, tile flips to show "Till 60/65" chips.</div>
+    </div>
+  </div>
+  <div class="finding">
+    <span class="tag">trade-off</span>
+    Best pure visual prominence for the 1-2 numbers that matter (and the strongest DOB-fix of the 5) — but
+    the "everything else" section is a real, still-long list once you scroll past the tiles; this option
+    changes what's <i>emphasized</i>, not how much total content exists. Read fewer as "make the form
+    shorter" and more as "make the important 20% impossible to miss."
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 6 — OPTION 5: GUIDED ONE-QUESTION-AT-A-TIME                     -->
+<!-- ======================================================================= -->
+<section id="opt5">
+  <div class="section-label">⑥ Option 5</div>
+  <h2>Guided, one question at a time — a genuinely different paradigm</h2>
+  <p class="desc">
+    Distinct from the wizard (which groups several fields per step): here exactly <b>one field fills the
+    whole screen</b> at a time, Typeform/Turtlemint-style guided-capture — with a running summary strip
+    pinned at the top that fills in as you answer, so context is never fully hidden the way a strict
+    one-question flow normally loses it. Single-choice questions (type, frequency) auto-advance on tap;
+    numeric/text ones need an explicit Next. <b>Tap through it.</b>
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-label new">Guided flow — Term</div>
+      <div class="phone" style="height:650px;">
+        <div class="screen" data-theme="dark">
+          <div class="modal-backdrop" style="position:relative; inset:auto; flex:1; padding:14px 8px 22px;">
+            <div class="modal-card" style="max-height:100%; height:100%;">
+              <div class="modal-head"><div class="modal-title">Add insurance</div><div class="xbtn">✕</div></div>
+              <div class="modal-body" style="flex:1;">
+                <div class="qflow-summary" id="qflow-summary">
+                  <span class="qflow-chip filled">Term</span>
+                </div>
+
+                <div class="qflow-q" id="qflow-1">
+                  <div class="qn">Question 2 of 8</div>
+                  <div class="qt">Who's the insurer?</div>
+                  <div class="input-box" style="width:80%; text-align:center;">HDFC Life</div>
+                </div>
+
+                <div class="qflow-q" id="qflow-2" style="display:none;">
+                  <div class="qn">Question 3 of 8</div>
+                  <div class="qt">What's the sum assured?</div>
+                  <div class="qsub">The most important number for a Term policy</div>
+                  <input class="qflow-big-input" value="₹1,00,00,000" readonly />
+                </div>
+
+                <div class="qflow-q" id="qflow-3" style="display:none;">
+                  <div class="qn">Question 4 of 8</div>
+                  <div class="qt">Annual premium?</div>
+                  <input class="qflow-big-input" value="₹12,000" readonly />
+                </div>
+
+                <div class="qflow-q" id="qflow-4" style="display:none;">
+                  <div class="qn">Question 5 of 8</div>
+                  <div class="qt">How often do you pay?</div>
+                  <div class="qflow-choice-row">
+                    <div class="qflow-choice">Monthly</div><div class="qflow-choice">Quarterly</div><div class="qflow-choice active">Annual</div><div class="qflow-choice">Single</div>
+                  </div>
+                </div>
+
+                <div class="qflow-q" id="qflow-5" style="display:none;">
+                  <div class="qn">Question 6 of 8</div>
+                  <div class="qt">How long is the policy for?</div>
+                  <div class="qflow-choice-row">
+                    <div class="qflow-choice active">15 years</div><div class="qflow-choice">20 years</div><div class="qflow-choice locked">Till 60 🔒</div><div class="qflow-choice">Custom</div>
+                  </div>
+                  <div class="dob-nudge" style="margin-top:10px;"><span class="ic">🎂</span><span class="tx">"Till 60" needs your date of birth — you haven't added one yet.</span></div>
+                  <div class="dob-capture open" style="margin-top:4px;">
+                    <div class="hd">Add it now?</div>
+                    <div class="row2"><div class="btn secondary" style="padding:7px;">Not now</div><div class="btn primary" style="padding:7px;">Yes, add DOB</div></div>
+                  </div>
+                </div>
+
+                <div class="qflow-nav">
+                  <div class="qflow-back" onclick="qflowBack()">← Back</div>
+                  <div class="btn primary" style="padding:8px 20px;" onclick="qflowNext()">Next</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-cap">Sum Assured is <b>question 3 of 8</b>, given its own full screen — impossible to skim past unnoticed. DOB gap surfaces as its own explicit yes/no question at exactly the moment it's relevant.</div>
+    </div>
+  </div>
+  <div class="finding">
+    <span class="tag">trade-off</span>
+    Most novel and most "can't miss anything" of the 5 (each field gets full attention), but by far the
+    <b>most taps</b> to complete a 15-field Term policy (8+ screens vs. one scroll) and, like the wizard,
+    poorly suited to quick edits of an existing policy. Best reserved for a true first-time guided setup, not
+    the everyday Add/Edit form this component also serves.
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 7 — THE DOB FIX, COMPARED                                       -->
+<!-- ======================================================================= -->
+<section id="dobfix">
+  <div class="section-label">⑦ Required fix, across all 5</div>
+  <h2>"Till 60/65" — from a silent no-op to a visible, actionable state</h2>
+  <p class="desc">
+    The code fix (a toast on tap) is already shipped this session — but a toast that appears only after the
+    user has already tapped a seemingly-normal chip is a symptom fix, not a design. Every option above makes
+    the missing-DOB dependency visible <i>before</i> the tap, not just explained after it. Side by side:
+  </p>
+  <div class="dob-compare">
+    <div class="dob-mini"><div class="dm-t">① Wizard</div><div class="dm-body"><div class="chiprow"><div class="chip locked">Till 60</div></div><div class="dob-nudge open" style="margin-top:6px; padding:6px;"><span class="ic">🎂</span><span class="tx" style="font-size:8.5px;">Add DOB to unlock</span></div></div></div>
+    <div class="dob-mini"><div class="dm-t">② Reordered scroll</div><div class="dm-body"><div class="chiprow"><div class="chip locked">Till 60</div></div><div class="dob-nudge open" style="margin-top:6px; padding:6px;"><span class="ic">🎂</span><span class="tx" style="font-size:8.5px;">Needs saved DOB</span></div></div></div>
+    <div class="dob-mini"><div class="dm-t">③ Accordion</div><div class="dm-body"><div class="chiprow"><div class="chip locked">Till 60</div></div><div class="dob-nudge open" style="margin-top:6px; padding:6px;"><span class="ic">🎂</span><span class="tx" style="font-size:8.5px;">Needs saved DOB</span></div></div></div>
+    <div class="dob-mini"><div class="dm-t">④ Dashboard <span style="color:#6ee7b7;">(strongest)</span></div><div class="dm-body"><div class="tile-big warn" style="padding:7px;"><div class="tl" style="font-size:7.5px;">🎂 Cover till age</div><div class="tv ph" style="font-size:9.5px;">Add DOB →</div></div></div></div>
+    <div class="dob-mini"><div class="dm-t">⑤ Guided</div><div class="dm-body"><div class="qflow-choice locked" style="font-size:9px; padding:6px 10px;">Till 60 🔒</div><div class="dob-nudge open" style="margin-top:6px; padding:6px;"><span class="ic">🎂</span><span class="tx" style="font-size:8.5px;">Explicit yes/no Q</span></div></div></div>
+  </div>
+  <div class="finding">
+    <span class="tag">shared decision</span>
+    Whichever layout ships, the DOB nudge itself should be <b>one shared component</b> (not 5 bespoke
+    inlines as drafted here for comparison) with a real inline capture step — tapping "Add now" opens a
+    small DOB date field right there and, on save, writes to the same profile field <code>selectAgePreset()</code>
+    already reads (<code>profile.dob</code>), then immediately reveals the real computed end date. No
+    navigation to Settings required.
+  </div>
+</section>
+
+<!-- ======================================================================= -->
+<!-- SECTION 8 — COMPARISON & RECOMMENDATION                                 -->
+<!-- ======================================================================= -->
+<section id="recommendation">
+  <div class="section-label">⑧ Recommendation</div>
+  <h2>Comparison &amp; recommendation</h2>
+
+  <table class="cmp-table">
+    <tr><th>Option</th><th>Fixes Sum Assured</th><th>Fixes DOB gap</th><th>Edit-friendliness</th><th>New pattern risk</th></tr>
+    <tr><td>① Wizard</td><td>Yes — hero tile, step 2</td><td>Good — inline capture</td><td>Weak — must step through</td><td>High — new step/progress machinery</td></tr>
+    <tr class="lead"><td><b>③ Accordion</b></td><td>Yes — auto-expanded section</td><td>Good — inline nudge</td><td><b>Strong — jump straight to a section</b></td><td><b>Low — reuses existing pattern</b></td></tr>
+    <tr><td>② Reordered scroll</td><td>Yes — 4th field</td><td>Good — inline nudge</td><td>Strong — same scroll as today</td><td>Low — smallest diff</td></tr>
+    <tr><td>④ Dashboard tiles</td><td><b>Best — large hero tiles</b></td><td><b>Best — first-class tile</b></td><td>Moderate — details still a long scroll</td><td>Moderate — new tile-input visual language</td></tr>
+    <tr><td>⑤ Guided one-question</td><td>Yes — own full screen</td><td>Good — explicit question</td><td>Weakest — most taps of the 5</td><td>Highest — most novel interaction</td></tr>
+  </table>
+
+  <div class="finding rec" style="margin-top:18px;">
+    <span class="tag">recommendation</span>
+    <b>Lead with Option ③ (Accordion sections).</b> It fixes both confirmed complaints as directly as any
+    option (Sum Assured auto-visible, DOB gap surfaced inline), reuses a pattern this codebase already has
+    (no new interaction paradigm to design, build, and test), and — unlike the wizard or guided flow — stays
+    just as good for <b>editing</b> an existing policy as for adding a new one, which matters here because
+    <code>PolicyForm.tsx</code> is genuinely both. It also visibly generalizes to every insurance type without
+    change (shown for Vehicle above), where the wizard's 4 steps and the guided flow's 8 questions would need
+    type-specific step/question counts to avoid feeling padded for a 3-field type like Home.
+    <br /><br />
+    <b>Option ② (reordered scroll)</b> is the pragmatic fallback if even the accordion's tap-to-expand
+    interaction feels like too much change for how small this problem actually is — it fixes both complaints
+    with the least implementation risk, at the cost of not really shortening the form.
+    <br /><br />
+    <b>Option ④ (dashboard tiles)</b> is worth a second look specifically <i>if</i> the real goal is closer to
+    "make this feel like a premium fintech product" rather than "fix two bugs" — its DOB treatment is
+    genuinely the best of the 5 and its hero-number treatment the most visually confident — but it's the
+    option most likely to need a second design pass to get the "muted details" section feeling truly
+    de-emphasized rather than just visually inconsistent with the tiles above it.
+    <br /><br />
+    <b>Options ① (wizard) and ⑤ (guided one-question)</b> I'd deprioritize for this specific form, not
+    because they're bad patterns generally (they're real, validated patterns — Acko and PolicyBazaar's own
+    data backs the wizard) but because both are optimized for a job this form doesn't have: acquiring a new
+    customer through a sales funnel. Penny's Insurance form is a personal record-keeper used for both adding
+    and, likely more often over time, editing — and both patterns make editing measurably worse to make
+    first-entry marginally better.
+  </div>
+</section>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+
+  // Option 1 — wizard
+  var wizStep = 1;
+  var WIZ_TITLES = { 1: 'Add insurance — Basics', 2: 'Add insurance — Coverage', 3: 'Add insurance — Dates', 4: 'Add insurance — Review' };
+  var WIZ_LABELS = { 1: 'Step 1 of 4 · Basics', 2: 'Step 2 of 4 · Coverage & Premium', 3: 'Step 3 of 4 · Dates & Schedule', 4: 'Step 4 of 4 · Details & Review' };
+  function renderWiz() {
+    for (var i = 1; i <= 4; i++) {
+      document.getElementById('wiz-' + i).classList.toggle('active', i === wizStep);
+      document.getElementById('wd' + i).classList.toggle('done', i <= wizStep);
+    }
+    document.getElementById('wiz-title').textContent = WIZ_TITLES[wizStep];
+    document.getElementById('wiz-steplbl').textContent = WIZ_LABELS[wizStep];
+    document.getElementById('wiz-back-btn').style.visibility = wizStep === 1 ? 'hidden' : 'visible';
+    document.getElementById('wiz-next-btn').textContent = wizStep === 4 ? 'Add policy' : 'Next →';
+  }
+  function wizNext() { if (wizStep < 4) { wizStep++; renderWiz(); } }
+  function wizBack() { if (wizStep > 1) { wizStep--; renderWiz(); } }
+  function toggleWizDob() { document.getElementById('wiz-dob-capture').classList.toggle('open'); }
+
+  // Option 2 — collapsible payment schedule
+  var acc2Open = false;
+  function toggleAcc2() {
+    acc2Open = !acc2Open;
+    document.getElementById('acc2-body').classList.toggle('open', acc2Open);
+    document.getElementById('acc2-chv').textContent = acc2Open ? '▴' : '▾';
+  }
+
+  // Option 3 — accordion (Term example)
+  var accTOpen = { 1: false, 2: true, 3: false, 4: false };
+  function toggleAccT(n) {
+    accTOpen[n] = !accTOpen[n];
+    document.getElementById('term-body-' + n).classList.toggle('open', accTOpen[n]);
+    document.getElementById('term-chv-' + n).textContent = accTOpen[n] ? '▴' : '▾';
+  }
+
+  // Option 4 — dashboard DOB tile
+  var dashDobOpen = false;
+  function toggleDashDob() {
+    dashDobOpen = !dashDobOpen;
+    document.getElementById('dash-dob-capture').classList.toggle('open', dashDobOpen);
+  }
+  function saveDashDob() {
+    document.getElementById('dash-dob-tile').textContent = 'Till 60 · Till 65';
+    document.getElementById('dash-dob-tile').classList.remove('ph');
+    document.getElementById('dash-dob-capture').classList.remove('open');
+  }
+
+  // Option 5 — guided flow
+  var qflowStep = 1;
+  var QFLOW_SUMMARY = {
+    1: ['Term'],
+    2: ['Term', 'HDFC Life'],
+    3: ['Term', 'HDFC Life', '₹1.0Cr'],
+    4: ['Term', 'HDFC Life', '₹1.0Cr', '₹12,000'],
+    5: ['Term', 'HDFC Life', '₹1.0Cr', '₹12,000', 'Annual']
+  };
+  function renderQflow() {
+    for (var i = 1; i <= 5; i++) {
+      var el = document.getElementById('qflow-' + i);
+      if (el) el.style.display = i === qflowStep ? 'flex' : 'none';
+    }
+    document.getElementById('qflow-summary').innerHTML = QFLOW_SUMMARY[qflowStep].map(function (s) {
+      return '<span class="qflow-chip filled">' + s + '</span>';
+    }).join('');
+  }
+  function qflowNext() { if (qflowStep < 5) { qflowStep++; renderQflow(); } }
+  function qflowBack() { if (qflowStep > 1) { qflowStep--; renderQflow(); } }
+</script>
+
+</body>
+</html>

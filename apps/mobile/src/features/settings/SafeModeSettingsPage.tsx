@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { useMemo, type ReactNode } from 'react';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Banner, ListContainer, SectionLabel, Toggle } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { BankLogo } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyAccountsChanged, notifyCategoriesChanged, notifyTagsChanged } from '@/hooks/useDataRefresh';
@@ -13,6 +14,7 @@ import { useSettings, type SafeModeVisibility } from '~/context/SettingsContext'
 import type { ExpenseCategory } from '@/core/db/types';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 /** RN port of apps/web-react/src/features/settings/SafeModeSettingsPage.tsx — straightforward
  *  list/toggle port, no CSS grids or hand-rolled overlays to translate. */
@@ -42,12 +44,16 @@ interface RenderedGroup {
 function ToggleRow({
   icon,
   iconColor,
+  iconElement,
   label,
   value,
   onChange
 }: {
   icon: string;
   iconColor?: string;
+  /** Overrides the rendered icon element entirely (e.g. `BankLogo` for a real per-bank logo) while
+   *  keeping this row's icon tile sizing/background driven by `iconColor` unchanged. */
+  iconElement?: ReactNode;
   label: string;
   value: boolean;
   onChange: (value: boolean) => void;
@@ -62,7 +68,7 @@ function ToggleRow({
         // modules" rows here have no per-module color, so they always hit this fallback).
         style={{ backgroundColor: iconColor ?? theme.textTertiary }}
       >
-        <Icon name={icon} size={14} color="#fff" />
+        {iconElement ?? <Icon name={icon} size={14} color="#fff" />}
       </View>
       <Text className="flex-1 min-w-0 text-sm font-medium text-primary" numberOfLines={1}>
         {label}
@@ -74,12 +80,34 @@ function ToggleRow({
 
 export function SafeModeSettingsPage() {
   const modeBg = useModeBackgroundColor();
+  const theme = useThemeColors();
   useDefaultHeaderBack('SafeModeSettings');
   const { safeModeVisibility, setSafeModeVisibility } = useSettings();
-  const { items: categories, save: saveCategory, loading: categoriesLoading } = useRepository(expenseCategoriesRepo);
-  const { items: accounts, save: saveAccount, loading: accountsLoading } = useRepository(accountsRepo);
-  const { items: hashtags, save: saveHashtag, loading: hashtagsLoading } = useRepository(hashtagsRepo);
+  const {
+    items: categories,
+    save: saveCategory,
+    loading: categoriesLoading,
+    reload: reloadCategories
+  } = useRepository(expenseCategoriesRepo);
+  const {
+    items: accounts,
+    save: saveAccount,
+    loading: accountsLoading,
+    reload: reloadAccounts
+  } = useRepository(accountsRepo);
+  const {
+    items: hashtags,
+    save: saveHashtag,
+    loading: hashtagsLoading,
+    reload: reloadHashtags
+  } = useRepository(hashtagsRepo);
   const sortedHashtags = useMemo(() => [...hashtags].sort((a, b) => b.usageCount - a.usageCount), [hashtags]);
+  // Three independent repos back this one screen — pull-to-refresh reloads all of them together.
+  const { refreshing, onRefresh } = usePullToRefresh(() => {
+    reloadCategories();
+    reloadAccounts();
+    reloadHashtags();
+  });
 
   const parentCategoryMap = useMemo(() => buildParentCategoryMap(categories), [categories]);
 
@@ -106,14 +134,17 @@ export function SafeModeSettingsPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           <Banner variant="info">
             Safe Mode shows your everyday numbers so you can check things at a glance in public — toggle on the
             accounts, categories, and modules you'd rather keep hidden there. Everyday spending stays visible by
-            default; income, transfers, family support, legal, sin goods, and investments default to hidden. Privacy
-            Mode always hides everything; Open Mode always shows everything — these toggles only change what Safe Mode
-            does.
+            default; income, transfers, family support, legal, sin goods, and investments default to hidden. Open Mode
+            always shows everything — these toggles only change what Safe Mode does.
           </Banner>
 
           <View>
@@ -129,6 +160,7 @@ export function SafeModeSettingsPage() {
                     key={acc.id}
                     icon={acc.icon}
                     iconColor={acc.color}
+                    iconElement={<BankLogo account={acc} size={14} color="#fff" />}
                     label={acc.name}
                     value={!!acc.hideInSafeMode}
                     onChange={(hidden) =>

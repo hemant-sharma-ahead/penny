@@ -1,5 +1,5 @@
-import { open } from '@op-engineering/op-sqlite';
-import type { RowStore } from './store';
+import { open, type SQLBatchTuple } from '@op-engineering/op-sqlite';
+import type { ExpenseRowStore, IndexedExpenseRow, RowStore } from './store';
 import type {
   Account,
   ActivityLog,
@@ -22,6 +22,7 @@ import type {
   Hashtag,
   Holding,
   InsurancePolicy,
+  InsurerMemory,
   LedgerEntry,
   Liability,
   MerchantMemory,
@@ -34,6 +35,9 @@ import type {
   Profile,
   RetirementPlan,
   SecurityRecord,
+  SmsAccountMapping,
+  SmsExcludedSender,
+  SmsTransactionRecord,
   Subscription,
   SyncCursor,
   TransactionTemplate
@@ -95,6 +99,7 @@ const ENCRYPTED_TABLES = [
   'goal_contributions',
   'liabilities',
   'insurance_policies',
+  'insurer_memory',
   'chip_insights',
   'ai_call_log',
   'subscriptions',
@@ -117,9 +122,25 @@ const ENCRYPTED_TABLES = [
   'bank_cash_withdrawal_codes',
   'payment_modes',
   'retirement_plan',
-  'net_worth_snapshots'
+  'net_worth_snapshots',
+  'sms_transactions',
+  'sms_account_mappings',
+  'sms_excluded_senders'
 ];
 const PLAIN_TABLES = ['security', 'price_cache', 'privacy_stats'];
+
+// Tier 2 performance fix (2026-08-28) — `expenses`-only plaintext, indexed columns. See
+// `store.ts`'s `IndexedExpenseRow`/`ExpenseRowStore` doc comments for what/why. Additive: existing
+// installs get these via `ALTER TABLE` (guarded by `PRAGMA table_info` — SQLite has no
+// `ADD COLUMN IF NOT EXISTS`), a fresh install's `CREATE TABLE` above never includes them, so the
+// same guarded-ALTER step runs unconditionally after table creation and is a no-op the 2nd+ time.
+const EXPENSE_INDEX_COLUMNS: Array<[string, string]> = [
+  ['date', 'INTEGER'],
+  ['accountId', 'TEXT'],
+  ['toAccountId', 'TEXT'],
+  ['categoryId', 'TEXT'],
+  ['type', 'TEXT']
+];
 
 const ready = (async () => {
   await sqlite.execute('PRAGMA journal_mode = WAL;');
@@ -131,6 +152,16 @@ const ready = (async () => {
   for (const name of PLAIN_TABLES) {
     await sqlite.execute(`CREATE TABLE IF NOT EXISTS ${name} (id TEXT PRIMARY KEY NOT NULL, data TEXT NOT NULL)`);
   }
+
+  const { rows: existingCols } = await sqlite.execute('PRAGMA table_info(expenses)');
+  const haveCols = new Set((existingCols as unknown as Array<{ name: string }>).map((c) => c.name));
+  for (const [col, sqlType] of EXPENSE_INDEX_COLUMNS) {
+    if (!haveCols.has(col)) await sqlite.execute(`ALTER TABLE expenses ADD COLUMN ${col} ${sqlType}`);
+  }
+  await sqlite.execute('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)');
+  await sqlite.execute('CREATE INDEX IF NOT EXISTS idx_expenses_accountId ON expenses(accountId)');
+  await sqlite.execute('CREATE INDEX IF NOT EXISTS idx_expenses_toAccountId ON expenses(toAccountId)');
+  await sqlite.execute('CREATE INDEX IF NOT EXISTS idx_expenses_categoryId ON expenses(categoryId)');
 })();
 
 interface EncryptedRow {
@@ -190,6 +221,113 @@ function makeEncryptedRowStore(tableName: string): RowStore<EncryptedRow> {
     async clear() {
       await ready;
       await sqlite.execute(`DELETE FROM ${tableName}`);
+    }
+  };
+}
+
+/** `expenses`-only row store — real SQL indexed queries on top of the same `id`/`iv`/`ciphertext`
+ *  envelope every other table uses, plus the 5 plaintext columns from `EXPENSE_INDEX_COLUMNS`/
+ *  `IndexedExpenseRow` above. See `store.ts`'s `ExpenseRowStore` doc comment for the full contract;
+ *  `schema.ts` (Dexie/web) implements the identical contract via real `.where(...)` queries. */
+function makeExpensesRowStore(): ExpenseRowStore {
+  return {
+    async get(id) {
+      await ready;
+      const { rows } = await sqlite.execute('SELECT id, iv, ciphertext FROM expenses WHERE id = ? LIMIT 1', [id]);
+      return rows[0] as unknown as IndexedExpenseRow | undefined;
+    },
+    async put(record) {
+      await ready;
+      await sqlite.execute(
+        `INSERT INTO expenses (id, iv, ciphertext, date, accountId, toAccountId, categoryId, type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET iv = excluded.iv, ciphertext = excluded.ciphertext,
+           date = excluded.date, accountId = excluded.accountId, toAccountId = excluded.toAccountId,
+           categoryId = excluded.categoryId, type = excluded.type`,
+        [
+          record.id,
+          record.iv,
+          record.ciphertext,
+          record.date ?? null,
+          record.accountId ?? null,
+          record.toAccountId ?? null,
+          record.categoryId ?? null,
+          record.type ?? null
+        ]
+      );
+    },
+    async toArray() {
+      await ready;
+      const { rows } = await sqlite.execute('SELECT id, iv, ciphertext FROM expenses');
+      return rows as unknown as IndexedExpenseRow[];
+    },
+    async delete(id) {
+      await ready;
+      await sqlite.execute('DELETE FROM expenses WHERE id = ?', [id]);
+    },
+    async count() {
+      await ready;
+      const { rows } = await sqlite.execute('SELECT COUNT(*) as n FROM expenses');
+      return Number((rows[0] as { n: number } | undefined)?.n ?? 0);
+    },
+    // Never actually called in practice — same as `makeEncryptedRowStore`'s identical note above.
+    async update(id, changes) {
+      await ready;
+      const { rows } = await sqlite.execute('SELECT id, iv, ciphertext FROM expenses WHERE id = ? LIMIT 1', [id]);
+      const existing = rows[0] as unknown as IndexedExpenseRow | undefined;
+      if (!existing) return undefined;
+      const merged = { ...existing, ...changes };
+      await sqlite.execute('UPDATE expenses SET iv = ?, ciphertext = ? WHERE id = ?', [
+        merged.iv,
+        merged.ciphertext,
+        id
+      ]);
+      return merged;
+    },
+    async clear() {
+      await ready;
+      await sqlite.execute('DELETE FROM expenses');
+    },
+    async queryByDateRange(startMs, endMs) {
+      await ready;
+      const { rows } = await sqlite.execute('SELECT id, iv, ciphertext FROM expenses WHERE date BETWEEN ? AND ?', [
+        startMs,
+        endMs
+      ]);
+      return rows as unknown as IndexedExpenseRow[];
+    },
+    async queryByAccount(accountId) {
+      await ready;
+      const { rows } = await sqlite.execute(
+        'SELECT id, iv, ciphertext FROM expenses WHERE accountId = ? OR toAccountId = ?',
+        [accountId, accountId]
+      );
+      return rows as unknown as IndexedExpenseRow[];
+    },
+    async queryByCategory(categoryId) {
+      await ready;
+      const { rows } = await sqlite.execute('SELECT id, iv, ciphertext FROM expenses WHERE categoryId = ?', [
+        categoryId
+      ]);
+      return rows as unknown as IndexedExpenseRow[];
+    },
+    async backfillIndexColumnsBatch(entries) {
+      await ready;
+      if (entries.length === 0) return;
+      // Same "one SQL text + one param-array per row, one native round-trip" shape `restoreTables()`
+      // already uses for exactly this reason (op-sqlite's `executeBatch` wraps it in a single SQLite
+      // transaction, instead of ~10,000 individual autocommit `UPDATE`s).
+      const params = entries.map(({ id, fields }) => [
+        fields.date,
+        fields.accountId ?? null,
+        fields.toAccountId ?? null,
+        fields.categoryId,
+        fields.type,
+        id
+      ]);
+      await sqlite.executeBatch([
+        ['UPDATE expenses SET date = ?, accountId = ?, toAccountId = ?, categoryId = ?, type = ? WHERE id = ?', params]
+      ]);
     }
   };
 }
@@ -256,6 +394,13 @@ function makeJsonRowStore<T>(tableName: string): RowStore<T> {
 // is `RowStore<EncryptedRow>` — the same bridging cast `repositories.ts`'s `db.<table> as never` already
 // relies on to construct `EncryptedRepository<DomainType>`; only `tables` (below) is deliberately
 // untyped, same as Dexie's own `Table<any>[]`.
+// Single instance shared between `tableStores.expenses` (below, viewed generically as
+// `RowStore<Expense>` like every other table) and `expensesIndexedStore` (exported for
+// `repositories.ts` to construct `expensesRepo`'s indexed query support) — same underlying object,
+// two type lenses, matching this file's existing "declared type lies for convenience" convention.
+const expensesStore = makeExpensesRowStore();
+export const expensesIndexedStore: ExpenseRowStore = expensesStore;
+
 const tableStores = {
   price_cache: makeJsonRowStore<PriceCache>('price_cache'),
   privacy_stats: makeJsonRowStore<PrivacyStat>('privacy_stats'),
@@ -263,7 +408,7 @@ const tableStores = {
 
   profile: makeEncryptedRowStore('profile') as unknown as RowStore<Profile>,
   holdings: makeEncryptedRowStore('holdings') as unknown as RowStore<Holding>,
-  expenses: makeEncryptedRowStore('expenses') as unknown as RowStore<Expense>,
+  expenses: expensesStore as unknown as RowStore<Expense>,
   expense_categories: makeEncryptedRowStore('expense_categories') as unknown as RowStore<ExpenseCategory>,
   budgets: makeEncryptedRowStore('budgets') as unknown as RowStore<Budget>,
   hashtags: makeEncryptedRowStore('hashtags') as unknown as RowStore<Hashtag>,
@@ -271,6 +416,7 @@ const tableStores = {
   goal_contributions: makeEncryptedRowStore('goal_contributions') as unknown as RowStore<GoalContribution>,
   liabilities: makeEncryptedRowStore('liabilities') as unknown as RowStore<Liability>,
   insurance_policies: makeEncryptedRowStore('insurance_policies') as unknown as RowStore<InsurancePolicy>,
+  insurer_memory: makeEncryptedRowStore('insurer_memory') as unknown as RowStore<InsurerMemory>,
   chip_insights: makeEncryptedRowStore('chip_insights') as unknown as RowStore<ChipInsight>,
   ai_call_log: makeEncryptedRowStore('ai_call_log') as unknown as RowStore<AiCallLog>,
   subscriptions: makeEncryptedRowStore('subscriptions') as unknown as RowStore<Subscription>,
@@ -299,7 +445,10 @@ const tableStores = {
   ) as unknown as RowStore<BankCashWithdrawalCode>,
   payment_modes: makeEncryptedRowStore('payment_modes') as unknown as RowStore<PaymentMode>,
   retirement_plan: makeEncryptedRowStore('retirement_plan') as unknown as RowStore<RetirementPlan>,
-  net_worth_snapshots: makeEncryptedRowStore('net_worth_snapshots') as unknown as RowStore<NetWorthSnapshot>
+  net_worth_snapshots: makeEncryptedRowStore('net_worth_snapshots') as unknown as RowStore<NetWorthSnapshot>,
+  sms_transactions: makeEncryptedRowStore('sms_transactions') as unknown as RowStore<SmsTransactionRecord>,
+  sms_account_mappings: makeEncryptedRowStore('sms_account_mappings') as unknown as RowStore<SmsAccountMapping>,
+  sms_excluded_senders: makeEncryptedRowStore('sms_excluded_senders') as unknown as RowStore<SmsExcludedSender>
 };
 
 export const db = {
@@ -308,3 +457,29 @@ export const db = {
   // that's needed is `.clear()`.
   tables: Object.values(tableStores) as RowStore<unknown>[]
 };
+
+/** Atomically clears and repopulates many tables from a backup restore (2026-08-21, real-device
+ *  performance + correctness fix — see `backupManager.ts`'s doc comment on `importBackup` for the full
+ *  incident). `RowStore` deliberately has no bulk-write or cross-table transaction primitive (see its
+ *  own doc comment) — this is a purpose-built exception for the one legitimate caller that needs one,
+ *  built directly on `op-sqlite`'s real `executeBatch()` (many statements, one native round-trip,
+ *  automatically wrapped in a single SQLite transaction) instead of looping individual `put()` calls,
+ *  which is what made the very first correct-but-slow fix for this take literal minutes on a real
+ *  transaction history. `schema.ts` (web) implements the identical contract via Dexie's own
+ *  `transaction()`/`bulkPut()`, which already do this natively. */
+export async function restoreTables(entries: Array<{ name: string; rows: unknown[] | undefined }>): Promise<void> {
+  await ready;
+  const commands: SQLBatchTuple[] = [];
+  for (const { name, rows } of entries) {
+    commands.push([`DELETE FROM ${name}`]);
+    if (!rows?.length) continue;
+    if (ENCRYPTED_TABLES.includes(name)) {
+      const params = (rows as EncryptedRow[]).map((r) => [r.id, r.iv, r.ciphertext]);
+      commands.push([`INSERT INTO ${name} (id, iv, ciphertext) VALUES (?, ?, ?)`, params]);
+    } else {
+      const params = rows.map((r) => [(r as { id: string }).id, JSON.stringify(r)]);
+      commands.push([`INSERT INTO ${name} (id, data) VALUES (?, ?)`, params]);
+    }
+  }
+  await sqlite.executeBatch(commands);
+}

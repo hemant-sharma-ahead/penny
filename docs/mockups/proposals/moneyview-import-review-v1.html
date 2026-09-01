@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — MoneyView CSV import review: items 70 / 71 / 75 (v1)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      /* ============ Theme tokens — real values from packages/core/src/theme/tokens.ts ============ */
+      :root, html[data-theme="light"] {
+        --screenbg:#eff6ff; --card:#ffffff; --card2:#e4eeff; --chip:#e4eeff;
+        --text:#0f172a; --text2:#475569; --text3:#94a3b8;
+        --border:#c7d8f0; --borderstrong:#a5bfdf;
+        --primary:#00a86b; --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6; --neutral:#64748b;
+        --oncolor:#ffffff;
+      }
+      html[data-theme="dark"] {
+        --screenbg:#0b0f14; --card:#161b22; --card2:#1c2128; --chip:#1c2128;
+        --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --borderstrong:#444c56;
+        --primary:#00a86b; --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6; --neutral:#8b949e;
+        --oncolor:#ffffff;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:#e6edf3; -webkit-font-smoothing:antialiased; padding-bottom:80px; }
+      a { color:inherit; }
+
+      /* ---- page chrome ---- */
+      .pagehead { text-align:center; padding:34px 16px 6px; }
+      .pagehead h1 { margin:0 0 6px; font-size:21px; color:#fff; }
+      .pagehead .sub { color:#9aa5b1; font-size:13px; max-width:900px; margin:0 auto; line-height:1.65; }
+      .scopebox { max-width:880px; margin:16px auto 0; background:#12181f; border:1px solid #2d333b; border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.65; }
+      .scopebox code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+      .scopebox b { color:#fff; }
+
+      .topnav { position:sticky; top:0; z-index:50; background:#05070a; border-bottom:1px solid #1b222b; display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 16px; margin-top:22px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+      .themebtn { font-size:12px; font-weight:700; color:#fbdca0; background:#2a2107; border:1px solid #4d3c0f; padding:7px 14px; border-radius:999px; cursor:pointer; font-family:inherit; }
+      .themebtn:hover { background:#352a09; }
+
+      .section { max-width:1200px; margin:0 auto; padding:44px 16px 10px; border-top:1px solid #1b222b; }
+      .section:first-of-type { border-top:none; }
+      .sectiontitle { text-align:center; font-size:17px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:24px; height:24px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12.5px; line-height:24px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:860px; margin:0 auto 8px; line-height:1.7; }
+      .planquote { max-width:860px; margin:10px auto 20px; background:#12181f; border-left:3px solid var(--primary); border-radius:0 10px 10px 0; padding:10px 16px; color:#b9c2cc; font-size:11.5px; line-height:1.65; font-style:italic; }
+      .planquote b { color:#7ee6b8; font-style:normal; }
+
+      .tabbar { display:flex; justify-content:center; gap:8px; margin-bottom:22px; flex-wrap:wrap; }
+      .tabbtn { font-size:12px; font-weight:700; color:#c7ccd3; background:#151b22; border:1px solid #2d333b; padding:8px 16px; border-radius:999px; cursor:pointer; font-family:inherit; }
+      .tabbtn.active { background:var(--primary); color:#04140d; border-color:transparent; }
+
+      .frame-row { display:flex; justify-content:center; align-items:flex-start; gap:26px; flex-wrap:wrap; }
+      .frame-col { display:none; flex-direction:column; align-items:center; gap:10px; }
+      .frame-col.show { display:flex; }
+      .frame-label { font-size:11.5px; font-weight:800; color:#fff; text-align:center; max-width:390px; }
+      .frame-label .tag { display:inline-block; font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; margin-left:6px; vertical-align:middle; }
+      .tag.now { background:rgba(139,148,158,.22); color:#c7ccd3; }
+      .tag.rec { background:rgba(16,185,129,.2); color:#7ee6b8; }
+      .tag.alt { background:rgba(59,130,246,.2); color:#8fb4e6; }
+
+      /* ============ Real device frame — 390×844, full height always ============ */
+      .phone { width:390px; height:844px; background:var(--screenbg); border-radius:44px; border:10px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.55); flex-shrink:0; }
+      .statusbar { height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 24px; font-size:13px; font-weight:700; color:var(--text); background:var(--screenbg); }
+      .statusbar .sbicons { display:flex; gap:5px; align-items:center; color:var(--text); font-size:12px; }
+      .appheader { height:46px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; gap:8px; background:var(--screenbg); }
+      .appheader .back3 { width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; border-radius:8px; }
+      .appheader .htitle3 { flex:1; font-size:12.5px; font-weight:700; color:var(--text); }
+      .appheader .hcount3 { font-size:10px; color:var(--text3); }
+      .content { padding:10px 13px 16px; flex:1; overflow-y:auto; background:var(--screenbg); }
+      .content::-webkit-scrollbar { width:0; }
+
+      .banner1 { border-radius:11px; border:1px solid; padding:9px 10px; display:flex; gap:7px; font-size:9.8px; line-height:1.55; margin-bottom:9px; }
+      .banner1.info { border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.12); color:#3b82f6; }
+      .banner1.info i { color:var(--info); font-size:13px; margin-top:1px; }
+      html[data-theme="light"] .banner1.info { color:#1d4ed8; }
+
+      /* ---- bucket card shell (real BucketCard.tsx) ---- */
+      .rbucket { border-radius:12px; overflow:hidden; background:var(--card); border:1px solid var(--border); margin-bottom:9px; }
+      .rbhead { display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; }
+      .rbdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+      .rbtitle { font-size:11px; font-weight:700; color:var(--text); flex:1; }
+      .rbcount { background:var(--chip); border-radius:999px; padding:2px 7px; font-size:9px; font-weight:800; color:var(--text2); }
+      .rbbody { border-top:1px solid var(--border); padding:9px 10px 10px; display:flex; flex-direction:column; gap:8px; }
+
+      /* ---- paired CSV/matched card (shared visual language: AccountsSection + DuplicatesBucket) ---- */
+      .paircard { border-radius:11px; border:1px solid var(--border); overflow:hidden; background:var(--card); }
+      .pairrow { display:flex; }
+      .pairhalf { flex:1; padding:9px 10px; }
+      .pairhalf.left { background:var(--card2); }
+      .pairhalf.right { border-left:1px dashed var(--border); }
+      .pairlbl { font-size:8px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--text3); }
+      .pairname { font-size:11px; font-weight:700; color:var(--text); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .pairsub { font-size:9px; color:var(--text3); margin-top:1px; }
+
+      /* ---- account chip (icon square + name), used inside "matched account" dropdown trigger ---- */
+      .acctrigger { display:flex; align-items:center; gap:6px; border-radius:9px; border:1px solid var(--border); padding:6px 8px; background:var(--chip); margin-top:4px; }
+      .acctrigger.dashed { border-style:dashed; border-color:var(--warning); }
+      .acctrigger.ambiguous { border-style:dashed; border-color:var(--warning); background:rgba(245,158,11,.1); }
+      .acctsq { width:18px; height:18px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .acctsq i { font-size:10px; color:#fff; }
+      .acctname { flex:1; font-size:10px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .acctname.muted { color:var(--warning); font-style:italic; font-weight:600; }
+      .acctchev { color:var(--text3); font-size:9px; }
+
+      .banner-amb { display:flex; gap:7px; align-items:flex-start; padding:8px 9px; border-radius:9px; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.4); margin:0 10px 9px; font-size:9.5px; line-height:1.55; color:var(--warning); }
+      .banner-amb i { font-size:13px; margin-top:1px; flex-shrink:0; }
+      .banner-amb b { color:var(--text); }
+      .ambribbon { display:inline-flex; align-items:center; gap:3px; font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; background:rgba(245,158,11,.22); color:var(--warning); }
+      .candrow { display:flex; gap:6px; padding:0 10px 9px; flex-wrap:wrap; }
+      .candpill { display:flex; align-items:center; gap:5px; border:1px dashed var(--warning); background:rgba(245,158,11,.08); border-radius:999px; padding:5px 9px; font-size:9.5px; font-weight:700; color:var(--text); }
+      .candpill .acctsq { width:14px; height:14px; }
+
+      .actionrow { display:flex; gap:7px; padding:9px 10px; border-top:1px dashed var(--border); }
+      .abtn { flex:1; text-align:center; padding:8px 0; border-radius:9px; font-size:10.5px; font-weight:700; border:1px solid var(--border); background:var(--chip); color:var(--text); }
+      .abtn.primary { background:var(--primary); color:#04140d; border-color:transparent; }
+      .abtn.info2 { background:var(--info); color:#fff; border-color:transparent; }
+      .abtn.muted { opacity:.55; }
+      .abtn.ghost { flex:0 0 auto; padding:8px 12px; border:none; background:none; color:var(--text2); }
+
+      .statsline { font-size:9.5px; color:var(--text2); padding:0 10px 9px; }
+      .statsline b.g { color:var(--success); }
+      .statsline b.w { color:var(--warning); }
+
+      /* ---- confirmed / info badges ---- */
+      .confirmedrow { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-top:1px dashed var(--border); }
+      .confirmedrow span.ok { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:700; color:var(--success); }
+      .confirmedrow span.skip { font-size:9.5px; font-weight:600; color:var(--text3); }
+
+      /* ---- transfer-pair card (real TransferPairCard.tsx visual language) ---- */
+      .xfercard { border-radius:11px; padding:11px; display:flex; flex-direction:column; gap:9px; }
+      .xferrow { display:flex; align-items:center; gap:8px; }
+      .xferside { flex:1; display:flex; flex-direction:column; align-items:center; text-align:center; }
+      .xferside .nm { display:flex; align-items:center; gap:5px; }
+      .xferside .nm span { font-size:10.5px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
+      .xferside .amt { font-size:9.5px; color:var(--text2); margin-top:2px; }
+      .xfermid { min-width:64px; display:flex; flex-direction:column; align-items:center; flex-shrink:0; }
+      .xfermid .amtbig { font-size:12px; font-weight:800; }
+      .xfermid .lbl { font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+      .xfersq { width:15px; height:15px; border-radius:5px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+      .xfersq i { font-size:8.5px; color:#fff; }
+      .xferrowlist { border-top:1px dashed; margin-top:2px; padding-top:8px; display:flex; flex-direction:column; gap:6px; }
+      .xferrowitem { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:10px; }
+      .xferrowitem .d { color:var(--text2); flex-shrink:0; }
+      .xferrowitem .desc { color:var(--text); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .xferrowitem .a { font-weight:700; color:var(--text); flex-shrink:0; }
+      /* ---- item 71's "See all" popup rows — plain date+amount list, no side-by-side pairing (these are
+         candidate rows, not duplicate pairs) — reuses the same d/desc/a layout as .xferrowitem ---- */
+      .poprow71 { display:flex; align-items:center; gap:8px; font-size:10.5px; padding:9px 2px; border-bottom:1px solid var(--border); }
+      .poprow71:last-child { border-bottom:none; }
+      .poprow71 .d { color:var(--text2); flex-shrink:0; width:44px; }
+      .poprow71 .desc { flex:1; min-width:0; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .poprow71 .a { font-weight:700; color:var(--text); flex-shrink:0; }
+      .xferfoot { display:flex; align-items:center; justify-content:space-between; padding-top:2px; }
+      .xferfoot .undo { font-size:9.5px; font-weight:700; color:var(--text3); cursor:pointer; }
+      .xferexpand { font-size:9.5px; font-weight:700; cursor:pointer; text-align:center; padding-top:2px; }
+
+      .oldbanner { border-radius:11px; border:1px solid; padding:9px 10px; font-size:10px; line-height:1.5; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+      /* ---- category-group tile (duplicates bucket, grouped like tiles) ---- */
+      .duptile { border-radius:11px; overflow:hidden; border:1px solid var(--border); }
+      .duphead { padding:9px 10px; display:flex; align-items:center; gap:6px; cursor:pointer; background:rgba(139,148,158,.14); }
+      html[data-theme="light"] .duphead { background:rgba(100,116,139,.1); }
+      .duphead .nm { font-size:10.5px; font-weight:700; color:var(--text); flex:1; }
+      .duphead .cnt { background:var(--chip); border-radius:999px; padding:2px 7px; font-size:9px; font-weight:800; color:var(--text2); }
+      .dupbody { border-top:1px solid var(--border); padding:9px 10px; display:none; flex-direction:column; gap:8px; background:var(--card); }
+      .seeallrow { display:flex; justify-content:space-between; align-items:center; padding-top:2px; border-top:1px dashed var(--border); margin-top:2px; padding-top:8px; }
+      .seealllink2 { font-size:10px; font-weight:700; color:var(--primary); cursor:pointer; }
+      .notdup { font-size:9px; font-weight:700; color:var(--info); padding:7px 10px; border-top:1px solid var(--border); cursor:pointer; }
+
+      /* ---- full-screen popup (real Modal.tsx primitive — centered, near-full-height) ---- */
+      .backdrop2 { position:absolute; inset:0; background:rgba(0,0,0,.62); display:none; align-items:center; justify-content:center; padding:40px 14px 56px; z-index:20; }
+      .backdrop2.open { display:flex; }
+      .popup2 { width:100%; max-width:358px; height:100%; background:var(--card); border:1px solid var(--border); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.55); }
+      .pophead2 { display:flex; align-items:flex-start; gap:8px; padding:13px 13px 8px; flex-shrink:0; border-bottom:1px solid var(--border); }
+      .ptitle2 { flex:1; min-width:0; }
+      .ptitle2 .pt1 { font-size:12.5px; font-weight:800; color:var(--text); }
+      .ptitle2 .pt2 { font-size:9.5px; color:var(--text3); margin-top:1px; }
+      .pxbtn2 { color:var(--text2); cursor:pointer; background:none; border:none; font-size:17px; font-family:inherit; flex-shrink:0; }
+      .popcontent { flex:1; overflow-y:auto; padding:10px 13px 13px; display:flex; flex-direction:column; gap:8px; }
+
+      .recobox { max-width:900px; margin:20px auto 6px; background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.35); border-radius:12px; padding:13px 16px; color:#d3f5e6; font-size:11.5px; line-height:1.7; display:flex; gap:9px; }
+      .recobox i { color:var(--success); font-size:16px; flex-shrink:0; margin-top:1px; }
+      .recobox b { color:#7ee6b8; }
+      .openbox { max-width:900px; margin:10px auto 4px; background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.3); border-radius:12px; padding:12px 16px; color:#cfe1fb; font-size:11px; line-height:1.7; }
+      .openbox b { color:#8fb4e6; }
+      .openbox ul { margin:6px 0 0; padding-left:18px; }
+      .openbox li { margin-bottom:5px; }
+    </style>
+  </head>
+  <body>
+    <div class="pagehead">
+      <h1>MoneyView CSV import review — items 70 / 71 / 75 <span style="color:#7ee6b8; font-size:14px; font-weight:800;">— FINAL, locked in</span></h1>
+      <div class="sub">
+        Three related design changes to the CSV import review screen in <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">apps/mobile</code>,
+        all three now reviewed and confirmed (this file was updated in place to lock in the picked direction, not versioned
+        into a new file — see each section's green "Confirmed" box for exactly what's final and what, if anything, is
+        still open). Grounded in the real current <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">AccountsSection.tsx</code>,
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">CashWithdrawalSuggestionCard.tsx</code>,
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">TransferPairCard.tsx</code>,
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">DuplicatesBucket.tsx</code>,
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">TileRowList.tsx</code> and
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">TransactionBrowserModal.tsx</code> —
+        see <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">docs/plans/real-device-testing-pass.md</code>'s 8th-batch mockup-gated items 70/71/75.
+      </div>
+      <div class="scopebox">
+        <b>Scope:</b> <code>apps/mobile</code> only. <code>apps/web-react</code> is frozen (per <code>CLAUDE.md</code>) and its
+        <code>review/</code> import components predate the 2026-08-14/2026-08-20 redesigns these three files already went
+        through on mobile — the two platforms' import-review screens have already diverged on purpose, and none of these
+        three items are being proposed for web. No mirroring action needed there.
+      </div>
+    </div>
+
+    <div class="topnav">
+      <a href="#item-70">70 · Bank/card merge ambiguity</a>
+      <a href="#item-71">71 · Cash-withdrawal transfer preview</a>
+      <a href="#item-75">75 · Duplicates grouping + see-all</a>
+      <button class="themebtn" onclick="toggleTheme()"><i class="ti ti-sun-moon"></i> Toggle Light/Dark</button>
+    </div>
+
+    <!-- ============================================================ ITEM 70 ============================================================ -->
+    <div class="section" id="item-70">
+      <div class="sectiontitle"><span class="num">70</span>Bank/card merge suggestion is falsely confident across 2+ same-bank accounts</div>
+      <div class="sectionsub">
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">suggestCardAccountMerges()</code> matches purely by
+        normalized bank name and picks the <b style="color:#fff;">first</b> non-card resolution sharing that key — with zero
+        disambiguation when the user already has 2+ accounts for the same bank (e.g. two SBI accounts). The row's own
+        "Matched account" dropdown already lists every account and already works — this is only about the
+        confident-vs-ambiguous <i>state</i> the row is presented in.
+      </div>
+      <div class="planquote">
+        Plan (from the doc): when 2+ existing accounts share a bank key, treat the match as genuinely ambiguous rather than
+        confidently picking the first one — <b>flag the row as needing a manual pick</b> among the same-bank candidates
+        instead of pre-filling a specific guess. Needs a new "ambiguous, pick one" visual state for the row.
+      </div>
+
+      <div class="tabbar" id="tabs-70">
+        <button class="tabbtn active" onclick="showFrame('70','current')">Current (today)</button>
+        <button class="tabbtn" onclick="showFrame('70','a')">Final direction — blank pick + merged banner</button>
+      </div>
+
+      <div class="frame-row">
+        <!-- CURRENT -->
+        <div class="frame-col show" data-item="70" data-opt="current">
+          <div class="frame-label">Today — confidently prefilled, no ambiguity signal <span class="tag now">CURRENT</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Accounts</div></div>
+            <div class="content">
+              <div class="banner1 info"><i class="ti ti-info-circle"></i><span>3 accounts found in this file. Match each to a real account, or create a new one.</span></div>
+
+              <div class="paircard" style="margin-bottom:10px;">
+                <div class="pairrow">
+                  <div class="pairhalf left">
+                    <div class="pairlbl">CSV account</div>
+                    <div class="pairname">SBI Bank A/C</div>
+                    <div class="pairsub">142 rows</div>
+                  </div>
+                  <div class="pairhalf right">
+                    <div class="pairlbl">Matched account</div>
+                    <div class="acctrigger">
+                      <div class="acctsq" style="background:#3b62d6;"><i class="ti ti-building-bank"></i></div>
+                      <div class="acctname">SBI Savings</div>
+                      <i class="ti ti-chevron-down acctchev"></i>
+                    </div>
+                  </div>
+                </div>
+                <div style="padding:8px 10px 0; display:flex; gap:5px; align-items:center;">
+                  <i class="ti ti-credit-card" style="color:var(--info); font-size:12px;"></i>
+                  <span style="font-size:9.5px; color:var(--info);">Looks like a card on your "SBI Savings" account?</span>
+                </div>
+                <div class="actionrow">
+                  <button class="abtn" style="flex:.7;">Skip</button>
+                  <button class="abtn" style="flex:1; opacity:.5;">Confirm</button>
+                  <button class="abtn info2" style="flex:1.4;">Merge → "SBI Savings"</button>
+                </div>
+              </div>
+
+              <div style="text-align:center; font-size:9.5px; color:var(--danger); margin:-2px 0 10px; line-height:1.5;">
+                ⚠ Actually wrong here: the user has <b>two</b> SBI accounts (Savings + Salary) — nothing on this row hints
+                that "SBI Savings" is only a guess, not a confirmed match.
+              </div>
+
+              <div class="paircard">
+                <div class="pairrow">
+                  <div class="pairhalf left">
+                    <div class="pairlbl">CSV account</div>
+                    <div class="pairname">SBI Bank A/C 2</div>
+                    <div class="pairsub">58 rows</div>
+                  </div>
+                  <div class="pairhalf right">
+                    <div class="pairlbl">Matched account</div>
+                    <div class="acctrigger">
+                      <div class="acctsq" style="background:#6366f1;"><i class="ti ti-building-bank"></i></div>
+                      <div class="acctname">SBI Salary</div>
+                      <i class="ti ti-chevron-down acctchev"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="actionrow">
+                  <button class="abtn" style="flex:.7;">Skip</button>
+                  <button class="abtn primary" style="flex:1;">Confirm</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FINAL DIRECTION (was Option A — now the confirmed, chosen design) -->
+        <div class="frame-col" data-item="70" data-opt="a">
+          <div class="frame-label">Final direction — no prefill, merged card + ambiguity banner <span class="tag rec">CONFIRMED — FINAL</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Accounts</div></div>
+            <div class="content">
+              <div class="banner1 info"><i class="ti ti-info-circle"></i><span>3 accounts found in this file. Match each to a real account, or create a new one.</span></div>
+
+              <div class="paircard" style="border-color:var(--warning); margin-bottom:10px;">
+                <div style="padding:8px 10px 0; display:flex; align-items:center; gap:6px;">
+                  <span class="ambribbon"><i class="ti ti-git-branch" style="font-size:9px;"></i> Ambiguous · pick one</span>
+                </div>
+                <div class="pairrow" style="margin-top:6px;">
+                  <div class="pairhalf left">
+                    <div class="pairlbl">CSV account</div>
+                    <div class="pairname">SBI Bank A/C</div>
+                    <div class="pairsub">142 rows</div>
+                  </div>
+                  <div class="pairhalf right">
+                    <div class="pairlbl">Matched account</div>
+                    <div class="acctrigger ambiguous">
+                      <div class="acctsq" style="border:1.5px dashed var(--warning); background:transparent;"><i class="ti ti-help-circle" style="color:var(--warning);"></i></div>
+                      <div class="acctname muted">Choose account…</div>
+                      <i class="ti ti-chevron-down acctchev"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="banner-amb" style="margin-top:9px;">
+                  <i class="ti ti-credit-card"></i>
+                  <span>Looks like a card — could be for <b>"SBI Savings"</b> or <b>"SBI Salary"</b>. Pick the right one
+                  above.</span>
+                </div>
+                <div class="actionrow" style="border-top:1px dashed var(--border);">
+                  <button class="abtn" style="flex:.7;">Skip</button>
+                  <button class="abtn" style="flex:1; opacity:.5;">Confirm</button>
+                </div>
+              </div>
+
+              <div class="paircard">
+                <div class="pairrow">
+                  <div class="pairhalf left">
+                    <div class="pairlbl">CSV account</div>
+                    <div class="pairname">SBI Bank A/C 2</div>
+                    <div class="pairsub">58 rows</div>
+                  </div>
+                  <div class="pairhalf right">
+                    <div class="pairlbl">Matched account</div>
+                    <div class="acctrigger">
+                      <div class="acctsq" style="background:#6366f1;"><i class="ti ti-building-bank"></i></div>
+                      <div class="acctname">SBI Salary</div>
+                      <i class="ti ti-chevron-down acctchev"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="actionrow">
+                  <button class="abtn" style="flex:.7;">Skip</button>
+                  <button class="abtn primary" style="flex:1;">Confirm</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="recobox">
+        <i class="ti ti-check"></i>
+        <span><b>Confirmed — final direction.</b> The row goes back to the same dashed "Choose account…" placeholder
+        already used for any unresolved row (never a pre-filled guess), and the single merged banner keeps BOTH pieces of
+        context that used to be split across two separate messages — "this looks like a card" (why it was flagged at all)
+        and "which of your 2 SBI accounts it could be" (why it's ambiguous) — instead of losing the card-detection context
+        the first pass's plain-ambiguity-only banner dropped. The old confident "Merge → 'X'" button is gone entirely
+        (there's nothing confident left to one-tap); the row's existing "Matched account" dropdown remains the only real
+        picker — no new picker mechanics. The quick-pick-pills alternative considered in the previous round was dropped:
+        a pill sitting right next to a warning is exactly the kind of thing a hurried user taps without reading, silently
+        reproducing the original false-confidence bug in a new shape.</span>
+      </div>
+      <div class="openbox">
+        <b>Resolved:</b> banner copy, dropped alternative, and final tag are locked in above — nothing open remains for
+        this item. (The only residual note, unchanged from before: this scales to 3+ same-bank candidates by just growing
+        the banner's account list — worth a glance on a real file with 3+ accounts at one bank before calling
+        implementation done, but not a design decision left to make.)
+      </div>
+    </div>
+
+    <!-- ============================================================ ITEM 71 ============================================================ -->
+    <div class="section" id="item-71">
+      <div class="sectiontitle"><span class="num">71</span>Cash-withdrawal → transfer conversion has no rich from/to preview</div>
+      <div class="sectionsub">
+        Once accepted, <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">CashWithdrawalSuggestionCard.tsx</code>
+        collapses to a single text line with an Undo link — no account icons, no per-row amounts — unlike a real detected
+        linked-transfer pair, which gets <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">TransferPairCard.tsx</code>'s
+        full from-account/arrow/to-account/amount treatment.
+      </div>
+      <div class="planquote">
+        Plan: replace the banner with a real from→to card (source bank account → the chosen cash account), <b>keeping
+        today's existing grouping</b> (all rows sharing one target cash account shown together in ONE card, not one card per
+        row) but <b>listing each row's individual amount</b> inside that one card, so what will actually import as a
+        transfer is visible before committing.
+      </div>
+
+      <div class="tabbar" id="tabs-71">
+        <button class="tabbtn active" onclick="showFrame('71','current')">Current (today)</button>
+        <button class="tabbtn" onclick="showFrame('71','a')">Final direction — hybrid (4 inline + see-all popup)</button>
+      </div>
+
+      <div class="frame-row">
+        <!-- CURRENT -->
+        <div class="frame-col show" data-item="71" data-opt="current">
+          <div class="frame-label">Today — flat one-line banner, nothing to review before committing <span class="tag now">CURRENT</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Transactions</div></div>
+            <div class="content">
+              <div style="font-size:10px; font-weight:700; color:var(--text2); display:flex; align-items:center; gap:5px; margin-bottom:8px;">
+                <i class="ti ti-arrows-left-right" style="font-size:13px;"></i> Linked transfers
+              </div>
+
+              <div style="font-size:10px; font-weight:700; color:var(--text2); margin-bottom:6px;">Cash-withdrawal suggestion — <i>before accepting</i></div>
+              <div class="paircard" style="border-color:var(--warning); margin-bottom:14px; padding:11px; display:flex; flex-direction:column; gap:7px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <i class="ti ti-cash" style="color:var(--warning);"></i>
+                  <span style="font-size:10.5px; font-weight:700; color:var(--text);">"ATM Withdrawal" · 3 rows</span>
+                </div>
+                <div style="font-size:10px; color:var(--warning);">Looks like a cash withdrawal — turn these into transfers to your Cash account?</div>
+                <div class="acctrigger" style="margin-top:0;">
+                  <div class="acctsq" style="background:#10b981;"><i class="ti ti-cash"></i></div>
+                  <div class="acctname">Cash</div>
+                  <i class="ti ti-chevron-down acctchev"></i>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <div style="border:1px solid var(--primary); background:var(--primary); color:#04140d; font-size:9.5px; font-weight:800; padding:6px 10px; border-radius:999px;">Turn into transfer → "Cash"</div>
+                  <div style="border:1px solid var(--border); color:var(--text2); font-size:9.5px; font-weight:800; padding:6px 10px; border-radius:999px;">Keep as separate</div>
+                </div>
+              </div>
+
+              <div style="font-size:10px; font-weight:700; color:var(--text2); margin-bottom:6px;">Cash-withdrawal suggestion — <i>after accepting (today's bug)</i></div>
+              <div class="oldbanner" style="border-color:var(--success); background:rgba(16,185,129,.08); color:var(--success);">
+                <div style="display:flex; align-items:center; gap:6px;"><i class="ti ti-check"></i><span>"ATM Withdrawal" (3 rows) → transfer to "Cash"</span></div>
+                <span style="color:var(--text3); font-weight:700; font-size:9.5px; flex-shrink:0;">Undo</span>
+              </div>
+              <div style="text-align:center; font-size:9.5px; color:var(--danger); margin-top:8px; line-height:1.5;">
+                ⚠ No icons, no per-row breakdown — the ₹5,000 / ₹6,000 / ₹4,000 that will actually be written as 3 separate
+                transfers is completely invisible here.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FINAL DIRECTION (hybrid — was Option A, now rebuilt to the chosen hybrid behavior) -->
+        <div class="frame-col" data-item="71" data-opt="a">
+          <div class="frame-label">Final direction — 4 rows inline, "See all" opens a popup past that <span class="tag rec">CONFIRMED — FINAL</span></div>
+          <div class="phone" style="position:relative;">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Transactions</div></div>
+            <div class="content">
+              <div style="font-size:10px; font-weight:700; color:var(--text2); display:flex; align-items:center; gap:5px; margin-bottom:8px;">
+                <i class="ti ti-arrows-left-right" style="font-size:13px;"></i> Linked transfers
+              </div>
+
+              <!-- from/to header is ALWAYS visible, independent of how many rows the group has -->
+              <div class="xfercard" style="background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.3);">
+                <div class="xferrow">
+                  <div class="xferside">
+                    <div class="nm"><div class="xfersq" style="background:#3b62d6;"><i class="ti ti-building-bank"></i></div><span>SBI Savings</span></div>
+                    <div class="amt">-₹40,000</div>
+                  </div>
+                  <div class="xfermid">
+                    <i class="ti ti-arrow-narrow-right" style="color:var(--info); font-size:17px;"></i>
+                    <div class="amtbig" style="color:var(--info);">₹40K</div>
+                    <div class="lbl" style="color:var(--info);">Transfer</div>
+                  </div>
+                  <div class="xferside">
+                    <div class="nm"><div class="xfersq" style="background:#10b981;"><i class="ti ti-cash"></i></div><span>Cash</span></div>
+                    <div class="amt" style="color:var(--success);">+₹40,000</div>
+                  </div>
+                </div>
+                <!-- rows inline up to TileRowList's own >4-rows threshold — this group has 9, so only the first 4 render
+                     here; the rest are reachable only via "See all" below, never an unbounded inline render. -->
+                <div class="xferrowlist" style="border-color:rgba(59,130,246,.25);">
+                  <div style="font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--text3);">9 rows in this group</div>
+                  <div class="xferrowitem"><span class="d">3 Jan</span><span class="desc">ATM WDL SBI ATM MG ROAD</span><span class="a">₹5,000</span></div>
+                  <div class="xferrowitem"><span class="d">14 Feb</span><span class="desc">ATM WDL SBI ATM MG ROAD</span><span class="a">₹6,000</span></div>
+                  <div class="xferrowitem"><span class="d">2 Mar</span><span class="desc">ATM WDL SBI ATM ANNA NAGAR</span><span class="a">₹4,000</span></div>
+                  <div class="xferrowitem"><span class="d">19 Apr</span><span class="desc">ATM WDL SBI ATM KORAMANGALA</span><span class="a">₹3,000</span></div>
+                </div>
+                <div class="seeallrow" style="margin:0; border-top:1px dashed rgba(59,130,246,.25); padding-top:8px;">
+                  <span style="font-size:10px; font-weight:700; color:var(--text3);">5 more rows</span>
+                  <span class="seealllink2" style="color:var(--info);" onclick="document.getElementById('popup71').classList.add('open');">See all 9 →</span>
+                </div>
+                <div class="xferfoot">
+                  <span style="font-size:9px; color:var(--text3);">"ATM Withdrawal" category</span>
+                  <span class="undo">Undo</span>
+                </div>
+              </div>
+
+              <div style="text-align:center; font-size:9.5px; color:var(--success); margin-top:10px; line-height:1.5;">
+                ✓ From/to summary always visible · first 4 rows always visible inline · tap "See all 9 →" to open the popup
+                below (try it) — same shell as item 75's popup, listing every row's date + amount (no side-by-side pairing
+                here, since these are candidate rows, not duplicate pairs).
+              </div>
+            </div>
+
+            <!-- "See all" popup — SAME centered Modal.tsx shell/pattern as item 75's popup, plain date+amount rows -->
+            <div class="backdrop2" id="popup71">
+              <div class="popup2">
+                <div class="pophead2">
+                  <div class="ptitle2">
+                    <div class="pt1">"ATM Withdrawal" → Cash</div>
+                    <div class="pt2">9 rows · ₹40,000 total — every row this transfer will actually write</div>
+                  </div>
+                  <button class="pxbtn2" onclick="document.getElementById('popup71').classList.remove('open');"><i class="ti ti-x"></i></button>
+                </div>
+                <div class="popcontent">
+                  <div class="poprow71"><span class="d">3 Jan</span><span class="desc">ATM WDL SBI ATM MG ROAD</span><span class="a">₹5,000</span></div>
+                  <div class="poprow71"><span class="d">14 Feb</span><span class="desc">ATM WDL SBI ATM MG ROAD</span><span class="a">₹6,000</span></div>
+                  <div class="poprow71"><span class="d">2 Mar</span><span class="desc">ATM WDL SBI ATM ANNA NAGAR</span><span class="a">₹4,000</span></div>
+                  <div class="poprow71"><span class="d">19 Apr</span><span class="desc">ATM WDL SBI ATM KORAMANGALA</span><span class="a">₹3,000</span></div>
+                  <div class="poprow71"><span class="d">8 May</span><span class="desc">ATM WDL SBI ATM MG ROAD</span><span class="a">₹7,000</span></div>
+                  <div class="poprow71"><span class="d">21 Jun</span><span class="desc">ATM WDL SBI ATM ANNA NAGAR</span><span class="a">₹2,000</span></div>
+                  <div class="poprow71"><span class="d">9 Jul</span><span class="desc">ATM WDL SBI ATM MG ROAD</span><span class="a">₹5,000</span></div>
+                  <div class="poprow71"><span class="d">30 Jul</span><span class="desc">ATM WDL SBI ATM KORAMANGALA</span><span class="a">₹4,500</span></div>
+                  <div class="poprow71"><span class="d">11 Aug</span><span class="desc">ATM WDL SBI ATM MG ROAD</span><span class="a">₹3,500</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="recobox">
+        <i class="ti ti-check"></i>
+        <span><b>Confirmed — final direction: the hybrid.</b> The from→to header (source account → chosen Cash account) is
+        always visible regardless of group size. Rows render inline up to <code
+        style="background:#0f2419;padding:1px 5px;border-radius:5px;">TileRowList.tsx</code>'s own existing &gt;4-rows
+        threshold — a typical small withdrawal group (≤4 rows) never needs anything more than what's already inline, which
+        is exactly what fixes the plan doc's original complaint (per-row amounts being invisible). Once a group exceeds
+        that threshold, the extra rows move behind a "See all" affordance that opens the exact same popup/modal shell used
+        for item 75 below — not the side-by-side duplicate-pairing content (these are withdrawal candidate rows, not
+        duplicate pairs), just a plain date+amount list, scrollable, same centered <code
+        style="background:#0f2419;padding:1px 5px;border-radius:5px;">Modal.tsx</code> primitive. This avoids both the
+        original "always-expanded" option's risk of a huge card for a long transaction history, and the
+        "always-collapsed" option's extra tap even for the common small-group case.</span>
+      </div>
+      <div class="openbox">
+        <b>Resolved:</b> the hybrid threshold/behavior above is locked in — no open choice remains between "always show
+        rows" vs "always collapse" vs hybrid. One item carried over unchanged from the previous round, still worth a
+        real-file check before implementation is called done (not a design decision, just a data-shape edge case): a
+        cash-withdrawal group is built from rows sharing one CSV <i>category</i> (e.g. "ATM Withdrawal"), not one CSV
+        <i>account</i> — a file mixing multiple bank accounts could in theory produce a group whose rows span more than
+        one source account. The mockup above assumes the common case (one shared source account, resolved the same way
+        <code style="background:#0f2419;padding:1px 5px;border-radius:5px;">TransferPairCard.tsx</code> already resolves a
+        leg's real account); if a real file turns up a mixed-account group, the "from" side needs a documented fallback
+        (most likely "Multiple accounts", mirroring <code
+        style="background:#0f2419;padding:1px 5px;border-radius:5px;">TransferPairCard.tsx</code>'s own raw-name-fallback
+        pattern).
+      </div>
+    </div>
+
+    <!-- ============================================================ ITEM 75 ============================================================ -->
+    <div class="section" id="item-75">
+      <div class="sectiontitle"><span class="num">75</span>"Already Imported" duplicates bucket should group like the tiles + get a "see all" popup</div>
+      <div class="sectionsub">
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">DuplicatesBucket.tsx</code> is one flat,
+        ungrouped list today with its own bespoke "Show N more" pagination — never grouped by CSV category the way the
+        Needs-Review/Ready/Skipped tiles are, and explicitly opted out of the "see all in a popup" pattern
+        (<code style="background:#1c2128;padding:1px 5px;border-radius:5px;">TileRowList</code>'s
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">onSeeAll</code> →
+        <code style="background:#1c2128;padding:1px 5px;border-radius:5px;">TransactionBrowserModal.tsx</code>) every other
+        tile already uses.
+      </div>
+      <div class="planquote">
+        Plan: group the duplicates bucket by the same CSV-category groups the tiles already use, cap + "show more" per
+        group (reusing the existing 60/60 numbers), and wire a "see all" popup per group that shows the same side-by-side
+        CSV-row/matched-expense pairing it already renders today — <b>purely a reorganization of what exists, no new
+        actions or capabilities</b> ("nothing new here, just better usage of what we have").
+      </div>
+
+      <div class="tabbar" id="tabs-75">
+        <button class="tabbtn active" onclick="showFrame('75','current')">Current (today)</button>
+        <button class="tabbtn" onclick="showFrame('75','proposed')">Final direction — grouped + see-all (interactive)</button>
+      </div>
+
+      <div class="frame-row">
+        <!-- CURRENT -->
+        <div class="frame-col show" data-item="75" data-opt="current">
+          <div class="frame-label">Today — one flat list, no category grouping, no see-all popup <span class="tag now">CURRENT</span></div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Transactions</div></div>
+            <div class="content">
+              <div class="rbucket">
+                <div class="rbhead"><div class="rbdot" style="background:var(--neutral);"></div><div class="rbtitle">Already imported</div><div class="rbcount">37</div></div>
+                <div class="rbbody">
+                  <div class="paircard">
+                    <div class="pairrow">
+                      <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">Zomato Order</div><div class="pairsub">−₹420 · 3 Aug 2026</div></div>
+                      <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">Zomato Order</div><div class="pairsub">−₹420 · 3 Aug 2026</div><div class="pairsub">Food &amp; Dining · HDFC Bank</div></div>
+                    </div>
+                    <div class="notdup">Not a duplicate — import anyway</div>
+                  </div>
+                  <div class="paircard">
+                    <div class="pairrow">
+                      <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">ATM WDL SBI ATM MG ROAD</div><div class="pairsub">−₹5,000 · 12 Aug 2026</div></div>
+                      <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">ATM WDL SBI ATM MG ROAD</div><div class="pairsub">−₹5,000 · 12 Aug 2026</div><div class="pairsub">ATM Withdrawal · SBI Savings</div></div>
+                    </div>
+                    <div class="notdup">Not a duplicate — import anyway</div>
+                  </div>
+                  <div class="paircard">
+                    <div class="pairrow">
+                      <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">Electricity Bill BESCOM</div><div class="pairsub">−₹1,240 · 5 Aug 2026</div></div>
+                      <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">Electricity Bill BESCOM</div><div class="pairsub">−₹1,240 · 5 Aug 2026</div><div class="pairsub">Utilities · HDFC Bank</div></div>
+                    </div>
+                    <div class="notdup">Not a duplicate — import anyway</div>
+                  </div>
+                  <div style="text-align:center; padding-top:2px;">
+                    <span style="font-size:11px; font-weight:700; color:var(--primary);">Show 34 more (34 left)</span>
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:center; font-size:9.5px; color:var(--danger); margin-top:8px; line-height:1.5;">
+                ⚠ Zomato / ATM / Electricity are unrelated categories dumped into one undifferentiated 37-row list — no way
+                to jump straight to "just the Zomato duplicates" the way every other tile lets you jump to "just this
+                category".
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROPOSED -->
+        <div class="frame-col" data-item="75" data-opt="proposed">
+          <div class="frame-label">Final direction — grouped like the tiles, capped per group, "see all" popup <span class="tag rec">CONFIRMED — FINAL · click to try</span></div>
+          <div class="phone" style="position:relative;">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back3"><i class="ti ti-chevron-left"></i></div><div class="htitle3">Import — Transactions</div></div>
+            <div class="content">
+              <div class="rbucket">
+                <div class="rbhead"><div class="rbdot" style="background:var(--neutral);"></div><div class="rbtitle">Already imported</div><div class="rbcount">37</div></div>
+                <div class="rbbody">
+
+                  <!-- group: ATM Withdrawal (74 dupes, > cap) -->
+                  <div class="duptile">
+                    <div class="duphead" onclick="document.getElementById('g1body').classList.toggle('show75'); this.querySelector('.chev').classList.toggle('ti-chevron-down'); this.querySelector('.chev').classList.toggle('ti-chevron-up');">
+                      <i class="ti ti-cash" style="color:var(--text3); font-size:12px;"></i>
+                      <div class="nm">"ATM Withdrawal"</div>
+                      <div class="cnt">74 dupes</div>
+                      <i class="ti ti-chevron-down chev" style="color:var(--text3); font-size:12px;"></i>
+                    </div>
+                    <div id="g1body" class="dupbody show75">
+                      <div class="paircard">
+                        <div class="pairrow">
+                          <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">ATM WDL SBI ATM MG ROAD</div><div class="pairsub">−₹5,000 · 12 Aug 2026</div></div>
+                          <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">ATM WDL SBI ATM MG ROAD</div><div class="pairsub">−₹5,000 · 12 Aug 2026</div><div class="pairsub">ATM Withdrawal · SBI Savings</div></div>
+                        </div>
+                        <div class="notdup">Not a duplicate — import anyway</div>
+                      </div>
+                      <div class="paircard">
+                        <div class="pairrow">
+                          <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">ATM WDL SBI ATM ANNA NAGAR</div><div class="pairsub">−₹4,000 · 25 Jul 2026</div></div>
+                          <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">ATM WDL SBI ATM ANNA NAGAR</div><div class="pairsub">−₹4,000 · 25 Jul 2026</div><div class="pairsub">ATM Withdrawal · SBI Savings</div></div>
+                        </div>
+                        <div class="notdup">Not a duplicate — import anyway</div>
+                      </div>
+                      <div class="seeallrow">
+                        <span style="font-size:10px; font-weight:700; color:var(--primary);">Show 60 more (12 left)</span>
+                        <span class="seealllink2" onclick="event.stopPropagation(); document.getElementById('popup75').classList.add('open');">See all 74 →</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- group: Zomato (2 dupes, under cap, no see-all) -->
+                  <div class="duptile">
+                    <div class="duphead" onclick="document.getElementById('g2body').classList.toggle('show75'); this.querySelector('.chev').classList.toggle('ti-chevron-down'); this.querySelector('.chev').classList.toggle('ti-chevron-up');">
+                      <i class="ti ti-tag" style="color:var(--text3); font-size:12px;"></i>
+                      <div class="nm">"Zomato Order"</div>
+                      <div class="cnt">2 dupes</div>
+                      <i class="ti ti-chevron-down chev" style="color:var(--text3); font-size:12px;"></i>
+                    </div>
+                    <div id="g2body" class="dupbody" style="display:none;">
+                      <div class="paircard">
+                        <div class="pairrow">
+                          <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">Zomato Order</div><div class="pairsub">−₹420 · 3 Aug 2026</div></div>
+                          <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">Zomato Order</div><div class="pairsub">−₹420 · 3 Aug 2026</div><div class="pairsub">Food &amp; Dining · HDFC Bank</div></div>
+                        </div>
+                        <div class="notdup">Not a duplicate — import anyway</div>
+                      </div>
+                      <div class="paircard">
+                        <div class="pairrow">
+                          <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">Zomato Order</div><div class="pairsub">−₹610 · 9 Aug 2026</div></div>
+                          <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">Zomato Order</div><div class="pairsub">−₹610 · 9 Aug 2026</div><div class="pairsub">Food &amp; Dining · HDFC Bank</div></div>
+                        </div>
+                        <div class="notdup">Not a duplicate — import anyway</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- group: Electricity (1 dupe) -->
+                  <div class="duptile">
+                    <div class="duphead" onclick="document.getElementById('g3body').classList.toggle('show75'); this.querySelector('.chev').classList.toggle('ti-chevron-down'); this.querySelector('.chev').classList.toggle('ti-chevron-up');">
+                      <i class="ti ti-bolt" style="color:var(--text3); font-size:12px;"></i>
+                      <div class="nm">"Electricity Bill BESCOM"</div>
+                      <div class="cnt">1 dupe</div>
+                      <i class="ti ti-chevron-down chev" style="color:var(--text3); font-size:12px;"></i>
+                    </div>
+                    <div id="g3body" class="dupbody" style="display:none;">
+                      <div class="paircard">
+                        <div class="pairrow">
+                          <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">Electricity Bill BESCOM</div><div class="pairsub">−₹1,240 · 5 Aug 2026</div></div>
+                          <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">Electricity Bill BESCOM</div><div class="pairsub">−₹1,240 · 5 Aug 2026</div><div class="pairsub">Utilities · HDFC Bank</div></div>
+                        </div>
+                        <div class="notdup">Not a duplicate — import anyway</div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+              <div style="text-align:center; font-size:9.5px; color:var(--success); margin-top:8px; line-height:1.5;">
+                ✓ Tap a group header to expand/collapse · tap "See all 74 →" to open the full-screen popup below (try it)
+              </div>
+            </div>
+
+            <!-- "See all" popup — same centered Modal.tsx shell as TransactionBrowserModal, simplified body -->
+            <div class="backdrop2" id="popup75">
+              <div class="popup2">
+                <div class="pophead2">
+                  <div class="ptitle2">
+                    <div class="pt1">"ATM Withdrawal" — Already imported</div>
+                    <div class="pt2">74 duplicate rows · same side-by-side comparison, just all of them</div>
+                  </div>
+                  <button class="pxbtn2" onclick="document.getElementById('popup75').classList.remove('open');"><i class="ti ti-x"></i></button>
+                </div>
+                <div class="popcontent">
+                  <div class="paircard">
+                    <div class="pairrow">
+                      <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">ATM WDL SBI ATM MG ROAD</div><div class="pairsub">−₹5,000 · 12 Aug 2026</div></div>
+                      <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">ATM WDL SBI ATM MG ROAD</div><div class="pairsub">−₹5,000 · 12 Aug 2026</div><div class="pairsub">ATM Withdrawal · SBI Savings</div></div>
+                    </div>
+                    <div class="notdup">Not a duplicate — import anyway</div>
+                  </div>
+                  <div class="paircard">
+                    <div class="pairrow">
+                      <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">ATM WDL SBI ATM ANNA NAGAR</div><div class="pairsub">−₹4,000 · 25 Jul 2026</div></div>
+                      <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">ATM WDL SBI ATM ANNA NAGAR</div><div class="pairsub">−₹4,000 · 25 Jul 2026</div><div class="pairsub">ATM Withdrawal · SBI Savings</div></div>
+                    </div>
+                    <div class="notdup">Not a duplicate — import anyway</div>
+                  </div>
+                  <div class="paircard">
+                    <div class="pairrow">
+                      <div class="pairhalf left"><div class="pairlbl">CSV row</div><div class="pairname">ATM WDL SBI ATM KORAMANGALA</div><div class="pairsub">−₹10,000 · 18 Jul 2026</div></div>
+                      <div class="pairhalf right"><div class="pairlbl">Recorded</div><div class="pairname">ATM WDL SBI ATM KORAMANGALA</div><div class="pairsub">−₹10,000 · 18 Jul 2026</div><div class="pairsub">ATM Withdrawal · SBI Savings</div></div>
+                    </div>
+                    <div class="notdup">Not a duplicate — import anyway</div>
+                  </div>
+                  <div style="text-align:center; font-size:9.5px; color:var(--text3); padding:6px 0;">… 71 more, scrolls (real: virtualized FlashList, same as every other high-volume list on this screen)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="recobox">
+        <i class="ti ti-check"></i>
+        <span><b>Confirmed — final direction, as specified, no changes from the last round.</b> Re-confirmed exactly as
+        designed: grouped by the row's raw CSV category name (<code
+        style="background:#0f2419;padding:1px 5px;border-radius:5px;">row.categoryName</code>, the same key <code
+        style="background:#0f2419;padding:1px 5px;border-radius:5px;">CategoryTile.tsx</code> groups its own tiles by),
+        the existing 60/60 cap + "Show more" now applied PER GROUP instead of once to the whole flat bucket, and a
+        "see all" popup per group. The paired CSV-row/Recorded card and its "Not a duplicate" action are carried over
+        completely unchanged; the only new surface is the group header (same collapsed-tile visual language as
+        <code style="background:#0f2419;padding:1px 5px;border-radius:5px;">CategoryTile.tsx</code>'s header) and the "see
+        all" popup (same centered <code style="background:#0f2419;padding:1px 5px;border-radius:5px;">Modal.tsx</code>
+        shell as <code style="background:#0f2419;padding:1px 5px;border-radius:5px;">TransactionBrowserModal.tsx</code>,
+        deliberately dropping its checkboxes/month-scrub/"Categorize" footer since none of those apply to an
+        already-imported row — header + close only). Nothing new is added, exactly matching "nothing new here, just
+        better usage of what we have."</span>
+      </div>
+      <div class="openbox">
+        <b>Resolved — nothing open remains for this item.</b> All three implementation notes raised in the previous round
+        are confirmed as correct and final: the <code style="background:#0f2419;padding:1px 5px;border-radius:5px;">row.categoryName</code>
+        grouping key, the cap moving from whole-bucket to per-group, and the popup intentionally omitting the
+        month-scrub bar/checkboxes/categorize footer. No further design changes needed before implementation.
+      </div>
+    </div>
+
+    <script>
+      function showFrame(item, opt) {
+        document.querySelectorAll('.frame-col[data-item="' + item + '"]').forEach(function (el) {
+          el.classList.toggle('show', el.getAttribute('data-opt') === opt);
+        });
+        document.querySelectorAll('#tabs-' + item + ' .tabbtn').forEach(function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('onclick').indexOf("'" + opt + "'") !== -1);
+        });
+      }
+      function toggleTheme() {
+        var html = document.documentElement;
+        html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+      }
+    </script>
+    <style>
+      .dupbody.show75 { display: flex !important; }
+    </style>
+  </body>
+</html>

@@ -43,8 +43,8 @@ bottom — market context and quick links to every module.
 rendered as soon as their async load finished — not when the user actually had any data — producing
 misleading or outright false results for a brand-new install:
 
-- **Glance header** (`GlanceHeader`) — gated on the actual *values* (`totalAssets === 0 &&
-  summary.netWorth === 0`), not `accountBalances.length` — an account with a genuinely zero balance
+- **Glance header** (`GlanceHeader`) — gated on the actual _values_ (`totalAssets === 0 &&
+summary.netWorth === 0`), not `accountBalances.length` — an account with a genuinely zero balance
   (freshly added, not yet reconciled) still counts as a row in that array, which let the real ₹0 hero
   through even with nothing meaningful to show (found 2026-08-05, a day after the row-count version
   shipped). Checking both values together (rather than `netWorth` alone) still shows the real hero for a
@@ -63,8 +63,8 @@ misleading or outright false results for a brand-new install:
   `HomeEmptyPromptCard` ("Track your expenses" — two actions, `+ Add account` straight to `Accounts` and
   `Go to Expenses` for bank-statement import or bringing expenses in from another app; "Track Insurance";
   "Track Loans") — never gated on each other. An earlier version gated all three together (`spentThisMonth
-  === 0 && insuranceCover === 0 && loansOutstanding === 0`), which hid the Insurance/Loans prompts again
-  the instant *any* figure went non-zero — e.g. a user who'd started tracking expenses but hadn't added
+=== 0 && insuranceCover === 0 && loansOutstanding === 0`), which hid the Insurance/Loans prompts again
+  the instant _any_ figure went non-zero — e.g. a user who'd started tracking expenses but hadn't added
   insurance yet went back to seeing a silent `'—'` for Insurance, defeating the point (found 2026-08-05).
   This is also the only fix for Insurance/Loans/Accounts having no navigation entry point anywhere else
   in the app (confirmed via a full nav-tree search) — a silent `'—'` gave a fresh user no reason to ever
@@ -77,7 +77,7 @@ misleading or outright false results for a brand-new install:
   (`hs.derived`'s `avgMonthlyExpenses`/`liquidAssets`/`monthlyEmiObligations`/`totalActiveGoals`/
   `assetClassCount`/`hasLifeInsurance`/`hasHealthInsurance`, plus `hs.incomeNeeded`), not each
   component's own `status` — `insuranceComponent` (`core/health/scorer.ts`) hardcodes `hasData: true`
-  unconditionally (having *no* insurance is real, meaningful information there, unlike the other
+  unconditionally (having _no_ insurance is real, meaningful information there, unlike the other
   components), so it can never report the scorer's own `'no_data'` status; an
   `every(c => c.status === 'no_data')` check across all 6 components silently never became true, quietly
   defeating the empty-state gate entirely (found 2026-08-05, a day after shipping the `'no_data'`-based
@@ -188,13 +188,19 @@ Seen state is tracked per-story by a `freshnessKey` in `localStorage` (`penny_st
 - Scroll through a horizontal strip of all your accounts and their live balances; credit cards show how much credit has been used
 - View live prices for market tickers (Sensex, Nifty 50, Gold, Silver, USD/INR, Crude Oil) with the day's change, in a slim top ticker; customise the set from a preset list
 - Jump directly to any module from shortcut tiles
-- Control what's visible based on your privacy mode: **Open** shows everything, **Privacy** hides every amount, **Safe** shows everything except the specific accounts/categories/modules you've chosen to hide (Settings → Safe Mode)
+- Control what's visible based on your privacy mode: **Open** shows everything; **Safe** (the default) shows everything except the specific accounts/categories/modules you've chosen to hide (Settings → Safe Mode)
 
 ## How it works
 
 Net worth is calculated live each time the Home screen loads: it sums all holdings and account balances (assets) and subtracts all liabilities, reading from `liabilitiesRepo.getAll()`, `expensesRepo.getAll()`, `holdingsRepo.getAll()`, `accountsRepo.getAll()`, `ledgerEntriesRepo.getAll()`, and `personsRepo.getAll()`. **Net IOU** = Σ`signedAmount` over ledger entries (`core/iou/ledger`), **but only for active (non-archived) persons** — `loadSummary` builds an `activePersonIds` set from `persons.filter((p) => !p.isArchived)` and skips entries whose person is archived, so a deleted IOU (which soft-archives the person while keeping its entries for integrity) no longer lingers in net worth, matching the IOU-tab totals. A positive net is added to assets as an "Owed to You" line and to net worth; a negative net is added to liabilities — which offsets the cash movement of any IOU-linked transaction so net worth stays correct end-to-end.
 
 `useHome` also subscribes to `penny:txn-changed` (`hooks/useTxnRefresh`) so balances/net worth reload live when the IOU screen records or removes a linked transaction, rather than only on navigation.
+
+**Cold-start loading state, 2026-08-28:** while `summary` is still `null` (the first load hasn't
+resolved yet), `HomePage.tsx` shows a centered `PennyLoader` in place of `GlanceHeader`/`AccountsStrip`
+instead of rendering nothing — previously a slow cold decrypt of the full transaction history (see
+`docs/ARCHITECTURE.md`'s Tier 1/2/3 performance decision-log entry) made the screen read as blank
+rather than busy.
 
 `useHome.ts` additionally computes `investableCorpus` (`core/calculators/retirementProjection.ts`'s
 `calcInvestableCorpus()`, fed by `core/accounts/balanceCalculator.ts`'s `calcLiquidFunds()`) and, on each
@@ -206,7 +212,7 @@ snapshots into the `RetirementProjectionResult` + chart points `GlanceHeader` re
 
 Market data is fetched from external price feeds via `marketDataClient.ts` and cached for 15 minutes in the `price_cache` Dexie store to avoid excessive network calls. The market strip reads from this cache first and refreshes in the background when the cache is stale.
 
-Privacy mode (Safe / Privacy / Open) is read via `usePrivacy().shouldMask(sensitive)` — the single source of truth for amount masking app-wide (see `docs/ARCHITECTURE.md` → Context providers). Open never masks; Privacy always masks. Safe masks only what's flagged sensitive: net worth and every Retirement Corpus figure are aggregates and stay visible in Safe (hidden only in Privacy — percent-funded stays visible even in Privacy, same as a score), while each account's balance in the Accounts strip respects that account's own `hideInSafeMode` flag (Settings → Safe Mode → Accounts).
+Privacy mode (Safe / Open, 2026-08-18 — a third "Privacy" mode was removed as overkill) is read via `usePrivacy().shouldMask(sensitive)` — the single source of truth for amount masking app-wide (see `docs/ARCHITECTURE.md` → Context providers). Open never masks. Safe masks only what's flagged sensitive: net worth and every Retirement Corpus figure are aggregates and stay visible in Safe, while each account's balance in the Accounts strip respects that account's own `hideInSafeMode` flag (Settings → Safe Mode → Accounts).
 
 Key files:
 
@@ -236,6 +242,18 @@ Key files:
 single "Calculators" tile by then — was deleted outright once that calculator relocated too. Mobile's
 `HomePage.tsx` composition is now: greeting + GlanceHeader + MoneyStatsCard + FinancialHealthCard +
 StoriesRow + HomeGroupsCard + AccountsStrip, full stop.
+
+**Mobile — 2026-08-31 pull-to-refresh fix:** `HomePage.tsx`'s pull-to-refresh only ever reloaded
+`useHome()`'s net-worth summary, never `useHomeStats()` (the Insurance-cover/Loans-outstanding figures
+`MoneyStatsCard` shows) — that hook was previously instantiated privately inside `MoneyStatsCard.tsx`
+itself, with no `reload` reachable by a parent's pull gesture, so e.g. adding an Insurance policy never
+made its Home-card total update even on a manual refresh. `useHomeStats()` now returns `{ stats, reload }`
+(was just `stats`) and is called from `HomePage.tsx`, which folds its `reload` into a new
+`combinedReload` alongside `useHome()`'s own and passes `stats` down to `MoneyStatsCard` as a prop.
+`useRetirementProjection.ts` updated for the new return shape (only needed `stats`). Landed alongside a
+separate fix making every `useLoggedRepository` consumer (Insurance included) actually broadcast
+`notifyTxnChanged()` on save/remove in the first place — see `docs/ARCHITECTURE.md`'s matching
+2026-08-31 decision-log entry for both halves of the bug.
 
 ## Current limitations
 

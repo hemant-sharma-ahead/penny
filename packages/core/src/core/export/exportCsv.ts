@@ -1,4 +1,4 @@
-export { exportExpensesAsCsv } from './exportCsv.shared';
+export { exportExpensesAsCsv, type ExportCsvContext } from './exportCsv.shared';
 
 // Plain (unprotected) file download — used for non-sensitive files like the import template
 export function downloadCsv(content: string, filename: string): void {

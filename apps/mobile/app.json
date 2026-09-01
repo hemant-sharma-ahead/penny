@@ -3,22 +3,23 @@
     "name": "Penny",
     "slug": "penny",
     "scheme": "penny",
-    "version": "1.1.0",
+    "version": "1.6.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hesh.penny"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0d6b4a",
+        "backgroundColor": "#0e252e",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.penny"
+      "package": "com.hesh.penny"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,13 +43,16 @@
           }
         }
       ],
-      "./plugins/withAbiSplits.js"
+      "./plugins/withAbiSplits.js",
+      "./plugins/withSmsPermissions.js",
+      "./plugins/withProguardRules.js"
     ],
     "extra": {
       "authProxyUrl": "https://penny-auth.hesh.workers.dev",
       "groupsProxyUrl": "https://penny-groups.hesh.workers.dev",
       "apiProxyUrl": "https://penny-api-proxy.hesh.workers.dev",
-      "enableSync": true
+      "enableSync": true,
+      "googleWebClientId": "344298575300-qv5gn8cdfa40to32coemqcpi9a5pmfo7.apps.googleusercontent.com"
     }
   }
 }

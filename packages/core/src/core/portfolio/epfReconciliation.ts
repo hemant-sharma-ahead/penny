@@ -141,3 +141,28 @@ export function reconcileEpfBalanceEvent(
   if (!existing) return { ...base, kind: 'new' };
   return { ...base, kind: amountsAgree(amounts, existingAmounts(existing)) ? 'matches' : 'conflict', existing };
 }
+
+/** Reconciles ONE transfer_in/withdrawal ROW against whatever's already logged at its own EXACT real
+ *  date — deliberately NOT `reconcileEpfBalanceEvent`'s "one event per (type, financial year)" model,
+ *  which assumes at most one such event happens per FY. Real bug this fixes (2026-08-30, found via a
+ *  real multi-employer transfer): a single FY can genuinely contain SEVERAL distinct transfer_in
+ *  events — e.g. the real principal transfer posting on one date, followed months later by a separate
+ *  "TRANSFER IN - INTEREST AMOUNT ONLY" catch-up credit on another — `reconcileUnit`'s old aggregate-
+ *  by-type-per-unit approach summed every same-type row in the unit into ONE combined item dated to
+ *  the LATEST one, silently discarding the real, earlier date the principal actually moved on. Matching
+ *  by each row's own exact real date instead (day precision, straight from the passbook) correctly
+ *  keeps every genuinely distinct event as its own item — two real events happening to land on the
+ *  exact same calendar day is the one case this can't distinguish, an acceptable, very rare edge case
+ *  given real passbook data. */
+export function reconcileEpfBalanceEventAtDate(
+  type: EpfTransactionType,
+  amounts: EpfAmounts,
+  date: number,
+  particulars: string,
+  existingTransactions: EpfTransaction[]
+): EpfReconciliationItem {
+  const existing = existingTransactions.find((t) => t.type === type && t.date === date);
+  const base = { type, imported: amounts, sourceParticulars: particulars, date };
+  if (!existing) return { ...base, kind: 'new' };
+  return { ...base, kind: amountsAgree(amounts, existingAmounts(existing)) ? 'matches' : 'conflict', existing };
+}

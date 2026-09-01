@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { View, Pressable, ScrollView, Linking, TextInput as RNTextInput, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
 import { PageHeader } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { tint } from '~/lib/color';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { APP_VERSION } from '~/lib/appVersion';
 
 // Placeholder — swap for real support inbox before release
 const SUPPORT_EMAIL = 'feedback@penny.app';
-const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 type FeedbackType = 'bug' | 'suggestion' | 'question';
 
@@ -35,8 +34,9 @@ const INFO_ROWS: { icon: string; title: string; body: string }[] = [
  * RN port of apps/web-react/src/features/feedback/FeedbackPage.tsx — a `mailto:` draft composer, no
  * network call. Web's `window.open(mailto)` becomes RN's `Linking.openURL`. `__APP_VERSION__` (a Vite
  * define reading package.json) has no mobile equivalent yet, so this reads `app.json`'s `version` via
- * `expo-constants` instead — first use of that field on mobile (Constants.expoConfig is already used
- * for `extra.*` by packages/core's entitlement/apiBase native adapters).
+ * `expo-constants` instead (`~/lib/appVersion.ts`'s `APP_VERSION`) — first use of that field on mobile
+ * (Constants.expoConfig is already used for `extra.*` by packages/core's entitlement/apiBase native
+ * adapters). Extracted to its own file 2026-08-20 once `AboutPennyPage.tsx` needed the identical value.
  */
 export function FeedbackPage() {
   const modeBg = useModeBackgroundColor();

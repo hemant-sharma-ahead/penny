@@ -7,7 +7,11 @@ export interface SyncInputs {
   canRun: boolean; // session unlocked + entitled + online (+ provider available for cloud)
   remoteChanged: boolean; // cloud only: remoteTag differs from the stored cursor tag
   localDirty: boolean; // local changes since the last successful push
-  dueDaily: boolean; // no successful backup in the last ~24h
+  // No successful backup within the destination's due window. For the on-device floor (target
+  // 'local'/null) the caller always feeds a fixed ~24h window; for a cloud target it's the user's
+  // configured 1–14 day frequency (backupPrefs.ts's getBackupFrequencyDays) — decideSync itself stays
+  // window-agnostic, it just branches on whatever boolean the caller already computed.
+  dueDaily: boolean;
 }
 
 export interface SyncDecision {

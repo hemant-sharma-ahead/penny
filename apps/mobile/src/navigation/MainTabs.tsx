@@ -64,6 +64,8 @@ const SCREEN_TITLES: Record<string, string> = {
   Profile: 'Edit profile',
   SafeModeSettings: 'Safe Mode',
   ManageTags: 'Manage Tags',
+  AboutPenny: 'About Penny',
+  PrivacyPromise: 'Our Privacy Promise',
   ChangePin: 'Change PIN',
   ChangePassphrase: 'Change Passphrase',
   Timeline: 'Timeline',
@@ -75,7 +77,11 @@ const SCREEN_TITLES: Record<string, string> = {
   Feedback: 'Contact & Feedback',
   CashFlow: 'Cash Flow',
   Tax: 'Tax Awareness',
-  Import: 'Import expenses'
+  Import: 'Import expenses',
+  SmsTrackingSettings: 'SMS Tracking',
+  SmsUnparsedMessages: 'Unparsed Messages',
+  SmsReview: 'SMS Review',
+  SmsPossibleMatch: 'Possible match'
 };
 
 const ICON_COLORS: Record<string, string> = {

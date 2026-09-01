@@ -52,6 +52,17 @@ export interface EpfInterestCalculationInput {
    *  month for the rest of the FY as if the withdrawal never happened, producing a recalculated
    *  interest figure that disagreed with the real passbook's own (correct) recorded amount. */
   monthlyWithdrawals?: { month: string; employeeAmount: number; employerAmount: number }[];
+  /** Real `transfer_in` credits landing DURING this FY — see `buildEpfInterestInput`. Applied the
+   *  same way a withdrawal is: added to the balance at month-END, after that month's own interest is
+   *  computed (a transfer posts on its own real date, not subject to a contribution's wage-deposit
+   *  lag) — so it starts earning interest from the FOLLOWING month, mirroring a withdrawal's own
+   *  timing exactly, just adding instead of subtracting. Real bug this fixes (2026-08-30, found via a
+   *  real multi-employer transfer): before this field existed, a mid-year transfer-in was invisible to
+   *  the interest simulation for the YEAR IT LANDED IN — `sumEpfBalanceBeforeFy` already correctly
+   *  folded it into every LATER year's opening balance, but the FY it actually arrived in silently
+   *  computed interest as if the transferred balance had earned nothing at all for the months after
+   *  it landed, disagreeing with the real passbook's own (correct) recorded interest for that year. */
+  monthlyTransfersIn?: { month: string; employeeAmount: number; employerAmount: number }[];
   /** The balance immediately before this FY started (i.e. the prior FY's closing balance) — 0 for
    *  a brand-new EPF account with no prior history. */
   openingEmployeeBalance: number;
@@ -158,6 +169,10 @@ export function calculateEpfInterestForYear(
   for (const w of input.monthlyWithdrawals ?? []) {
     empFlow.set(w.month, (empFlow.get(w.month) ?? 0) - w.employeeAmount);
     erFlow.set(w.month, (erFlow.get(w.month) ?? 0) - w.employerAmount);
+  }
+  for (const t of input.monthlyTransfersIn ?? []) {
+    empFlow.set(t.month, (empFlow.get(t.month) ?? 0) + t.employeeAmount);
+    erFlow.set(t.month, (erFlow.get(t.month) ?? 0) + t.employerAmount);
   }
 
   const emp = simulateOneStream(months, input.openingEmployeeBalance, empFlow, rateTable);
@@ -294,10 +309,26 @@ export function buildEpfInterestInput(
     })
     .filter((w) => depositMonthFyStartYear(w.month) === fyStartYear);
 
+  // 2026-08-30 addition — same idea as `monthlyWithdrawals` above, just adding instead of subtracting.
+  // A `transfer_in` credit's own real posted date is used directly (no deposit-month offset — that
+  // lag is specific to a contribution's employer-deposits-it-later timing, not a transfer). A transfer
+  // that predates this FY is already correctly reflected in `priorClosingBalance` (via
+  // `sumEpfBalanceBeforeFy`) — only a same-FY transfer needs to be simulated here.
+  const monthlyTransfersIn = transactions
+    .filter((t) => t.type === 'transfer_in')
+    .filter(employerScoped)
+    .map((t) => {
+      const d = new Date(t.date);
+      const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return { month, employeeAmount: t.employeeAmount ?? t.amount ?? 0, employerAmount: t.employerAmount ?? 0 };
+    })
+    .filter((c) => depositMonthFyStartYear(c.month) === fyStartYear);
+
   return {
     fyStartYear,
     monthlyContributions,
     monthlyWithdrawals,
+    monthlyTransfersIn,
     openingEmployeeBalance: priorClosingBalance.employee,
     openingEmployerBalance: priorClosingBalance.employer
   };

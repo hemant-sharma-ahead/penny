@@ -670,7 +670,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   {
     id: 'cat-legal-notary',
     name: 'Notary Charges',
-    icon: 'ti-stamp',
+    icon: 'ti-rubber-stamp',
     color: '#6366f1',
     isDefault: true,
     intentGroup: 'legal',
@@ -719,7 +719,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   },
   {
     id: 'cat-legal-transport',
-    name: 'Legal Transport',
+    name: 'Legal Transport & Hotels',
     icon: 'ti-car',
     color: '#f97316',
     isDefault: true,

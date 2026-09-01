@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Banner, Button, Card, SectionLabel, SelectInput } from '~/components/ui';
+import { Banner, Button, Card, SectionLabel } from '~/components/ui';
 import { Icon } from '~/components/Icon';
+import { BankPickerModal, type BankPickerOption } from '~/components/shared';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { formatDate, formatDateShort } from '@/lib/date';
+import { formatDate } from '@/lib/date';
 import { CUSTOM_PRESET_ID } from '@/core/bank-import/presets';
 import type { BankPresetId } from '@/core/bank-import/types';
 import type { UseBankImportReturn } from './useBankImport';
@@ -35,10 +36,11 @@ const MAPPING_FIELDS: { key: 'date' | 'narration' | 'debit' | 'credit' | 'balanc
 export function SetupStep({ bi }: SetupStepProps) {
   const theme = useThemeColors();
   const [showMappingEdit, setShowMappingEdit] = useState(false);
+  const [showBankPicker, setShowBankPicker] = useState(false);
 
-  const bankOptions = [
-    ...bi.banks.map((b) => ({ value: b.id, label: b.label })),
-    { value: CUSTOM_PRESET_ID, label: 'Other / Custom' }
+  const bankOptions: BankPickerOption[] = [
+    ...bi.banks.map((b) => ({ value: b.id, label: b.label, bankId: b.id as BankPresetId })),
+    { value: CUSTOM_PRESET_ID, label: 'Other / Custom', pinLast: true }
   ];
   const bankLabel = bi.isCustomPreset
     ? 'your custom format'
@@ -87,12 +89,24 @@ export function SetupStep({ bi }: SetupStepProps) {
     <View className="gap-4">
       <View className="gap-2">
         <SectionLabel className="mb-0">Bank</SectionLabel>
-        <SelectInput
-          value={bi.presetId ?? ''}
-          onChange={(v) => bi.selectPreset(v as BankPresetId)}
-          options={bankOptions}
-          placeholder="Select your bank"
-        />
+        <Pressable
+          onPress={() => setShowBankPicker(true)}
+          className="flex-row items-center justify-between rounded-xl border px-3 py-2.5"
+          style={{ borderColor: theme.border }}
+        >
+          <Text className={bi.presetId !== null ? 'text-sm text-primary' : 'text-sm text-tertiary'}>
+            {bi.presetId !== null ? bankLabel : 'Select your bank'}
+          </Text>
+          <Icon name="ti-chevron-down" size={14} color={theme.textTertiary} />
+        </Pressable>
+        {showBankPicker && (
+          <BankPickerModal
+            options={bankOptions}
+            value={bi.presetId ?? ''}
+            onSelect={(v) => bi.selectPreset(v as BankPresetId)}
+            onClose={() => setShowBankPicker(false)}
+          />
+        )}
       </View>
 
       {bi.presetId !== null && (
@@ -183,7 +197,7 @@ export function SetupStep({ bi }: SetupStepProps) {
               real possibility, not something to block on. */}
           {bi.coverageGap && (
             <Banner variant="warning" icon="ti-calendar-exclamation" title="Possible gap in your statement history">
-              {`There's a gap between ${formatDateShort(bi.coverageGap.gapStart)} and ${formatDateShort(bi.coverageGap.gapEnd)} this account has no statement for — was that period genuinely empty, or is there a statement you haven't found yet?`}
+              {`There's a gap between ${formatDate(bi.coverageGap.gapStart)} and ${formatDate(bi.coverageGap.gapEnd)} this account has no statement for — was that period genuinely empty, or is there a statement you haven't found yet?`}
             </Banner>
           )}
           {/* Opening-balance confirm (§10a) / anchor-shift (§14a/§14b) — docs/plans/
@@ -205,15 +219,70 @@ export function SetupStep({ bi }: SetupStepProps) {
             // Was gated on `mappingReady` alone (every field mapped) — that says nothing about whether
             // the mapping actually *works*, so a wrong date format could map every field "correctly"
             // and still produce zero usable rows, yet still let the user proceed into an empty review
-            // screen. Also requires at least one row having actually parsed.
+            // screen. Also requires at least one row having actually parsed. `bi.dataLoading` gate
+            // added 2026-08-28 (real-device testing) — matching previously ran against whatever
+            // `importRecords`/`allExpenses`/etc. happened to be loaded at that instant, so reaching
+            // this button before those repos' first load resolved silently produced wrong match
+            // results for a previously-imported statement (see `useBankImport.ts`'s own doc comment).
             <Button
               variant="primary"
               fullWidth
+              loading={bi.dataLoading}
               disabled={!bi.mappingReady || bi.mappingPreview?.rows.length === 0}
               onPress={bi.confirmMapping}
             >
-              Continue to review
+              {bi.dataLoading ? 'Loading…' : 'Continue to review'}
             </Button>
+          )}
+
+          {/* Raw file preview (2026-09-01, real user request) — the "Column mapping" card above only
+              shows what Penny GUESSED each field maps to; this shows the file's own literal header row +
+              first few data rows so that guess can be visually sanity-checked against reality (a wrong
+              date-format guess, in particular, is much easier to spot here than from the mapping card
+              alone). Placed below "Continue to review" per the exact request — reference material, not
+              something that should compete with the primary action for attention. */}
+          {bi.rawPreviewRows.length > 0 && (
+            <View className="gap-1.5">
+              <SectionLabel className="mb-0">Raw file preview</SectionLabel>
+              <Text className="text-[10px] text-tertiary -mt-1">
+                First {bi.rawPreviewRows.length} row{bi.rawPreviewRows.length === 1 ? '' : 's'}, exactly as they appear
+                in your file — scroll sideways for more columns.
+              </Text>
+              <View className="border border-theme rounded-xl overflow-hidden">
+                <ScrollView horizontal showsHorizontalScrollIndicator>
+                  <View className="flex-row">
+                    {bi.headers.map((header, colIdx) => {
+                      const mappedField = MAPPING_FIELDS.find((f) => bi.mapping[f.key] === header);
+                      return (
+                        <View
+                          key={`${header}-${colIdx}`}
+                          className={colIdx > 0 ? 'border-l border-theme' : ''}
+                          style={{ minWidth: 90 }}
+                        >
+                          <View className="px-2.5 py-1.5 bg-surface-2">
+                            <Text className="text-[10px] font-bold text-secondary" numberOfLines={1}>
+                              {header || '(unnamed)'}
+                            </Text>
+                            {mappedField && (
+                              <Text className="text-[8.5px] font-bold" style={{ color: theme.primary }}>
+                                → {mappedField.label}
+                              </Text>
+                            )}
+                          </View>
+                          {bi.rawPreviewRows.map((row, rowIdx) => (
+                            <View key={rowIdx} className={`px-2.5 py-1.5 ${rowIdx > 0 ? 'border-t border-theme' : ''}`}>
+                              <Text className="text-[10px] text-secondary" numberOfLines={1}>
+                                {row[colIdx] || ' '}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
           )}
         </View>
       )}

@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Backup &amp; Restore redesign — options (v1)</title>
+<style>
+  :root {
+    --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 24px 100px; background: #05070a; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; color: #e6edf3; }
+  .intro { color: #8b949e; font-size: 13px; max-width: 900px; line-height: 1.65; margin-bottom: 14px; }
+  .intro b { color: #e6edf3; }
+  .finding {
+    max-width: 900px; margin: 10px 0; border: 1px dashed #444c56; border-radius: 12px;
+    padding: 12px 16px; font-size: 12px; line-height: 1.7; color: #8b949e;
+  }
+  .finding b { color: #e6edf3; }
+  .finding .tag {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.1);
+    border-radius: 999px; padding: 2px 8px; margin-right: 8px; vertical-align: 1px;
+  }
+  .finding .tag.ok { color: #10b981; border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.1); }
+  .rec {
+    max-width: 900px; margin: 18px 0 26px; border: 1px solid rgba(0,168,107,.4); background: rgba(0,168,107,.08);
+    border-radius: 12px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; color: #cdeee0;
+  }
+  .rec b { color: #baf3d8; }
+  .rec .h { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--primary); margin-bottom: 6px; }
+
+  nav.anchors {
+    position: sticky; top: 0; z-index: 30; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: #05070a; padding: 10px 0 14px; margin-bottom: 6px; border-bottom: 1px solid #1c2128;
+  }
+  nav.anchors a {
+    font-size: 12px; font-weight: 700; color: #c9d1d9; text-decoration: none; padding: 6px 12px;
+    border-radius: 999px; border: 1px solid #2d333b; background: #161b22;
+  }
+  nav.anchors a.rec-link { border-color: rgba(0,168,107,.5); color: #baf3d8; }
+  nav.anchors .sep { width: 1px; height: 18px; background: #2d333b; margin: 0 4px; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin: 16px 0 22px; }
+  .toolbar button {
+    font-family: inherit; font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid #2d333b; background: #161b22; color: #e6edf3; cursor: pointer;
+  }
+  .toolbar button.active { background: var(--primary); border-color: var(--primary); color: #04140d; }
+  .toolbar .hint { font-size: 11.5px; color: #6e7681; }
+
+  section { margin-top: 52px; padding-top: 6px; }
+  .section-label {
+    display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: #6e7681; border: 1px solid #2d333b; border-radius: 999px; padding: 3px 10px; margin-bottom: 8px;
+  }
+  .section-label.rec { color: #baf3d8; border-color: rgba(0,168,107,.5); background: rgba(0,168,107,.1); }
+  .desc { max-width: 780px; font-size: 12.5px; color: #8b949e; line-height: 1.65; margin: 6px 0 20px; }
+  .desc b { color: #e6edf3; }
+  .desc code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+
+  .row { display: flex; gap: 30px; flex-wrap: wrap; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-cap { max-width: 300px; font-size: 11px; color: #6e7681; line-height: 1.6; text-align: center; }
+  .col-cap b { color: #9aa4b0; }
+
+  /* Real device frame — 300x650 ≈ a 390x844 phone scaled down, per ui-design-check skill's real-device-size rule */
+  .phone {
+    width: 300px; height: 650px; border-radius: 34px; border: 9px solid #111827; overflow: hidden;
+    position: relative; display: flex; flex-direction: column; box-shadow: 0 16px 34px rgba(0,0,0,0.45); flex-shrink: 0;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .screen[data-theme="light"] {
+    background: #f8fafc; --surface: #ffffff; --surface2: #eff6ff; --border: #c7d8f0;
+    --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+  }
+  .screen[data-theme="dark"] {
+    background: #0b0f14; --surface: #161b22; --surface2: #1c2128; --border: #2d333b;
+    --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+  }
+
+  .header-row {
+    height: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 14px; background: inherit;
+  }
+  .backchev { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 16px; }
+  .header-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .header-icons { display: flex; gap: 12px; }
+  .hdr-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.6px solid var(--text2); }
+  .hdr-bell { width: 14px; height: 14px; border: 1.6px solid var(--text2); border-radius: 4px 4px 7px 7px; }
+
+  .body { flex: 1; overflow-y: auto; padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 15px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card-head { display: flex; align-items: flex-start; gap: 10px; }
+  .card-badge {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .card-badge.warn { background: rgba(245,158,11,0.1); color: var(--warning); }
+  .card-badge.green { background: rgba(0,168,107,0.1); color: var(--primary); }
+  .card-badge.danger { background: rgba(239,68,68,0.1); color: var(--danger); }
+  .card-title { font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .card-sub { font-size: 10.5px; color: var(--text3); line-height: 1.5; margin-top: 2px; }
+
+  .segmented { display: flex; background: var(--surface2); border-radius: 12px; padding: 3px; gap: 2px; }
+  .segmented .seg {
+    flex: 1; text-align: center; font-size: 10px; font-weight: 700; color: var(--text2);
+    padding: 7px 0; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer;
+  }
+  .segmented .seg.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+  .segmented.compact .seg { font-size: 9.5px; padding: 5px 0; }
+
+  .destrow {
+    display: flex; align-items: center; gap: 10px; padding: 10px 4px; cursor: pointer; border-top: 1px solid var(--border);
+  }
+  .destrow:first-child { border-top: none; }
+  .destrow .di { width: 26px; height: 26px; border-radius: 8px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text2); flex-shrink: 0; }
+  .destrow .dl { flex: 1; font-size: 11.5px; font-weight: 700; color: var(--text); }
+  .destrow .dstat { font-size: 10px; color: var(--text3); margin-top: 1px; }
+  .destrow .dchip { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+  .destrow .dchip.on { background: rgba(0,168,107,.12); color: var(--primary); }
+  .destrow .dchip.off { background: var(--surface2); color: var(--text3); }
+  .destrow .chev { font-size: 12px; color: var(--text3); transition: transform .15s; }
+  .destrow.expanded .chev { transform: rotate(90deg); }
+  .destpanel { display: none; padding: 10px 4px 4px 4px; border-top: 1px dashed var(--border); flex-direction: column; gap: 10px; }
+  .destpanel.open { display: flex; }
+  .rowgroup { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+  /* Connected account hero */
+  .hero {
+    display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; background: var(--surface2);
+  }
+  .hero.big { padding: 12px; gap: 12px; }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,#4285F4,#34A853); color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .hero.big .avatar { width: 42px; height: 42px; font-size: 15px; }
+  .hero-name { font-size: 11.5px; font-weight: 700; color: var(--text); }
+  .hero.big .hero-name { font-size: 13px; }
+  .hero-sub { font-size: 10px; color: var(--text3); margin-top: 1px; }
+  .hero-pill { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(0,168,107,.12); color: var(--primary); display: inline-flex; align-items: center; gap: 3px; margin-left: 5px; }
+  .hero-kebab { width: 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 14px; cursor: pointer; flex-shrink: 0; }
+  .acct-actions { display: none; gap: 6px; }
+  .acct-actions.open { display: flex; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .toggle-row .tl { font-size: 11px; font-weight: 600; color: var(--text); }
+  .switch { width: 34px; height: 19px; border-radius: 999px; background: var(--border); position: relative; cursor: pointer; flex-shrink: 0; transition: background .15s; }
+  .switch.on { background: var(--primary); }
+  .switch .knob { width: 15px; height: 15px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch.on .knob { left: 17px; }
+
+  .freqrow { display: flex; gap: 5px; }
+  .freqrow.hidden { display: none; }
+  .freqchip { flex: 1; text-align: center; font-size: 9.5px; font-weight: 700; padding: 6px 0; border-radius: 8px; background: var(--surface2); color: var(--text2); cursor: pointer; }
+  .freqchip.active { background: var(--primary); color: #04140d; }
+
+  .banner {
+    border-radius: 12px; padding: 10px 11px; display: flex; gap: 8px;
+  }
+  .banner.danger { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.35); }
+  .banner.warning { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); }
+  .banner.success { background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); }
+  .banner .ic { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .banner.danger .ic { color: var(--danger); }
+  .banner.warning .ic { color: var(--warning); }
+  .banner.success .ic { color: var(--success); }
+  .banner .txt { flex: 1; }
+  .banner .txt .t1 { font-size: 11px; font-weight: 700; color: var(--text); line-height: 1.4; }
+  .banner .txt .t2 { font-size: 10px; color: var(--text2); line-height: 1.5; margin-top: 2px; }
+
+  /* Prominent-but-compact PIN callout — one strip, not a full multi-line Banner */
+  .pinstrip {
+    display: flex; align-items: center; gap: 7px; padding: 8px 10px; border-radius: 10px;
+    background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35);
+  }
+  .pinstrip .ic { font-size: 13px; flex-shrink: 0; }
+  .pinstrip .t { font-size: 10px; font-weight: 600; color: var(--text); line-height: 1.4; }
+  .pinstrip .t b { color: var(--warning); }
+
+  .field-label { font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 4px; display: block; }
+  .filepick {
+    width: 100%; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2);
+    padding: 9px 10px; display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text3);
+  }
+  .pwfield {
+    width: 100%; border-radius: 10px; border: 1px solid var(--border); background: var(--surface2);
+    padding: 9px 10px; font-size: 11px; color: var(--text3);
+  }
+
+  .btnrow { display: flex; gap: 8px; }
+  .btn {
+    text-align: center; font-size: 11px; font-weight: 700; padding: 10px 8px; border-radius: 11px;
+    cursor: pointer; line-height: 1.3; flex: 1;
+  }
+  .btn.primary { background: var(--primary); color: #04140d; }
+  .btn.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn.ghost { background: transparent; color: var(--text2); text-decoration: underline; font-weight: 600; }
+  .btn.full { width: 100%; }
+  .btn.disabled { opacity: .45; pointer-events: none; }
+  .helper { font-size: 9.5px; color: var(--text3); text-align: center; }
+
+  .footer-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .footer-row .fine { font-size: 10px; color: var(--text3); flex: 1; }
+  .fineprint { font-size: 9.5px; color: var(--text3); }
+
+  /* Progress panel replacing the button row while a restore is in flight */
+  .progress-panel { display: none; flex-direction: column; gap: 10px; }
+  .progress-panel.open { display: flex; }
+  .phase { display: flex; align-items: center; gap: 8px; }
+  .phase-dot {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; font-size: 10px; border: 1.5px solid var(--border); color: var(--text3);
+  }
+  .phase-dot.active { border-color: var(--primary); color: var(--primary); animation: pulse 1s infinite; }
+  .phase-dot.done { border-color: var(--success); color: var(--success); background: rgba(16,185,129,.12); }
+  .phase-label { font-size: 11px; font-weight: 600; color: var(--text3); }
+  .phase-label.active { color: var(--text); }
+  .phase-label.done { color: var(--text2); }
+  .phase-line { width: 1.5px; height: 14px; background: var(--border); margin-left: 9px; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(1.12); } }
+  .progress-note { font-size: 10px; color: var(--text2); line-height: 1.5; }
+  .progress-note b { color: var(--text); }
+
+  /* Confirm dialog */
+  .backdrop {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center;
+    justify-content: center; padding: 0 16px; z-index: 20;
+  }
+  .backdrop.open { display: flex; }
+  .dialog { width: 100%; max-width: 250px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px 0; }
+  .dialog-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .dialog-close { font-size: 13px; color: var(--text3); cursor: pointer; }
+  .dialog-body { padding: 10px 15px 15px; font-size: 11px; line-height: 1.55; color: var(--text2); }
+  .dialog-footer { display: flex; gap: 8px; padding: 13px 15px; border-top: 1px solid var(--border); }
+  .dialog-footer .btn { font-size: 11px; padding: 9px 8px; }
+
+  .note {
+    max-width: 900px; margin-top: 12px; border: 1px dashed #2d333b; border-radius: 10px;
+    padding: 12px 14px; font-size: 11.5px; color: #8b949e; line-height: 1.65;
+  }
+  .note b { color: #e6edf3; }
+  .note code { background: #1c2128; border: 1px solid #2d333b; border-radius: 4px; padding: 1px 5px; font-size: 10.5px; }
+
+  .future-wrap { position: relative; max-width: 300px; }
+  .future-lock {
+    position: absolute; inset: 0; background: rgba(5,7,10,.72); border-radius: 16px; display: flex;
+    flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 20px;
+  }
+  .future-lock .l1 { font-size: 20px; }
+  .future-lock .l2 { font-size: 11px; font-weight: 800; color: #fff; letter-spacing: .02em; }
+  .future-lock .l3 { font-size: 10px; color: #c9d1d9; line-height: 1.5; }
+  .histrow { display: flex; align-items: center; gap: 8px; padding: 8px 4px; border-top: 1px solid var(--border); }
+  .histrow:first-child { border-top: none; }
+  .histrow .hi { font-size: 13px; color: var(--text3); }
+  .histrow .ht { flex: 1; }
+  .histrow .ht .h1 { font-size: 10.5px; font-weight: 600; color: var(--text); }
+  .histrow .ht .h2 { font-size: 9.5px; color: var(--text3); }
+  .histrow .ha { font-size: 12px; color: var(--text3); display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+
+<h1>Backup &amp; Restore redesign — layout options (v1)</h1>
+<p class="intro">
+  Scope: <code>apps/mobile/src/features/backup/BackupPage.tsx</code> + <code>AutoBackupCard.tsx</code>.
+  Grounded in the real current screen (read in full before drafting this — see the <a href="#current" style="color:#7dd3ac">Current (today)</a>
+  section below, which mirrors the actual code, not an approximation). Three genuinely different structural
+  options for how <b>simplified restore copy + honest in-progress state + Cashew-style Drive account
+  management</b> come together on one screen, plus a separate, clearly-labelled <b>Future ideas</b> section for
+  what a single-Drive-blob model genuinely can't do today. Nothing here is final — no app code has been touched.
+</p>
+
+<div class="finding">
+  <span class="tag ok">duplication check — clean</span>
+  Unlike the 2026-07-27 incident this skill explicitly warns about, <b>mobile's Backup screen is already
+  consolidated</b> — <code>BackupPage.tsx</code> has exactly 3 cards (Automatic backup / Restore / Reset), and
+  <code>AutoBackupCard.tsx</code>'s own doc comment confirms the standalone "Export backup" and "Back up to
+  Google Drive" cards were already folded into its destination tabs. This redesign only <i>enriches</i> the
+  existing Drive tab's content (account identity, toggle, frequency) — it does not reintroduce a second place
+  that does the same thing, and none of the three options below add a new competing control for anything
+  <code>AutoBackupCard</code> already owns.
+</div>
+
+<div class="finding">
+  <span class="tag">cross-platform check</span>
+  <code>apps/web-react/src/features/backup/{BackupPage,AutoBackupCard}.tsx</code> read for comparison. Web is
+  structurally the same 3-card screen, but it's <b>missing several things mobile already has</b> (added on
+  mobile only, real-device-testing-driven, dated 2026-08-18/21): the <code>foreign_blob</code> banner + its
+  "Overwrite Drive" escape hatch, the navigation lock + "don't close the app" banner while a restore is in
+  flight, and the disabled-only-per-reason button states. These are <b>pre-existing platform disagreements</b>,
+  not ones this task introduces. Per <code>apps/web-react</code> being frozen (CLAUDE.md), <b>none of this
+  redesign needs mirroring there</b> — flagging the gap as a documented finding rather than silently leaving it
+  implicit. If any future decision un-freezes web, this doc is the list of what's already drifted.
+</div>
+
+<div class="finding">
+  <span class="tag">scope check — core, not just UI</span>
+  The requested <b>auto-backup on/off toggle + 1–14 day frequency control</b> has <b>no backing logic today</b>.
+  <code>packages/core/src/core/sync/decide.ts</code>'s <code>dueDaily</code> is a hardcoded 24h
+  (<code>DAY_MS</code>) in <code>backupEngine.ts</code>; <code>backupPrefs.ts</code> only persists <i>which</i>
+  destination is chosen, not a cadence or an on/off flag independent of destination. Every option below assumes
+  this pref surface gets built (a new "auto-push enabled" bool + an interval in days, both read by
+  <code>decideSync</code>) as a follow-up implementation step once a layout is picked — this mockup is UI/UX
+  only, per the task, but flagging so the toggle isn't mistaken for something a copy change alone would ship.
+</div>
+
+<nav class="anchors">
+  <a href="#current">Current (today)</a>
+  <span class="sep"></span>
+  <a href="#option-a">Option A — Evolve in place</a>
+  <a href="#option-b">Option B — Destination rows</a>
+  <a href="#option-c" class="rec-link">Option C — Drive-first hero ★ recommended</a>
+  <span class="sep"></span>
+  <a href="#future">Future ideas (not buildable today)</a>
+</nav>
+
+<div class="rec">
+  <div class="h">Recommendation</div>
+  <b>Option C</b> (Drive-first identity hero, embedded in the existing card — not a new stacked card) is the
+  strongest match for the "Cashew-style" ask: it makes the connected account the visual anchor of Drive backup
+  management the way Cashew and most consumer backup UIs do, while staying inside <i>one</i> card so it doesn't
+  add visual weight per "uncluttered first" (§1). <b>Option A</b> (evolve the existing tabs in place) is the
+  safer, cheaper fallback if the team wants to ship the restore-card and progress-state fixes first and defer
+  the Drive-management upgrade — it's a pure superset of what's already there. <b>Option B</b> (destination
+  rows/accordion) is included for comparison but I'd actively steer away from it: the "tap-to-reveal" accordion
+  pattern (§3) exists for rows with <i>several optional actions that don't all need to be visible at once</i> —
+  here there are only 3 mutually-exclusive destinations and the whole point of the screen is comparing their
+  status at a glance, so hiding 2 of 3 behind an extra tap works against "calm, glanceable hierarchy" (§1) and
+  "minimal clicks to anything" for no real benefit over the segmented control already in place.
+</div>
+
+<div class="toolbar">
+  <button id="btn-light" class="active" onclick="setTheme('light')">Light</button>
+  <button id="btn-dark" onclick="setTheme('dark')">Dark</button>
+  <span class="hint">← tap to preview both themes · every screen below is interactive (tap tabs / rows / toggles / "Restore from file" to see the in-progress state)</span>
+</div>
+
+<!-- ============================================================ CURRENT ============================================================ -->
+<section id="current">
+  <div class="section-label">Current (today)</div>
+  <h2>What's actually on screen right now</h2>
+  <p class="desc">
+    Rendered from the real <code>BackupPage.tsx</code> / <code>AutoBackupCard.tsx</code> source, not a
+    description. Note the three things called out in the requirements: the Restore card's copy repeats the file
+    picker's own placeholder and buries the PIN warning in a small caption; the Drive tab has no account
+    identity/toggle/frequency at all (just a status line); and the in-flight state (tap "Restore backup" below)
+    is a bare spinner with no sense of progress or control.
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-cap">Idle</div>
+      <div class="phone">
+        <div class="screen" data-theme="light">
+          <div class="header-row">
+            <div class="backchev">‹</div><div class="header-title">Backup</div>
+            <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge green">↻</div>
+                <div>
+                  <div class="card-title">Automatic backup</div>
+                  <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices. On-device backups guard against accidental changes but are lost if you clear app data or lose the device.</div>
+                </div>
+              </div>
+              <div class="segmented">
+                <div class="seg">📱 This device</div>
+                <div class="seg active">☁ Drive</div>
+                <div class="seg"> iCloud</div>
+              </div>
+              <div class="footer-row">
+                <div class="fine">Not backed up yet</div>
+                <div class="btn secondary" style="flex:none;padding:8px 14px;">Back up now</div>
+              </div>
+              <div class="fineprint">Backups are encrypted on this device — no one but you can read them.</div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge warn">☁↑</div>
+                <div>
+                  <div class="card-title">Restore from backup</div>
+                  <div class="card-sub">Select a .penny file, or restore straight from Google Drive and enter your passphrase. Your current data will be replaced. Afterward, unlock with the PIN that was active when this backup was created — not necessarily this device's current one.</div>
+                </div>
+              </div>
+              <div>
+                <span class="field-label">Backup file</span>
+                <div class="filepick">📄 Choose .penny file…</div>
+              </div>
+              <div>
+                <span class="field-label">Passphrase</span>
+                <div class="pwfield">Your original passphrase</div>
+              </div>
+              <div class="btn primary full" onclick="curRestore()">Restore backup</div>
+              <div class="btn secondary full">Restore from Google Drive</div>
+              <div class="helper">Enter your passphrase above first</div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge danger">⚠</div>
+                <div>
+                  <div class="card-title">Reset Penny</div>
+                  <div class="card-sub">Erases everything on this device and returns to onboarding.</div>
+                </div>
+              </div>
+              <div class="btn danger full">Erase all data</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="col-cap"><b>Today's "restoring" state</b> — plain spinner, no phases, no sense of how far along it is (tap the button on the left to see it play out here too)</div>
+      <div class="phone">
+        <div class="screen" data-theme="light">
+          <div class="header-row">
+            <div class="backchev" style="opacity:.3">‹</div><div class="header-title">Backup</div>
+            <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+          </div>
+          <div class="body">
+            <div class="banner warning">
+              <div class="ic">⏳</div>
+              <div class="txt"><div class="t1">Restoring — don't close the app</div><div class="t2">This can take a little while on a large history.</div></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge warn">☁↑</div>
+                <div><div class="card-title">Restore from backup</div></div>
+              </div>
+              <div class="btn primary full" style="opacity:.7;" id="cur-spin-btn">⟳ Restoring…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ OPTION A ============================================================ -->
+<section id="option-a">
+  <div class="section-label">Option A</div>
+  <h2>Evolve in place — same 3-card / tab structure, enriched content</h2>
+  <p class="desc">
+    Lowest-risk option: keeps the exact IA that's already there (segmented tabs for destination, 3 cards). The
+    Drive tab's content is what changes — it grows from a status line into a real mini-management panel
+    (connected account, auto-backup toggle + frequency, last-backup + back-up-now), and the Restore card is
+    trimmed and restructured per the requirements. <b>Tap "Drive"</b> in the Automatic backup card, then
+    <b>tap the account row's ⋮</b> to see switch/disconnect, then <b>tap "Restore from file"</b> in the Restore
+    card to preview the new progress state.
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-cap">Full screen</div>
+      <div class="phone">
+        <div class="screen" data-theme="light">
+          <div class="header-row">
+            <div class="backchev">‹</div><div class="header-title">Backup</div>
+            <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge green">↻</div>
+                <div>
+                  <div class="card-title">Automatic backup</div>
+                  <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div>
+                </div>
+              </div>
+              <div class="segmented" id="a-seg">
+                <div class="seg" id="a-seg-local" onclick="aSelect('local')">📱 This device</div>
+                <div class="seg active" id="a-seg-drive" onclick="aSelect('drive')">☁ Drive</div>
+                <div class="seg" id="a-seg-icloud" onclick="aSelect('icloud')"> iCloud</div>
+              </div>
+
+              <!-- LOCAL panel -->
+              <div id="a-panel-local" style="display:none;">
+                <div class="footer-row">
+                  <div class="fine">Last daily snapshot · 3 hrs ago</div>
+                  <div class="btn secondary" style="flex:none;padding:8px 14px;">Back up now</div>
+                </div>
+              </div>
+
+              <!-- DRIVE panel -->
+              <div id="a-panel-drive" style="display:flex;flex-direction:column;gap:10px;">
+                <div id="a-drive-connected">
+                  <div class="hero">
+                    <div class="avatar">R</div>
+                    <div style="flex:1;">
+                      <div class="hero-name">riya.sharma@example.com<span class="hero-pill">● Connected</span></div>
+                      <div class="hero-sub">Last backed up · 2 hrs ago</div>
+                    </div>
+                    <div class="hero-kebab" onclick="toggleAcct('a')">⋮</div>
+                  </div>
+                  <div class="acct-actions" id="a-acct-actions" style="margin-top:6px;">
+                    <div class="btn secondary" onclick="showDisconnected('a')">Switch account</div>
+                    <div class="btn secondary" onclick="showDisconnected('a')">Disconnect</div>
+                  </div>
+
+                  <div class="toggle-row" style="margin-top:10px;">
+                    <span class="tl">Automatically back up to Drive</span>
+                    <div class="switch on" id="a-toggle" onclick="toggleAuto('a')"><div class="knob"></div></div>
+                  </div>
+                  <div class="freqrow" id="a-freqrow">
+                    <div class="freqchip" onclick="setFreq('a',this)">1 day</div>
+                    <div class="freqchip active" onclick="setFreq('a',this)">3 days</div>
+                    <div class="freqchip" onclick="setFreq('a',this)">7 days</div>
+                    <div class="freqchip" onclick="setFreq('a',this)">14 days</div>
+                  </div>
+
+                  <div class="footer-row" style="margin-top:2px;">
+                    <div class="fine">Keeps one always-current backup — not a version history</div>
+                    <div class="btn secondary" style="flex:none;padding:8px 12px;">Back up now</div>
+                  </div>
+                </div>
+
+                <div id="a-drive-disconnected" style="display:none;">
+                  <div class="banner warning">
+                    <div class="ic">⚠</div>
+                    <div class="txt"><div class="t1">Not connected</div><div class="t2">Reconnect to keep backing up to Drive.</div></div>
+                  </div>
+                  <div class="btn secondary full" style="margin-top:8px;" onclick="showConnected('a')">Reconnect</div>
+                </div>
+              </div>
+
+              <!-- ICLOUD panel -->
+              <div id="a-panel-icloud" style="display:none;">
+                <div class="fineprint">iCloud isn't available on this build.</div>
+              </div>
+            </div>
+
+            <div id="a-restore-card">
+              <div class="card">
+                <div class="card-head">
+                  <div class="card-badge warn">☁↑</div>
+                  <div>
+                    <div class="card-title">Restore from backup</div>
+                    <div class="card-sub">Replaces everything on this device — back up first if you're unsure.</div>
+                  </div>
+                </div>
+                <div>
+                  <span class="field-label">Backup file</span>
+                  <div class="filepick">📄 Choose .penny file…</div>
+                </div>
+                <div>
+                  <span class="field-label">Passphrase</span>
+                  <div class="pwfield">Your original passphrase</div>
+                </div>
+                <div class="pinstrip">
+                  <div class="ic">🔑</div>
+                  <div class="t">Use the PIN <b>active on this device when this backup was made</b> — not necessarily today's PIN.</div>
+                </div>
+
+                <div id="a-btnrow" class="btnrow">
+                  <div class="btn primary" onclick="simRestore('a')">Restore from file</div>
+                  <div class="btn secondary">Restore from Drive</div>
+                </div>
+
+                <div class="progress-panel" id="a-progress">
+                  <div class="phase">
+                    <div class="phase-dot active" id="a-dot1">1</div>
+                    <div class="phase-label active" id="a-lbl1">Preparing your backup…</div>
+                  </div>
+                  <div class="phase-line"></div>
+                  <div class="phase">
+                    <div class="phase-dot" id="a-dot2">2</div>
+                    <div class="phase-label" id="a-lbl2">Applying to your data</div>
+                  </div>
+                  <div class="progress-note" id="a-note">Nothing's been changed yet.</div>
+                  <div class="btn ghost" id="a-cancel" style="flex:none;text-align:left;padding:2px 0;" onclick="cancelRestore('a')">Cancel</div>
+                </div>
+                <div class="banner success" id="a-success" style="display:none;">
+                  <div class="ic">✓</div>
+                  <div class="txt"><div class="t1">Restored — relocking session…</div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge danger">⚠</div>
+                <div><div class="card-title">Reset Penny</div><div class="card-sub">Erases everything on this device.</div></div>
+              </div>
+              <div class="btn danger full">Erase all data</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <b>What changed vs. today, concretely:</b> Restore card's sub-copy is one line instead of three sentences,
+    and no longer repeats the file picker's own "Choose .penny file…" placeholder. The PIN requirement moved
+    from a small tertiary caption into its own warning-tinted strip placed right before the buttons (last thing
+    seen before committing), and is the same one-strip pattern regardless of which tab is used. Buttons are
+    side-by-side (<code>flex-row</code>, two equal-width <code>Button</code>s) instead of stacked with a caption
+    between. Drive tab content is new; This device / iCloud panels are unchanged from today.
+  </div>
+</section>
+
+<!-- ============================================================ OPTION B ============================================================ -->
+<section id="option-b">
+  <div class="section-label">Option B</div>
+  <h2>Destination rows — accordion / tap-to-reveal instead of tabs</h2>
+  <p class="desc">
+    Replaces the segmented control with a grouped list of 3 rows (reusing the Accounts-list
+    "grouped flat list + tap-to-reveal" pattern from §3) — tap a row to expand its own controls beneath it,
+    only one open at a time. Restore card and progress state are identical to Option A (that part doesn't
+    depend on the destination IA). <b>Tap a row below</b> to expand it.
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-cap">Full screen</div>
+      <div class="phone">
+        <div class="screen" data-theme="dark">
+          <div class="header-row">
+            <div class="backchev">‹</div><div class="header-title">Backup</div>
+            <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge green">↻</div>
+                <div>
+                  <div class="card-title">Automatic backup</div>
+                  <div class="card-sub">Back up to Google Drive or iCloud to restore on a new phone and sync across devices.</div>
+                </div>
+              </div>
+              <div class="rowgroup">
+                <div class="destrow" id="b-row-local" onclick="bExpand('local')">
+                  <div class="di">📱</div>
+                  <div class="dl">This device<div class="dstat">Last snapshot · 3 hrs ago</div></div>
+                  <div class="chev">›</div>
+                </div>
+                <div class="destpanel" id="b-panel-local">
+                  <div class="footer-row">
+                    <div class="fine">Silent daily on-device snapshot</div>
+                    <div class="btn secondary" style="flex:none;padding:8px 12px;">Back up now</div>
+                  </div>
+                </div>
+
+                <div class="destrow expanded" id="b-row-drive" onclick="bExpand('drive')">
+                  <div class="di">☁</div>
+                  <div class="dl">Google Drive<div class="dstat">riya.sharma@example.com · 2 hrs ago</div></div>
+                  <div class="dchip on">On</div>
+                  <div class="chev">›</div>
+                </div>
+                <div class="destpanel open" id="b-panel-drive">
+                  <div class="hero">
+                    <div class="avatar">R</div>
+                    <div style="flex:1;">
+                      <div class="hero-name">riya.sharma@example.com</div>
+                      <div class="hero-sub">Connected</div>
+                    </div>
+                    <div class="hero-kebab" onclick="event.stopPropagation();toggleAcct('b')">⋮</div>
+                  </div>
+                  <div class="acct-actions" id="b-acct-actions">
+                    <div class="btn secondary">Switch account</div>
+                    <div class="btn secondary">Disconnect</div>
+                  </div>
+                  <div class="toggle-row">
+                    <span class="tl">Automatically back up to Drive</span>
+                    <div class="switch on" id="b-toggle" onclick="event.stopPropagation();toggleAuto('b')"><div class="knob"></div></div>
+                  </div>
+                  <div class="freqrow" id="b-freqrow">
+                    <div class="freqchip" onclick="event.stopPropagation();setFreq('b',this)">1 day</div>
+                    <div class="freqchip active" onclick="event.stopPropagation();setFreq('b',this)">3 days</div>
+                    <div class="freqchip" onclick="event.stopPropagation();setFreq('b',this)">7 days</div>
+                    <div class="freqchip" onclick="event.stopPropagation();setFreq('b',this)">14 days</div>
+                  </div>
+                  <div class="footer-row">
+                    <div class="fine">One always-current backup — not a version history</div>
+                    <div class="btn secondary" style="flex:none;padding:8px 12px;">Back up now</div>
+                  </div>
+                </div>
+
+                <div class="destrow" id="b-row-icloud" onclick="bExpand('icloud')">
+                  <div class="di"></div>
+                  <div class="dl">iCloud<div class="dstat">Unavailable on this build</div></div>
+                  <div class="chev">›</div>
+                </div>
+                <div class="destpanel" id="b-panel-icloud">
+                  <div class="fineprint">iCloud isn't available on this build.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge warn">☁↑</div>
+                <div>
+                  <div class="card-title">Restore from backup</div>
+                  <div class="card-sub">Replaces everything on this device — back up first if you're unsure.</div>
+                </div>
+              </div>
+              <div><span class="field-label">Backup file</span><div class="filepick">📄 Choose .penny file…</div></div>
+              <div><span class="field-label">Passphrase</span><div class="pwfield">Your original passphrase</div></div>
+              <div class="pinstrip">
+                <div class="ic">🔑</div>
+                <div class="t">Use the PIN <b>active on this device when this backup was made</b> — not necessarily today's PIN.</div>
+              </div>
+              <div id="b-btnrow" class="btnrow">
+                <div class="btn primary" onclick="simRestore('b')">Restore from file</div>
+                <div class="btn secondary">Restore from Drive</div>
+              </div>
+              <div class="progress-panel" id="b-progress">
+                <div class="phase"><div class="phase-dot active" id="b-dot1">1</div><div class="phase-label active" id="b-lbl1">Preparing your backup…</div></div>
+                <div class="phase-line"></div>
+                <div class="phase"><div class="phase-dot" id="b-dot2">2</div><div class="phase-label" id="b-lbl2">Applying to your data</div></div>
+                <div class="progress-note" id="b-note">Nothing's been changed yet.</div>
+                <div class="btn ghost" id="b-cancel" style="flex:none;text-align:left;padding:2px 0;" onclick="cancelRestore('b')">Cancel</div>
+              </div>
+              <div class="banner success" id="b-success" style="display:none;">
+                <div class="ic">✓</div><div class="txt"><div class="t1">Restored — relocking session…</div></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div class="card-badge danger">⚠</div><div><div class="card-title">Reset Penny</div></div></div>
+              <div class="btn danger full">Erase all data</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <b>Why I don't recommend this one</b> (see the Recommendation box up top): with only 3 mutually-exclusive
+    destinations, the accordion adds a tap to see 2 of the 3 statuses that a segmented control already shows all
+    3 of, glanceably, with zero taps. It also visually competes with the "grouped rows + tap-to-reveal" pattern
+    as used for Accounts (where each row is an independent item with several optional per-item actions) — reusing
+    it for a single-choice destination picker is a pattern/problem mismatch, not a real reuse.
+  </div>
+</section>
+
+<!-- ============================================================ OPTION C ============================================================ -->
+<section id="option-c">
+  <div class="section-label rec">Option C ★ recommended</div>
+  <h2>Drive-first identity hero — embedded in the same card, not a new one</h2>
+  <p class="desc">
+    Keeps the segmented control (so switching destination is still zero-tap-to-compare), but when <b>Drive</b>
+    is selected, the connected account becomes a real hero row at the <i>top</i> of the panel — bigger avatar,
+    account email as the primary line, a clear "Connected" pill — the way Cashew anchors its own Drive backup
+    section, rather than a small status line buried under a generic tab. It's still one card (no extra stacking
+    weight). <b>Tap "Drive"</b>, then the <b>⋮</b> next to the account, then <b>"Restore from file"</b> below.
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-cap">Full screen</div>
+      <div class="phone">
+        <div class="screen" data-theme="light">
+          <div class="header-row">
+            <div class="backchev">‹</div><div class="header-title">Backup</div>
+            <div class="header-icons"><div class="hdr-dot"></div><div class="hdr-bell"></div></div>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div id="c-hero-wrap">
+                <div class="hero big" id="c-hero">
+                  <div class="avatar">R</div>
+                  <div style="flex:1;">
+                    <div class="hero-name">riya.sharma@example.com</div>
+                    <div class="hero-sub">Connected to Google Drive <span class="hero-pill">● Active</span></div>
+                  </div>
+                  <div class="hero-kebab" onclick="toggleAcct('c')">⋮</div>
+                </div>
+                <div class="acct-actions" id="c-acct-actions" style="margin-top:6px;">
+                  <div class="btn secondary" onclick="showDisconnected('c')">Switch account</div>
+                  <div class="btn secondary" onclick="showDisconnected('c')">Disconnect</div>
+                </div>
+              </div>
+              <div id="c-hero-disconnected" style="display:none;">
+                <div class="banner warning">
+                  <div class="ic">⚠</div>
+                  <div class="txt"><div class="t1">Not connected</div><div class="t2">Reconnect to keep backing up to Drive.</div></div>
+                </div>
+                <div class="btn secondary full" style="margin-top:8px;" onclick="showConnected('c')">Reconnect</div>
+              </div>
+
+              <div class="segmented compact" id="c-seg">
+                <div class="seg" id="c-seg-local" onclick="cSelect('local')">📱 This device</div>
+                <div class="seg active" id="c-seg-drive" onclick="cSelect('drive')">☁ Drive</div>
+                <div class="seg" id="c-seg-icloud" onclick="cSelect('icloud')"> iCloud</div>
+              </div>
+
+              <div id="c-panel-drive" style="display:flex;flex-direction:column;gap:10px;">
+                <div class="toggle-row">
+                  <span class="tl">Automatically back up to Drive</span>
+                  <div class="switch on" id="c-toggle" onclick="toggleAuto('c')"><div class="knob"></div></div>
+                </div>
+                <div class="freqrow" id="c-freqrow">
+                  <div class="freqchip" onclick="setFreq('c',this)">1 day</div>
+                  <div class="freqchip active" onclick="setFreq('c',this)">3 days</div>
+                  <div class="freqchip" onclick="setFreq('c',this)">7 days</div>
+                  <div class="freqchip" onclick="setFreq('c',this)">14 days</div>
+                </div>
+                <div class="footer-row">
+                  <div class="fine">Last backed up · 2 hrs ago — one always-current backup</div>
+                  <div class="btn secondary" style="flex:none;padding:8px 12px;">Back up now</div>
+                </div>
+              </div>
+
+              <div id="c-panel-local" style="display:none;">
+                <div class="footer-row">
+                  <div class="fine">Last daily snapshot · 3 hrs ago</div>
+                  <div class="btn secondary" style="flex:none;padding:8px 12px;">Back up now</div>
+                </div>
+              </div>
+              <div id="c-panel-icloud" style="display:none;">
+                <div class="fineprint">iCloud isn't available on this build.</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="card-badge warn">☁↑</div>
+                <div>
+                  <div class="card-title">Restore from backup</div>
+                  <div class="card-sub">Replaces everything on this device — back up first if you're unsure.</div>
+                </div>
+              </div>
+              <div><span class="field-label">Backup file</span><div class="filepick">📄 Choose .penny file…</div></div>
+              <div><span class="field-label">Passphrase</span><div class="pwfield">Your original passphrase</div></div>
+              <div class="pinstrip">
+                <div class="ic">🔑</div>
+                <div class="t">Use the PIN <b>active on this device when this backup was made</b> — not necessarily today's PIN.</div>
+              </div>
+              <div id="c-btnrow" class="btnrow">
+                <div class="btn primary" onclick="simRestore('c')">Restore from file</div>
+                <div class="btn secondary">Restore from Drive</div>
+              </div>
+              <div class="progress-panel" id="c-progress">
+                <div class="phase"><div class="phase-dot active" id="c-dot1">1</div><div class="phase-label active" id="c-lbl1">Preparing your backup…</div></div>
+                <div class="phase-line"></div>
+                <div class="phase"><div class="phase-dot" id="c-dot2">2</div><div class="phase-label" id="c-lbl2">Applying to your data</div></div>
+                <div class="progress-note" id="c-note">Nothing's been changed yet.</div>
+                <div class="btn ghost" id="c-cancel" style="flex:none;text-align:left;padding:2px 0;" onclick="cancelRestore('c')">Cancel</div>
+              </div>
+              <div class="banner success" id="c-success" style="display:none;">
+                <div class="ic">✓</div><div class="txt"><div class="t1">Restored — relocking session…</div></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-head"><div class="card-badge danger">⚠</div><div><div class="card-title">Reset Penny</div></div></div>
+              <div class="btn danger full">Erase all data</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <b>Cancel/progress design (shared across all 3 options above):</b> mapped to <code>backupManager.ts</code>'s
+    real <code>importBackup()</code> seams, not invented steps — phase 1 covers JSON-parse + key-derive + decrypt
+    (fast, and genuinely nothing has touched the database yet, so <b>Cancel is real and honest</b> here); phase 2
+    is <code>restoreTables()</code>'s single atomic bulk write (the actual destructive, irreversible step) — the
+    moment it starts, the Cancel link disappears and the copy switches to the same "don't close the app" framing
+    the existing navigation-lock banner already uses. No fake numeric ETA anywhere, per the brief. Implementing
+    this for real needs two small additions to <code>importBackup()</code>: a callback/state param it can report
+    "entering phase 2" through, and (separately) plumbing a real <code>AbortController</code>-style bail-out for
+    phase 1 specifically — today the function has no such hook, it's a straight <code>await</code> chain.
+  </div>
+</section>
+
+<!-- ============================================================ FUTURE ============================================================ -->
+<section id="future">
+  <div class="section-label">Future idea — NOT buildable today</div>
+  <h2>Drive backup history / multiple versions</h2>
+  <p class="desc">
+    Explicitly called out as out-of-scope-today per the brief. <code>googleDriveProvider.native.ts</code> is
+    Model B, <code>appDataFolder</code>, and always finds-or-creates <i>one</i> fixed file
+    (<code>DRIVE_BACKUP_FILE_NAME</code>) — there is no "list of backups" today, and designing a UI that implies
+    one (a scrollable list of 20 individually-downloadable/removable snapshots) would misrepresent what the app
+    actually does. The mock below is deliberately shown locked/greyed to make that unambiguous.
+  </p>
+  <div class="row">
+    <div class="col">
+      <div class="col-cap"><b>Illustrative only</b> — not a proposal to build now</div>
+      <div class="future-wrap">
+        <div class="phone" style="height:auto;width:300px;border-radius:16px;border:1px solid #2d333b;box-shadow:none;">
+          <div class="screen" data-theme="dark" style="flex:none;">
+            <div class="body" style="padding:14px;">
+              <div class="card">
+                <div class="card-title" style="margin-bottom:4px;">Backup history</div>
+                <div class="rowgroup">
+                  <div class="histrow"><div class="hi">☁</div><div class="ht"><div class="h1">Aug 21, 9:40 AM</div><div class="h2">3.4 MB</div></div><div class="ha">⭳ 🗑</div></div>
+                  <div class="histrow"><div class="hi">☁</div><div class="ht"><div class="h1">Aug 18, 6:12 PM</div><div class="h2">3.1 MB</div></div><div class="ha">⭳ 🗑</div></div>
+                  <div class="histrow"><div class="hi">☁</div><div class="ht"><div class="h1">Aug 15, 2:03 PM</div><div class="h2">2.9 MB</div></div><div class="ha">⭳ 🗑</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="future-lock">
+          <div class="l1">🔒</div>
+          <div class="l2">FUTURE IDEA — NOT SUPPORTED TODAY</div>
+          <div class="l3">Requires a real storage-model change: multiple timestamped files (or Drive's own file-revision history) instead of one fixed blob.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <b>A real, grounded lead worth investigating (not confirmed) if this is ever prioritized:</b> because
+    <code>pushImpl()</code> always <code>PATCH</code>es the <i>same</i> Drive file id rather than creating a new
+    one each time, Google Drive's own per-file <b>Revisions</b> API may already be retaining some prior versions
+    of that one file server-side — which could mean a "restore an older version" feature is closer to
+    "surface an existing API" than "redesign the storage model." This is <b>unverified</b> — Drive's revision
+    retention for <code>appDataFolder</code> files specifically (count/time limits, whether
+    <code>keepRevisionForever</code> needs setting) hasn't been checked against current API docs, and it would
+    still show version count/size only, never the "20 independently-named backups" framing above. Worth a
+    dedicated spike before promising it, not something to design against yet.
+  </div>
+</section>
+
+<script>
+  function setTheme(t) {
+    document.querySelectorAll('.screen').forEach(el => el.setAttribute('data-theme', t));
+    document.getElementById('btn-light').classList.toggle('active', t === 'light');
+    document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+  }
+
+  // ---- Option A: segmented destination tabs ----
+  function aSelect(v) {
+    ['local','drive','icloud'].forEach(k => {
+      document.getElementById('a-seg-'+k).classList.toggle('active', k === v);
+      document.getElementById('a-panel-'+k).style.display = (k === v) ? (k==='drive'?'flex':'block') : 'none';
+    });
+  }
+  // ---- Option C: segmented destination tabs (hero only shows for drive) ----
+  function cSelect(v) {
+    ['local','drive','icloud'].forEach(k => {
+      document.getElementById('c-seg-'+k).classList.toggle('active', k === v);
+      document.getElementById('c-panel-'+k).style.display = (k === v) ? (k==='drive'?'flex':'block') : 'none';
+    });
+    document.getElementById('c-hero-wrap').style.display = (v === 'drive') ? 'block' : 'none';
+    document.getElementById('c-hero-disconnected').style.display = 'none';
+  }
+
+  // ---- Option B: destination-row accordion ----
+  function bExpand(target) {
+    ['local','drive','icloud'].forEach(k => {
+      const isTarget = k === target;
+      document.getElementById('b-row-'+k).classList.toggle('expanded', isTarget);
+      document.getElementById('b-panel-'+k).classList.toggle('open', isTarget);
+    });
+  }
+
+  // ---- Account kebab reveal (shared) ----
+  function toggleAcct(p) { document.getElementById(p+'-acct-actions').classList.toggle('open'); }
+  function showDisconnected(p) {
+    if (p === 'a') { document.getElementById('a-drive-connected').style.display = 'none'; document.getElementById('a-drive-disconnected').style.display = 'block'; }
+    if (p === 'c') { document.getElementById('c-hero-wrap').style.display = 'none'; document.getElementById('c-hero-disconnected').style.display = 'block'; }
+  }
+  function showConnected(p) {
+    if (p === 'a') { document.getElementById('a-drive-connected').style.display = 'block'; document.getElementById('a-drive-disconnected').style.display = 'none'; }
+    if (p === 'c') { document.getElementById('c-hero-wrap').style.display = 'block'; document.getElementById('c-hero-disconnected').style.display = 'none'; }
+  }
+
+  // ---- Auto-backup toggle + frequency (shared) ----
+  function toggleAuto(p) {
+    const el = document.getElementById(p+'-toggle');
+    const on = !el.classList.contains('on');
+    el.classList.toggle('on', on);
+    const freq = document.getElementById(p+'-freqrow');
+    if (freq) freq.classList.toggle('hidden', !on);
+  }
+  function setFreq(p, chip) {
+    chip.parentElement.querySelectorAll('.freqchip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  }
+
+  // ---- Restore progress simulation (shared) ----
+  function simRestore(p) {
+    document.getElementById(p+'-btnrow').style.display = 'none';
+    document.getElementById(p+'-progress').classList.add('open');
+    document.getElementById(p+'-dot1').classList.add('active'); document.getElementById(p+'-dot1').classList.remove('done');
+    document.getElementById(p+'-lbl1').classList.add('active'); document.getElementById(p+'-lbl1').classList.remove('done');
+    document.getElementById(p+'-dot2').classList.remove('active','done');
+    document.getElementById(p+'-lbl2').classList.remove('active','done');
+    document.getElementById(p+'-note').innerHTML = "Nothing's been changed yet.";
+    document.getElementById(p+'-cancel').style.display = 'block';
+    document.getElementById(p+'-success').style.display = 'none';
+
+    window[p+'_t1'] = setTimeout(() => {
+      document.getElementById(p+'-dot1').classList.remove('active'); document.getElementById(p+'-dot1').classList.add('done'); document.getElementById(p+'-dot1').textContent = '✓';
+      document.getElementById(p+'-lbl1').classList.remove('active'); document.getElementById(p+'-lbl1').classList.add('done');
+      document.getElementById(p+'-dot2').classList.add('active');
+      document.getElementById(p+'-lbl2').classList.add('active');
+      document.getElementById(p+'-note').innerHTML = "<b>Writing to your device now</b> — please don't close the app.";
+      document.getElementById(p+'-cancel').style.display = 'none';
+
+      window[p+'_t2'] = setTimeout(() => {
+        document.getElementById(p+'-progress').classList.remove('open');
+        document.getElementById(p+'-success').style.display = 'flex';
+      }, 1400);
+    }, 1300);
+  }
+  function cancelRestore(p) {
+    clearTimeout(window[p+'_t1']); clearTimeout(window[p+'_t2']);
+    document.getElementById(p+'-progress').classList.remove('open');
+    document.getElementById(p+'-btnrow').style.display = 'flex';
+  }
+  function curRestore() {
+    const btn = document.getElementById('cur-spin-btn');
+    document.querySelectorAll('#current .col:last-child .card')[0]; // no-op, kept for symmetry
+    btn.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+</script>
+
+</body>
+</html>

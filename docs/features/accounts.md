@@ -50,7 +50,67 @@ The accounts module manages all your bank accounts, cash on hand, and digital wa
   glow blob opposite the main corner glow — see `docs/DESIGN_GUIDELINES.md`'s "Identity-colour gradient
   mini card" entry for what's a faithful port vs. a pragmatic RN approximation (RN has no inset
   box-shadow, CSS blur filter, or repeating-linear-gradient). See `docs/mockups/proposals/
-  accounts-list-v1.html`'s "Direction D — Mini Cards v2" section for the approved reference.
+accounts-list-v1.html`'s "Direction D — Mini Cards v2" section for the approved reference.
+- **`apps/mobile`, 2026-08-19: account list redesigned again — gradient mini cards dropped.** Real-device
+  testing reported the v2 gradient cards as not following the theme, wasting space, and still not
+  showing real bank icons everywhere despite the logos below. Replaced (7 mockup concepts explored,
+  `docs/mockups/proposals/account-list-redesign-v1.html` through `-v3.html`'s "✅ FINAL DIRECTION")
+  with: accounts grouped by type into three sections (**Bank Accounts / Cash & Wallets / Credit
+  Cards**, a group hidden entirely if it has no accounts), each section one bordered container of flat,
+  divided rows (no gradient). Each row's balance carries a `ti-dots-vertical` kebab that **tap-reveals**
+  that row's Import-XOR-Reconcile + Edit + Delete icons underneath it, independently per row; whole-row
+  tap still opens the transactions-for-this-account modal, unchanged. The "Included in net worth"/"Not
+  counted in net worth" caption and the persistent unverified-account warning glyph both carried over
+  unchanged. See `docs/DESIGN_GUIDELINES.md`'s "Grouped flat list + tap-to-reveal actions" entry (the
+  gradient mini card entry above is now marked superseded there, kept only for history).
+- **`apps/mobile`, 2026-08-19: real per-bank logos, HSBC added; brand-color tinting for 3 more.**
+  `BankLogo.tsx` (a new shared component every account-icon render site should go through) swaps in a
+  real, CC0-licensed brand mark (Simple Icons) for **HDFC, ICICI, Axis, and now HSBC** whenever
+  `account.bankId` matches. For **SBI, Kotak, and IndusInd** — no licensed mark exists (Simple Icons
+  has no entry for them, and the one other source with real marks ships with no LICENSE file, so
+  redistributing it would be an unclear-rights risk) — the generic fallback `Icon` is tinted with each
+  bank's real official brand color instead (`bankAccentColor()`, its own file since a component file
+  can't have a second non-component export under Fast Refresh's rule) rather than left on the generic
+  account-type default; both the icon glyph and its badge background (`AccountList.tsx`) use it. The
+  remaining 5 presets (BoB, Yes Bank, PNB, Canara, IDFC First, custom) have no verified logo _or_ color
+  yet — inventing either would be equally dishonest, so they stay on the plain account-type default.
+- **`apps/mobile`, 2026-08-27: default account + payment mode, and a real Closed status.** Bank/Credit
+  Card/Wallet accounts (never Cash, already the implicit fallback) gain two new toggles in Add/Edit
+  Account, mutually exclusive on the same account:
+  - **Set as default account** — pre-fills this account, and a type-appropriate payment mode (Cash→Cash,
+    Credit Card→Card, Bank/Wallet→UPI), on every new expense/income. Only one account across the whole
+    set may hold this — turning it on for one account while a DIFFERENT account already has it shows a
+    confirm popup naming that account before anything is saved; Cancel leaves both untouched.
+  - **Closed** — the account is no longer operational (you closed it with the bank). Distinct from
+    _archived_ (still operational, just not something you want to keep logging to — that's a separate,
+    still-unbuilt idea, see Current limitations): a closed account is hidden from every picker that
+    assigns a NEW/edited transaction (this form's own inline "+ Add account", `EntryForm.tsx`/
+    `SettleUpModal.tsx`, bulk account-reassign, Groups' composer, bank-import's cash-transfer target) but
+    still shown on this page itself, in its own collapsed "Closed (n)" section — same pattern IOU's
+    Archived section already uses — and still contributes to net worth/analytics like any other account
+    with real history.
+  - The account list shows a "Default" pill next to the name for whichever account holds it.
+  - New shared `apps/mobile/src/components/shared/BankPickerModal.tsx` — the same bank-selection popup
+    (real logo/brand-color icon + name, alphabetical) now used by both this form's "Bank (optional)"
+    field and Bank Statement Import's own bank-preset field (`docs/features/bank-import.md`), replacing
+    a plain text-only dropdown in both places.
+- **`apps/mobile`, 2026-08-29: a positive verification signal, and a new "unverified tail" state.**
+  Until now the account row's verification glyph only ever showed a *negative* signal (a warning
+  triangle when something's wrong) — a fully-verified account looked identical to a never-imported
+  one. Tap-revealing a row's actions now also shows, alongside the existing warning triangle
+  (mutually exclusive with it):
+  - A green **"Statement verified till {date}"** caption, once the account has at least one bank
+    import and no active verification finding.
+  - An amber **"N new transactions since last verified statement"** state when transactions have been
+    recorded *after* that date with no matching bank-import link — a case the existing warning-triangle
+    system couldn't see at all (it only checks *inside* already-covered statement ranges, never after
+    them). This wins over the plain verified caption when both are technically true.
+  - A per-row **Import History** action (alongside Import/Reconcile/Edit/Delete) opens that account's
+    own import history directly — the existing header-level Import History icon still browses across
+    all accounts, unchanged.
+  - The three previously bare header icons (Merchant recognition, Cash-withdrawal codes, Import
+    History) now share the same boxed-neutral treatment the row's own action icons already use; "Add"
+    stays the one boxed-primary icon.
 
 ## How it works
 
@@ -62,23 +122,41 @@ Transfers are recorded as a single transaction with both a source `accountId` an
 
 The Home dashboard's accounts strip reads all accounts and computes their live balances in a single pass.
 
-Each `Account` carries an optional `hideInSafeMode` flag (undefined/false = visible, the default). Both `AccountList` (this page) and `AccountsStrip` (Home) resolve masking per account via `usePrivacy().shouldMask(acc.hideInSafeMode)` — Open never masks, Privacy always masks, Safe masks only flagged accounts. The Total Balance card is an aggregate and stays visible in Safe (hidden only in Privacy). See `docs/ARCHITECTURE.md` → Context providers.
+**Performance, 2026-08-28:** `useAccounts.ts` now shows a real loading state (`AccountList.tsx`'s
+`loading` prop) instead of silently reusing the "no accounts yet" empty prompt during the first load —
+both used to start as `[]` and were indistinguishable. Opening an account's transaction list
+(`AccountDetailModal.tsx`) is also substantially faster for accounts with thousands of transactions —
+its own `accountTxns`/balance computation is now memoized (was recomputing, and re-grouping the whole
+list by date, on every one of the two renders this modal reliably does on open), and the shared
+`groupExpensesByDate()` (`core/expenses/filterAndAggregate.ts`) itself was rewritten to sort once
+globally instead of separately sorting and copying every individual day's row group. Full writeup in
+`docs/ARCHITECTURE.md`'s matching 2026-08-28 decision-log entry.
+
+Each `Account` carries an optional `hideInSafeMode` flag (undefined/false = visible, the default). Both `AccountList` (this page) and `AccountsStrip` (Home) resolve masking per account via `usePrivacy().shouldMask(acc.hideInSafeMode)` — Open never masks, Safe masks only flagged accounts. The Total Balance card is an aggregate, never flagged sensitive, so it always stays visible in Safe. See `docs/ARCHITECTURE.md` → Context providers.
 
 Key files:
 
 - `src/features/accounts/AccountsPage.tsx` — thin shell: header + AccountList + AccountFormModal
 - `src/features/accounts/useAccountForm.ts` — add/edit form state; `AccountList.tsx`/`AccountFormModal.tsx` — list + modal
 - `src/core/accounts/meta.ts` — account-type metadata (label/icon/colour); `balanceCalculator.ts` — balance math
-- **`apps/mobile`, 2026-08-03 (v2):** each mini card's gradient + glow is looked up, not computed from
-  the account's own type/colour — `~/lib/color.ts`'s `accountCardPalette(id, isCashLike)` hashes the
-  account's `id` into one of two curated palettes (`JEWEL_PALETTE` for everything else, `GREEN_PALETTE`
-  clamped for `cash`/`wallet`), each entry a hand-picked dark gradient pair plus a matching bright glow
-  colour. This replaced an earlier version (`accentCardGradient(hex)`, derived from the account-type
-  accent in `meta.ts` via `ink()`) that made every account of the same type render an identical, flat
-  card. Text/icon/divider colours on top of the gradient (`ON_GRADIENT` in `AccountList.tsx`) are
-  intentionally fixed white/translucent-white regardless of app theme — same rationale as
-  `ShareCard.tsx`'s hardcoded white text on its own gradient — since they're relative to the card's own
-  colour, not the light/dark/pennyBlue palette.
+- `apps/mobile/src/components/shared/BankLogo.tsx` — real per-bank logo resolution (`account.bankId` →
+  a sourced Simple Icons mark, or the generic `Icon`/`account.color` fallback); mobile-only, added
+  2026-08-19
+- `apps/mobile/src/components/shared/BankPickerModal.tsx` — shared bank-selection popup (2026-08-27);
+  `packages/core/src/core/accounts/accountDefaults.ts` — `findPreviousDefaultAccount()`, the one place
+  "which other account currently holds `isDefault`" is decided, called from `useAccountForm.ts`'s
+  `save()` rather than any one feature's own `saveAccount` (there are 3+ independent implementations —
+  see the Mobile section below)
+- **`apps/mobile`, 2026-08-03 (v2, superseded 2026-08-19 — history only):** each mini card's gradient +
+  glow was looked up, not computed from the account's own type/colour — `~/lib/color.ts`'s
+  `accountCardPalette(id, isCashLike)` hashed the account's `id` into one of two curated palettes
+  (`JEWEL_PALETTE` for everything else, `GREEN_PALETTE` clamped for `cash`/`wallet`), each entry a
+  hand-picked dark gradient pair plus a matching bright glow colour. Text/icon/divider colours on top
+  of the gradient (`ON_GRADIENT` in `AccountList.tsx`) were intentionally fixed white/translucent-white
+  regardless of app theme — same rationale as `ShareCard.tsx`'s hardcoded white text on its own
+  gradient. **None of this exists in the current `AccountList.tsx`** — the 2026-08-19 redesign above
+  dropped the gradient entirely for a themed flat row, so `accountCardPalette`/`JEWEL_PALETTE`/
+  `GREEN_PALETTE` were removed rather than left as dead code.
 - `src/features/expenses/ExpenseForm.tsx` — handles income and transfer type transactions (which update account balances)
 
 **Mobile (`apps/mobile`):** ported in Track 4 (sixth module) — `apps/mobile/src/features/accounts/` mirrors the web files above 1:1 (`useAccounts.ts`/`useAccountForm.ts` unchanged beyond import paths). Surfaced a real bug in **shared `packages/core`**: `useDataRefresh.ts`'s cross-instance refresh signals (`useAccountsRefresh`/`useCategoriesRefresh`/`useTagsRefresh`) used the same browser-only `window` events as `useTxnRefresh` (already fixed for IOU) — fixed proactively with `packages/core/src/hooks/useDataRefresh.native.ts` before it could crash on-device. `ReconcileModal`'s `ink()`/`STATUS` usage swaps to `~/lib/color`'s `ink(color, theme.textPrimary)` (mobile's version takes the "toward" color as an explicit argument, since there's no CSS var to default to) — same pattern as other modules. `AccountFormModal` reuses the shared `FormModal` (web used a raw `Modal` here) for consistency with every other add/edit form ported so far. Back button dropped, same reasoning as Insurance/Loans/IOU.
@@ -103,7 +181,12 @@ modules" reasoning as the relocation above). No behavior change for the Accounts
 ## Current limitations
 
 - Balances must be seeded with an accurate opening balance; there is no way to import existing transaction history from a bank automatically
-- No account archiving — deleted accounts remove all associated transactions
+- Deleting an account is still a real hard delete (`accountsRepo.delete()`) — it doesn't remove linked
+  transactions (they just lose their account link), but there's no Undo-by-restoring-the-account the way
+  IOU persons/goals get. **Closed** (2026-08-27, see above) covers "keep it, stop using it, mark it
+  no-longer-operational" — a genuine **Archive** (still operational, just not something you're
+  logging to in Penny — distinct from Closed) remains unbuilt; `Account.isArchived` exists on the type
+  but nothing sets it yet.
 - No multi-currency accounts (all accounts are in INR)
 - Credit card statements and minimum payment dates are not tracked
 - No automatic bank sync or Open Banking integration
@@ -115,6 +198,7 @@ modules" reasoning as the relocation above). No behavior change for the Accounts
 
 ## Ideas welcome
 
-- Should archived/closed accounts be kept for historical reporting rather than deleted?
+- A real **Archive** action (distinct from the new Closed status — see Current limitations) — keep an
+  account's history without deleting it, for one still-operational but no-longer-tracked in Penny.
 - Would foreign currency account support (e.g. USD savings account) be useful?
 - Should credit card accounts show the statement due date and minimum payment?

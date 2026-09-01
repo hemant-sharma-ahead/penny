@@ -222,13 +222,71 @@ export function isLikelyInvestmentMovement(categoryName: string): boolean {
   return INVESTMENT_MOVEMENT_KEYWORDS.some((k) => lower.includes(k));
 }
 
+/** Keywords for a genuine CASH/ATM withdrawal specifically — the subset of `SELF_ACCOUNT_MOVEMENT_KEYWORDS`
+ *  below that means "money left a bank account and became physical cash," used on its own by
+ *  `isLikelyCashWithdrawal` (2026-08-20, real-device testing pass) to power apps/mobile's Transactions
+ *  stage "turn these into transfers to your Cash account?" suggestion. Kept as its own array (rather
+ *  than duplicated into `SELF_ACCOUNT_MOVEMENT_KEYWORDS` below) so the two lists can never silently
+ *  drift — `SELF_ACCOUNT_MOVEMENT_KEYWORDS` spreads this one in rather than repeating the three strings.
+ *  Lives here (not `importTransferPairing.ts`, which re-exports it) because `suggestForNameDirectional`
+ *  below needs `isLikelySelfAccountMovement` in the same module — `importTransferPairing.ts` already
+ *  imports `isLikelyTransfer` FROM this file, so the reverse import would be circular. */
+const CASH_WITHDRAWAL_KEYWORDS = ['cash withdrawal', 'atm withdrawal', 'cash wdl'];
+
+/** Keywords for a self-account movement NOT already covered by `TRANSFER_KEYWORDS` above — cash
+ *  withdrawal and CC bill payment phrasing. Kept as its own list (not an addition to `TRANSFER_KEYWORDS`)
+ *  for the same reason `isLikelyIouSuspect`/`isLikelyInvestmentMovement` are their own lists: broadening
+ *  `TRANSFER_KEYWORDS` itself would silently change what `resolveCategories()` (and therefore web)
+ *  suggests for these category names too. */
+const SELF_ACCOUNT_MOVEMENT_KEYWORDS = [
+  ...CASH_WITHDRAWAL_KEYWORDS,
+  'wallet recharge',
+  'wallet reload',
+  'wallet load',
+  'add money',
+  'credit card bill',
+  'credit card payment',
+  'cc bill',
+  'cc payment',
+  'card bill payment'
+];
+
+export function isLikelySelfAccountMovement(categoryName: string): boolean {
+  const lower = categoryName.toLowerCase().trim();
+  return SELF_ACCOUNT_MOVEMENT_KEYWORDS.some((k) => lower.includes(k));
+}
+
+/** True when a source category name reads as a cash/ATM withdrawal specifically (see
+ *  `CASH_WITHDRAWAL_KEYWORDS` above) — narrower than `isLikelySelfAccountMovement`, which also matches
+ *  wallet top-ups and credit-card bill payments that this feature deliberately does NOT offer a
+ *  Cash-account transfer suggestion for. */
+export function isLikelyCashWithdrawal(categoryName: string): boolean {
+  const lower = categoryName.toLowerCase().trim();
+  return CASH_WITHDRAWAL_KEYWORDS.some((k) => lower.includes(k));
+}
+
 /** Same suggestion logic as `suggestForName` (existing/create), except a source category that ISN'T
- *  already `isLikelyTransfer` but IS IOU- or investment-movement-suspect also defaults to
- *  `kind: 'transfer'` (reviewable, never silently a spend category) — the redesign's §7/§9.d fix. Kept
- *  as its own function (never touching `suggestForName` itself) so `resolveCategories()` — the function
+ *  already `isLikelyTransfer` but IS IOU-, investment-movement-, or self-account-movement-suspect also
+ *  defaults to `kind: 'transfer'` (reviewable, never silently a spend category) — the redesign's §7/§9.d
+ *  fix, extended 2026-08-22 to cover `isLikelySelfAccountMovement` (real regression: a Cashew "Cash
+ *  Withdrawal"/"Credit Card Bill Payment"/wallet-recharge category whose rows are ALL claimed by a
+ *  confident `detectSelfAccountMovementPairs` pair could never become `transactionsReady` — its default
+ *  suggestion was `kind: 'create'`, which `isDirectionalCategoryResolutionDecided` only ever marks
+ *  decided via an explicit user touch, but the category's tile never renders any rows to touch in the
+ *  first place once every one of them is excluded from the Transactions stage for being part of a
+ *  confirmed pair — see `fullyAutoResolvedTransferKeys`/`isDirectionalCategoryResolutionDecided`, which
+ *  only ever short-circuits "decided" for a `kind: 'transfer'` suggestion, never `kind: 'create'`. The
+ *  category-group stayed permanently "needs input" with nothing to show, so at commit time
+ *  `useImport.ts`'s `!g.transactionsReady` branch force-skipped EVERY row in the group — including both
+ *  legs of every detected pair — silently dropping genuine linked transfers from the written import even
+ *  though the "Linked transfers" card had correctly detected and displayed them.) Kept as its own
+ *  function (never touching `suggestForName` itself) so `resolveCategories()` — the function
  *  `apps/web-react` calls directly — keeps its exact original behavior for these category names. */
 function suggestForNameDirectional(name: string, categories: ExpenseCategory[]): CategoryAction {
-  if (!isLikelyTransfer(name) && (isLikelyIouSuspect(name) || isLikelyInvestmentMovement(name))) {
+  if (
+    !isLikelyTransfer(name) &&
+    (isLikelyIouSuspect(name) || isLikelyInvestmentMovement(name) || isLikelySelfAccountMovement(name))
+  ) {
     const fallback = DEFAULT_TRANSFER_CATEGORIES.find((c) => c.id === 'cat-tr-other');
     return {
       kind: 'transfer',

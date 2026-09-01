@@ -198,6 +198,55 @@ describe('calculateEpfInterestForYear', () => {
     });
   });
 
+  // Real reported bug (2026-08-30): a real multi-employer EPF transfer landing mid-year was invisible
+  // to the interest simulation for the YEAR IT ARRIVED IN — the transferred balance was silently
+  // treated as earning nothing until the FOLLOWING year, disagreeing with the real passbook's own
+  // recorded interest. Mirrors the mid-year-withdrawal fix above exactly, just adding instead of
+  // subtracting.
+  describe('mid-year transfer-in', () => {
+    const flatRate12: EpfRateTable = {
+      confirmedThrough: '2025-03',
+      periods: [{ effectiveFrom: '2024-04', ratePct: 12 }]
+    };
+
+    it('increases the balance starting the month AFTER the transfer, not the transfer month itself', () => {
+      const result = calculateEpfInterestForYear(
+        {
+          fyStartYear: 2024,
+          monthlyContributions: [],
+          monthlyTransfersIn: [{ month: '2024-11', employeeAmount: 40000, employerAmount: 0 }],
+          openingEmployeeBalance: 0,
+          openingEmployerBalance: 0
+        },
+        flatRate12
+      );
+      // Apr-Nov (8 months, including November itself) earn 0 interest on the pre-transfer ₹0 balance;
+      // Dec-Mar (4 months) at 1%/mo on the post-transfer ₹40,000 = ₹1,600.
+      expect(result.employeeInterest).toBe(1600);
+      const novEntry = result.employeeTrace.find((m) => m.month === '2024-11');
+      const decEntry = result.employeeTrace.find((m) => m.month === '2024-12');
+      expect(novEntry?.openingBalance).toBe(0); // still zero for November's own interest
+      expect(decEntry?.openingBalance).toBe(40000); // credited from December onward
+    });
+
+    it('only increases the stream(s) the transfer actually specifies (employee vs employer)', () => {
+      const result = calculateEpfInterestForYear(
+        {
+          fyStartYear: 2024,
+          monthlyContributions: [],
+          monthlyTransfersIn: [{ month: '2024-06', employeeAmount: 30000, employerAmount: 8000 }],
+          openingEmployeeBalance: 0,
+          openingEmployerBalance: 0
+        },
+        flatRate12
+      );
+      const empJul = result.employeeTrace.find((m) => m.month === '2024-07');
+      const erJul = result.employerTrace.find((m) => m.month === '2024-07');
+      expect(empJul?.openingBalance).toBe(30000);
+      expect(erJul?.openingBalance).toBe(8000);
+    });
+  });
+
   it('exposes a month-by-month trace whose interest sums to the rounded total (§10.5)', () => {
     const rateTable: EpfRateTable = {
       confirmedThrough: '2015-03',
@@ -395,5 +444,43 @@ describe('buildEpfInterestInput', () => {
     };
     const input = buildEpfInterestInput(emp, [emp], [withdrawalTxn], 2019, { employee: 0, employer: 0 });
     expect(input.monthlyWithdrawals).toEqual([]);
+  });
+
+  // Real reported bug (2026-08-30): a real multi-employer transfer-in landing mid-year was invisible to
+  // the interest calculation entirely — `buildEpfInterestInput` never collected `transfer_in`
+  // transactions at all, only ever folding them into a LATER year's opening balance via
+  // `sumEpfBalanceBeforeFy` (apps/mobile), never the year they actually arrived in.
+  it('collects a real transfer-in DURING the FY into monthlyTransfersIn, scoped to this employer', () => {
+    const emp = employer({ id: 'a', fromDate: new Date(2019, 3, 1).getTime() });
+    const other = employer({
+      id: 'b',
+      fromDate: new Date(2016, 3, 1).getTime(),
+      toDate: new Date(2019, 3, 1).getTime()
+    });
+    const transferTxn: EpfTransaction = {
+      id: 't1',
+      type: 'transfer_in',
+      employerId: 'a',
+      transferredFromEmployerId: 'b',
+      date: new Date(2019, 10, 6).getTime(), // 6 Nov 2019 => FY2019-20
+      employeeAmount: 60000,
+      employerAmount: 20000,
+      amount: 80000
+    };
+    const input = buildEpfInterestInput(emp, [emp, other], [transferTxn], 2019, { employee: 0, employer: 0 });
+    expect(input.monthlyTransfersIn).toEqual([{ month: '2019-11', employeeAmount: 60000, employerAmount: 20000 }]);
+  });
+
+  it('excludes a transfer-in outside the requested FY', () => {
+    const emp = employer({ id: 'a', fromDate: new Date(2016, 3, 1).getTime() });
+    const transferTxn: EpfTransaction = {
+      id: 't1',
+      type: 'transfer_in',
+      employerId: 'a',
+      date: new Date(2018, 10, 20).getTime(), // FY2018-19, not FY2019-20
+      amount: 48921
+    };
+    const input = buildEpfInterestInput(emp, [emp], [transferTxn], 2019, { employee: 0, employer: 0 });
+    expect(input.monthlyTransfersIn).toEqual([]);
   });
 });

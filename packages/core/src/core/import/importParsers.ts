@@ -21,6 +21,10 @@ export interface ParsedRow {
   bankName?: string;
   /** Raw Account Type text, e.g. "bank"/"cash"/"debit-card"/"credit-card" — same 2026-08-14 addition. */
   accountType?: string;
+  /** Raw "IOU Person" text from a re-imported Penny CSV (2026-08-23, real-device-testing-pass item 76/
+   *  77) — resolved into a real `Person` + `LedgerEntry` at commit time (`useImport.ts`'s
+   *  `commitAndImport`), not here; this field only carries the raw text through parsing. */
+  iouPerson?: string;
 }
 
 /** A source row that couldn't be turned into a ParsedRow — surfaced in the wizard's "needs attention"
@@ -41,17 +45,18 @@ export interface ParseResult {
   totalDataRows: number;
 }
 
-export type ImportFormat = 'penny' | 'ynab' | 'cashew' | 'moneyview' | 'custom';
+// 'ynab' was removed entirely (2026-08-23, real-device-testing-pass item 78) — from this union, every
+// Record below, IMPORT_FORMATS, FORMAT_SYNONYMS, and its own test fixture/describe block.
+export type ImportFormat = 'penny' | 'cashew' | 'moneyview' | 'custom';
 
 // Deliberately excludes 'custom' — apps/mobile's import wizard (not yet ported to the new
 // resolution-based flow, see importPipeline.ts's legacy exports) renders one tile per entry in this
 // list, and has no Map-columns step to handle Custom yet. apps/web-react's new UploadStep adds 'custom'
 // as its own explicit 5th tile instead of getting it from this constant.
-export const IMPORT_FORMATS: ImportFormat[] = ['penny', 'ynab', 'cashew', 'moneyview'];
+export const IMPORT_FORMATS: ImportFormat[] = ['penny', 'cashew', 'moneyview'];
 
 export const FORMAT_LABELS: Record<ImportFormat, string> = {
   penny: 'Penny CSV',
-  ynab: 'YNAB',
   cashew: 'Cashew',
   moneyview: 'MoneyView',
   custom: 'Custom / other'
@@ -59,8 +64,7 @@ export const FORMAT_LABELS: Record<ImportFormat, string> = {
 
 /** Human-readable expected column hint per format, shown on the upload step. */
 export const FORMAT_COLUMNS: Record<ImportFormat, string> = {
-  penny: 'Date, Amount, Description, Category, Type, PaymentMode, Tags, Notes',
-  ynab: 'Date, Payee, Memo, Outflow, Inflow (or Amount)',
+  penny: 'Date, Amount, Description, Category, Type, PaymentMode, Tags, Notes, Account, IOU Person, Shared To Group',
   cashew: 'Date, Title, Amount, Category, Account, Note',
   moneyview: 'Date, Merchant/Receiver/Sender, Credit/Debit (or Amount), Category, Account Id/Bank Name',
   custom: "Any CSV with a header row — you'll map columns to Penny's fields yourself, with a smart starting guess"
@@ -78,15 +82,14 @@ export const FORMAT_SYNONYMS: Record<Exclude<ImportFormat, 'custom'>, Partial<Co
     paymentMode: ['paymentmode', 'payment mode'],
     tags: ['tags'],
     notes: ['notes'],
-    amount: ['amount']
-  },
-  ynab: {
-    date: ['date'],
-    description: ['payee', 'memo'],
-    category: ['category'],
-    outflow: ['outflow'],
-    inflow: ['inflow'],
-    amount: ['amount']
+    amount: ['amount'],
+    // Added 2026-08-23 (real-device-testing-pass item 76/77) alongside the export-side Account/IOU
+    // Person/Shared To Group columns — a re-imported Penny CSV now resolves these by name too, through
+    // the same generic column-guessing engine every other format already uses (see importAccountResolution.ts
+    // /importCategoryResolution.ts/importWriter.ts, which have zero bespoke branching on format).
+    account: ['account'],
+    iouPerson: ['iou person'],
+    sharedToGroupNote: ['shared to group']
   },
   cashew: {
     date: ['date'],
@@ -136,9 +139,11 @@ export const CUSTOM_SYNONYMS: Partial<ColumnSynonyms> = {
   incomeFlag: ['income', 'is income']
 };
 
-const FORMAT_DATE_HINT: Record<ImportFormat, 'DMY' | 'MDY' | 'auto'> = {
+/** Exported (2026-08-23, real-device-testing-pass item 79 drive-by fix) — `useImport.ts`'s
+ *  `confirmMapping` used to pass a hardcoded literal `'auto'` for the Custom-confirm path's date hint
+ *  instead of looking this table up like every other format already does. */
+export const FORMAT_DATE_HINT: Record<ImportFormat, 'DMY' | 'MDY' | 'auto'> = {
   penny: 'DMY',
-  ynab: 'MDY',
   cashew: 'auto',
   moneyview: 'auto',
   custom: 'auto'
@@ -213,10 +218,15 @@ export function readHeader(text: string): string[] | null {
   return header ?? null;
 }
 
+// Lowercased to match every other tag entry point (manual entry in ExpenseForm.tsx,
+// BulkHashtagModal.tsx, useExpenses.ts's bulkAddHashtag/bulkRemoveHashtag) — found 2026-08-18 to be
+// the one gap: an imported CSV/bank statement's tag column kept its original case, silently splitting
+// e.g. "Groceries" and "groceries" into two different tags instead of the one the rest of the app
+// already treats as case-insensitive.
 function parseTags(s: string): string[] {
   return s
     .split(/[\s,]+/)
-    .map((t) => t.replace(/^#/, '').trim())
+    .map((t) => t.replace(/^#/, '').trim().toLowerCase())
     .filter(Boolean);
 }
 
@@ -267,11 +277,19 @@ export function parseWithMapping(text: string, mapping: ColumnMapping, dateHint:
 
     const cat = cleanNullLike((mapping.category >= 0 ? (cols[mapping.category] ?? '') : '').trim());
     const account = mapping.account >= 0 ? cleanNullLike((cols[mapping.account] ?? '').trim()) : '';
-    const notes = mapping.notes >= 0 ? cleanNullLike((cols[mapping.notes] ?? '').trim()) : '';
+    let notes = mapping.notes >= 0 ? cleanNullLike((cols[mapping.notes] ?? '').trim()) : '';
     const tags = mapping.tags >= 0 ? parseTags(cols[mapping.tags] ?? '') : [];
     const paymentMode = mapping.paymentMode >= 0 ? cleanNullLike((cols[mapping.paymentMode] ?? '').trim()) : '';
     const bankName = mapping.bankName >= 0 ? cleanNullLike((cols[mapping.bankName] ?? '').trim()) : '';
     const accountType = mapping.accountType >= 0 ? cleanNullLike((cols[mapping.accountType] ?? '').trim()) : '';
+    const iouPerson = mapping.iouPerson >= 0 ? cleanNullLike((cols[mapping.iouPerson] ?? '').trim()) : '';
+    // Purely informational (item 76's export-side doc comment) — folded straight into Notes rather than
+    // exposed as its own ParsedRow field, since it's explicitly NOT meant to be re-import-actionable as a
+    // real group link. Appended (never overwrites an existing note), matching every other "don't
+    // silently drop a recognised column" convention in this function.
+    const sharedToGroupNote =
+      mapping.sharedToGroupNote >= 0 ? cleanNullLike((cols[mapping.sharedToGroupNote] ?? '').trim()) : '';
+    if (sharedToGroupNote) notes = notes ? `${notes} · ${sharedToGroupNote}` : sharedToGroupNote;
 
     let type: ParsedRow['type'] = amountResult.type;
     if (mapping.typeText >= 0) {
@@ -295,7 +313,8 @@ export function parseWithMapping(text: string, mapping: ColumnMapping, dateHint:
       hashtags: tags,
       ...(notes && { notes }),
       ...(bankName && { bankName }),
-      ...(accountType && { accountType })
+      ...(accountType && { accountType }),
+      ...(iouPerson && { iouPerson })
     });
   });
 
@@ -337,11 +356,16 @@ export function parseByFormat(text: string, format: ImportFormat, customMapping?
   return parseWithMapping(text, mapping, FORMAT_DATE_HINT[format]);
 }
 
+// Kept in sync with the real export header (`exportCsv.shared.ts`'s `header` const) — this drifted out
+// of sync once before (2026-08-23 added Account/IOU Person/Shared To Group to the export but never
+// updated this template, found via a real user report 2026-09-01) and the importer's own
+// `FORMAT_COLUMNS.penny`/`FORMAT_SYNONYMS.penny` hint already expects all 11 columns, so a stale 8-column
+// template silently under-demonstrated what a re-imported Penny export actually looks like.
 export const PENNY_TEMPLATE = [
-  'Date,Amount,Description,Category,Type,PaymentMode,Tags,Notes',
-  '14/06/2026,450,Groceries from DMart,Groceries,expense,UPI,#groceries,Weekly shop',
-  '14/06/2026,22000,Rent payment,Rent,expense,NetBanking,,',
-  '13/06/2026,3500,Dinner at restaurant,Dining & Café,expense,Card,#dining,',
-  '12/06/2026,95000,Salary credit,Salary,income,NetBanking,,',
-  '11/06/2026,1200,Netflix subscription,Subscriptions,expense,Card,#ott,'
+  'Date,Amount,Description,Category,Type,PaymentMode,Tags,Notes,Account,IOU Person,Shared To Group',
+  '14/06/2026,450,Groceries from DMart,Groceries,expense,UPI,#groceries,Weekly shop,HDFC Bank,,',
+  '14/06/2026,22000,Rent payment,Rent,expense,NetBanking,,,HDFC Bank,,',
+  '13/06/2026,3500,Dinner at restaurant,Dining & Café,expense,Card,#dining,,ICICI Bank,,Goa Trip',
+  '12/06/2026,95000,Salary credit,Salary,income,NetBanking,,,HDFC Bank,,',
+  '11/06/2026,1200,Netflix subscription,Subscriptions,expense,Card,#ott,,HDFC Bank,,'
 ].join('\n');

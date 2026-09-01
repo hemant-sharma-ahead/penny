@@ -136,6 +136,20 @@ export interface EpfEmployer {
    *  50%) — always shown as a labelled estimate with its formula visible, never asserted as fact,
    *  since Penny has no way to know the real Gross/CTC split from EPF data alone. */
   basicToGrossPct?: number;
+  /** Set `true` only once the user has explicitly answered "It was withdrawn" (not transferred) on
+   *  the "pending transfer" banner (2026-08-30 — see `epfEmployerScoping.ts`'s
+   *  `epfPendingTransferSuccessor`) — stops that banner from re-appearing for THIS employer once the
+   *  user has confirmed the closing balance genuinely left EPF (a real settlement/withdrawal, already
+   *  correctly recorded) rather than moving into a successor employer's own account. Never set by an
+   *  import — only by this explicit user answer, same "computed on demand, dismissal tracked
+   *  separately" pattern as `EpfTransaction.interestMismatchAcknowledged`. */
+  pendingTransferDismissed?: boolean;
+  /** "YYYY-MM" wage months the user explicitly dismissed ("Not now") on the "hike detected" nudge
+   *  banner (2026-08-30 — see `epfCalculations.ts`'s `findUnrecordedEpfHikes`) — stops that specific
+   *  suggestion from re-appearing every time the card re-renders. Adding the hike for real (the
+   *  banner's other action) also naturally stops it recurring, since the detector re-checks against
+   *  the updated `hikeTimeline` — this field only covers the "I don't want to add it" path. */
+  dismissedHikeMonths?: string[];
 }
 
 export type EpfTransactionType = 'contribution' | 'interest' | 'transfer_in' | 'withdrawal' | 'advance';
@@ -183,6 +197,15 @@ export interface EpfTransaction {
    *  as a "needs review" flag once acknowledged — same "computed on demand, dismissal tracked
    *  separately" pattern already used elsewhere in this app (e.g. `Account.dismissedVerificationFindings`). */
   interestMismatchAcknowledged?: boolean;
+  /** Set only on a `transfer_in` transaction created via the "pending transfer" banner's own "It was
+   *  transferred" confirm step (2026-08-30 — `RetirementSheets.tsx`) — which OLD (now-closed) employer
+   *  this credit resolves. Exists so `epfEmployerScoping.ts`'s `epfPendingTransferSuccessor` can tell
+   *  EXACTLY which old employer's gap a given transfer-in already closes, rather than assuming it must
+   *  always be the chronologically-next employer — a real reported gap: EPFO transfers always target
+   *  whichever Member ID is CURRENTLY active at the time the transfer is filed, which can mean two
+   *  different old, closed employers both correctly transfer into the SAME later employer, skipping
+   *  over an employer that happened to sit chronologically in between. */
+  transferredFromEmployerId?: string;
 }
 
 // ─── Asset metadata ───────────────────────────────────────────────────────────
@@ -380,6 +403,29 @@ export interface Expense {
 
 export type AccountType = 'cash' | 'bank' | 'credit_card' | 'wallet';
 
+/** Bank identifier — originally defined only in `core/bank-import/types.ts` (CSV column-mapping
+ *  presets); promoted here 2026-08-15 once `Account.bankId` below and `core/sms-import/` (SMS
+ *  parsing templates, docs/plans/sms-transaction-tracking.md §3/§5) needed the same identifier set.
+ *  Lives in this file rather than a separate `core/banks/` module because this file is deliberately
+ *  self-contained (no imports of its own — see `ImportBatchSummary` below for the same reasoning
+ *  applied to a bank-import-flavored type) and `Account` needs it directly.
+ *  `core/bank-import/types.ts` re-exports this rather than every one of its many internal consumers
+ *  switching to a new import path. */
+export type BankPresetId =
+  | 'hdfc'
+  | 'icici'
+  | 'kotak'
+  | 'sbi'
+  | 'indusind'
+  | 'hsbc'
+  | 'bob'
+  | 'axis'
+  | 'yesbank'
+  | 'pnb'
+  | 'canara'
+  | 'idfcfirst'
+  | 'custom';
+
 export interface Account {
   id: string;
   name: string;
@@ -388,7 +434,37 @@ export interface Account {
   color: string;
   icon: string; // Tabler icon class e.g. 'ti-wallet'
   includeInNetWorth: boolean; // cash + bank = yes, credit card = no (it's a liability)
+  /** Which bank this account belongs to (docs/plans/sms-transaction-tracking.md §3) — optional,
+   *  settable from the account-edit screen, absent on every account created before this field
+   *  existed (no migration/backfill). Used to resolve an incoming SMS's bank sender/name to this
+   *  account when there's exactly one non-archived account for that bank; with more than one, or no
+   *  `bankId` set at all, SMS tracking falls back to its own persisted sender→account mapping
+   *  instead (`core/sms-import/`) rather than guessing. Doesn't feed Bank Statement Import, which
+   *  already receives its target `accountId` explicitly and never needs to infer it. */
+  bankId?: BankPresetId;
+  /** Last 4 digits of THIS ACCOUNT's own number only — never a card number (a card's last 4 digits
+   *  differ from its underlying account's, and Penny doesn't track cards as separate accounts; see
+   *  `core/sms-import/`'s own card-last4 mapping tier for that case) and never the full number
+   *  (docs/PRIVACY.md Category-1: account numbers are never stored raw). Optional, same
+   *  no-migration/no-backfill treatment as `bankId` above. Used for exact-match SMS→account
+   *  resolution when both the SMS and this account carry a last4. */
+  last4?: string;
   isArchived: boolean;
+  /** No longer operational (2026-08-27) — distinct from `isArchived`: closed means the real-world
+   *  account is gone (you closed it with the bank); archived means it's still operational but you've
+   *  chosen to stop using it in Penny without deleting its history. Hidden from every account picker
+   *  that assigns a NEW/edited transaction (`ExpenseForm.tsx`, `EntryForm.tsx`/`SettleUpModal.tsx`,
+   *  bulk account-reassign, Groups' composer, bank-import's cash-transfer target) — but still shown,
+   *  and still contributes to net worth/analytics, everywhere that reads EXISTING history. Optional,
+   *  no migration needed — absent = not closed, same as every account before this field existed.
+   *  Mutually exclusive with `isDefault` below (enforced at the UI layer, not the type). */
+  isClosed?: boolean;
+  /** The one account pre-selected (along with its type-appropriate payment mode, via
+   *  `defaultPaymentModeForAccount()`) on every new expense/income (2026-08-27) — at most one account
+   *  across the whole set may have this `true`; `useAccounts.ts`'s `saveAccount` enforces that by
+   *  clearing it from whichever other account previously held it. Optional, no migration needed.
+   *  Mutually exclusive with `isClosed` above. */
+  isDefault?: boolean;
   createdAt: number;
   updatedAt: number;
   /** Safe Mode masks this account's balance; undefined/false = visible. */
@@ -542,6 +618,11 @@ export interface MerchantMemory {
   categoryId: string;
   accountId?: string;
   paymentMode?: string;
+  /** The most recent matching transaction's amount (2026-08-22) — shown alongside the suggestion in
+   *  `ExpenseForm.tsx` and pre-filled (still user-editable) on tap, same "comes from the most recent
+   *  matching txn" convention `categoryId`/`accountId`/`paymentMode` already use. Optional: records
+   *  written before this field existed won't have it until the next save re-derives them. */
+  amount?: number;
   usageCount: number;
   updatedAt: number;
 }
@@ -652,6 +733,31 @@ export interface Liability {
 
 export type InsuranceType = 'term' | 'health' | 'vehicle' | 'home' | 'travel' | 'life' | 'other';
 
+/** How often a premium installment is paid — Term/Life's payment-schedule fields below key off this.
+ *  'S' = Single premium (one-time, no recurring due date/schedule). */
+export type PremiumFrequency = 'M' | 'Q' | 'H' | 'A' | 'S';
+
+/** 'Regular' pays for the full policy term; 'Limited' stops after `limitedPayYears` while cover
+ *  continues for the full duration (Term/Life only). */
+export type PremiumPaymentTerm = 'regular' | 'limited';
+
+export type DiscountType = 'pct' | 'flat';
+
+/**
+ * One recorded premium installment (insurance-redesign-v4, §④/§⑥) — Term/Life's "Mark as paid" flow.
+ * `linkedExpenseId` is set only when the user chose "Log a new expense" or "Link an existing expense"
+ * at mark-as-paid time (insurance-redesign-v4.html §④'s three equal-weight choices); left unset for
+ * "Skip — just track the payment", same "computed on demand, optional ledger link" shape as
+ * `GoalContribution.linkedTxnId`.
+ */
+export interface PremiumPayment {
+  id: string;
+  dueMs: number; // the schedule occurrence this payment settles
+  paidMs: number; // when the user actually tapped "Mark as paid"
+  amount: number; // the exact installment amount paid (discount-aware)
+  linkedExpenseId?: string;
+}
+
 export interface InsurancePolicy {
   id: string;
   type: InsuranceType;
@@ -659,11 +765,84 @@ export interface InsurancePolicy {
   policyNumber?: string;
   coverageAmount: number;
   annualPremium: number;
+  /** Annual-renewal date — still the field of record for Health/Vehicle/Home/Travel/Other (one flat
+   *  renewal a year). Term/Life's richer payment schedule (below) is additive, not a replacement. */
   renewalDate: number;
   sumInsured?: number;
   nominees?: string;
   notes?: string;
   createdAt: number;
+  updatedAt: number;
+
+  // ── insurance-redesign-v4 additions (all optional — existing saved policies keep working) ──
+
+  /** Policy/plan name, distinct from `insurer` (e.g. "iSelect Smart360 Term Plan" from "HDFC Life"). */
+  planName?: string;
+  startDate?: number; // epoch ms
+  /** Whole-year duration (Term/Life/Health/Vehicle/Home/Other presets). Mutually exclusive in practice
+   *  with `durationDays` (Travel's short-trip presets) — a policy sets at most one. */
+  durationYears?: number;
+  durationDays?: number;
+  /** Cover end date — auto-derived from `startDate` + duration unless `endDateIsCustom`. */
+  endDate?: number;
+  endDateIsCustom?: boolean;
+  paymentFrequency?: PremiumFrequency;
+  firstYearDiscountEnabled?: boolean;
+  discountType?: DiscountType;
+  /** Percent (0-100) when `discountType === 'pct'`, else a flat rupee amount off the Year-1 installment. */
+  discountValue?: number;
+  /** Term/Life only — next unpaid installment's due date. Auto-computed from `startDate` + frequency,
+   *  rolled forward by `applyMarkAsPaid()` on each "Mark as paid"; user-overridable at any time. */
+  nextPremiumDueDate?: number;
+  nextPremiumDueDateIsCustom?: boolean;
+  /** Term/Life's "Mark as paid" history — newest last (append-only); UI shows newest-first. */
+  premiumPayments?: PremiumPayment[];
+
+  // Term/Life-specific
+  sumAssured?: number;
+  premiumPaymentTerm?: PremiumPaymentTerm;
+  limitedPayYears?: number;
+  /** Life only — market-linked (ULIP) vs non-linked (Endowment/Whole Life). Only ever used to pick the
+   *  correct revival-window wording if this ever lapses (3yr ULIP / 5yr non-linked, IRDAI June 2024
+   *  Master Circular) — see `core/insurance/premiumSchedule.ts`'s `revivalWindowYears()`. */
+  isULIP?: boolean;
+  maturityBenefit?: number; // Life only, optional
+
+  // Health-specific
+  membersCovered?: string[];
+  coPayPct?: number;
+
+  // Vehicle-specific — deliberately UNLINKED from `AssetMeta.vehicleInsurance*`/`vehicleInsurancePolicyNo`
+  // on a Real Assets vehicle holding (two independent places by design, already decided).
+  vehicleRegNumber?: string;
+  idv?: number;
+  ncbPct?: number;
+
+  // Home-specific
+  structureValue?: number;
+
+  // Travel-specific
+  destination?: string;
+  tripStartDate?: number;
+  tripEndDate?: number;
+}
+
+/** Scopes an `InsurerMemory` suggestion / the researched insurer picklist (`core/insurance/insurers.ts`)
+ *  to the right category — life insurers for Term/Life, standalone health insurers for Health, and
+ *  general insurers shared by Vehicle/Home/Travel/Other. */
+export type InsurerCategory = 'life' | 'health' | 'general';
+
+/**
+ * Local "remembered custom insurer" suggestions (insurance-redesign-v4.html §⑤) — mirrors
+ * `MerchantMemory`'s exact shape/convention (`core/expenses/merchantMemory.ts`): a free-text value typed
+ * once under "Other" is remembered so the next matching entry can reuse it, scoped by category the same
+ * way a merchant memory is scoped by transaction type. Encrypted store; `id` = `${category}::${normalizedName}`.
+ */
+export interface InsurerMemory {
+  id: string; // `${category}::${normalizedName}` — see core/insurance/insurerMemory.ts
+  name: string; // last raw (trimmed) name, for display
+  category: InsurerCategory;
+  usageCount: number;
   updatedAt: number;
 }
 
@@ -813,6 +992,10 @@ export interface Person {
   linkedMemberId?: string;
   /** Soft-archive when a person still has ledger entries but should drop off the active list. */
   isArchived?: boolean;
+  /** Set when this person's ledger was promoted to a real Group (real-device-testing-pass.md Phase 3,
+   *  item 17) — the personal ledger is archived (never deleted) and the Archived section shows a
+   *  "→ Now in {group}" link instead of the usual Restore/Trash pair. */
+  promotedToGroupId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -918,7 +1101,7 @@ export interface SyncCursor {
 // All three stores are DMK-encrypted like every other store and ride recovery via BACKUP_STORES.
 
 export type GroupType = 'family' | 'trip' | 'roommates' | 'other';
-export type GroupStatus = 'active' | 'closed';
+export type GroupStatus = 'active' | 'closed' | 'left';
 /** `full` = a joiner can decrypt all prior epochs; `from_join` = only the epoch active at join onward. */
 export type GroupHistoryVisibility = 'full' | 'from_join';
 export type GroupRole = 'owner' | 'admin' | 'member';
@@ -943,11 +1126,21 @@ export interface Group {
 export interface GroupMember {
   id: string; // composite `${groupId}:${userId}`
   groupId: string;
-  userId: string;
+  userId: string; // for `accountless` members, a locally-generated pseudo id (e.g. `static:<uuid>`)
   displayName: string;
   role: GroupRole;
   status: GroupMemberStatus;
   linkedPersonId?: string;
+  /** True for a static/placeholder member (real-device-testing-pass.md Phase 3, item 17) — a
+   *  name-only participant with no real account, added by another member on their behalf (or seeded
+   *  by a personal-ledger→Group promotion). Can never sync/confirm anything itself; every action on
+   *  their behalf (splitting them in, settling their balance) is performed by a real member. */
+  accountless?: boolean;
+  /** Reserved upgrade hook: once an `accountless` member's real counterpart joins the group normally
+   *  (gets their own real `userId`), this should be set to that real id so future balance/display
+   *  logic can attribute historical shares recorded under the placeholder's pseudo `userId` to them —
+   *  not built yet, but reserved now so adding it later needs no schema migration. */
+  upgradedToUserId?: string;
   joinedAt: number;
   leftAt?: number;
   createdAt: number;
@@ -958,7 +1151,10 @@ export type GroupEventType =
   | 'shared_expense'
   | 'expense_edit'
   | 'expense_delete'
+  | 'expense_flag'
+  | 'expense_flag_clear'
   | 'settlement'
+  | 'settlement_void'
   | 'member_joined'
   | 'member_left'
   | 'group_closed'
@@ -1050,6 +1246,11 @@ export interface BankCashWithdrawalCode {
   bankId: string;
   code: string;
   label: string;
+  /** Which way the cash moved — a withdrawal (bank → cash) or a deposit (cash → bank), added
+   *  2026-08-27. Optional for backward compatibility: every code created before this field existed
+   *  has none, and is treated as `'withdrawal'` wherever this is read (see
+   *  `core/bank-import/cashWithdrawalCodes.ts`'s `isCashTransferNarration`) — no migration needed. */
+  direction?: 'withdrawal' | 'deposit';
   isDefault: boolean;
   createdAt: number;
   updatedAt: number;
@@ -1075,6 +1276,158 @@ export interface PaymentMode {
   isDefault: boolean;
   createdAt: number;
   updatedAt: number;
+}
+
+// ─── SMS-Based Transaction Tracking (Android only) ──────────────────────────
+// A deliberately separate module from core/bank-import/ and core/import/ (docs/plans/
+// sms-transaction-tracking.md §1) — a THIRD, independent way to record a transaction (alongside
+// manual entry and CSV import), not a replacement for or a variant of Bank Statement Import, which
+// stays the separate reconciliation feature. Reuses only the matching *algorithm* shape from
+// core/bank-import/matcher.ts's `matchStatementRows()`, not its role or its own types.
+
+/** Why a candidate needs a human decision before becoming "Linked" or "New Pending" — kept as its
+ *  own field rather than folded into `SmsTransactionStatus` so the review-queue UI can show a
+ *  specific reason string per bucket item (plan §4/§7) without a combinatorial status enum. Only
+ *  meaningful when `status === 'needs_review'`. */
+export type SmsReviewReason =
+  | 'ambiguous_account' // no/ambiguous bankId+last4+mapping match — which Account is this?
+  | 'possible_match' // Tier-2 fuzzy match against an existing Expense had 2+ tied candidates
+  | 'possible_duplicate_sms' // looks like it describes the same real event as another parsed SMS
+  | 'reconciled_date_conflict'; // matched a bank-reconciled Expense but the SMS's own date disagrees
+
+export type SmsTransactionStatus =
+  | 'unparsed' // sender matched a known bank, but no template fit its wording — see `UnparsedSmsPage`
+  | 'needs_review' // see reviewReason — user must resolve, never silently defaulted
+  | 'ready' // account resolved, no existing-transaction match found — "New Pending" in the review UI
+  | 'linked' // auto- or user-confirmed match to an existing Expense; that Expense is never edited
+  | 'dismissed'; // user said "not a transaction" (or the sender is muted) — never resurfaces
+
+/**
+ * One parsed (or parse-attempted) SMS candidate. Mirrors `BankStatementImportRecord`'s three-purpose
+ * shape (audit trail + merchant-memory-style backing store + re-processing dedup), not
+ * `Expense.sourceRef` — see plan §1 for why a dedicated link table was chosen over overloading a
+ * field. Written for EVERY sender-allowlisted SMS regardless of outcome — including one that matched
+ * a known bank's sender but no template ("unparsed"), and a dismissed/ignored one — so Tier-1
+ * provenance dedup (`contentHash`) can recognize a re-scanned duplicate at any status, and so
+ * "unparsed" messages have somewhere to live for the user-facing unparsed-messages screen (added
+ * 2026-08-15, direct user request: most SMS-tracking apps silently drop what they can't parse with
+ * no way for the user to even know it happened — Penny instead keeps every recognized-bank-sender
+ * message that failed to parse, visible and exportable, never silently discarded).
+ */
+export interface SmsTransactionRecord {
+  id: string;
+  /** Tier-1 exact-provenance dedup key (plan §4a) — a hash of (sender, receivedAt, body). A hit
+   *  means this literal message was already processed by a prior scan/listener event; re-running a
+   *  historical scan over the same date range is then a clean no-op, same guarantee
+   *  `BankStatementImportRecord.normalizedKey` gives bank-import re-imports. */
+  contentHash: string;
+  /** Raw SMS sender id/shortcode as reported by the OS (e.g. "VM-HDFCBK") — never the phone's own
+   *  number; always a bank/DLT shortcode by construction (plan §5's sender-ID allowlist). */
+  sender: string;
+  /** Raw SMS body — retained while `status` is `'unparsed' | 'needs_review' | 'ready'` (an unparsed
+   *  message needs it for the copy/export screen; a review-queue item needs it for the user to
+   *  visually confirm/correct); cleared (set to `undefined` via an update, not re-created) once
+   *  `linked` or `dismissed`, per this file's data-minimization rule. Never reaches
+   *  `buildUserContext()`/Chip — nothing in this table does. */
+  rawBody?: string;
+  /** SMS-received timestamp (epoch ms) — always present, used as `date`'s fallback (see below) and
+   *  as part of `contentHash`. */
+  receivedAt: number;
+  /** The actual transaction date — prefers a body-embedded date/time if the matched template
+   *  captured one, else falls back to `receivedAt` (plan §5/§8: delayed SMS-gateway delivery can
+   *  misalign the two). Absent when `status === 'unparsed'` (no template matched, so no date was
+   *  ever extracted — `receivedAt` above is still there for display). */
+  date?: number;
+  /** Absent only when `status === 'unparsed'` — every other status implies a template matched and
+   *  these fields were actually extracted. */
+  amount?: number;
+  direction?: 'debit' | 'credit';
+  transactionType?: 'debit' | 'credit' | 'upi_sent' | 'upi_received' | 'card_swipe' | 'refund';
+  /** Extracted merchant/counterparty free text, if the template captured one — feeds merchant-memory
+   *  category/payment-mode suggestions (plan §1) exactly like any other recording method's
+   *  description does. */
+  counterparty?: string;
+  /** Masked account tail from the SMS body (e.g. "1234" from "XX1234") — NOT a card number; see
+   *  `cardLast4` below for that case. Never the full account number (PRIVACY.md Category-1). */
+  accountLast4?: string;
+  /** Masked CARD tail from the SMS body, when the message is clearly card-rail (POS/card swipe) —
+   *  kept separate from `accountLast4` because a card's last 4 digits differ from its underlying
+   *  account's own (plan §3) and resolve through their own mapping tier. */
+  cardLast4?: string;
+  referenceNumber?: string;
+  /** Available-balance figure from the SMS, shown for user context only — never used in matching. */
+  balance?: number;
+  /** Which bank this SMS's sender resolved to, if recognized at all (independent of whether an
+   *  Account was successfully matched — see `accountId` below). */
+  bankId?: BankPresetId;
+  /** Inferred `PaymentMode.id` (via `core/expenses/paymentModeInference.ts`), always editable, never
+   *  auto-applied silently to the eventual transaction without going through the normal review tile. */
+  paymentModeGuess?: string;
+  /** Resolved via plan §3's matching order (card-last4 mapping → bank-string mapping → exact
+   *  Account.last4 → single-account bankId match → ambiguous/prompt). Absent while
+   *  `reviewReason === 'ambiguous_account'`. */
+  accountId?: string;
+  status: SmsTransactionStatus;
+  reviewReason?: SmsReviewReason;
+  /** Populated when `reviewReason === 'possible_match'` or `'reconciled_date_conflict'` — the
+   *  existing `Expense` id(s) the "Possible match" side-by-side screen (plan §4) shows as candidates.
+   *  Never more than a handful in practice (Tier 2's own same-day/exact-amount shortlist). */
+  possibleMatchExpenseIds?: string[];
+  /** Populated when `reviewReason === 'possible_duplicate_sms'` — the other `SmsTransactionRecord`
+   *  id(s) that might describe the same real-world event (plan §4b). */
+  possibleDuplicateSmsIds?: string[];
+  /** Set once `status === 'linked'` — the existing `Expense` this SMS was confirmed to match. That
+   *  Expense is never edited as a result of linking (plan §4: "linked... not replace"); this is
+   *  purely the audit pointer, same role as `BankStatementImportRecord.linkedTxnId`. */
+  linkedTxnId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Persisted, user-confirmed mapping from a normalized SMS bank-string or a card's last-4 digits to
+ * one of the user's configured `Account`s (plan §3) — NOT a one-shot fuzzy guess re-run every scan.
+ * Written the first time an ambiguous sender/card is resolved (whether via an explicit user prompt
+ * or an unambiguous single-account `bankId` match the user then confirms), read on every subsequent
+ * SMS from the same normalized key. Editable any time from the SMS Tracking settings sub-page.
+ */
+export interface SmsAccountMapping {
+  id: string;
+  kind: 'bank_string' | 'card_last4';
+  /** The matching key: `normalize()`-d bank/sender text for `'bank_string'` (see
+   *  `core/import/importAccountResolution.ts`'s existing `normalize()`, reused as-is — strips
+   *  punctuation/whitespace and masking "x"s before digits), or the raw last-4 digits for
+   *  `'card_last4'`. Unique per `kind` — enforced at the application layer, not a DB constraint
+   *  (encrypted stores index `id` only). */
+  mappingKey: string;
+  /** The original, human-readable text this mapping was created from (e.g. "HDFC Bank XX8112", or
+   *  a card's own masked display) — shown in the editable sender-mapping list so the user recognizes
+   *  what they're looking at, since `mappingKey` itself is a normalized/stripped form. */
+  rawValue: string;
+  accountId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * A sender explicitly marked "never a transaction" (a promotional shortcode, a KYC-reminder service,
+ * etc.) — added from the Unparsed Messages screen's per-sender-group "Exclude sender" action
+ * (2026-08-17). Checked by `processRawSmsCore` BEFORE it would otherwise create an `'unparsed'`
+ * record for a recognized-bank-sender message that didn't match any template — a matching sender here
+ * is treated exactly like an unrecognized one (dropped, never persisted at all), so this sender's
+ * *next* non-transactional message never resurfaces a fresh "needs review" record either. Durable and
+ * sender-wide, unlike `SmsTransactionRecord.status === 'dismissed'` (which only clears ONE
+ * already-created record's instance, not future ones from the same sender) — for a sender that mixes
+ * real transactions with noise, dismissing individual messages (not excluding the whole sender) stays
+ * the right tool, which is exactly why both exist rather than one replacing the other.
+ */
+export interface SmsExcludedSender {
+  id: string;
+  /** The literal SMS sender/shortcode string as reported by the OS (e.g. "VM-HDFCBK-S") — NOT
+   *  normalized, so exclusion stays precise to the exact sender ID; a slightly different variant
+   *  sender still surfaces for review rather than being silently swept up too. */
+  sender: string;
+  createdAt: number;
 }
 
 // ─── Retirement Corpus (Home hero + FIRE Calculator) ────────────────────────

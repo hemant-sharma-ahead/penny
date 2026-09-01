@@ -3,8 +3,21 @@ import { icloudProvider } from './icloudProvider';
 import type { CloudProvider, CloudProviderId } from './types';
 
 export * from './types';
-export { isCloudBackupConfigured } from './googleDriveProvider';
-export { isLocalBackupAvailable, latestLocalSnapshot, saveLocalSnapshot } from './localBackup';
+export {
+  isCloudBackupConfigured,
+  getConnectedGoogleAccount,
+  disconnectGoogleAccount,
+  type DriveAccountInfo
+} from './googleDriveProvider';
+export {
+  isLocalBackupAvailable,
+  latestLocalSnapshot,
+  saveLocalSnapshot,
+  listLocalSnapshots,
+  deleteLocalSnapshot,
+  readLocalSnapshot
+} from './localBackup';
+export type { BackupTrigger } from './backupNaming';
 
 /** All cloud providers (available or not). iCloud is present but dormant until native. */
 export const CLOUD_PROVIDERS: readonly CloudProvider[] = [googleDriveProvider, icloudProvider];

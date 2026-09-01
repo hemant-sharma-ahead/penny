@@ -124,7 +124,10 @@ export function getPpfInterestRateForFy(rateTable: PpfRateTable, fyStartYear: nu
   return lookupRateForMonth(rateTable, `${fyStartYear}-04`);
 }
 
-const INTEREST_AMOUNT_TOLERANCE = 5; // whole-rupee statements, small rounding drift is expected
+/** Exported (not just used internally by `checkPpfInterestMismatch`) — the manual-entry calculation
+ *  info banner (`PpfTransactionSheet`, apps/mobile) needs the exact same tolerance so its own
+ *  matches-vs-mismatch comparison can never disagree with this file's own mismatch check. */
+export const INTEREST_AMOUNT_TOLERANCE = 5; // whole-rupee statements, small rounding drift is expected
 
 /** Whether an imported/recorded interest transaction agrees with a fresh recalculation for its FY.
  *  Mirrors EPF's `checkInterestMismatch` — the exact comparison a review screen or breakdown popup

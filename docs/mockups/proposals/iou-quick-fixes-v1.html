@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — IOU &amp; filter quick fixes (Phase 2, real-device testing pass)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --blue:#3b82f6; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 34px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:820px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:820px; margin:0 auto 20px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 22px; justify-content:center; align-items:flex-start; padding:6px 20px 10px; }
+      .frame-wrap { width:270px; }
+      .vtitle { font-size:12.5px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vtitle .tag.blk { background:#3a1414; color:#f09090; }
+      .vsub { font-size:10.5px; color:#9aa5b1; margin:0 2px 12px; line-height:1.5; }
+
+      .phone { width:270px; background:var(--bg); border-radius:28px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); gap:8px; }
+      .header .back, .header .x { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:14px; }
+      .htitle { flex:1; text-align:center; font-size:13px; font-weight:700; color:var(--text); }
+      .content { padding:10px 12px 12px; flex:1; }
+      .footer { padding:10px 12px; border-top:1px solid var(--border); display:flex; gap:8px; }
+      .btn { flex:1; text-align:center; padding:9px 0; border-radius:10px; font-size:11.5px; font-weight:700; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+      .btn.danger { background:var(--danger); color:#fff; }
+      .btn.ghost { background:transparent; color:var(--text2); font-weight:600; }
+      .btn.disabled { opacity:.4; }
+
+      /* Backdrop-centered popup, matching mobile Modal.tsx (dim backdrop + centered card, close X right) */
+      .backdrop { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:14px; }
+      .popup { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+      .popup .phead { display:flex; align-items:center; gap:8px; padding:12px 12px 4px; }
+      .popup .ptitle { flex:1; font-size:13px; font-weight:800; color:#fff; }
+      .popup .pbody { padding:8px 12px 12px; font-size:11px; color:var(--text2); line-height:1.55; }
+      .popup .pfooter { padding:10px 12px 12px; display:flex; flex-direction:column; gap:7px; }
+      .popup .pfooter .row { display:flex; gap:7px; }
+
+      /* Section 1 — segmented control + banner */
+      .seg2 { display:flex; gap:5px; background:var(--surface2); border-radius:11px; padding:3px; }
+      .seg2 .opt { flex:1; text-align:center; padding:8px 0; border-radius:8px; font-size:11.5px; font-weight:700; color:var(--text2); display:flex; align-items:center; justify-content:center; gap:5px; }
+      .seg2 .opt.active.expense { background:var(--danger); color:#fff; }
+      .seg2 .opt.active.income { background:var(--success); color:#fff; }
+      .seg2.disabled .opt { opacity:.4; }
+      .statictitle { font-size:13.5px; font-weight:700; color:var(--text); flex:1; }
+      .banner { border-radius:11px; border:1px solid; padding:9px 10px; display:flex; gap:7px; font-size:10px; line-height:1.5; margin-top:8px; }
+      .banner.info { border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.12); color:#c8ddfb; }
+      .banner.info i { color:var(--info); font-size:14px; margin-top:1px; }
+      .banner.warning { border-color:rgba(245,158,11,.4); background:rgba(245,158,11,.12); color:#fbdca0; }
+      .banner.warning i { color:var(--warning); font-size:14px; margin-top:1px; }
+      .banner.danger { border-color:rgba(239,68,68,.4); background:rgba(239,68,68,.12); color:#fac6c6; }
+      .banner.danger i { color:var(--danger); font-size:14px; margin-top:1px; }
+      .cattile { width:76px; border:1.5px dashed var(--border); border-radius:13px; padding:9px 7px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+      .cattile.filled { border-style:solid; border-color:#3ecf8e; }
+      .cattile .icnbox { width:26px; height:26px; border-radius:8px; background:var(--surface3); display:flex; align-items:center; justify-content:center; }
+      .cattile .icnbox i { font-size:13px; color:var(--text3); }
+      .cattile.filled .icnbox { background:rgba(62,207,142,.15); }
+      .cattile.filled .icnbox i { color:#3ecf8e; }
+      .cattile .lbl { font-size:9.5px; font-weight:600; color:var(--text3); }
+      .cattile.filled .lbl { color:var(--text); }
+      .amtrow { display:flex; align-items:center; gap:8px; margin-top:8px; }
+      .amthero { flex:1; text-align:right; font-size:19px; font-weight:800; color:var(--text); }
+      .caption { font-size:9.5px; color:var(--text3); margin-top:5px; font-style:italic; }
+
+      /* Section 2 — type-ahead dropdown */
+      .field { position:relative; }
+      .field input, .field .fakein { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11.5px; color:var(--text); }
+      .flabel { font-size:9.5px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .dropdown { position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; box-shadow:0 10px 24px rgba(0,0,0,.5); z-index:5; }
+      .dropdown .row { padding:8px 10px; font-size:11px; color:var(--text); border-bottom:1px solid #1a2029; }
+      .dropdown .row:last-child { border-bottom:none; }
+      .dropdown .row b { color:#3ecf8e; }
+      .dropdown .row.create { display:flex; align-items:center; gap:6px; color:var(--primary); font-weight:700; }
+      .pillrow { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+      .pill { padding:6px 11px; border-radius:999px; border:1px solid var(--border); font-size:10.5px; color:var(--text); background:var(--surface2); }
+      .helptext { font-size:9.5px; color:var(--text3); margin-top:7px; line-height:1.5; }
+
+      /* Section 3 — archived row + confirm popups */
+      .personrow { display:flex; align-items:center; gap:8px; padding:9px 4px; border-bottom:1px solid #1a2029; }
+      .personrow .nm { flex:1; font-size:11.5px; font-weight:600; color:var(--text); }
+      .personrow .bal { font-size:9.5px; }
+      .personrow .bal.pos { color:var(--success); }
+      .personrow .bal.neg { color:var(--danger); }
+      .icnbtn { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+      .icnbtn.trash { color:var(--danger); }
+      .bignum { font-size:20px; font-weight:800; text-align:center; margin:4px 0 2px; }
+      .bignum.neg { color:var(--danger); }
+      .ghostlink { text-align:center; font-size:10px; font-weight:700; color:var(--danger); opacity:.75; padding-top:2px; }
+
+      /* Section 4 — bulk bar + wizard */
+      .bulkbar { display:flex; gap:3px; padding:8px; border-top:1px solid var(--border); background:var(--surface); }
+      .bulkbtn { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:7px 0; border-radius:10px; }
+      .bulkbtn i { font-size:16px; color:var(--text2); }
+      .bulkbtn.danger i, .bulkbtn.danger span { color:var(--danger); }
+      .bulkbtn.new { background:rgba(0,168,107,.12); border:1px solid rgba(0,168,107,.35); }
+      .bulkbtn.new i, .bulkbtn.new span { color:#3ecf8e; }
+      .bulkbtn span { font-size:8.5px; font-weight:700; color:var(--text2); }
+      .wizprog { display:flex; gap:3px; margin-bottom:8px; }
+      .wizprog .seg { flex:1; height:4px; border-radius:99px; background:var(--surface3); }
+      .wizprog .seg.done { background:var(--success); }
+      .wizprog .seg.now { background:var(--primary); }
+      .wizlabel { font-size:9.5px; font-weight:800; color:var(--text); margin-bottom:10px; }
+      .choicecard { border:1.5px solid var(--border); border-radius:12px; padding:12px 10px; margin-bottom:8px; display:flex; align-items:center; gap:9px; }
+      .choicecard.selected { border-color:var(--primary); background:rgba(0,168,107,.1); }
+      .choicecard i { font-size:17px; color:var(--text2); }
+      .choicecard.selected i { color:var(--primary); }
+      .choicecard .t { flex:1; }
+      .choicecard .t .l { font-size:11.5px; font-weight:700; color:var(--text); }
+      .choicecard .t .s { font-size:9px; color:var(--text3); margin-top:1px; }
+      .summarybox { background:var(--surface2); border:1px solid var(--border); border-radius:11px; padding:11px; margin-top:4px; }
+      .summarybox .line { font-size:11px; color:var(--text); line-height:1.7; }
+      .summarybox .line b { color:#3ecf8e; }
+
+      /* Section 5 — filter modal chips */
+      .fsectlbl { font-size:9.5px; font-weight:700; color:var(--text2); margin:12px 0 6px; text-transform:uppercase; letter-spacing:.03em; }
+      .fsectlbl:first-child { margin-top:0; }
+      .chiprow { display:flex; flex-wrap:wrap; gap:6px; }
+      .chip { padding:6px 11px; border-radius:11px; border:1px solid var(--border); font-size:10.5px; font-weight:600; color:var(--text2); background:var(--surface2); display:flex; align-items:center; gap:4px; }
+      .chip.on { background:var(--primary); color:#04140d; border-color:transparent; }
+      .chip i { font-size:11px; }
+      .newmarker { position:absolute; top:-9px; right:8px; background:var(--primary); color:#04140d; font-size:8px; font-weight:800; padding:2px 7px; border-radius:999px; text-transform:uppercase; letter-spacing:.03em; }
+      .fsectwrap { position:relative; }
+
+      .recommend { max-width:860px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:16px 20px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:860px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol, .legend ul { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:5px; }
+    </style>
+  </head>
+  <body>
+    <h1>IOU &amp; filter quick fixes — Phase 2, real-device testing pass</h1>
+    <p class="sub">Five UI-affecting items from <code>docs/plans/real-device-testing-pass.md</code>'s Phase 2 —
+      grounded in the real current <code>apps/mobile</code> screens (checked, not designed against
+      memory). Every state reuses an existing Penny component/pattern: <code>SegmentedControl</code>,
+      <code>Banner</code>, the centered <code>Modal</code> shell, <code>PersonPicker</code>'s type-ahead,
+      the bulk-action bar in <code>TransactionsSlice.tsx</code>, <code>WizardProgress</code>'s step bar
+      (bank-import), and <code>FilterModal.tsx</code>'s own chip-section pattern. No new UI primitive is
+      introduced anywhere in this file. <code>apps/web-react</code> was checked for every item and carries
+      the identical gap in each case (see the closing notes) — it is frozen, so nothing here proposes
+      touching it.</p>
+    <div class="topnav">
+      <a href="#s1">① Edit-mode type toggle</a>
+      <a href="#s2">② Person-name suggestion pills</a>
+      <a href="#s3">③ Delete/archive person warning</a>
+      <a href="#s4">④ Bulk-add-to-IOU</a>
+      <a href="#s5">⑤ Tag filter section</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>Edit-mode transaction type toggle (item 6)</div>
+      <div class="sectionsub">Enable the same Expense/Income/Transfer <code>SegmentedControl</code> in edit mode,
+        restricted to Expense ⟷ Income (Transfer stays out — it structurally needs two accounts). Switching
+        clears the category, since categories are type-scoped. Blocked when the transaction is IOU-linked,
+        shared to a Group, or linked to a Goal.</div>
+      <div class="groundnote"><code>apps/mobile/src/components/shared/ExpenseForm.tsx</code> — today
+        <code>editing ? &lt;Text&gt;{'{titleText}'}&lt;/Text&gt; : &lt;SegmentedControl .../&gt;</code>
+        (line ~793). The category tile's dashed-border empty state already exists for a blank
+        <code>categoryId</code> — switching type and clearing category needs no new visual, it just lands on
+        that same state.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Edit Expense <span class="tag cur">Current</span></div>
+          <div class="vsub">Static title text — no way to change type after saving. Category is untouched.</div>
+          <div class="phone" style="height:230px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="statictitle">Edit Expense</div>
+                <div class="header x" style="border:1px solid var(--border);border-radius:8px;"><i class="ti ti-x"></i></div>
+              </div>
+              <div class="amtrow">
+                <div class="cattile filled"><div class="icnbox"><i class="ti ti-tools-kitchen-2"></i></div><div class="lbl">Groceries</div></div>
+                <div class="amthero">₹1,240</div>
+              </div>
+              <div class="helptext">Description, date, account… (unchanged)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Edit Expense <span class="tag rec">After — switchable</span></div>
+          <div class="vsub">Same toggle as "Add", but only 2 segments. Unlocked whenever the transaction has
+            no IOU/Group/Goal link.</div>
+          <div class="phone" style="height:230px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="seg2" style="flex:1"><div class="opt active expense"><i class="ti ti-arrow-down-circle"></i>Expense</div><div class="opt">Income</div></div>
+                <div class="header x" style="border:1px solid var(--border);border-radius:8px;"><i class="ti ti-x"></i></div>
+              </div>
+              <div class="amtrow">
+                <div class="cattile filled"><div class="icnbox"><i class="ti ti-tools-kitchen-2"></i></div><div class="lbl">Groceries</div></div>
+                <div class="amthero">₹1,240</div>
+              </div>
+              <div class="helptext">Transfer intentionally omitted — a Transfer edit still shows the static title, unchanged.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "Income" <span class="tag rec">After — category cleared</span></div>
+          <div class="vsub">Category is type-scoped, so switching clears it and reverts the tile to the same
+            "pick one" empty state a brand-new entry shows.</div>
+          <div class="phone" style="height:230px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="seg2" style="flex:1"><div class="opt">Expense</div><div class="opt active income"><i class="ti ti-arrow-up-circle"></i>Income</div></div>
+                <div class="header x" style="border:1px solid var(--border);border-radius:8px;"><i class="ti ti-x"></i></div>
+              </div>
+              <div class="amtrow">
+                <div class="cattile"><div class="icnbox"><i class="ti ti-layout-grid-add"></i></div><div class="lbl">Select category</div></div>
+                <div class="amthero">₹1,240</div>
+              </div>
+              <div class="caption">Category cleared — pick one for Income</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Edit Expense <span class="tag blk">After — blocked</span></div>
+          <div class="vsub">IOU-linked / shared-to-group / goal-linked transactions dim both segments and add an
+            explanatory <code>Banner</code> — same pattern this file already uses for the bank-statement audit
+            trail and payment-mode mismatch, just one level up (type, not a field).</div>
+          <div class="phone" style="height:250px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="seg2 disabled" style="flex:1"><div class="opt active expense"><i class="ti ti-arrow-down-circle"></i>Expense</div><div class="opt">Income</div></div>
+                <div class="header x" style="border:1px solid var(--border);border-radius:8px;"><i class="ti ti-x"></i></div>
+              </div>
+              <div class="banner info"><i class="ti ti-info-circle"></i><div>Type can't be changed — this transaction is linked to Raj's IOU ledger. Remove the link first if you need to switch it.</div></div>
+              <div class="amtrow" style="margin-top:6px">
+                <div class="cattile filled"><div class="icnbox"><i class="ti ti-tools-kitchen-2"></i></div><div class="lbl">Lending</div></div>
+                <div class="amthero">₹1,240</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>Person-name suggestion pills (item 12)</div>
+      <div class="sectionsub">Bring <code>ExpenseForm</code>'s Lent/Borrowed field visually in line with
+        <code>PersonPicker.tsx</code>'s type-ahead — pills as a real dropdown anchored below the field, matched
+        substrings highlighted, single-select, with a "Create" affordance when nothing matches.</div>
+      <div class="groundnote"><code>PersonPicker.tsx</code> (used by <code>EntryForm.tsx</code>, the standalone
+        IOU add-flow) already has exactly this: <code>position:'absolute'</code> panel, filtered matches,
+        <code>Create "&lt;typed&gt;"</code> row. <code>ExpenseForm.tsx</code>'s own Lent/Borrowed panel (line
+        ~1401) instead renders an always-visible <code>flex-wrap</code> row of secondary buttons below a plain
+        field — no focus-gating, no highlight, no create row. This section aligns the second to the first.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">ExpenseForm · Lent panel <span class="tag cur">Current</span></div>
+          <div class="vsub">Plain field; matches always shown below as plain pills once 1+ char typed.</div>
+          <div class="phone" style="height:190px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person's name</div>
+              <div class="field"><div class="fakein">Ra</div></div>
+              <div class="pillrow"><div class="pill">Raj Malhotra</div><div class="pill">Ramesh S</div></div>
+              <div class="helptext">Adds a they-owe-you entry to this person's ledger.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">PersonPicker (EntryForm) <span class="tag">Reference pattern</span></div>
+          <div class="vsub">The pattern being reused — dropdown anchored to the field, closes on select.</div>
+          <div class="phone" style="height:190px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person <span style="color:var(--danger)">*</span></div>
+              <div class="field">
+                <div class="fakein">Ra</div>
+                <div class="dropdown">
+                  <div class="row">Raj Malhotra</div>
+                  <div class="row">Ramesh S</div>
+                  <div class="row create"><i class="ti ti-plus"></i> Create "Ra"</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">ExpenseForm · Lent panel <span class="tag rec">After — typing, matches</span></div>
+          <div class="vsub">Same dropdown, matched substring bolded, closes on tap — Lent panel's copy/tone kept.</div>
+          <div class="phone" style="height:210px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person's name</div>
+              <div class="field">
+                <div class="fakein">Ra</div>
+                <div class="dropdown">
+                  <div class="row"><b>Ra</b>j Malhotra</div>
+                  <div class="row"><b>Ra</b>mesh S</div>
+                </div>
+              </div>
+              <div class="helptext" style="margin-top:44px">Adds a they-owe-you entry to this person's ledger.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">ExpenseForm · Lent panel <span class="tag rec">After — no match</span></div>
+          <div class="vsub">No existing person matches "Priya K" — only the Create row shows.</div>
+          <div class="phone" style="height:210px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Person's name</div>
+              <div class="field">
+                <div class="fakein">Priya K</div>
+                <div class="dropdown">
+                  <div class="row create"><i class="ti ti-plus"></i> Create "Priya K"</div>
+                </div>
+              </div>
+              <div class="helptext" style="margin-top:44px">Adds a they-owe-you entry to this person's ledger.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Delete/archive person warning popup (item 8)</div>
+      <div class="sectionsub">Today, removing a person is completely silent — auto-archive if they have ledger
+        history, hard-delete if not, no dialog either way. This adds a real confirm step, with a distinctly
+        stronger variant when the person still has an outstanding (non-zero) balance.</div>
+      <div class="groundnote"><code>useIou.ts</code>'s <code>removePerson</code> (triggered from
+        <code>PersonForm.tsx</code>'s "Remove") auto-archives silently when entries exist.
+        <code>IouView.tsx</code>'s <code>purgePerson</code> (the Archived section's trash icon) hard-cascades
+        with zero balance check and zero dialog. <b>Both entry points route to the one new popup below</b> —
+        two silent paths converging on one control is exactly the "duplicated capability" pattern
+        <code>DESIGN_GUIDELINES.md</code> §1 flags (the Backup &amp; Restore precedent); patching each
+        separately would cement it instead. Uses the shared <code>Modal</code> shell (centered, close ✕
+        top-right) rather than the literal <code>ConfirmDialog</code> component — that component is
+        strictly binary (Cancel/Confirm) and this needs two non-cancel choices; see the closing notes.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Archived list <span class="tag cur">Current</span></div>
+          <div class="vsub">Trash icon → <code>purgePerson</code> fires immediately. No dialog, no balance check.</div>
+          <div class="phone" style="height:170px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="personrow"><div class="nm">Ramesh S</div><div class="bal neg">you owe ₹850</div><div class="icnbtn"><i class="ti ti-rotate" style="color:var(--text3)"></i></div><div class="icnbtn trash"><i class="ti ti-trash"></i></div></div>
+              <div class="personrow"><div class="nm">Anjali T</div><div class="icnbtn"><i class="ti ti-rotate" style="color:var(--text3)"></i></div><div class="icnbtn trash"><i class="ti ti-trash"></i></div></div>
+              <div class="helptext">Tapping trash deletes immediately — Undo toast is the only safety net today.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Remove "Anjali T" <span class="tag rec">After — settled (₹0)</span></div>
+          <div class="vsub">Balance ~₹0: an even, low-stakes choice between the two real options.</div>
+          <div class="phone" style="height:270px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead"><div class="ptitle">Remove Anjali T?</div><i class="ti ti-x" style="color:var(--text2)"></i></div>
+                <div class="pbody">You're settled up. Archive keeps everything for later — Delete removes Anjali
+                  from your people list and her ledger entries. <b style="color:var(--text)">Her recorded
+                  transactions stay in the Transactions tab either way.</b></div>
+                <div class="pfooter">
+                  <div class="btn secondary">Archive</div>
+                  <div class="btn danger">Delete permanently</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Remove "Ramesh S" <span class="tag blk">After — outstanding balance</span></div>
+          <div class="vsub">Non-zero balance: a stronger warning steering to Settle Up or Archive; permanent
+            delete is still reachable but visually de-emphasized, not the obvious action.</div>
+          <div class="phone" style="height:310px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead"><div class="ptitle">Wait — you owe Ramesh</div><i class="ti ti-x" style="color:var(--text2)"></i></div>
+                <div class="pbody" style="text-align:center">
+                  <div class="bignum neg">₹850</div>
+                  <div>still outstanding. Deleting now would erase this balance with no record — settle up or
+                    archive instead.</div>
+                </div>
+                <div class="pfooter">
+                  <div class="btn primary">Settle Up</div>
+                  <div class="btn secondary">Archive instead</div>
+                  <div class="ghostlink">Delete permanently anyway</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Tapped "Delete anyway" <span class="tag rec">After — final confirm</span></div>
+          <div class="vsub">Second tier reuses the real <code>ConfirmDialog</code> as-is — the standard
+            "tap-again" pattern §2 already uses for destructive actions.</div>
+          <div class="phone" style="height:230px">
+            <div class="statusbar"></div>
+            <div class="backdrop">
+              <div class="popup">
+                <div class="phead"><div class="ptitle">Delete Ramesh S?</div></div>
+                <div class="pbody">This can't be undone. The ₹850 balance and Ramesh's ledger entries will be
+                  gone — his recorded transactions stay in Transactions, just unlinked from him.</div>
+                <div class="pfooter row">
+                  <div class="btn secondary">Cancel</div>
+                  <div class="btn danger">Delete</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Bulk-add-to-IOU flow (item 11)</div>
+      <div class="sectionsub">A new bulk-action-bar entry that assigns a whole multi-select batch to one
+        person's ledger, auto-splitting by transaction type and asking one category question per direction
+        present — a short guided sequence, not one crowded screen.</div>
+      <div class="groundnote"><code>TransactionsSlice.tsx</code>'s existing bulk bar (Category/Account·Pay/
+        Hashtag/Delete, destructive always last) gets one more icon before Delete. The step chrome reuses
+        <code>WizardProgress.tsx</code>'s exact look (bank-import's own step bar) instead of inventing a new
+        one; person-picking reuses the item 2 pattern above.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Bulk action bar <span class="tag cur">Current</span></div>
+          <div class="vsub">4 actions, no way to assign a batch to a person's ledger.</div>
+          <div class="phone" style="height:110px">
+            <div class="bulkbar">
+              <div class="bulkbtn"><i class="ti ti-tag"></i><span>Category</span></div>
+              <div class="bulkbtn"><i class="ti ti-wallet"></i><span>Account/Pay</span></div>
+              <div class="bulkbtn"><i class="ti ti-hash"></i><span>Hashtag</span></div>
+              <div class="bulkbtn danger"><i class="ti ti-trash"></i><span>Delete</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Bulk action bar <span class="tag rec">After — new "Person" action</span></div>
+          <div class="vsub">Inserted before Delete, matching the "destructive stays last" convention.</div>
+          <div class="phone" style="height:110px">
+            <div class="bulkbar">
+              <div class="bulkbtn"><i class="ti ti-tag"></i><span>Category</span></div>
+              <div class="bulkbtn"><i class="ti ti-wallet"></i><span>Account/Pay</span></div>
+              <div class="bulkbtn"><i class="ti ti-hash"></i><span>Hashtag</span></div>
+              <div class="bulkbtn new"><i class="ti ti-users"></i><span>Person</span></div>
+              <div class="bulkbtn danger"><i class="ti ti-trash"></i><span>Delete</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Step 1 of 3 <span class="tag rec">Pick person</span></div>
+          <div class="vsub">12 selected (8 expense-type, 4 income-type) — same type-ahead as item 2.</div>
+          <div class="phone" style="height:270px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="wizprog"><div class="seg now"></div><div class="seg"></div><div class="seg"></div></div>
+              <div class="wizlabel">Step 1 of 3 · Person</div>
+              <div class="flabel">Add 12 transactions to</div>
+              <div class="field">
+                <div class="fakein">Raj</div>
+                <div class="dropdown"><div class="row"><b>Raj</b> Malhotra</div></div>
+              </div>
+              <div class="helptext" style="margin-top:32px">One person for the whole batch — no per-row picker.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Step 2 of 3 <span class="tag rec">Expense direction</span></div>
+          <div class="vsub">Only asked because 8 of the 12 selected are expense-type.</div>
+          <div class="phone" style="height:270px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="wizprog"><div class="seg done"></div><div class="seg now"></div><div class="seg"></div></div>
+              <div class="wizlabel">Step 2 of 3 · 8 expense-type transactions</div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Lending or returning money you'd borrowed?</div>
+              <div class="choicecard selected"><i class="ti ti-arrow-up-right"></i><div class="t"><div class="l">Lending</div><div class="s">You're giving Raj money</div></div></div>
+              <div class="choicecard"><i class="ti ti-corner-down-left"></i><div class="t"><div class="l">Return Borrowed</div><div class="s">Paying Raj back</div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Step 3 of 3 <span class="tag rec">Income direction</span></div>
+          <div class="vsub">Only asked because 4 of the 12 selected are income-type.</div>
+          <div class="phone" style="height:270px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="wizprog"><div class="seg done"></div><div class="seg done"></div><div class="seg now"></div></div>
+              <div class="wizlabel">Step 3 of 3 · 4 income-type transactions</div>
+              <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Borrowed money or collecting a debt?</div>
+              <div class="choicecard"><i class="ti ti-arrow-down-left"></i><div class="t"><div class="l">Borrowed Money</div><div class="s">Raj gave you money</div></div></div>
+              <div class="choicecard selected"><i class="ti ti-corner-up-right"></i><div class="t"><div class="l">Collected Money</div><div class="s">Raj paid you back</div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Confirm <span class="tag rec">Summary before applying</span></div>
+          <div class="vsub">Recaps the whole batch in plain language before committing.</div>
+          <div class="phone" style="height:250px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="wizlabel">Ready to apply</div>
+              <div class="summarybox">
+                <div class="line"><b>12 transactions</b> → <b>Raj Malhotra</b></div>
+                <div class="line">· 8 as <b>Lending</b></div>
+                <div class="line">· 4 as <b>Collected Money</b></div>
+              </div>
+              <div class="helptext" style="margin-top:8px">Creates one ledger entry per transaction, linked back to it — same linking <code>seedIouFromExpense</code> already does for a single save.</div>
+            </div>
+            <div class="footer"><div class="btn secondary">Back</div><div class="btn primary">Apply</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 5 ================= -->
+    <div class="sectionband" id="s5">
+      <div class="sectiontitle"><span class="num">5</span>Tag filter section (item 26)</div>
+      <div class="sectionsub">A new "Tag" section in <code>FilterModal.tsx</code>, positioned right after
+        Account and before Category group — identical chip pattern, multi-select, OR match.</div>
+      <div class="groundnote"><code>FilterModal.tsx</code>'s own <code>chip()</code> helper (used today for
+        Event/Goal/Data-quality) is reused verbatim — an "All" chip plus one chip per existing tag, icon
+        <code>ti-hash</code> for every chip like the rest of the app's tag iconography
+        (<code>ExtraCircle</code>'s Tags circle, the bulk-hashtag action). New <code>tagFilters: string[]</code>
+        on <code>FilterState</code>.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap" style="width:290px">
+          <div class="vtitle">Filters modal <span class="tag cur">Current</span></div>
+          <div class="vsub">Account section flows straight into Category group — no Tag section between.</div>
+          <div class="phone" style="width:290px;height:270px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Filters</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="fsectlbl">Account</div>
+              <div class="chiprow"><div class="chip on">All</div><div class="chip"><i class="ti ti-building-bank"></i>HDFC</div><div class="chip"><i class="ti ti-cash"></i>Cash</div></div>
+              <div class="fsectlbl">Category group</div>
+              <div class="chiprow"><div class="chip on">All</div><div class="chip">Food</div><div class="chip">Travel</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap" style="width:290px">
+          <div class="vtitle">Filters modal <span class="tag rec">After — Tag section added</span></div>
+          <div class="vsub">New section, same chip visual, multi-select — two tags active here (OR match).</div>
+          <div class="phone" style="width:290px;height:330px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Filters</div><i class="ti ti-x header-x" style="color:var(--text2)"></i></div>
+            <div class="content">
+              <div class="fsectlbl">Account</div>
+              <div class="chiprow"><div class="chip on">All</div><div class="chip"><i class="ti ti-building-bank"></i>HDFC</div><div class="chip"><i class="ti ti-cash"></i>Cash</div></div>
+              <div class="fsectwrap">
+                <span class="newmarker">New</span>
+                <div class="fsectlbl">Tag</div>
+                <div class="chiprow">
+                  <div class="chip on">All</div>
+                  <div class="chip on"><i class="ti ti-hash"></i>vacation</div>
+                  <div class="chip on"><i class="ti ti-hash"></i>diwali</div>
+                  <div class="chip"><i class="ti ti-hash"></i>work</div>
+                </div>
+              </div>
+              <div class="fsectlbl">Category group</div>
+              <div class="chiprow"><div class="chip on">All</div><div class="chip">Food</div><div class="chip">Travel</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CLOSING NOTES ================= -->
+    <div class="recommend">
+      <b>Recommendation:</b> ship all five as designed here — each reuses an existing Penny pattern rather
+      than inventing one, which is exactly the bar <code>DESIGN_GUIDELINES.md</code> §1 sets ("reuse patterns
+      the user already knows"). The one place worth a deliberate second look before implementing is §3
+      (delete/archive) — it intentionally converges two currently-independent silent delete paths
+      (<code>PersonForm</code>'s Remove and <code>IouView</code>'s Archived-trash) onto one popup + one
+      non-cascading delete function, per the "duplicated capability" rule. That's a slightly bigger change
+      than "add a dialog," but doing it piecemeal (a toast on one path, a check on the other) is the exact
+      mistake already made once on Backup &amp; Restore — worth avoiding a repeat.
+      <ul>
+        <li>Cross-platform: checked <code>apps/web-react</code>'s <code>ExpenseForm.tsx</code>,
+          <code>FilterModal.tsx</code>, and <code>features/iou/*</code> for all five items — every gap exists
+          identically on web too (no edit-mode toggle, no Tag filter section, no delete confirmation, a plain
+          field instead of a type-ahead for Lent/Borrowed). Since <code>apps/web-react</code> is frozen per
+          <code>CLAUDE.md</code>, none of this proposes touching it — flagging only because the task asks
+          whether the platforms already agree or disagree, and here they agree (both lack it).</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§1 blocked-state copy</b> — used a <code>Banner variant="info"</code> below the disabled
+          <code>SegmentedControl</code>, mirroring this exact file's existing audit-trail/payment-mode-mismatch
+          banners. The plan doc also floats a "tap-to-explain toast" as an alternative; a persistent Banner
+          reads better here since the reason is a standing fact about the transaction, not a one-off event —
+          but it's the more visible of the two options, worth confirming.</li>
+        <li><b>§1 "category cleared" caption</b> — added a small tertiary caption under the tile
+          ("Category cleared — pick one for Income") on top of the tile's own pre-existing empty-state look.
+          Not explicitly requested; the dashed-border + "Select category" state might already be legible enough
+          on its own. Easy to drop if it reads as noise.</li>
+        <li><b>§3 popup component</b> — built as a custom centered <code>Modal</code>, not the literal
+          <code>ConfirmDialog</code>, because this needs two non-cancel choices (Archive / Delete) rather than
+          <code>ConfirmDialog</code>'s strict Cancel/Confirm contract. The outstanding-balance variant's
+          "Delete permanently anyway" is a de-emphasized text link rather than a real button, then routes into
+          <code>ConfirmDialog</code> for a real second tap — a "strong warning" reading of the plan doc's
+          "block (or at minimum a strong warning)," not a hard block. Flag if a hard block (no permanent-delete
+          path at all while balance ≠ 0) is actually wanted instead.</li>
+        <li><b>§4 bulk action label</b> — used "Person" to match the existing bar's brevity (Category/
+          Account·Pay/Hashtag/Delete are all one word). "Add to person" from the plan doc's own phrasing
+          doesn't fit the same visual rhythm at that width.</li>
+        <li><b>§4 step count</b> — modeled as up to 3 steps (person, expense-direction, income-direction) plus
+          a non-counted final summary/apply screen. If a selection is single-direction only, it collapses to 2
+          real steps + summary, matching "2–3 steps" from the plan doc.</li>
+        <li><b>§5 tag chip icon</b> — no <code>color</code> field exists on <code>Hashtag</code> (checked
+          <code>packages/core/src/core/db/types/index.ts</code>), so tag chips use a plain <code>ti-hash</code>
+          icon per chip rather than a per-tag dot color the way Account/Category tiles get one from their own
+          domain color.</li>
+      </ol>
+    </div>
+  </body>
+</html>

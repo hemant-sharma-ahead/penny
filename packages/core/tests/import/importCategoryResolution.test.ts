@@ -4,6 +4,7 @@ import {
   isLikelyCarryForward,
   isLikelyIouSuspect,
   isLikelyInvestmentMovement,
+  isLikelySelfAccountMovement,
   suggestIntentGroup,
   resolveCategories,
   resolveCategoriesDirectional,
@@ -222,6 +223,44 @@ describe('resolveCategoriesDirectional', () => {
     expect(groceries?.isTransferSuspect).toBe(false);
     expect(groceries?.isIouSuspect).toBe(false);
     expect(groceries?.isInvestmentMovement).toBe(false);
+  });
+
+  it('defaults a self-account-movement category (e.g. Cashew "Cash Withdrawal") to kind: transfer, not create (2026-08-22 regression fix)', () => {
+    // Real root-cause bug: `isLikelySelfAccountMovement` (used by `detectSelfAccountMovementPairs` to
+    // PAIR a cash-withdrawal/wallet-recharge/CC-bill-payment row) was never wired into this function's
+    // own default-suggestion logic, so a source category made ENTIRELY of confidently-paired rows could
+    // default to `kind: 'create'` and then never become `transactionsReady` (its tile has zero rows to
+    // show once every row is excluded for being part of a pair — nothing left to "touch"), silently
+    // force-skipping both legs of every pair at commit. `kind: 'transfer'` here is what lets
+    // `fullyAutoResolvedTransferKeys`/`isDirectionalCategoryResolutionDecided` mark the group decided
+    // once every row is confirmed-paired, exactly like a `TRANSFER_KEYWORDS` category already could.
+    const result = resolveCategoriesDirectional(
+      [
+        directionalRow('Cash Withdrawal', 'expense'),
+        directionalRow('Credit Card Bill Payment', 'expense'),
+        directionalRow('Wallet Recharge', 'expense')
+      ],
+      categories
+    );
+    const cashWithdrawal = result.find((r) => r.sourceName === 'Cash Withdrawal');
+    const ccBill = result.find((r) => r.sourceName === 'Credit Card Bill Payment');
+    const walletRecharge = result.find((r) => r.sourceName === 'Wallet Recharge');
+    expect(cashWithdrawal?.suggestion.kind).toBe('transfer');
+    expect(ccBill?.suggestion.kind).toBe('transfer');
+    expect(walletRecharge?.suggestion.kind).toBe('transfer');
+    // Never flagged as `isTransferSuspect`/`isIouSuspect` — those flags gate the person-to-person
+    // counterparty UI (`CategoryTile`'s `showCounterparty`), which a self-account movement is not.
+    expect(cashWithdrawal?.isTransferSuspect).toBe(false);
+    expect(cashWithdrawal?.isIouSuspect).toBe(false);
+  });
+
+  it('still suggests "create" for a genuine spending category that merely shares a substring with a keyword', () => {
+    const result = resolveCategoriesDirectional([directionalRow('Card Payment Reminder Fee', 'expense')], categories);
+    // Deliberately NOT asserting a specific kind here beyond confirming self-account-movement keyword
+    // matching doesn't accidentally widen — "card bill payment"/"cc bill" are substring matches, so this
+    // guards against a keyword list broad enough to misfire on unrelated categories in future edits.
+    expect(isLikelySelfAccountMovement('Card Payment Reminder Fee')).toBe(false);
+    expect(result[0]?.suggestion.kind).toBe('create');
   });
 });
 

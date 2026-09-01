@@ -1,12 +1,19 @@
 # Penny — Database Schema
 
-All stores use Dexie.js (IndexedDB). All primary keys are UUIDs (not auto-increment — required for future cross-device sync).
+`apps/mobile` (the one app) stores everything via `@op-engineering/op-sqlite` — see "Mobile (React
+Native) storage engine" below. All primary keys are UUIDs (not auto-increment — required for future
+cross-device sync).
 
-Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparently encrypts fields on write and decrypts on read via the in-memory Master Key. Plain stores are written directly to IndexedDB with no encryption.
+Encrypted stores use `EncryptedRepository<T>`, which transparently encrypts fields on write and
+decrypts on read via the in-memory Master Key, against whatever `RowStore<T>` implementation backs
+it (`store.ts`'s storage-engine seam). Plain stores are written directly with no encryption.
 
-**Store counts:** 36 active stores total — 34 encrypted + 2 plain.
+**Store counts:** 40 active stores total — 38 encrypted + 2 plain.
 
-**Schema versions:**
+**Schema history** (the version numbers below are Dexie's own numbering scheme — the tool this
+history was originally built and tracked in; `apps/web-react`, the app that ran Dexie, was retired
+2026-08-29, but the numbering is kept here purely as a stable, already-established changelog
+ordering, not because Dexie itself is still involved):
 
 - v1: Initial 19 stores (17 encrypted + 2 plain)
 - v2: Added `accounts` (multi-account tracking, M9) — 20 total
@@ -24,16 +31,19 @@ Encrypted stores use `EncryptedRepository<T>`, which wraps Dexie and transparent
   historical segment) — 35 total
 - v13: Added `bank_cash_withdrawal_codes` (narration codes like ATW/NWD/SELF that auto-classify a
   bank statement line as a cash-withdrawal transfer) — 36 total
+- v14: Added `sms_transactions`, `sms_account_mappings` (SMS-Based Transaction Tracking, Android
+  only) — 38 total
+- v15: Added `sms_excluded_senders` (durable per-sender "never a transaction" exclusion) — 39 total
+- v16: Added `insurer_memory` (Insurance redesign — "Other" insurer suggestion memory) — 40 total
 
 ---
 
 ## Mobile (React Native) storage engine
 
 Since Track 2 of the [mobile migration](plans/mobile-migration.md), `apps/mobile` runs on
-`@op-engineering/op-sqlite` instead of Dexie — Metro resolves `packages/core/src/core/db/schema.native.ts`
-in place of `schema.ts` for any native build (verified via bundle inspection; web/`apps/web-react` is
-completely unaffected and keeps using Dexie unchanged). This is the third storage engine this file has
-used, each swap driven by a real on-device bug:
+`@op-engineering/op-sqlite` — Metro resolves `packages/core/src/core/db/schema.native.ts` in place of
+`schema.ts` for any native build (verified via bundle inspection). This is the third storage engine
+this file has used, each swap driven by a real on-device bug:
 
 1. **`expo-sqlite`** (Track 2). Needed a single app-wide FIFO queue serializing every DB call — reads
    included — because its native binding corrupted its statement handle under concurrent reads, not just
@@ -45,8 +55,8 @@ used, each swap driven by a real on-device bug:
    confirmed on-device this still didn't feel as smooth as web.
 3. **`@op-engineering/op-sqlite`** (2026-07-26, same day). Real async SQLite: `execute()` dispatches to a
    native thread and only the final result crosses back to JS — the same "off-thread, single result
-   handoff" shape Dexie/IndexedDB already has on web. WAL journal mode is enabled; only one connection is
-   opened, per op-sqlite's own guidance (no manual reader/writer pool).
+   handoff" shape Dexie/IndexedDB had given `apps/web-react` (retired 2026-08-29). WAL journal mode is
+   enabled; only one connection is opened, per op-sqlite's own guidance (no manual reader/writer pool).
 
 This version also fixes a second inefficiency present in _both_ prior RN adapters (not unique to MMKV):
 both stored each encrypted row as `JSON.stringify({id, iv, ciphertext})` in a single text column/value — a
@@ -61,13 +71,16 @@ EXISTS` for every known table runs unconditionally on every launch (a no-op afte
 table's column set is fixed forever once created this way.
 
 The storage-engine seam is `packages/core/src/core/db/store.ts`'s `RowStore<T>` interface (`get/put/toArray/
-delete/count/update/clear`) — `EncryptedRepository<T>`'s constructor takes a `RowStore<EncryptedRecord>`
-instead of Dexie's `Table` directly; Dexie's `Table` already structurally satisfies this interface, so this
-was a type-only change on the web side, and each RN storage-engine swap needed zero changes to
-`EncryptedRepository`, `securityManager.ts`, `priceCache.ts`, or any other caller — they only ever depend
-on this interface, never on how storage works underneath it. Cross-engine correctness (PBKDF2/AES-GCM/
-deterministic-Ed25519 vectors run under Web Crypto here, to be reproduced on-device against
-`react-native-quick-crypto`) is tracked in `packages/core/tests/crypto/crossEngineVectors.test.ts`.
+delete/count/update/clear`) — `EncryptedRepository<T>`'s constructor takes a `RowStore<EncryptedRecord>`,
+never a concrete engine directly. Dexie's `Table` (when `apps/web-react` was still around) structurally
+satisfied this interface with zero adapter code needed; `schema.native.ts`'s op-sqlite-backed stores and
+`schema.ts`'s current plain in-memory `Map`-backed stores (the engine `vitest` now runs against, since
+2026-08-29 — see `docs/ARCHITECTURE.md`'s matching decision-log entry) both implement it explicitly. Every
+engine swap so far needed zero changes to `EncryptedRepository`, `securityManager.ts`, `priceCache.ts`, or
+any other caller — they only ever depend on this interface, never on how storage works underneath it.
+Cross-engine correctness (PBKDF2/AES-GCM/deterministic-Ed25519 vectors run under Web Crypto here, to be
+reproduced on-device against `react-native-quick-crypto`) is tracked in
+`packages/core/tests/crypto/crossEngineVectors.test.ts`.
 
 ---
 
@@ -126,6 +139,12 @@ Every asset the user owns. Supersedes the old `assets` store (dropped in v3).
 
 > **EPF interest-mismatch acknowledgment (2026-08-12, fifth on-device round):** `assetMeta.epfTransactions[].interestMismatchAcknowledged?: boolean` — set `true` only when the user explicitly picks "Keep recorded" in the interest breakdown popup's mismatch banner, confirming the recorded (passbook) interest figure is the one to trust over Penny's own recalculation. `checkInterestMismatch` (`epfReviewFlags.ts`) itself is unaffected and always reports the raw disagreement; `findAllReviewFlags` is what actually skips creating the `interestMismatch` flag once acknowledged, so it stops counting toward the card-level "N need review" total and the row's warning badge — same "computed on demand, dismissal tracked separately" pattern as `Account.dismissedVerificationFindings` elsewhere in the app. Absent on any transaction where the recorded figure hasn't been explicitly confirmed (including one that has never had a mismatch at all). See `docs/plans/epf-passbook-import.md` §10.13.
 
+> **EPF pending-transfer dismissal (2026-08-30, sixth on-device round):** `assetMeta.epfEmployers[].pendingTransferDismissed?: boolean` — set `true` only once the user explicitly answers "It was withdrawn" (not transferred) on the "pending transfer" banner (`epfEmployerScoping.ts`'s `epfPendingTransferSuccessor`), confirming a closed employer's closing balance genuinely left EPF rather than moving into a successor employer's own account. Stops that banner re-appearing for this employer; never set by an import — only by this explicit user answer, same "computed on demand, dismissal tracked separately" pattern as `interestMismatchAcknowledged` above. See `docs/plans/epf-passbook-import.md` §10.14.
+
+> **EPF dismissed-hike months (2026-08-30, same round):** `assetMeta.epfEmployers[].dismissedHikeMonths?: string[]` — "YYYY-MM" wage months the user explicitly dismissed ("Not now") on the new "hike detected" nudge banner, powered by `epfCalculations.ts`'s `findUnrecordedEpfHikes()` (scans an employer's real imported wage data for a genuine, sustained increase over what its current `hikeTimeline` predicts). Adding the hike for real also naturally stops the suggestion recurring (the detector re-checks against the updated `hikeTimeline`) — this field only covers the "I don't want to add it" path. See `docs/plans/epf-passbook-import.md` §10.14.
+
+> **EPF transfer-in source-employer link (2026-08-30, same round):** `assetMeta.epfTransactions[].transferredFromEmployerId?: string` — set on a `transfer_in` transaction, either via the "pending transfer" banner's own "It was transferred" confirm step or auto-attributed at import time (`epfImportLogic.ts`'s `resolveTransferSourceEmployerId`, matching the passbook's own "Old Member Id" text against a known employer's `memberId`) — records exactly which OLD (now-closed) employer this credit resolves. Lets `epfPendingTransferSuccessor` tell precisely which employer's gap a given transfer-in already closes, rather than assuming it must be the chronologically-next employer: a real EPFO transfer always targets whichever Member ID is CURRENTLY ACTIVE when the transfer is filed, so two different old, closed employers can both correctly transfer into the same later employer, skipping one that sat chronologically in between. See `docs/plans/epf-passbook-import.md` §10.14.
+
 ---
 
 ### `expenses`
@@ -152,6 +171,19 @@ Every income, expense, and transfer transaction.
 | statementBalance | number?                               | **New (2026-08-08, bank balance sync Stage 1).** GROUND TRUTH ONLY — the bank statement's own stated running balance immediately after this transaction, copied verbatim from a statement row with a mapped Balance column at bank-import commit time. Never recomputed/guessed. Present only on transactions from, or matched against, a `bank`-type-account statement import that had a balance column mapped (credit cards excluded — see `docs/plans/bank-balance-sync.md` §3/§16). THE marker of "checkpointed" — a checkpointed expense is permanently excluded from `matchStatementRows()`'s Tier-2 fuzzy candidate pool for any _other_ import (two-tier matching, plan §5/§17). |
 | reconciledSeq    | number?                               | **New (2026-08-08, bank balance sync Stage 0 — field only, no logic yet, that's Stage 5).** Intra-day order (1st, 2nd, 3rd…) among that calendar day's statement rows, set only when the whole day is statement-explained. See `docs/plans/bank-balance-sync.md` §4/§9.                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
+> **Storage note (2026-08-28, Tier 2 performance fix):** `date`/`accountId`/`toAccountId`/`categoryId`/
+> `type` are ALSO persisted as plaintext, indexed columns alongside this table's normal encrypted
+> blob — `expenses` is the one table in the app with real row-count pressure, and without a queryable
+> field every read (even "this month's transactions") meant decrypting the entire table first. Every
+> other field above (`amount`, `merchant`, `notes`, `hashtags`, ...) stays fully encrypted, same as
+> before. See `packages/core/src/core/db/store.ts`'s `ExpenseRowStore` doc comment and `docs/PRIVACY.md`
+> for the full reasoning — no other table in this doc gets this treatment.
+>
+> **If this pattern is ever extended to another table** (or a full referential-integrity restructure
+> is undertaken across every table), use the **hybrid shape**, not this duplicate-column approach
+> generalized — see `docs/ARCHITECTURE.md`'s 2026-08-29 "DB-structure review" decision entry for the
+> full comparison and why.
+
 ---
 
 ### `expense_categories`
@@ -177,7 +209,15 @@ Default and user-created categories for classifying expenses.
 
 > **Tax-footprint overrides (Track 7):** stored in `localStorage`, not Dexie — `penny_settings_tax_gross_income`, `penny_settings_tax_direct`, `penny_settings_tax_epf`, `penny_settings_tax_statutory` (optional manual gross-income, income-tax correction, EPF/PF, and professional-tax+LWF overrides for the income waterfall; absent = derive automatically). See `SettingsContext`.
 
-> **Safe Mode visibility:** per-category (`hideInSafeMode` above) and per-account (`accounts.hideInSafeMode`) flags cover Expenses/Income/Accounts. Loans, IOU, Portfolio, Goals, Insurance, and Subscriptions don't have a natural per-item category to hang a flag on, so they use simple module-level toggles stored in `localStorage` under `penny_settings_safe_mode_visibility` (`SafeModeVisibility` in `SettingsContext` — `loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`; these already store "visible" directly, default `true`). `usePrivacy().shouldMask(sensitive)` is the single source of truth: Open never masks, Privacy always masks, Safe masks only when `sensitive` is true. Aggregates (totals, net worth, "Total spent this month", the cash-flow forecast, the Activity Timeline) always pass `sensitive: false` — Safe Mode's premise is that the big picture stays visible and only specific flagged items hide.
+> **3-day default-to-Open (2026-08-29):** stored in `localStorage`/AsyncStorage, not Dexie —
+> `penny_settings_default_open_armed_until`, a raw numeric epoch-ms string (`defaultOpenArmedUntil` in
+> `SettingsContext`) — the moment the current 3-day default-to-Open window expires, or absent/`null`
+> if never armed. Read by `packages/core/src/lib/defaultOpenMode.ts`'s `isDefaultOpenArmed()`/
+> countdown helpers and `PrivacyContext.tsx`'s reconciliation effect, which suppresses the normal
+> `AppState`-background auto-revert-to-Safe while armed. See `docs/PRIVACY.md`'s "3-day
+> default-to-Open" entry for the full behavior.
+
+> **Safe Mode visibility:** per-category (`hideInSafeMode` above) and per-account (`accounts.hideInSafeMode`) flags cover Expenses/Income/Accounts. Loans, IOU, Portfolio, Goals, Insurance, and Subscriptions don't have a natural per-item category to hang a flag on, so they use simple module-level toggles stored in `localStorage` under `penny_settings_safe_mode_visibility` (`SafeModeVisibility` in `SettingsContext` — `loans`/`iou`/`portfolio`/`goals`/`insurance`/`subscriptions`; these already store "visible" directly, default `true`). `usePrivacy().shouldMask(sensitive)` is the single source of truth: Open never masks, Safe masks only when `sensitive` is true (a third "Privacy" mode that used to always mask was removed 2026-08-18 — see `docs/PRIVACY.md`). Aggregates (totals, net worth, "Total spent this month", the cash-flow forecast, the Activity Timeline) always pass `sensitive: false` — Safe Mode's premise is that the big picture stays visible and only specific flagged items hide.
 >
 > **Category defaults are smart, not blank.** An explicit `hideInSafeMode` on a category always wins; when it's `undefined`, `isHiddenInSafeMode()` (`core/expenses/categoryGroups.ts`) falls back to a per-intent-group default — `income`, `transfers`, `family_giving`, `legal`, `sin_goods`, and `financial` default **hidden**; every other default category (daily living, home & utilities, lifestyle, etc.) and any custom category default **visible**. The Settings → Safe Mode toggle matches the field directly (ON = hidden, `hideInSafeMode: true`). Accounts have no group concept and simply default visible (`undefined` → shown).
 
@@ -278,23 +318,73 @@ All debt obligations — loans, credit cards, BNPL, informal borrowings.
 
 ### `insurance_policies`
 
-Life, health, vehicle, and other insurance policies.
+Life, health, vehicle, home, travel, and other insurance policies. Redesigned 2026-08-31: the base
+fields (still the whole shape for Health/Vehicle/Home/Travel/Other's simple annual-renewal model) are
+followed by a large, **all-optional** block of Term/Life premium-schedule/due-date fields plus a few
+other per-type fields — every field added in the redesign is optional so an existing saved policy keeps
+working unchanged. See [`docs/features/insurance.md`](features/insurance.md) for the full behavior.
 
-| Field            | Type                                                                                                                 | Notes                                         |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| id               | string (UUID)                                                                                                        | Primary key                                   |
-| type             | `'term_life' \| 'whole_life' \| 'endowment' \| 'ulip' \| 'health' \| 'vehicle' \| 'property' \| 'travel' \| 'other'` |                                               |
-| name             | string                                                                                                               | Policy name or description                    |
-| insurer          | string?                                                                                                              | Insurer name e.g. `'LIC'`, `'Star Health'`    |
-| policyNumber     | string?                                                                                                              | Encrypted — never shown in logs or sent to AI |
-| sumAssured       | number?                                                                                                              | Cover amount in ₹                             |
-| premium          | number?                                                                                                              | Premium amount in ₹                           |
-| premiumFrequency | `'monthly' \| 'quarterly' \| 'half-yearly' \| 'yearly'`?                                                             | Payment cadence                               |
-| startDate        | number?                                                                                                              | Epoch ms — policy start                       |
-| renewalDate      | number?                                                                                                              | Epoch ms — next renewal                       |
-| maturityDate     | number?                                                                                                              | Epoch ms — for endowment/ULIP                 |
-| nominees         | string[]?                                                                                                            | Nominee names — PII, never sent to AI         |
-| note             | string?                                                                                                              | Free text                                     |
+| Field                      | Type                                                                         | Notes                                                                                                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| id                         | string (UUID)                                                                | Primary key                                                                                                                                                                              |
+| type                       | `'term' \| 'life' \| 'health' \| 'vehicle' \| 'home' \| 'travel' \| 'other'` | Renamed/collapsed 2026-08-31 from the old `'term_life' \| 'whole_life' \| 'endowment' \| 'ulip' \| ... \| 'property' \| ...` — Whole Life/Endowment/ULIP are now all `'life'`, distinguished by the `isULIP` flag below; `'property'` renamed to `'home'` |
+| insurer                    | string                                                                       | Free text, or one of `core/insurance/insurers.ts`'s researched picklists e.g. `'LIC (Life Insurance Corporation)'`, `'Star Health and Allied Insurance'`                                |
+| policyNumber               | string?                                                                      | Encrypted — never shown in logs or sent to AI                                                                                                                                            |
+| coverageAmount             | number                                                                       | Cover amount in ₹ — base field of record, the only coverage figure for Health/Vehicle/Home/Travel/Other                                                                                  |
+| annualPremium              | number                                                                       | Annual premium in ₹ — base field of record                                                                                                                                               |
+| renewalDate                | number                                                                       | Epoch ms — next annual renewal. Still authoritative for Health/Vehicle/Home/Travel/Other; additive (not replaced) alongside Term/Life's richer schedule below                            |
+| sumInsured                 | number?                                                                      | Base optional field                                                                                                                                                                      |
+| nominees                   | string?                                                                      | PII, never sent to AI                                                                                                                                                                    |
+| notes                      | string?                                                                      | Free text                                                                                                                                                                                |
+| planName                   | string?                                                                      | Plan name, distinct from `insurer` (e.g. "iSelect Smart360 Term Plan" from "HDFC Life")                                                                                                  |
+| startDate                  | number?                                                                      | Epoch ms                                                                                                                                                                                 |
+| durationYears              | number?                                                                      | Whole-year duration preset (Term/Life/Health/Vehicle/Home/Other) — mutually exclusive in practice with `durationDays`                                                                    |
+| durationDays               | number?                                                                      | Short-trip duration preset (Travel)                                                                                                                                                      |
+| endDate                    | number?                                                                      | Cover end date — auto-derived from `startDate` + duration unless `endDateIsCustom`                                                                                                       |
+| endDateIsCustom            | boolean?                                                                     |                                                                                                                                                                                            |
+| paymentFrequency           | `'M' \| 'Q' \| 'H' \| 'A' \| 'S'`?                                            | `PremiumFrequency` — Monthly/Quarterly/Half-yearly/Annual/Single. Term/Life's payment-schedule fields key off this                                                                       |
+| firstYearDiscountEnabled   | boolean?                                                                     |                                                                                                                                                                                            |
+| discountType               | `'pct' \| 'flat'`?                                                            | `DiscountType`                                                                                                                                                                            |
+| discountValue              | number?                                                                      | Percent (0–100) when `discountType === 'pct'`, else a flat ₹ amount off the Year-1 installment                                                                                           |
+| nextPremiumDueDate         | number?                                                                      | Term/Life only — next unpaid installment's due date. Auto-computed, rolled forward on each "Mark as paid"; user-overridable                                                             |
+| nextPremiumDueDateIsCustom | boolean?                                                                     |                                                                                                                                                                                            |
+| premiumPayments            | `PremiumPayment[]`?                                                          | Term/Life's "Mark as paid" history — append-only, newest last. See shape below                                                                                                           |
+| sumAssured                 | number?                                                                      | Term/Life-specific                                                                                                                                                                        |
+| premiumPaymentTerm         | `'regular' \| 'limited'`?                                                     | `PremiumPaymentTerm` — Term/Life only. 'Limited' stops premiums after `limitedPayYears` while cover continues for the full duration                                                     |
+| limitedPayYears            | number?                                                                      | Term/Life-specific, only meaningful when `premiumPaymentTerm === 'limited'`                                                                                                              |
+| isULIP                     | boolean?                                                                     | Life only — market-linked (ULIP, 3-year revival window) vs non-linked (Endowment/Whole Life, 5-year) — never used for fund-value tracking                                               |
+| maturityBenefit            | number?                                                                      | Life only                                                                                                                                                                                |
+| membersCovered             | string[]?                                                                    | Health-specific                                                                                                                                                                          |
+| coPayPct                   | number?                                                                      | Health-specific — a single flat percentage, no per-diagnosis variation                                                                                                                   |
+| vehicleRegNumber           | string?                                                                      | Vehicle-specific — deliberately unlinked from `AssetMeta.vehicleInsurancePolicyNo`/etc. on a Real Assets vehicle holding (two independent places by design)                             |
+| idv                        | number?                                                                      | Vehicle-specific — Insured Declared Value                                                                                                                                                |
+| ncbPct                     | number?                                                                      | Vehicle-specific — No Claim Bonus percentage                                                                                                                                             |
+| structureValue             | number?                                                                      | Home-specific                                                                                                                                                                            |
+| destination                | string?                                                                      | Travel-specific                                                                                                                                                                          |
+| tripStartDate              | number?                                                                      | Travel-specific — epoch ms                                                                                                                                                               |
+| tripEndDate                | number?                                                                      | Travel-specific — epoch ms                                                                                                                                                               |
+
+**`PremiumPayment`** (element of `premiumPayments`, not its own store): `{ id: string, dueMs: number
+(the schedule occurrence this settles), paidMs: number (when "Mark as paid" was tapped), amount: number
+(the exact discount-aware installment paid), linkedExpenseId?: string (set only for "log"/"link" choices,
+omitted for "skip") }`.
+
+---
+
+### `insurer_memory`
+
+New store (2026-08-31). Encrypted. Local "remembered custom insurer" suggestions for the Add/Edit
+policy form's "Other" (not-in-picklist) insurer option — mirrors `merchant_memory`'s exact
+normalize/key/build/search pattern (`core/insurance/insurerMemory.ts`). Included in backup/restore
+(`backupManager.ts`'s `BACKUP_STORES`).
+
+| Field      | Type                               | Notes                                                                                                     |
+| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| id         | string                              | `` `${category}::${normalizedName}` `` — namespaced so the same free-text name typed under two different insurer categories doesn't collide |
+| name       | string                              | Last raw (trimmed) name typed, for display                                                                |
+| category   | `'life' \| 'health' \| 'general'`   | `InsurerCategory` — scopes the suggestion to the right picklist category                                  |
+| usageCount | number                              | Incremented on each matching save                                                                         |
+| updatedAt  | number                              | Epoch ms                                                                                                   |
 
 ---
 
@@ -390,15 +480,16 @@ Counterparties in the IOU ledger (a pairwise "you ↔ them" relationship). Encry
 (Dexie v7). Name/phone are **Category 1 PII — never sent raw to AI** (use `assignOrdinalLabels` in
 `core/iou/aiLabels.ts`).
 
-| Field                 | Type          | Notes                                                       |
-| --------------------- | ------------- | ----------------------------------------------------------- |
-| id                    | string (UUID) | Primary key                                                 |
-| name                  | string        | **PII — never sent raw to AI**                              |
-| phone                 | string?       | Local reference only — PII                                  |
-| notes                 | string?       | Free text                                                   |
-| linkedMemberId        | string?       | Future group-sync hook (Phase 1.5 Track E); null in Track 1 |
-| isArchived            | boolean?      | Soft-archived when a person with history is removed         |
-| createdAt / updatedAt | number        | Epoch ms                                                    |
+| Field                 | Type          | Notes                                                                                                                                                                                                                                                            |
+| --------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                    | string (UUID) | Primary key                                                                                                                                                                                                                                                      |
+| name                  | string        | **PII — never sent raw to AI**                                                                                                                                                                                                                                   |
+| phone                 | string?       | Local reference only — PII                                                                                                                                                                                                                                       |
+| notes                 | string?       | Free text                                                                                                                                                                                                                                                        |
+| linkedMemberId        | string?       | Future group-sync hook (Phase 1.5 Track E); null in Track 1                                                                                                                                                                                                      |
+| isArchived            | boolean?      | Soft-archived when a person with history is removed                                                                                                                                                                                                              |
+| promotedToGroupId     | string?       | Set when this person's ledger was promoted to a real Group (`PromoteToGroupWizard.tsx`, real-device-testing-pass.md Phase 3) — the personal ledger stays archived (never deleted); the Archived section shows a "→ Now in {group}" link instead of Restore/Trash |
+| createdAt / updatedAt | number        | Epoch ms                                                                                                                                                                                                                                                         |
 
 ### `ledger_entries`
 
@@ -446,8 +537,7 @@ Bank accounts, wallets, and cash holdings. Used as source/destination for expens
 | ----------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | id                            | string (UUID)                                                          | Primary key                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | name                          | string                                                                 | e.g. `'HDFC Savings'`, `'Cash Wallet'`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| type                          | `'savings' \| 'current' \| 'credit_card' \| 'cash' \| 'wallet'`        |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| bankName                      | string?                                                                | e.g. `'HDFC Bank'`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| type                          | `'cash' \| 'bank' \| 'credit_card' \| 'wallet'`                        | Corrected 2026-08-15 — this row previously documented a stale `'savings'\|'current'\|...` enum that never matched the real code                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | openingBalance                | number?                                                                | Balance at time of account creation in Penny                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | color                         | string?                                                                | Hex color for UI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | icon                          | string?                                                                | Tabler icon name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -457,6 +547,10 @@ Bank accounts, wallets, and cash holdings. Used as source/destination for expens
 | anchorReference               | `{ oldOpeningBalance, oldAnchorDate, newOpeningBalance, detectedAt }?` | **Renamed from `anchorDisagreement` 2026-08-09** (bank balance sync Stage 3/4 redesign — fixed a "frozen forever" bug found via on-device testing: the old field stored a full, once-computed `{ detectedAt, oldOpeningBalance, oldAnchorDate, impliedOldBalance, diff }` snapshot that never updated even after a later corrective import actually fixed the ledger). Now stores ONLY immutable historical facts — what the OLD anchor was, the backfill's OWN un-back-derived claim (`newOpeningBalance`, added 2026-08-09 same day to fix a SECOND bug: without it, the live check trivially agreed with itself since the account's real `openingBalance` is back-derived FROM this comparison — see `openingBalanceAnchor.ts`'s `backDerivedOpeningBalance` doc comment), and when this was first flagged (§14b's "keep the original, flag for later" choice). The comparison against it (`impliedOldBalance`/`diff`/`agrees`) is never stored — always recomputed LIVE from current transactions (`openingBalanceAnchor.ts`'s `recomputeAnchorAgreement`, called from `core/bank-import/accountVerification.ts`), exactly like a checkpoint mismatch already was. Absent = no open disagreement (or a formerly-open one that's since been explicitly resolved). See `docs/plans/bank-balance-sync.md`'s 2026-08-09 entry and §3 decision #10/§14b/§7 Stage 3/4. |
 | dismissedVerificationFindings | `{ fingerprint, dismissedAt }[]?`                                      | **New 2026-08-09, bank balance sync Stage 4.** Balance-verification findings explicitly acknowledged via the "I've reviewed this, dismiss" action — scoped to the SPECIFIC finding via a stable fingerprint of its own identifying facts (which checkpoint pair / which standing-gap expense set / which anchor-disagreement event), never a blanket per-account silence. A new, different finding of any kind still surfaces even if an earlier, unrelated one was dismissed. Never auto-pruned — a stale, no-longer-matching fingerprint is simply never re-matched. See `docs/plans/bank-balance-sync.md` §9 Q1/§7 Stage 4.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | dismissedSkippedRows          | `{ fingerprint, dismissedAt }[]?`                                      | **New 2026-08-10, `docs/plans/bank-reconciliation-ledger.md` Phase 1.** The Full Ledger view's "not mine, stop flagging this" action for a still-unresolved skipped statement row — same fingerprint-scoped, never-auto-pruned convention as `dismissedVerificationFindings`, but keyed by `batchId` + normalized narration + date + amount (`ledger.ts`'s `buildSkippedRowFingerprint`) rather than a verification-finding identity.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| bankId                        | `BankPresetId?`                                                        | **New 2026-08-15, SMS-Based Transaction Tracking** (`docs/plans/sms-transaction-tracking.md` §3). Which bank this account belongs to — optional, settable from the account-edit screen. Used to resolve an SMS's bank sender to this account when exactly one non-archived account shares that `bankId`; falls back to a persisted sender→account mapping (`sms_account_mappings` below) otherwise. Doesn't feed Bank Statement Import, which already receives its target account explicitly. No migration — absent on every account created before this field existed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| last4                         | string?                                                                | **New 2026-08-15**, same feature as `bankId` above. Last 4 digits of THIS ACCOUNT's own number only — never a card number (see `sms_account_mappings`'s `card_last4` mapping kind for that case) and never the full number (`docs/PRIVACY.md` Category-1). Same no-migration treatment as `bankId`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| isClosed                      | boolean?                                                               | **New 2026-08-27.** No longer operational (you closed the real-world account) — distinct from `isArchived` (still operational, just not used in Penny; that flag exists but nothing sets it yet). Hidden from every picker that assigns a NEW/edited transaction; still shown (its own collapsed section) and still counted in net worth/analytics on the Accounts page itself. Mutually exclusive with `isDefault` below, enforced at the UI layer. No migration — absent = not closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| isDefault                     | boolean?                                                               | **New 2026-08-27.** At most one account across the whole set may have this — pre-selects it (and a type-appropriate payment mode via `defaultPaymentModeForAccount()`) on every new expense/income. Setting it on one account clears it from whichever other account previously held it (`useAccountForm.ts`'s `save()`, confirmed via a popup first since that's a write to a different account than the one being edited). No migration — absent = not the default.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ---
 
@@ -489,16 +583,17 @@ restore points. Pruned to the newest ~500 entries.
 
 Remembers the category/account/payment last used per merchant for Add-transaction auto-fill (Pre-Phase 1.5, Track 6). Encrypted; id-only index (Dexie v5). Local precursor to the Phase-2 AI categoriser. Written on every non-transfer save via `buildMemory`, and seeded once from existing transaction history via `buildMemoriesFromExpenses` (guarded by the `penny_merchant_memory_v1` localStorage flag). See `core/expenses/merchantMemory.ts`.
 
-| Field       | Type                                  | Notes                                                                                                         |
-| ----------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| id          | string                                | `` `${type}::${normalizedDescription}` `` — namespaced so income/expense with the same merchant don't collide |
-| description | string                                | Last raw (trimmed) description, for display in the auto-fill hint                                             |
-| type        | `'expense' \| 'income' \| 'transfer'` | Transaction type the memory applies to (transfers are never stored)                                           |
-| categoryId  | string                                | Remembered category                                                                                           |
-| accountId   | string?                               | Remembered account                                                                                            |
-| paymentMode | string?                               | Remembered payment mode                                                                                       |
-| usageCount  | number                                | Incremented on each matching save                                                                             |
-| updatedAt   | number                                | Epoch ms                                                                                                      |
+| Field       | Type                                  | Notes                                                                                                                                                                                                                                                                      |
+| ----------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id          | string                                | `` `${type}::${normalizedDescription}` `` — namespaced so income/expense with the same merchant don't collide                                                                                                                                                              |
+| description | string                                | Last raw (trimmed) description, for display in the auto-fill hint                                                                                                                                                                                                          |
+| type        | `'expense' \| 'income' \| 'transfer'` | Transaction type the memory applies to (transfers are never stored)                                                                                                                                                                                                        |
+| categoryId  | string                                | Remembered category                                                                                                                                                                                                                                                        |
+| accountId   | string?                               | Remembered account                                                                                                                                                                                                                                                         |
+| paymentMode | string?                               | Remembered payment mode                                                                                                                                                                                                                                                    |
+| amount      | number?                               | (2026-08-22) The most recent matching transaction's amount — shown alongside the suggestion and pre-filled (still user-editable) on tap in `ExpenseForm.tsx`. Optional: rows written before this field existed won't have it until the next matching save re-derives them. |
+| usageCount  | number                                | Incremented on each matching save                                                                                                                                                                                                                                          |
+| updatedAt   | number                                | Epoch ms                                                                                                                                                                                                                                                                   |
 
 ---
 
@@ -579,19 +674,19 @@ post-unlock via the groups worker (`workers/groups/`). Per-group AES keys live i
 
 A group the user belongs to. `role`/`status` are **this user's own** membership.
 
-| Field             | Type   | Notes                                           |
-| ----------------- | ------ | ----------------------------------------------- |
-| id                | string | Primary key = server `group_id`                 |
-| type              | string | `family` \| `trip` \| `roommates` \| `other`    |
-| name              | string | Decrypted group name (server stores `enc_name`) |
-| role              | string | `owner` \| `admin` \| `member` (this user)      |
-| status            | string | `active` \| `closed`                            |
-| ownerId           | string | `userId` of the owner                           |
-| keyEpoch          | number | Current Group-Key rotation epoch                |
-| historyVisibility | string | `full` \| `from_join`                           |
-| joinedAt          | number | Epoch ms                                        |
-| createdAt         | number | Epoch ms                                        |
-| updatedAt         | number | Epoch ms                                        |
+| Field             | Type   | Notes                                                                                                            |
+| ----------------- | ------ | ---------------------------------------------------------------------------------------------------------------- |
+| id                | string | Primary key = server `group_id`                                                                                  |
+| type              | string | `family` \| `trip` \| `roommates` \| `other`                                                                     |
+| name              | string | Decrypted group name (server stores `enc_name`)                                                                  |
+| role              | string | `owner` \| `admin` \| `member` (this user)                                                                       |
+| status            | string | `active` \| `closed` \| `left` (2026-08-23 — leaving no longer deletes the group; see `docs/features/groups.md`) |
+| ownerId           | string | `userId` of the owner                                                                                            |
+| keyEpoch          | number | Current Group-Key rotation epoch                                                                                 |
+| historyVisibility | string | `full` \| `from_join`                                                                                            |
+| joinedAt          | number | Epoch ms                                                                                                         |
+| createdAt         | number | Epoch ms                                                                                                         |
+| updatedAt         | number | Epoch ms                                                                                                         |
 
 > **`type: 'family'` changes two behaviors (2026-07).** Sharing an expense into a Family-type group
 > defaults the participant picker to just the person sharing it — no split, since Indian family
@@ -602,36 +697,48 @@ A group the user belongs to. `role`/`status` are **this user's own** membership.
 
 ### `group_members`
 
-| Field          | Type    | Notes                                              |
-| -------------- | ------- | -------------------------------------------------- |
-| id             | string  | Composite `${groupId}:${userId}`                   |
-| groupId        | string  | FK → `groups.id`                                   |
-| userId         | string  | Member's account `userId`                          |
-| displayName    | string  | Decrypted display name                             |
-| role           | string  | `owner` \| `admin` \| `member`                     |
-| status         | string  | `active` \| `left` \| `muted` (mute is local-only) |
-| linkedPersonId | string? | Bridges to a local `Person` (reuses Track 1 IOU)   |
-| joinedAt       | number  | Epoch ms                                           |
-| leftAt         | number? | Epoch ms                                           |
-| createdAt      | number  | Epoch ms                                           |
-| updatedAt      | number  | Epoch ms                                           |
+| Field            | Type     | Notes                                                                                                                                                                                                                                                                                                   |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id               | string   | Composite `${groupId}:${userId}`                                                                                                                                                                                                                                                                        |
+| groupId          | string   | FK → `groups.id`                                                                                                                                                                                                                                                                                        |
+| userId           | string   | Member's account `userId` — for an `accountless` member, a locally-generated pseudo id (`static:<uuid>`)                                                                                                                                                                                                |
+| displayName      | string   | Decrypted display name                                                                                                                                                                                                                                                                                  |
+| role             | string   | `owner` \| `admin` \| `member`                                                                                                                                                                                                                                                                          |
+| status           | string   | `active` \| `left` \| `muted` (mute is local-only)                                                                                                                                                                                                                                                      |
+| linkedPersonId   | string?  | Bridges to a local `Person` (reuses Track 1 IOU)                                                                                                                                                                                                                                                        |
+| accountless      | boolean? | **(2026-08-18)** True for a static/placeholder member — name-only, no real account, can't sync/confirm anything itself; a real member manages splits/settlements on their behalf. Added via `addStaticMember()`; materialized on other devices via `syncGroupMembers()` folding `member_joined` events. |
+| upgradedToUserId | string?  | **(2026-08-18)** Reserved upgrade hook: once an `accountless` member's real counterpart joins normally, set to their real `userId` so historical shares can be reattributed. Not built yet — reserved so adding it later needs no migration.                                                            |
+| joinedAt         | number   | Epoch ms                                                                                                                                                                                                                                                                                                |
+| leftAt           | number?  | Epoch ms                                                                                                                                                                                                                                                                                                |
+| createdAt        | number   | Epoch ms                                                                                                                                                                                                                                                                                                |
+| updatedAt        | number   | Epoch ms                                                                                                                                                                                                                                                                                                |
 
 ### `group_events`
 
 Append-only shared ledger (local mirror of the server's event rows). Balances fold over these.
 
-| Field     | Type    | Notes                                                                              |
-| --------- | ------- | ---------------------------------------------------------------------------------- |
-| id        | string  | Primary key = `eventId` (client UUID)                                              |
-| groupId   | string  | FK → `groups.id`                                                                   |
-| seq       | number? | Server-assigned total order (undefined until synced)                               |
-| lamport   | number  | Client logical clock (tie-break)                                                   |
-| authorId  | string  | `userId` of the author                                                             |
-| keyEpoch  | number  | Group-Key epoch the payload was encrypted under                                    |
-| type      | string  | `shared_expense`/`expense_edit`/`expense_delete`/`settlement`/`member_*`/`group_*` |
-| payload   | unknown | Type-specific (e.g. payer/participants/split); decrypted from the epoch key        |
-| createdAt | number  | Epoch ms                                                                           |
-| updatedAt | number  | Epoch ms                                                                           |
+| Field     | Type    | Notes                                                                                                                                                                            |
+| --------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id        | string  | Primary key = `eventId` (client UUID)                                                                                                                                            |
+| groupId   | string  | FK → `groups.id`                                                                                                                                                                 |
+| seq       | number? | Server-assigned total order (undefined until synced)                                                                                                                             |
+| lamport   | number  | Client logical clock (tie-break)                                                                                                                                                 |
+| authorId  | string  | `userId` of the author                                                                                                                                                           |
+| keyEpoch  | number  | Group-Key epoch the payload was encrypted under                                                                                                                                  |
+| type      | string  | `shared_expense`/`expense_edit`/`expense_delete`/`expense_flag`/`expense_flag_clear`/`settlement`/`settlement_void`/`member_*`/`group_*` (last two added 2026-08-18 — see below) |
+| payload   | unknown | Type-specific (e.g. payer/participants/split); decrypted from the epoch key                                                                                                      |
+| createdAt | number  | Epoch ms                                                                                                                                                                         |
+| updatedAt | number  | Epoch ms                                                                                                                                                                         |
+
+> **`expense_flag`/`expense_flag_clear` and `settlement_void` (2026-08-18, real-device-testing-pass.md
+> Phase 3)** — `expense_flag` lets another member flag someone else's `shared_expense` as "not needed"
+> (balance-inert, resolved by a later `expense_flag_clear` = the recorder "Keep"s it, or `expense_delete`
+> = they delete it); folded via `groupFlags()` in `groupSync.ts`. `settlement_void` reverses a
+> `settlement` (real repayment or write-off) — the fold engine excludes the voided settlement entirely,
+> restoring the balance to what it was before. `expense_edit` reuses `shared_expense`'s exact payload
+> shape (keyed by the same `expenseId`) — no schema change needed for it; the fold engine's "latest
+> wins" is a plain `Map` overwrite, and `groupFeed()` now dedupes an edited expense to one feed row
+> (fixed a real bug where it used to show as two).
 
 ---
 
@@ -679,25 +786,27 @@ normalization-override screen.
 
 ### `bank_cash_withdrawal_codes`
 
-Narration codes/keywords (ATW, NWD, SELF, ...) that identify a bank statement line as a cash
-withdrawal, so it can be auto-classified as a Transfer to the user's cash account instead of a plain
-expense (2026-08-05). Seeded once from `core/bank-import/cashWithdrawalCodes.ts`'s
-`BANK_CASH_WITHDRAWAL_CODE_SEEDS` (`~/hooks/useBankCashWithdrawalCodes.ts`, mirroring
-`usePaymentModes.ts`'s exact seeding pattern) — a researched starting point, not a guarantee (see
-that file's doc comment for per-entry confidence notes), so every row including the defaults is
-user-editable/deletable. `id` is a stable, deterministic slug for the seeded defaults (e.g.
-`cwc-hdfc-atw`), a random UUID for user-added ones. Global across all accounts; managed from the
-Accounts page's cash-withdrawal-codes screen (`features/bank-import/BankCashWithdrawalCodesPage.tsx`).
+Narration codes/keywords (ATW, NWD, SELF, ... for a withdrawal; CDM, CASH DEP, ... for a deposit,
+2026-08-27) that identify a bank statement line as a cash transfer, so it can be auto-classified as a
+Transfer to/from the user's cash account instead of a plain expense/income (2026-08-05). Seeded once
+from `core/bank-import/cashWithdrawalCodes.ts`'s `BANK_CASH_WITHDRAWAL_CODE_SEEDS`
+(`~/hooks/useBankCashWithdrawalCodes.ts`, mirroring `usePaymentModes.ts`'s exact seeding pattern) — a
+researched starting point, not a guarantee (see that file's doc comment for per-entry confidence
+notes), so every row including the defaults is user-editable/deletable. `id` is a stable, deterministic
+slug for the seeded defaults (e.g. `cwc-hdfc-atw`), a random UUID for user-added ones. Global across
+all accounts; managed from the Accounts page's "Cash-transfer codes" screen (renamed 2026-08-27 from
+"Cash-withdrawal codes" — `features/bank-import/BankCashWithdrawalCodesPage.tsx`, file name unchanged).
 
-| Field     | Type    | Notes                                                                   |
-| --------- | ------- | ----------------------------------------------------------------------- |
-| id        | string  | Stable slug for defaults, UUID for custom entries                       |
-| bankId    | string  | A `BankPresetId` value, or the literal `'any'` for a bank-agnostic code |
-| code      | string  | As typed; matched case-insensitively, whole-word, against the narration |
-| label     | string  | Short human description of what the code means                          |
-| isDefault | boolean | Seeded vs user-added — informational only, doesn't block deletion       |
-| createdAt | number  | Epoch ms                                                                |
-| updatedAt | number  | Epoch ms                                                                |
+| Field     | Type                         | Notes                                                                                                                                                                                                 |
+| --------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id        | string                       | Stable slug for defaults, UUID for custom entries                                                                                                                                                     |
+| bankId    | string                       | A `BankPresetId` value, or the literal `'any'` for a bank-agnostic code                                                                                                                               |
+| code      | string                       | As typed; matched case-insensitively, whole-word, against the narration                                                                                                                               |
+| label     | string                       | Short human description of what the code means                                                                                                                                                        |
+| direction | `'withdrawal' \| 'deposit'`? | **New 2026-08-27.** Which way the cash moved for this code. Optional — every code created before this field existed has none and is treated as `'withdrawal'` (`isCashTransferNarration`'s fallback). |
+| isDefault | boolean                      | Seeded vs user-added — informational only, doesn't block deletion                                                                                                                                     |
+| createdAt | number                       | Epoch ms                                                                                                                                                                                              |
+| updatedAt | number                       | Epoch ms                                                                                                                                                                                              |
 
 ### `payment_modes`
 
@@ -755,6 +864,88 @@ exactly reconstructable for a past date).
 | investableCorpus | number | See `core/calculators/retirementProjection.ts`'s `calcInvestableCorpus()` |
 | netWorth         | number | Same figure `useHome.ts` returns as `HomeSummary.netWorth`                |
 | capturedAt       | number | Epoch ms                                                                  |
+
+---
+
+## SMS-Based Transaction Tracking (Android only)
+
+A deliberately separate module (`core/sms-import/`) from both `core/bank-import/` and `core/import/`
+— see [`docs/plans/sms-transaction-tracking.md`](plans/sms-transaction-tracking.md) for the full
+feature spec. SMS Tracking is a THIRD, independent way to record a transaction (alongside manual
+entry and CSV import), not a replacement for or variant of Bank Statement Import, which stays the
+separate reconciliation feature. Both stores added in Dexie v14; id-only index.
+
+### `sms_transactions`
+
+One parsed (or parse-attempted) SMS candidate. Mirrors `bank_statement_imports`' three-purpose shape
+(audit trail + merchant-memory-style backing store + re-processing dedup) rather than overloading
+`Expense.sourceRef`. Written for EVERY sender-allowlisted SMS regardless of outcome — including one
+that matched a known bank's sender but no template (`status: 'unparsed'`, kept visible/exportable on
+the Unparsed Messages screen rather than silently dropped), and a dismissed/ignored one — so Tier-1
+provenance dedup (`contentHash`) can recognize a re-scanned duplicate at any status.
+
+| Field                   | Type                                                                                                 | Notes                                                                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                      | string (UUID)                                                                                        | Primary key                                                                                                                                           |
+| contentHash             | string                                                                                               | Tier-1 exact-provenance dedup key — hash of (sender, receivedAt, body)                                                                                |
+| sender                  | string                                                                                               | Raw SMS sender id/shortcode (e.g. `'VM-HDFCBK'`) — never the phone's own number                                                                       |
+| rawBody                 | string?                                                                                              | Retained only while `status` is `'unparsed' \| 'needs_review' \| 'ready'`; cleared once `linked`/`dismissed`. Never reaches `buildUserContext()`/Chip |
+| receivedAt              | number                                                                                               | Epoch ms, SMS-received timestamp — always present                                                                                                     |
+| date                    | number?                                                                                              | Actual transaction date — body-embedded date if the template captured one, else `receivedAt`. Absent only when `status === 'unparsed'`                |
+| amount                  | number?                                                                                              | Absent only when `status === 'unparsed'`                                                                                                              |
+| direction               | `'debit' \| 'credit'`?                                                                               | Absent only when `status === 'unparsed'`                                                                                                              |
+| transactionType         | `'debit' \| 'credit' \| 'upi_sent' \| 'upi_received' \| 'card_swipe' \| 'refund'`?                   | Absent only when `status === 'unparsed'`                                                                                                              |
+| counterparty            | string?                                                                                              | Extracted merchant/counterparty text — feeds merchant-memory suggestions like any other recording method                                              |
+| accountLast4            | string?                                                                                              | Masked account tail from the SMS body (never a card number — see `cardLast4`)                                                                         |
+| cardLast4               | string?                                                                                              | Masked card tail, when the message is clearly card-rail — resolves via its own mapping tier (`sms_account_mappings`)                                  |
+| referenceNumber         | string?                                                                                              |                                                                                                                                                       |
+| balance                 | number?                                                                                              | Available-balance figure, shown for context only — never used in matching                                                                             |
+| bankId                  | `BankPresetId?`                                                                                      | Which bank this SMS's sender resolved to, independent of whether an `accountId` was matched                                                           |
+| paymentModeGuess        | string?                                                                                              | Inferred `payment_modes.id` — always editable, never auto-applied silently                                                                            |
+| accountId               | string?                                                                                              | FK → `accounts`. Absent while `reviewReason === 'ambiguous_account'`                                                                                  |
+| status                  | `'unparsed' \| 'needs_review' \| 'ready' \| 'linked' \| 'dismissed'`                                 |                                                                                                                                                       |
+| reviewReason            | `'ambiguous_account' \| 'possible_match' \| 'possible_duplicate_sms' \| 'reconciled_date_conflict'`? | Only meaningful when `status === 'needs_review'`                                                                                                      |
+| possibleMatchExpenseIds | string[]?                                                                                            | Populated for `'possible_match'`/`'reconciled_date_conflict'` — candidates the Possible-match side-by-side screen shows                               |
+| possibleDuplicateSmsIds | string[]?                                                                                            | Populated for `'possible_duplicate_sms'` — the other `sms_transactions` id(s) that might describe the same real event                                 |
+| linkedTxnId             | string?                                                                                              | FK → `expenses`, set once `status === 'linked'`. That `Expense` is never edited as a result of linking — this is purely the audit pointer             |
+| createdAt               | number                                                                                               | Epoch ms                                                                                                                                              |
+| updatedAt               | number                                                                                               | Epoch ms                                                                                                                                              |
+
+### `sms_account_mappings`
+
+Persisted, user-confirmed mapping from a normalized SMS bank-string or a card's last-4 digits to one
+of the user's configured `accounts` — not a one-shot fuzzy guess re-run every scan. Written the first
+time an ambiguous sender/card is resolved, read on every subsequent SMS from the same normalized key.
+Editable any time from the SMS Tracking settings sub-page.
+
+| Field      | Type                            | Notes                                                                                                                                                                    |
+| ---------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| id         | string (UUID)                   | Primary key                                                                                                                                                              |
+| kind       | `'bank_string' \| 'card_last4'` |                                                                                                                                                                          |
+| mappingKey | string                          | `` `${bankId}:${accountLast4 ?? 'unknown'}` `` for `'bank_string'` (built by `buildSmsAccountMappingKey()`, never hand-rolled); the raw last-4 digits for `'card_last4'` |
+| rawValue   | string                          | Original human-readable text this mapping was created from — shown in the editable sender-mapping list                                                                   |
+| accountId  | string                          | FK → `accounts`                                                                                                                                                          |
+| createdAt  | number                          | Epoch ms                                                                                                                                                                 |
+| updatedAt  | number                          | Epoch ms                                                                                                                                                                 |
+
+### `sms_excluded_senders`
+
+**New 2026-08-17.** A sender explicitly marked "never a transaction" (a promotional shortcode, a
+KYC-reminder service, etc.) — added from the Unparsed Messages screen's per-sender-group "Exclude
+sender" action. Checked by `processRawSmsCore` BEFORE it would otherwise create an `'unparsed'`
+`sms_transactions` record for a recognized-bank-sender message that didn't match any template — a
+matching sender here is dropped exactly like an unrecognized one, never persisted at all, so this
+sender's _next_ non-transactional message never resurfaces a fresh "needs review" record either.
+Durable and sender-wide, unlike `sms_transactions.status === 'dismissed'` (which only clears ONE
+already-created record's instance, not future ones from the same sender) — for a sender that mixes
+real transactions with noise, dismissing individual messages stays the right tool, which is why both
+exist rather than one replacing the other.
+
+| Field     | Type          | Notes                                                                                                                                                    |
+| --------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id        | string (UUID) | Primary key                                                                                                                                              |
+| sender    | string        | The literal SMS sender/shortcode string as reported by the OS (e.g. `"VM-HDFCBK-S"`) — NOT normalized, so exclusion stays precise to the exact sender ID |
+| createdAt | number        | Epoch ms                                                                                                                                                 |
 
 ---
 

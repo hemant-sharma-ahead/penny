@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import { View, ScrollView, Text } from 'react-native';
+import { View, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { accountsRepo, bankStatementImportsRepo, expensesRepo } from '@/core/db/repositories';
 import { computeAccountVerificationStatus } from '@/core/bank-import/accountVerification';
 import { useRepository } from '@/hooks/useRepository';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 import { formatCurrency } from '@/lib/formatters';
 import { formatDate } from '@/lib/date';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
@@ -32,9 +33,10 @@ export function CheckOpeningBalancePage() {
   const { accountId } = route.params;
   useDefaultHeaderBack('CheckOpeningBalance');
 
-  const { items: accounts } = useRepository(accountsRepo);
+  const { items: accounts, reload } = useRepository(accountsRepo);
   const { items: allExpenses } = useRepository(expensesRepo);
   const { items: allImportRecords } = useRepository(bankStatementImportsRepo);
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
   const account = accounts.find((a) => a.id === accountId) ?? null;
 
   const activeFinding = useMemo(() => {
@@ -86,7 +88,10 @@ export function CheckOpeningBalancePage() {
         <Text className="text-sm font-semibold text-primary">Opening balance</Text>
         <Text className="text-xs text-tertiary mt-0.5">{account.name}</Text>
       </View>
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4">
           <View className="bg-surface border rounded-xl p-3.5 gap-3" style={{ borderColor: theme.warning }}>
             <View className="flex-row items-center gap-2">

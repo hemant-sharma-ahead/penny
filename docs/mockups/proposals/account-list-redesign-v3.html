@@ -1,0 +1,1200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Accounts list, round 3: real brand-color fallbacks + redesigned action affordance</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --page: #e4eeff; --surface: #ffffff; --surface2: #eff6ff;
+        --text: #0f172a; --text2: #475569; --text3: #94a3b8;
+        --border: #c7d8f0; --borderStrong: #a5bfdf;
+        --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+        --bodybg: #eef2f9; --heading: #0f172a; --sub: #475569;
+        --opt4-op: 0.10;
+      }
+      [data-theme="dark"] {
+        --page: #0b0f14; --surface: #161b22; --surface2: #1c2128;
+        --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+        --border: #2d333b; --borderStrong: #444c56;
+        --primary: #00a86b; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --info: #3b82f6;
+        --bodybg: #05070a; --heading: #f1f5f9; --sub: #aab6c9;
+        --opt4-op: 0.17;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bodybg); color: var(--heading); -webkit-font-smoothing: antialiased; transition: background .2s, color .2s; }
+      h1 { text-align: center; margin: 0; padding: 30px 16px 4px; font-size: 22px; color: var(--heading); }
+      .sub { text-align: center; margin: 0 16px 18px; color: var(--sub); font-size: 13.5px; max-width: 960px; margin-left: auto; margin-right: auto; line-height: 1.65; }
+      .sub b { color: var(--heading); }
+      .sub code { background: var(--surface2); padding: 1px 6px; border-radius: 5px; font-size: 12px; color: var(--heading); }
+
+      .toolbar { position: sticky; top: 0; z-index: 80; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; background: var(--bodybg); border-bottom: 1px solid var(--border); }
+      .toolbar a { font-size: 11.5px; font-weight: 700; color: var(--text2); background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 999px; text-decoration: none; }
+      .toolbar a:hover { border-color: var(--primary); color: var(--primary); }
+      .themebtn { font-size: 11.5px; font-weight: 800; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--primary); background: var(--primary); color: #04140d; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+
+      .sectionband { border-top: 1px solid var(--border); padding-top: 36px; margin-top: 8px; }
+      .sectiontitle { text-align: center; font-size: 17px; font-weight: 800; color: var(--heading); margin: 0 0 3px; }
+      .sectiontitle .num { display: inline-flex; width: 24px; height: 24px; border-radius: 8px; background: var(--primary); color: #04140d; font-size: 12.5px; font-weight: 800; align-items: center; justify-content: center; margin-right: 8px; vertical-align: -3px; }
+      .sectiontitle .tag { font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; margin-left: 8px; vertical-align: 3px; background: var(--surface2); color: var(--text2); }
+      .sectiontitle .tag.rec { background: rgba(0,168,107,.16); color: var(--primary); }
+      .oneliner { text-align: center; color: var(--sub); font-size: 12.5px; max-width: 800px; margin: 0 auto 20px; line-height: 1.65; font-style: italic; }
+      .oneliner b { font-style: normal; color: var(--heading); }
+
+      .gallery { display: flex; flex-wrap: wrap; gap: 26px; justify-content: center; align-items: flex-start; padding: 4px 20px 12px; }
+      .frame-wrap { width: 300px; }
+      .vtitle { font-size: 12px; font-weight: 800; margin: 0 2px 3px; color: var(--heading); }
+      .vsub { font-size: 10.5px; color: var(--text2); margin: 0 2px 10px; line-height: 1.5; }
+
+      .phone { width: 300px; height: 650px; background: var(--page); border-radius: 34px; border: 9px solid #111827; overflow: hidden; position: relative; display: flex; flex-direction: column; box-shadow: 0 16px 34px rgba(0,0,0,.35); flex-shrink: 0; }
+      .statusbar { height: 18px; flex-shrink: 0; background: var(--page); }
+      .header { height: 44px; display: flex; align-items: center; padding: 0 12px; flex-shrink: 0; background: var(--page); }
+      .htitle { flex: 1; text-align: center; font-size: 13px; font-weight: 700; color: var(--text); }
+      .backchev { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; color: var(--text); font-size: 15px; }
+      .addbtn { width: 26px; height: 26px; border-radius: 8px; background: var(--surface2); color: var(--text2); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+      .content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--page); }
+
+      .totalcard { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 13px; flex-shrink: 0; }
+      .totalcard .lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); margin-bottom: 4px; }
+      .totalcard .val { font-size: 19px; font-weight: 800; color: var(--text); }
+      .totalcard .cap { font-size: 9.5px; color: var(--text3); margin-top: 3px; }
+
+      .badge { width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .badge.sm { width: 30px; height: 30px; border-radius: 9px; }
+      .badge.circle { border-radius: 50%; }
+      .badge i { font-size: 15px; }
+      .tpill { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 3px 7px; border-radius: 999px; background: var(--surface2); color: var(--text3); white-space: nowrap; }
+
+      /* ===== LOGO / BRAND-COLOR LEGEND (new this round) ===== */
+      .logolegend { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; max-width: 900px; margin: 0 auto 8px; padding: 4px 16px; }
+      .swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 78px; }
+      .swatch .lbl { font-size: 10.5px; font-weight: 700; color: var(--heading); text-align: center; }
+      .swatch .kind { font-size: 8.5px; color: var(--text3); text-align: center; line-height: 1.4; }
+      .legenddivider { width: 1px; align-self: stretch; background: var(--border); margin: 0 4px; }
+
+      /* ===== ACTION ZONE — 3 interaction models, toggled per-section via [data-model] =====
+         m1 = slim always-visible strip (view + import/reconcile + edit + delete, icon-only, no chip bg)
+         m2 = view icon + kebab; kebab expands to reveal import/reconcile + edit + delete (RECOMMENDED)
+         m3 = single low-opacity dot hint; tap/long-press reveals all 4 icons
+         In every model, tapping the row/card itself still opens the transaction-list popup — unchanged
+         real behavior (AccountList.tsx's onPress={() => setViewingAccount(acc)}). The added "view" icon in
+         m1/m2/m3 is a discoverability affordance for that same action, not a second action. */
+      .actzone { margin-top: 7px; min-height: 22px; }
+      .actzone .m1, .actzone .m2, .actzone .m3 { display: none; align-items: center; }
+      [data-model="1"] .actzone .m1 { display: flex; justify-content: flex-end; gap: 1px; }
+      [data-model="2"] .actzone .m2 { display: flex; justify-content: flex-end; gap: 3px; }
+      [data-model="3"] .actzone .m3 { display: flex; justify-content: flex-end; gap: 5px; }
+
+      .slimicon { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; color: var(--text3); cursor: default; }
+      .slimicon i { font-size: 13px; }
+      .slimicon.del { color: var(--danger); }
+
+      .viewicon, .kebabicon { width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--text2); }
+      .viewicon i, .kebabicon i { font-size: 13px; }
+      .kebabicon { cursor: pointer; }
+      .kebabicon:hover { background: var(--surface2); }
+      .expando { display: none; align-items: center; gap: 3px; margin-left: 5px; padding-left: 6px; border-left: 1px solid var(--border); }
+      .actzone.open .expando { display: flex; }
+      .ebtn { width: 24px; height: 24px; border-radius: 7px; background: var(--surface2); color: var(--text2); display: flex; align-items: center; justify-content: center; }
+      .ebtn i { font-size: 12px; }
+      .ebtn.del { color: var(--danger); background: rgba(239,68,68,.14); }
+
+      .dothint { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text3); opacity: .75; cursor: pointer; }
+      .dothint i { font-size: 14px; }
+      .dothint:hover { opacity: 1; background: var(--surface2); }
+      .revealrow { display: none; align-items: center; gap: 3px; }
+      .actzone.open .revealrow { display: flex; }
+
+      /* ===== ✅ FINAL DIRECTION — Option 3 (grouped by type) + Model 3 (tap-to-reveal), with the approved
+         modification: the plain low-opacity `.dothint` (ti-dots) becomes a vertical 3-dot kebab (ti-dots-vertical,
+         the same icon Model 2 already uses for its kebab), moved off its own row and placed inline beside the
+         balance amount. Deliberately its own small class set (not reusing `.actzone`/`.m1-3`/`data-model`) since
+         this combo is locked in, not one of the three switchable models above. */
+      .balrow { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+      .vkebab { width: 20px; height: 20px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--text3); opacity: .8; cursor: pointer; flex-shrink: 0; }
+      .vkebab i { font-size: 13px; }
+      .vkebab:hover { opacity: 1; background: var(--surface2); color: var(--text2); }
+      .grow.open .vkebab { opacity: 1; background: rgba(0,168,107,.16); color: var(--primary); }
+      .freveal { display: none; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+      .grow.open .freveal { display: flex; }
+
+      /* Model switcher toolbar — local to each rebuilt option */
+      .modelswitch { display: flex; justify-content: center; gap: 6px; margin: 0 0 14px; flex-wrap: wrap; }
+      .mbtn { font-size: 10.5px; font-weight: 700; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text2); cursor: pointer; }
+      .mbtn.active { border-color: var(--primary); background: rgba(0,168,107,.14); color: var(--primary); }
+      .mbtn .rec { font-size: 8px; text-transform: uppercase; opacity: .8; margin-left: 3px; }
+
+      /* ===== OPTION 1 — 2-column grid tiles ===== */
+      .opt1-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .opt1-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px 11px; display: flex; flex-direction: column; gap: 5px; position: relative; min-height: 118px; }
+      .opt1-tile .corner { position: absolute; top: 9px; right: 9px; }
+      .opt1-tile .nm { font-size: 11px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+      .opt1-tile .bal { font-size: 13px; font-weight: 800; color: var(--text); margin-top: auto; }
+      .opt1-tile .bal.neg { color: var(--danger); }
+      .opt1-tile .cap { font-size: 8.5px; color: var(--text3); margin-top: 1px; }
+      .opt1-tile .actzone { margin-top: 4px; }
+      .opt1-tile .actzone .m1 { gap: 0; }
+      .opt1-tile .slimicon { width: 18px; height: 18px; }
+      .opt1-tile .slimicon i { font-size: 10.5px; }
+
+      /* ===== OPTION 2 — dense edge-to-edge list ===== */
+      .opt2-list { margin: 0 -12px; }
+      .opt2-row { display: flex; flex-direction: column; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+      .opt2-row:last-child { border-bottom: none; }
+      .opt2-top { display: flex; align-items: center; gap: 9px; }
+      .opt2-row .mid { flex: 1; min-width: 0; }
+      .opt2-row .nm { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .opt2-row .rowsub { font-size: 9.5px; color: var(--text3); margin-top: 1px; }
+      .opt2-row .rt { text-align: right; flex-shrink: 0; }
+      .opt2-row .bal { font-size: 12px; font-weight: 700; color: var(--text); }
+      .opt2-row .bal.neg { color: var(--danger); }
+      .opt2-row .cap { font-size: 8.5px; color: var(--text3); margin-top: 1px; }
+
+      /* ===== OPTION 3 — grouped by type ===== */
+      .sectionlabel { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); margin: 2px 2px 5px; }
+      .groupcard { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+      .grow { display: flex; flex-direction: column; padding: 10px 12px; border-top: 1px solid var(--border); }
+      .grow:first-child { border-top: none; }
+      .grow-top { display: flex; align-items: center; gap: 9px; }
+      .grow .mid { flex: 1; min-width: 0; }
+      .grow .nm { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .grow .rowsub { font-size: 9.5px; color: var(--text3); margin-top: 1px; }
+      .grow .rt { text-align: right; flex-shrink: 0; }
+      .grow .bal { font-size: 12px; font-weight: 700; color: var(--text); }
+      .grow .bal.neg { color: var(--danger); }
+      .grow .cap { font-size: 8.5px; color: var(--text3); margin-top: 1px; }
+
+      /* ===== OPTION 4 — soft-tinted flat card ===== */
+      .opt4-card { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+      .opt4-tint { position: absolute; inset: 0; pointer-events: none; }
+      .opt4-inner { position: relative; z-index: 1; padding: 12px; display: flex; flex-direction: column; }
+      .opt4-top { display: flex; align-items: center; gap: 9px; }
+      .opt4-inner .mid { flex: 1; min-width: 0; }
+      .opt4-inner .nm { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .opt4-inner .rowsub { font-size: 9.5px; color: var(--text3); margin-top: 1px; }
+      .opt4-inner .rt { text-align: right; flex-shrink: 0; }
+      .opt4-inner .bal { font-size: 12.5px; font-weight: 700; color: var(--text); }
+      .opt4-inner .bal.neg { color: var(--danger); }
+      .opt4-inner .cap { font-size: 8.5px; color: var(--text3); margin-top: 1px; }
+
+      .callout { max-width: 920px; margin: 14px auto; background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.35); border-radius: 12px; padding: 12px 16px; color: var(--text2); font-size: 12px; line-height: 1.65; display: flex; gap: 8px; }
+      [data-theme="dark"] .callout { background: rgba(251,191,36,.08); }
+      .callout i { color: var(--warning); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+      .callout b { color: var(--heading); }
+      .callout.good { background: rgba(0,168,107,.1); border-color: rgba(0,168,107,.35); }
+      .callout.good i { color: var(--primary); }
+
+      table.matrix { width: 100%; max-width: 960px; margin: 18px auto; border-collapse: collapse; font-size: 11.5px; }
+      table.matrix th, table.matrix td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; color: var(--text2); vertical-align: top; }
+      table.matrix th { background: var(--surface2); color: var(--heading); font-size: 11px; }
+      table.matrix tr td:first-child { color: var(--heading); font-weight: 700; white-space: nowrap; }
+      table.matrix td.rec { background: rgba(0,168,107,.08); }
+
+      .legend { max-width: 920px; margin: 16px auto 44px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 24px; color: var(--text2); font-size: 12.5px; line-height: 1.75; }
+      .legend h2 { font-size: 14px; margin: 16px 0 6px; color: var(--heading); }
+      .legend h2:first-child { margin-top: 0; }
+      .legend code { background: var(--surface2); padding: 1px 6px; border-radius: 5px; font-size: 11.5px; }
+      .toppick { max-width: 920px; margin: 16px auto; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; font-size: 12.5px; line-height: 1.7; color: var(--text2); }
+      .toppick b { color: var(--heading); }
+      .toppick ol { margin: 8px 0 0; padding-left: 20px; }
+      .toppick li { margin-bottom: 6px; }
+
+      .themedemo-grid { display: flex; flex-wrap: wrap; gap: 26px; justify-content: center; padding: 4px 20px 12px; }
+    </style>
+  </head>
+  <body>
+    <!-- Real bank logo sprite — verbatim from BankLogo.tsx's BANK_LOGOS map (now includes hsbc) -->
+    <svg style="display:none">
+      <symbol id="logo-hdfc" viewBox="0 0 24 24"><path fill="#004C8F" d="M.572 0v10.842h3.712V4.485h6.381V0Zm12.413 0v4.485h6.383v6.357h4.06V0Zm-4.64 8.53v6.938h6.963V8.53ZM.572 13.153V24h10.093v-4.486h-6.38v-6.361zm18.796 0v6.361h-6.383V24h10.443V13.153Z"/></symbol>
+      <symbol id="logo-icici" viewBox="0 0 24 24"><path fill="#B02A30" d="M21.9258 2.0961C19.279-1.6476 12.698-.2426 7.2138 5.2416c-5.484 5.475-7.7865 12.9625-5.1397 16.7062.8728 1.2386 2.1837 1.902 3.7386 2.0522 1.0516.0078 1.9129-1.1846 2.6158-2.7774.7252-1.6678 1.1694-3.218 1.5138-4.6592.5077-2.2934.544-3.934.29-4.2786-.435-.5801-1.4321-.435-2.5561.2176-.544.2991-1.26.0997-.408-.9336.8612-1.0425 4.2605-3.5625 5.4933-3.9523 1.3415-.3898 2.8734.136 2.3568 1.6226-.3706 1.0847-5.0473 13.486-1.596 12.2719 1.1049-.747 2.205-1.6497 3.2639-2.7086 5.4841-5.475 7.7865-12.9625 5.1396-16.7063zm-5.3662 3.209c-1.0969 1.0968-2.52 1.4865-3.1364.852-.6617-.6345-.272-2.0577.8249-3.1726 1.1058-1.115 2.529-1.4594 3.1454-.834.6345.6436.2448 2.0487-.834 3.1545z"/></symbol>
+      <symbol id="logo-axis" viewBox="0 0 24 24"><path fill="#97144D" d="M11.978 1.596 0 22.404h7.453l8.265-14.369Zm.027 12.896 4.533 7.903H24l-4.533-7.903z"/></symbol>
+      <symbol id="logo-hsbc" viewBox="0 0 24 24"><path fill="#DB0011" d="m24 12.007-5.996 5.997V5.996L24 12.007zm-5.996-6.01H6.01l5.996 6.01 5.997-6.01zM0 12.006l6.01 5.997V5.996L0 12.007zm6.01 5.997h11.994l-5.997-5.997-5.996 5.997z"/></symbol>
+    </svg>
+
+    <h1>Accounts list — round 3: real brand fallbacks + a redesigned action affordance</h1>
+    <p class="sub">
+      Direct response to feedback on round 2 (<code>account-list-redesign-v2.html</code>). Four things changed here:
+      <b>(1)</b> <code>BankLogo.tsx</code> now has a 4th real logo (HSBC) and 3 verified official brand colors for
+      presets that still have no licensed mark (SBI, Kotak, IndusInd) — used to tint the generic fallback icon, never
+      to fabricate a logo. <b>(2)</b> The bolted-on 4-icon action row that made every option look worse is rebuilt —
+      Options 2, 3 and 4 (the three you called out, plus Option 1 as a bonus) now each offer <b>three genuinely
+      different interaction models</b> for surfacing the same 3 real actions, toggle-able live below, not just a
+      re-skin of the same always-visible row. <b>(3)</b> Your own idea — making "view transactions" an explicit icon
+      instead of an invisible whole-card tap — is built out fully in two of those three models. <b>(4)</b> The real
+      action logic is unchanged and re-verified against <code>AccountList.tsx</code>: <code>RECONCILABLE = ['cash',
+      'wallet']</code>, <code>STATEMENT_IMPORTABLE = ['bank','credit_card']</code>, both partition every
+      <code>AccountType</code> with no overlap, so every account still gets exactly 3 real actions
+      ((Import <i>or</i> Reconcile) + Edit + Delete) — the "view transactions" affordance in the new models is a
+      4th, purely discoverability-driven addition, layered on top, never a replacement for the whole-row tap which
+      still does exactly what it does today.
+    </p>
+
+    <div class="toolbar">
+      <a href="#final" style="border-color:var(--primary);color:var(--primary);">✅ Final direction</a>
+      <a href="#logos">Bank logos</a>
+      <a href="#models">Action models</a>
+      <a href="#opt1">1 · Grid (bonus)</a>
+      <a href="#opt2">2 · Dense list</a>
+      <a href="#opt3">3 · Grouped</a>
+      <a href="#opt4">4 · Tinted card</a>
+      <a href="#themecheck">Light/dark check</a>
+      <a href="#compare">Model comparison</a>
+      <a href="#recommend">Recommendation</a>
+      <a href="#crossplatform">Cross-platform</a>
+      <button class="themebtn" onclick="toggleTheme()"><i class="ti ti-moon" id="themeicon"></i> <span id="themelabel">Switch to dark</span></button>
+    </div>
+
+    <!-- ✅ FINAL DIRECTION — locked in, replaces the numbered-options gallery below as the shipped decision -->
+    <div class="sectionband" id="final" style="border-top: 3px solid var(--primary); padding-top: 30px;">
+      <div class="sectiontitle" style="color: var(--primary);">✅ FINAL DIRECTION — Option 3 (grouped by type) + Model 3 (tap-to-reveal), kebab-beside-balance modification</div>
+      <div class="oneliner" style="font-style:normal; text-align:left; max-width:900px;">
+        <b>Locked in — this is what ships.</b> Option 3's grouping (Bank Accounts / Cash &amp; Wallets / Credit Cards,
+        unchanged from the gallery below) stays exactly as is. Model 3 stays the disclosure strategy — near-zero at
+        rest, tap to reveal the same 3 real actions — with one approved change from how Model 3 is built in the
+        gallery below: the plain low-opacity <code>ti-dots</code> hint (which sat on its own row under the card) is
+        replaced by a <b>vertical 3-dot kebab</b> (<code>ti-dots-vertical</code> — the same icon Model 2 already uses
+        for its own kebab, just relocated) and moved <b>inline beside the balance amount</b>, on the same row as the
+        amount. Tapping it reveals <code>Import</code>/<code>Reconcile</code> (whichever applies) + <code>Edit</code>
+        + <code>Delete</code> below the row — <b>3 icons, never 4</b>: unlike Model 3's markup in the gallery below
+        (which also throws in a <code>ti-receipt-2</code> view icon), the finalized version never adds a separate
+        view-transactions icon — the whole-row tap keeps doing that, exactly as <code>AccountList.tsx</code> does
+        today (<code>onPress={() =&gt; setViewingAccount(acc)}</code>). The real <code>includeInNetWorth</code>
+        caption — <code>"Included in net worth"</code> / <code>"Not counted in net worth"</code>, verbatim from
+        <code>AccountList.tsx</code> line 272 — sits directly under the balance, above the divider. Both frames below
+        start collapsed (the true at-rest state) and are fully interactive — tap any kebab to see it reveal.
+      </div>
+      <div class="gallery">
+        <div class="frame-wrap" data-theme="light">
+          <div class="vtitle">Light theme · at rest</div>
+          <div class="vsub">Grouped by type. Vertical kebab sits beside each balance; net-worth caption underneath it.
+            IndusInd Credit Card demonstrates the "Not counted" caption state.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+
+              <div class="sectionlabel">Bank Accounts</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+                    <div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">142 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹81,00,884</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(176,42,48,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-icici"/></svg></div>
+                    <div class="mid"><div class="nm">ICICI Salary</div><div class="rowsub">89 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹4,20,150</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(151,20,77,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-axis"/></svg></div>
+                    <div class="mid"><div class="nm">Axis Bank</div><div class="rowsub">34 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹2,14,900</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div>
+                    <div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">56 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹1,00,000</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+              </div>
+
+              <div class="sectionlabel">Cash &amp; Wallets</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(16,185,129,.14)"><i class="ti ti-cash" style="color:var(--success)"></i></div>
+                    <div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">23 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹18,589</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+              </div>
+
+              <div class="sectionlabel">Credit Cards</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(152,39,42,.14)"><i class="ti ti-credit-card" style="color:#98272A"></i></div>
+                    <div class="mid"><div class="nm">IndusInd Credit Card</div><div class="rowsub">71 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal neg">-₹42,562</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Not counted in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap" data-theme="dark">
+          <div class="vtitle">Dark theme · at rest</div>
+          <div class="vsub">Same markup, forced dark — confirms the kebab and its revealed action chips stay legible
+            against the dark surface. Tap a kebab to reveal.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+
+              <div class="sectionlabel">Bank Accounts</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+                    <div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">142 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹81,00,884</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(176,42,48,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-icici"/></svg></div>
+                    <div class="mid"><div class="nm">ICICI Salary</div><div class="rowsub">89 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹4,20,150</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(151,20,77,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-axis"/></svg></div>
+                    <div class="mid"><div class="nm">Axis Bank</div><div class="rowsub">34 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹2,14,900</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div>
+                    <div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">56 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹1,00,000</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+              </div>
+
+              <div class="sectionlabel">Cash &amp; Wallets</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(16,185,129,.14)"><i class="ti ti-cash" style="color:var(--success)"></i></div>
+                    <div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">23 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal">₹18,589</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Included in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+              </div>
+
+              <div class="sectionlabel">Credit Cards</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(152,39,42,.14)"><i class="ti ti-credit-card" style="color:#98272A"></i></div>
+                    <div class="mid"><div class="nm">IndusInd Credit Card</div><div class="rowsub">71 transactions</div></div>
+                    <div class="rt">
+                      <div class="balrow"><div class="bal neg">-₹42,562</div><div class="vkebab" onclick="toggleFinalReveal(this)"><i class="ti ti-dots-vertical"></i></div></div>
+                      <div class="cap">Not counted in net worth</div>
+                    </div>
+                  </div>
+                  <div class="freveal"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout good"><i class="ti ti-check"></i><div><b>What changed vs. the gallery below:</b> (1) kebab
+        icon swapped from horizontal <code>ti-dots</code> to vertical <code>ti-dots-vertical</code>; (2) moved from
+        its own row under the card to inline beside the balance; (3) the revealed row dropped the extra
+        <code>ti-receipt-2</code> view icon that Model 3's gallery markup has today, down to exactly 3 real actions;
+        (4) the <code>includeInNetWorth</code> caption — dropped from Option 3's row markup below when the action-row
+        work landed — is restored under the balance. Grouping-by-type and the reveal-below-the-row placement are
+        unchanged from Option 3 / Model 3 as already built below.</div></div>
+    </div>
+
+    <!-- BANK LOGOS -->
+    <div class="sectionband" id="logos">
+      <div class="sectiontitle">Real bank logos &amp; verified brand-color fallbacks</div>
+      <div class="oneliner">4 of 12 <code>BankPresetId</code>s now render a real, CC0-licensed logo mark (unchanged in
+        color/path, per <code>BrandLogo</code>'s own doc comment). For 3 more — <b>no logo mark exists anywhere
+        safe to redistribute</b> (checked again this round: Simple Icons doesn't carry them; the one place real SVGs
+        exist, <code>github.com/praveenpuglia/indian-banks</code>, ships with no LICENSE file) — but their
+        <b>official brand colors are public and not copyrightable</b>, so the generic fallback icon is now tinted
+        with the real color instead of the flat type-default gray. The remaining 5 presets (<code>bob</code>,
+        <code>yesbank</code>, <code>pnb</code>, <code>canara</code>, <code>idfcfirst</code>) plus <code>custom</code>
+        have no verified color either — they correctly stay on the honest neutral fallback, nothing invented.</div>
+      <div class="logolegend">
+        <div class="swatch"><div class="badge" style="background:rgba(0,76,143,.14)"><svg width="20" height="20" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div><div class="lbl">HDFC</div><div class="kind">real logo</div></div>
+        <div class="swatch"><div class="badge" style="background:rgba(176,42,48,.14)"><svg width="20" height="20" viewBox="0 0 24 24"><use href="#logo-icici"/></svg></div><div class="lbl">ICICI</div><div class="kind">real logo</div></div>
+        <div class="swatch"><div class="badge" style="background:rgba(151,20,77,.14)"><svg width="20" height="20" viewBox="0 0 24 24"><use href="#logo-axis"/></svg></div><div class="lbl">Axis</div><div class="kind">real logo</div></div>
+        <div class="swatch"><div class="badge" style="background:rgba(219,0,17,.14)"><svg width="20" height="20" viewBox="0 0 24 24"><use href="#logo-hsbc"/></svg></div><div class="lbl">HSBC</div><div class="kind">real logo · <b>new</b></div></div>
+        <div class="legenddivider"></div>
+        <div class="swatch"><div class="badge" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF;font-size:16px"></i></div><div class="lbl">SBI</div><div class="kind">no mark · brand-color tint <b>new</b></div></div>
+        <div class="swatch"><div class="badge" style="background:rgba(237,28,36,.14)"><i class="ti ti-building-bank" style="color:#ED1C24;font-size:16px"></i></div><div class="lbl">Kotak</div><div class="kind">no mark · brand-color tint <b>new</b></div></div>
+        <div class="swatch"><div class="badge" style="background:rgba(152,39,42,.14)"><i class="ti ti-credit-card" style="color:#98272A;font-size:16px"></i></div><div class="lbl">IndusInd</div><div class="kind">no mark · brand-color tint <b>new</b></div></div>
+        <div class="legenddivider"></div>
+        <div class="swatch"><div class="badge" style="background:var(--surface2)"><i class="ti ti-building-bank" style="color:var(--text2);font-size:16px"></i></div><div class="lbl">Yes Bank</div><div class="kind">no mark, no color — unchanged neutral fallback</div></div>
+      </div>
+      <div class="callout"><i class="ti ti-info-circle"></i><div>The 6-account set used throughout every option below
+        already includes SBI Savings and an IndusInd Credit Card, so the new brand-tint treatment is shown <b>live in
+        context</b> below, not just in this legend — no need to add extra accounts to demonstrate it.</div></div>
+    </div>
+
+    <!-- ACTION MODELS OVERVIEW -->
+    <div class="sectionband" id="models">
+      <div class="sectiontitle">Three genuinely different ways to surface the same 3 actions</div>
+      <div class="oneliner">Not three re-skins of "always show 4 icons" — three different <b>disclosure</b> strategies.
+        Toggle live between them in each rebuilt option below (default = Model 2, the recommendation). In all three,
+        the row/card itself keeps working exactly as it does today — tap anywhere else on it to open the transaction
+        popup — so nothing about the real current behavior is removed, only how the other 3 actions get surfaced.</div>
+      <div class="gallery" style="gap:36px;">
+        <div class="frame-wrap" style="width:270px;">
+          <div class="vtitle">Model 1 · Slim always-visible strip</div>
+          <div class="vsub">Your literal suggestion, built out: view + import/reconcile + edit + delete, all always
+            visible — but icon-only, no button chip backgrounds, muted color, tightly packed. Zero extra taps for
+            anything, at the cost of being the busiest option of the three at rest.</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text)">HDFC Bank</div><div style="font-size:9.5px;color:var(--text3)">Bank · 142 transactions</div></div>
+              <div style="text-align:right"><div style="font-size:12px;font-weight:700;color:var(--text)">₹81,00,884</div></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:1px;margin-top:7px;">
+              <div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap" style="width:270px;">
+          <div class="vtitle">Model 2 · View icon + kebab <span style="color:var(--primary)">(recommended)</span></div>
+          <div class="vsub">Only 2 icons ever visible at rest — a receipt icon (view transactions, same action the
+            row-tap already does) and a kebab. Tapping the kebab expands Import/Reconcile + Edit + Delete inline,
+            to the right, with a hairline divider — shown here already expanded.</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text)">HDFC Bank</div><div style="font-size:9.5px;color:var(--text3)">Bank · 142 transactions</div></div>
+              <div style="text-align:right"><div style="font-size:12px;font-weight:700;color:var(--text)">₹81,00,884</div></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:3px;margin-top:7px;">
+              <div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div>
+              <div style="display:flex;align-items:center;gap:3px;margin-left:5px;padding-left:6px;border-left:1px solid var(--border);">
+                <div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap" style="width:270px;">
+          <div class="vtitle">Model 3 · Tap-to-reveal, near-zero at rest</div>
+          <div class="vsub">Closest to what you liked before any action row existed — just a small low-opacity dot at
+            rest. Tap (or long-press on device) reveals all 4 icons at once. Riskiest for discoverability — shown
+            here already revealed.</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+              <div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--text)">HDFC Bank</div><div style="font-size:9.5px;color:var(--text3)">Bank · 142 transactions</div></div>
+              <div style="text-align:right"><div style="font-size:12px;font-weight:700;color:var(--text)">₹81,00,884</div></div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:5px;margin-top:7px;">
+              <div class="dothint"><i class="ti ti-dots"></i></div>
+              <div style="display:flex;align-items:center;gap:3px;">
+                <div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout"><i class="ti ti-bulb"></i><div><b>Why these three and not more:</b> they sit at three
+        genuinely different points on the discoverability↔clutter spectrum (0 taps/most visible → 1 tap/balanced →
+        1 tap/least visible), rather than three placements of the same idea. Try all three live in Options 1, 2, 3
+        and 4 below using each section's own switcher.</div></div>
+    </div>
+
+    <!-- OPTION 1 (bonus) -->
+    <div class="sectionband" id="opt1">
+      <div class="sectiontitle"><span class="num">1</span>2-column grid tiles <span class="tag">bonus — not directly called out, revisited anyway</span></div>
+      <div class="oneliner">Your own explicit request from round 1. Flagged in round 2 as "the only option that
+        needed a size reduction" for its action row (a squeezed 20px mini-row) — included here to show that Models 2
+        and 3 remove that need entirely: 2 icons or 1 dot fit a ~124px tile at full comfortable size, no shrinking
+        required. Model 1 (all 4, always on) is the one that still struggles at this width — visible below.</div>
+      <div class="modelswitch">
+        <button class="mbtn" data-m="1" onclick="setModel('opt1content',1,this)">1 · Slim strip</button>
+        <button class="mbtn active" data-m="2" onclick="setModel('opt1content',2,this)">2 · View + kebab <span class="rec">rec</span></button>
+        <button class="mbtn" data-m="3" onclick="setModel('opt1content',3,this)">3 · Tap-to-reveal</button>
+      </div>
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">All 6 accounts, 3 rows of 2</div>
+          <div class="vsub">SBI now tints its fallback icon with the real SBI blue; IndusInd CC tints with the real
+            IndusInd maroon. Tap a kebab/dot below to expand that tile's hidden actions.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" id="opt1content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+              <div class="opt1-grid">
+                <div class="opt1-tile">
+                  <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="17" height="17" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+                  <div class="corner"><span class="tpill">Bank</span></div>
+                  <div class="nm">HDFC Bank</div>
+                  <div class="bal">₹81,00,884</div>
+                  <div class="cap">142 txns</div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt1-tile">
+                  <div class="badge sm" style="background:rgba(176,42,48,.14)"><svg width="17" height="17" viewBox="0 0 24 24"><use href="#logo-icici"/></svg></div>
+                  <div class="corner"><span class="tpill">Bank</span></div>
+                  <div class="nm">ICICI Salary</div>
+                  <div class="bal">₹4,20,150</div>
+                  <div class="cap">89 txns</div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt1-tile">
+                  <div class="badge sm" style="background:rgba(151,20,77,.14)"><svg width="17" height="17" viewBox="0 0 24 24"><use href="#logo-axis"/></svg></div>
+                  <div class="corner"><span class="tpill">Bank</span></div>
+                  <div class="nm">Axis Bank</div>
+                  <div class="bal">₹2,14,900</div>
+                  <div class="cap">34 txns</div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt1-tile">
+                  <div class="badge sm" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div>
+                  <div class="corner"><span class="tpill">Bank</span></div>
+                  <div class="nm">SBI Savings</div>
+                  <div class="bal">₹1,00,000</div>
+                  <div class="cap">56 txns</div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt1-tile">
+                  <div class="badge sm" style="background:rgba(152,39,42,.14)"><i class="ti ti-credit-card" style="color:#98272A"></i></div>
+                  <div class="corner"><span class="tpill">Card</span></div>
+                  <div class="nm">IndusInd CC</div>
+                  <div class="bal neg">-₹42,562</div>
+                  <div class="cap">71 txns</div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt1-tile">
+                  <div class="badge sm" style="background:rgba(16,185,129,.14)"><i class="ti ti-cash" style="color:var(--success)"></i></div>
+                  <div class="corner"><span class="tpill">Cash</span></div>
+                  <div class="nm">Cash Wallet</div>
+                  <div class="bal">₹18,589</div>
+                  <div class="cap">23 txns</div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-scale"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout"><i class="ti ti-alert-triangle"></i><div>Switch this section to <b>Model 1</b> and look at
+        the tiles again — 4 icons at ~18px each is the one place in this whole file that still feels tight, confirming
+        round 2's own finding. That's a mark against Option 1 generally (an inherently narrow tile will always be the
+        hardest surface for this), not against Model 1 itself, which reads fine at full row width elsewhere.</div></div>
+    </div>
+
+    <!-- OPTION 2 -->
+    <div class="sectionband" id="opt2">
+      <div class="sectiontitle"><span class="num">2</span>Dense edge-to-edge single-column list <span class="tag rec">you liked this one</span></div>
+      <div class="oneliner">Same chromeless, boring-on-purpose list from round 2. The difference is entirely in the
+        action treatment: back to a single line per row by default (Model 2), instead of the two-line
+        info-then-actions stack that made this feel heavier than it did in round 1.</div>
+      <div class="modelswitch">
+        <button class="mbtn" data-m="1" onclick="setModel('opt2content',1,this)">1 · Slim strip</button>
+        <button class="mbtn active" data-m="2" onclick="setModel('opt2content',2,this)">2 · View + kebab <span class="rec">rec</span></button>
+        <button class="mbtn" data-m="3" onclick="setModel('opt2content',3,this)">3 · Tap-to-reveal</button>
+      </div>
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">All 6 accounts, zero card chrome</div>
+          <div class="vsub">SBI and IndusInd CC now show their real brand-color-tinted fallback icon instead of a
+            flat gray one.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" id="opt2content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+              <div class="opt2-list">
+                <div class="opt2-row">
+                  <div class="opt2-top">
+                    <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+                    <div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">Bank · 142 transactions</div></div>
+                    <div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt2-row">
+                  <div class="opt2-top">
+                    <div class="badge sm" style="background:rgba(176,42,48,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-icici"/></svg></div>
+                    <div class="mid"><div class="nm">ICICI Salary</div><div class="rowsub">Bank · 89 transactions</div></div>
+                    <div class="rt"><div class="bal">₹4,20,150</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt2-row">
+                  <div class="opt2-top">
+                    <div class="badge sm" style="background:rgba(151,20,77,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-axis"/></svg></div>
+                    <div class="mid"><div class="nm">Axis Bank</div><div class="rowsub">Bank · 34 transactions</div></div>
+                    <div class="rt"><div class="bal">₹2,14,900</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt2-row">
+                  <div class="opt2-top">
+                    <div class="badge sm" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div>
+                    <div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">Bank · 56 transactions</div></div>
+                    <div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt2-row">
+                  <div class="opt2-top">
+                    <div class="badge sm" style="background:rgba(152,39,42,.14)"><i class="ti ti-credit-card" style="color:#98272A"></i></div>
+                    <div class="mid"><div class="nm">IndusInd Credit Card</div><div class="rowsub">Credit Card · 71 transactions</div></div>
+                    <div class="rt"><div class="bal neg">-₹42,562</div><div class="cap">not in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="opt2-row">
+                  <div class="opt2-top">
+                    <div class="badge sm" style="background:rgba(16,185,129,.14)"><i class="ti ti-cash" style="color:var(--success)"></i></div>
+                    <div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">Cash · 23 transactions</div></div>
+                    <div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-scale"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION 3 -->
+    <div class="sectionband" id="opt3">
+      <div class="sectiontitle"><span class="num">3</span>Grouped by account type <span class="tag rec">you liked this one</span></div>
+      <div class="oneliner">Same organizational reframe as round 2 — Bank / Cash / Credit Cards sections — with the
+        row-level action treatment now shared with Option 2 (same switcher, same 3 models) so the two stay visually
+        consistent wherever they're used.</div>
+      <div class="modelswitch">
+        <button class="mbtn" data-m="1" onclick="setModel('opt3content',1,this)">1 · Slim strip</button>
+        <button class="mbtn active" data-m="2" onclick="setModel('opt3content',2,this)">2 · View + kebab <span class="rec">rec</span></button>
+        <button class="mbtn" data-m="3" onclick="setModel('opt3content',3,this)">3 · Tap-to-reveal</button>
+      </div>
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">3 sections: Bank / Cash / Credit Cards</div>
+          <div class="vsub">Same building block already used on Settings — grouped rows, same action treatment as
+            Option 2.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" id="opt3content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+
+              <div class="sectionlabel">Bank Accounts</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+                    <div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">142 transactions</div></div>
+                    <div class="rt"><div class="bal">₹81,00,884</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(176,42,48,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-icici"/></svg></div>
+                    <div class="mid"><div class="nm">ICICI Salary</div><div class="rowsub">89 transactions</div></div>
+                    <div class="rt"><div class="bal">₹4,20,150</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(151,20,77,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-axis"/></svg></div>
+                    <div class="mid"><div class="nm">Axis Bank</div><div class="rowsub">34 transactions</div></div>
+                    <div class="rt"><div class="bal">₹2,14,900</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div>
+                    <div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">56 transactions</div></div>
+                    <div class="rt"><div class="bal">₹1,00,000</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sectionlabel">Cash &amp; Wallets</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(16,185,129,.14)"><i class="ti ti-cash" style="color:var(--success)"></i></div>
+                    <div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">23 transactions</div></div>
+                    <div class="rt"><div class="bal">₹18,589</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-scale"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sectionlabel">Credit Cards</div>
+              <div class="groupcard">
+                <div class="grow">
+                  <div class="grow-top">
+                    <div class="badge sm" style="background:rgba(152,39,42,.14)"><i class="ti ti-credit-card" style="color:#98272A"></i></div>
+                    <div class="mid"><div class="nm">IndusInd Credit Card</div><div class="rowsub">71 transactions</div></div>
+                    <div class="rt"><div class="bal neg">-₹42,562</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTION 4 -->
+    <div class="sectionband" id="opt4">
+      <div class="sectiontitle"><span class="num">4</span>Soft-tinted flat card <span class="tag rec">you liked this one</span></div>
+      <div class="oneliner">Same flat brand-wash card as round 2. This is the identity-forward option — the one where
+        the old bolted-on 4-button row clashed hardest with the card's own colored personality. Model 2's 2-icon
+        rest state protects that identity the most of the three.</div>
+      <div class="modelswitch">
+        <button class="mbtn" data-m="1" onclick="setModel('opt4content',1,this)">1 · Slim strip</button>
+        <button class="mbtn active" data-m="2" onclick="setModel('opt4content',2,this)">2 · View + kebab <span class="rec">rec</span></button>
+        <button class="mbtn" data-m="3" onclick="setModel('opt4content',3,this)">3 · Tap-to-reveal</button>
+      </div>
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">All 6 accounts, brand-tinted cards</div>
+          <div class="vsub">SBI/IndusInd now use their real brand-color tint (both the icon and the flat wash layer)
+            instead of a neutral surface-2 tint.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" id="opt4content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(0,76,143,var(--opt4-op))"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top">
+                    <div class="badge sm" style="background:rgba(0,76,143,.18)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div>
+                    <div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">Bank · 142 transactions</div></div>
+                    <div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(176,42,48,var(--opt4-op))"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top">
+                    <div class="badge sm" style="background:rgba(176,42,48,.18)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-icici"/></svg></div>
+                    <div class="mid"><div class="nm">ICICI Salary</div><div class="rowsub">Bank · 89 transactions</div></div>
+                    <div class="rt"><div class="bal">₹4,20,150</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(151,20,77,var(--opt4-op))"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top">
+                    <div class="badge sm" style="background:rgba(151,20,77,.18)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-axis"/></svg></div>
+                    <div class="mid"><div class="nm">Axis Bank</div><div class="rowsub">Bank · 34 transactions</div></div>
+                    <div class="rt"><div class="bal">₹2,14,900</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(0,181,239,var(--opt4-op))"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top">
+                    <div class="badge sm" style="background:rgba(0,181,239,.18)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div>
+                    <div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">Bank · 56 transactions</div></div>
+                    <div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(152,39,42,var(--opt4-op))"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top">
+                    <div class="badge sm" style="background:rgba(152,39,42,.18)"><i class="ti ti-credit-card" style="color:#98272A"></i></div>
+                    <div class="mid"><div class="nm">IndusInd Credit Card</div><div class="rowsub">Credit Card · 71 transactions</div></div>
+                    <div class="rt"><div class="bal neg">-₹42,562</div><div class="cap">not in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-upload"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(16,185,129,var(--opt4-op))"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top">
+                    <div class="badge sm" style="background:rgba(16,185,129,.18)"><i class="ti ti-cash" style="color:var(--success)"></i></div>
+                    <div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">Cash · 23 transactions</div></div>
+                    <div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div>
+                  </div>
+                  <div class="actzone">
+                    <div class="m1"><div class="slimicon"><i class="ti ti-receipt-2"></i></div><div class="slimicon"><i class="ti ti-scale"></i></div><div class="slimicon"><i class="ti ti-pencil"></i></div><div class="slimicon del"><i class="ti ti-trash"></i></div></div>
+                    <div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon" onclick="toggleExpand(this)"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                    <div class="m3"><div class="dothint" onclick="toggleExpand(this)"><i class="ti ti-dots"></i></div><div class="revealrow"><div class="ebtn"><i class="ti ti-receipt-2"></i></div><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIGHT/DARK CHECK -->
+    <div class="sectionband" id="themecheck">
+      <div class="sectiontitle">Light / dark theme check — the two options this proposal leads with</div>
+      <div class="oneliner">Option 4 (identity-forward tinted card) and Option 2 (chromeless dense list) — both in
+        Model 2, with the HDFC row's kebab already expanded — forced into both themes below, independent of the
+        toolbar toggle, to confirm the new expando/kebab/view-icon markup carries the same light/dark guarantee the
+        rest of this file already has.</div>
+      <div class="themedemo-grid">
+        <div class="frame-wrap" data-theme="light">
+          <div class="vtitle">Option 4 · Light · Model 2 expanded</div>
+          <div class="vsub">Kebab expando's hairline divider and icon chips read cleanly against the light tint.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(0,76,143,0.10)"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top"><div class="badge sm" style="background:rgba(0,76,143,.18)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div><div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">Bank · 142 transactions</div></div><div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div></div>
+                  <div class="actzone open"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(0,181,239,0.10)"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top"><div class="badge sm" style="background:rgba(0,181,239,.18)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div><div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">Bank · 56 transactions</div></div><div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div></div>
+                  <div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(16,185,129,0.10)"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top"><div class="badge sm" style="background:rgba(16,185,129,.18)"><i class="ti ti-cash" style="color:var(--success)"></i></div><div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">Cash · 23 transactions</div></div><div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div></div>
+                  <div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap" data-theme="dark">
+          <div class="vtitle">Option 4 · Dark · Model 2 expanded</div>
+          <div class="vsub">Same markup, dark tokens — expando chips (<code>--surface2</code>) still separate cleanly
+            from the card's own tint layer.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(0,76,143,0.17)"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top"><div class="badge sm" style="background:rgba(0,76,143,.18)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div><div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">Bank · 142 transactions</div></div><div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div></div>
+                  <div class="actzone open"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(0,181,239,0.17)"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top"><div class="badge sm" style="background:rgba(0,181,239,.18)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div><div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">Bank · 56 transactions</div></div><div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div></div>
+                  <div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div>
+                </div>
+              </div>
+              <div class="opt4-card">
+                <div class="opt4-tint" style="background:rgba(16,185,129,0.17)"></div>
+                <div class="opt4-inner">
+                  <div class="opt4-top"><div class="badge sm" style="background:rgba(16,185,129,.18)"><i class="ti ti-cash" style="color:var(--success)"></i></div><div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">Cash · 23 transactions</div></div><div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div></div>
+                  <div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap" data-theme="light">
+          <div class="vtitle">Option 2 · Light · Model 2 expanded</div>
+          <div class="vsub">Hairline divider inside the expando still reads against full <code>--border</code> contrast.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+              <div class="opt2-list">
+                <div class="opt2-row"><div class="opt2-top"><div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div><div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">Bank · 142 transactions</div></div><div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div></div><div class="actzone open"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div></div>
+                <div class="opt2-row"><div class="opt2-top"><div class="badge sm" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div><div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">Bank · 56 transactions</div></div><div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div></div><div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div></div>
+                <div class="opt2-row"><div class="opt2-top"><div class="badge sm" style="background:rgba(16,185,129,.14)"><i class="ti ti-cash" style="color:var(--success)"></i></div><div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">Cash · 23 transactions</div></div><div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div></div><div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="frame-wrap" data-theme="dark">
+          <div class="vtitle">Option 2 · Dark · Model 2 expanded</div>
+          <div class="vsub">Least surface area of any option to get theme-wrong, by design — still true with the
+            new action markup.</div>
+          <div class="phone">
+            <div class="statusbar"></div>
+            <div class="header"><div class="backchev"><i class="ti ti-chevron-left"></i></div><div class="htitle">Accounts</div><div class="addbtn"><i class="ti ti-plus"></i></div></div>
+            <div class="content" data-model="2">
+              <div class="totalcard"><div class="lbl">Total Balance</div><div class="val">₹88,54,523</div><div class="cap">Across 6 accounts in net worth</div></div>
+              <div class="opt2-list">
+                <div class="opt2-row"><div class="opt2-top"><div class="badge sm" style="background:rgba(0,76,143,.14)"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#logo-hdfc"/></svg></div><div class="mid"><div class="nm">HDFC Bank</div><div class="rowsub">Bank · 142 transactions</div></div><div class="rt"><div class="bal">₹81,00,884</div><div class="cap">in net worth</div></div></div><div class="actzone open"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div></div>
+                <div class="opt2-row"><div class="opt2-top"><div class="badge sm" style="background:rgba(0,181,239,.14)"><i class="ti ti-building-bank" style="color:#00B5EF"></i></div><div class="mid"><div class="nm">SBI Savings</div><div class="rowsub">Bank · 56 transactions</div></div><div class="rt"><div class="bal">₹1,00,000</div><div class="cap">in net worth</div></div></div><div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-upload"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div></div>
+                <div class="opt2-row"><div class="opt2-top"><div class="badge sm" style="background:rgba(16,185,129,.14)"><i class="ti ti-cash" style="color:var(--success)"></i></div><div class="mid"><div class="nm">Cash Wallet</div><div class="rowsub">Cash · 23 transactions</div></div><div class="rt"><div class="bal">₹18,589</div><div class="cap">in net worth</div></div></div><div class="actzone"><div class="m2"><div class="viewicon"><i class="ti ti-receipt-2"></i></div><div class="kebabicon"><i class="ti ti-dots-vertical"></i></div><div class="expando"><div class="ebtn"><i class="ti ti-scale"></i></div><div class="ebtn"><i class="ti ti-pencil"></i></div><div class="ebtn del"><i class="ti ti-trash"></i></div></div></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODEL COMPARISON -->
+    <div class="sectionband" id="compare">
+      <div class="sectiontitle">Action-model comparison</div>
+      <table class="matrix">
+        <tr><th>Dimension</th><th>1 · Slim strip</th><th class="rec">2 · View + kebab</th><th>3 · Tap-to-reveal</th></tr>
+        <tr><td>Icons visible at rest</td><td>3–4, every card</td><td class="rec">2, every card</td><td>0–1 (a low-opacity dot)</td></tr>
+        <tr><td>Taps to view transactions</td><td>0 (row tap still works too)</td><td class="rec">0 (row tap still works too)</td><td>0 (row tap still works too)</td></tr>
+        <tr><td>Taps to Import/Reconcile, Edit, or Delete</td><td>0</td><td class="rec">1 (open kebab)</td><td>1 (tap dot / long-press)</td></tr>
+        <tr><td>Visual weight vs. round 2's boxed 3–4 buttons</td><td>Lighter (icon-only, no chip bg) but still the busiest of the three at rest</td><td class="rec">Lightest of the "always something visible" options</td><td>Cleanest possible — matches the pre-action-row look you liked</td></tr>
+        <tr><td>Discoverability risk</td><td>Low</td><td class="rec">Low–medium</td><td>Medium–high — needs a hint or a one-time "Did You Know" nudge to avoid repeating the original whole-card-tap complaint</td></tr>
+        <tr><td>Best fit</td><td>Dense/grouped lists with width to spare (Options 2, 3)</td><td class="rec">Any option — especially identity-forward cards (4) and squeezed tiles (1)</td><td>Only paired with an onboarding nudge; risky as a lone launch</td></tr>
+        <tr><td>Implementation cost (RN)</td><td>Lowest — pure restyle of existing markup</td><td class="rec">Medium — one local expand/collapse state per row (<code>Pressable</code> + <code>useState</code>, no new primitive)</td><td>Medium-high — <code>onLongPress</code> + a visible hint affordance + likely a "Did You Know" tip</td></tr>
+      </table>
+    </div>
+
+    <!-- RECOMMENDATION -->
+    <div class="sectionband" id="recommend">
+      <div class="sectiontitle">Recommendation</div>
+      <div class="toppick">
+        <b>Lead with Model 2 (view icon + kebab) as the interaction model, applied to Option 4 first, Option 2
+        second.</b>
+        <ol>
+          <li><b>Option 4 (soft-tinted flat card) + Model 2</b> — the strongest combination on the table: keeps the
+            per-account brand identity that made this option distinctive, while cutting the always-visible action
+            count from the "wrecked the card" 3–4 down to 2. This is the one I'd actually ship first.</li>
+          <li><b>Option 2 (dense list) + Model 2</b> — for the density-first crowd; the two-line-per-row problem
+            round 2 introduced disappears once actions default to collapsed, restoring the original single-line
+            compactness while still surfacing every real action.</li>
+          <li><b>Option 3 (grouped) + Model 2</b> — worth keeping in reserve rather than shipping alongside Option 2:
+            it's the same row treatment, just reorganized by type, and only earns its extra section-header overhead
+            once an account count grows enough that "how much do I have in the bank vs. what do I owe" becomes a
+            real scanning problem. Ship Option 2 first; revisit Option 3 if/when that threshold is hit.</li>
+        </ol>
+        <b>Why not Model 1 or 3 as the lead:</b> Model 1 answers your literal ask most directly, but the comparison
+        table's own numbers say it plainly — it's still the busiest of the three at rest, and Option 1's grid tiles
+        prove it's the one that runs out of room first. Model 3 is the most interesting idea for a future "trust the
+        user to explore" pass, but shipping it without a companion onboarding nudge risks recreating the exact
+        complaint that started this whole thread (an action with no visible affordance) — one dot is better than an
+        invisible whole-card tap, but only slightly.
+      </div>
+      <div class="callout good"><i class="ti ti-info-circle"></i><div><b>Both of the interaction models built out
+        here that literally add a "view transactions" icon (2 and 3) still leave the current whole-row/card tap
+        working exactly as it does today</b> — nothing about the real <code>onPress={() => setViewingAccount(acc)}</code>
+        behavior in <code>AccountList.tsx</code> is removed or changed by this proposal; the icon is purely an added
+        affordance for discoverability, per your framing of the idea.</div></div>
+    </div>
+
+    <!-- CROSS-PLATFORM -->
+    <div class="sectionband" id="crossplatform">
+      <div class="sectiontitle">Cross-platform status</div>
+      <div class="legend">
+        <p><code>apps/web-react</code>'s <code>AccountList.tsx</code> is frozen (2026-07-31) and unchanged since round
+        2's finding: plain <code>IconBadge</code> (generic icon + the account's own <code>color</code> field, never a
+        real logo or a brand-color tint) + name + type label + balance, inside a <code>ListContainer</code>. Re-read
+        this round to confirm nothing drifted: <b>web has no Import-statement action at all</b> — its action row is
+        only Reconcile (cash/wallet) + Edit + Delete, and there's no tap-to-view-transactions drill-down/modal either
+        (no <code>onClick</code> on the row, no equivalent of mobile's <code>AccountDetailModal</code>). That's a
+        real, standing disagreement between the two platforms on top of the logo/tint gap already flagged in round 2
+        — expected and accepted, since web is a historical reference only and this redesign (including the new
+        "view transactions" icon) is <b>mobile-only; no web-react mirroring is proposed</b>.</p>
+        <h2>Grounding for this round</h2>
+        <ul>
+          <li><b>Re-read for this round:</b> <code>apps/mobile/src/features/accounts/AccountList.tsx</code> (action
+            logic re-verified: <code>RECONCILABLE</code>/<code>STATEMENT_IMPORTABLE</code> unchanged, partition
+            confirmed against the 4-value <code>AccountType</code>), <code>components/shared/BankLogo.tsx</code>
+            (now has <code>hsbc</code> in <code>BANK_LOGOS</code>, with the doc comment confirming SBI/Kotak/IndusInd/
+            others still have no safe-to-ship mark), and <code>apps/web-react/src/features/accounts/AccountList.tsx</code>
+            in full (confirmed the Import-action gap above, not previously called out explicitly).</li>
+          <li><b>Brand colors used for the new fallback tints</b> — SBI <code>#00B5EF</code>, Kotak
+            <code>#ED1C24</code>, IndusInd <code>#98272A</code> — exactly as verified and handed off, not re-derived
+            from anywhere else.</li>
+          <li>Everything carried over from round 2 unchanged: same 6-account set, same semantic tokens, same
+            <code>--opt4-op</code> per-theme tint opacity.</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      function toggleTheme() {
+        var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+        document.getElementById('themeicon').className = isDark ? 'ti ti-moon' : 'ti ti-sun';
+        document.getElementById('themelabel').textContent = isDark ? 'Switch to dark' : 'Switch to light';
+      }
+      function setModel(id, n, btn) {
+        document.getElementById(id).setAttribute('data-model', String(n));
+        var group = btn.parentElement;
+        group.querySelectorAll('.mbtn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      }
+      function toggleExpand(el) {
+        var wrap = el.closest('.actzone');
+        if (wrap) wrap.classList.toggle('open');
+      }
+      function toggleFinalReveal(el) {
+        var row = el.closest('.grow');
+        if (row) row.classList.toggle('open');
+      }
+    </script>
+  </body>
+</html>

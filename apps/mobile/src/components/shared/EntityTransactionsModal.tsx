@@ -81,7 +81,10 @@ export function EntityTransactionsModal({
       {statLabel && statValue && (
         <View className="flex-row items-center justify-between rounded-xl border border-theme bg-surface-2 px-3.5 py-2.5">
           <Text className="text-xs text-secondary">{statLabel}</Text>
-          <Text className="text-base font-bold" style={{ color: statColor ?? undefined }}>
+          {/* `text-primary` is the semantic default so this always tracks the theme even when no
+              caller-supplied `statColor` override is given (item 16 — previously no class and no
+              style color at all, so it fell back to RN's unstyled default instead of the theme). */}
+          <Text className="text-base font-bold text-primary" style={statColor ? { color: statColor } : undefined}>
             {statValue}
           </Text>
         </View>

@@ -42,8 +42,10 @@ export function HomeGroupsCard() {
   // needs no claim. Creating/joining does need a real claim, so that's gated below.
   if (!hasEntitlement('sync') || groups.length === 0) return null;
 
-  const activeGroups = groups.filter((g) => g.status === 'active');
-  const shown = activeGroups.length > 0 ? activeGroups : groups;
+  // Always show every group regardless of status — a `closed`/`left` group must stay visible here
+  // (previously this filtered non-active groups out entirely whenever at least one active group
+  // existed, hiding them from Home even though their read-only history must stay reachable).
+  const shown = groups;
 
   return (
     <View className="mb-4">
@@ -82,15 +84,28 @@ export function HomeGroupsCard() {
           const net = s?.myNet ?? 0;
           const settled = Math.abs(net) < 1;
           const owed = net > 0;
+          const left = g.status === 'left';
+          const nonActive = g.status !== 'active';
           const balColor = settled ? theme.textTertiary : owed ? theme.success : theme.danger;
           const balText = settled ? '₹0' : `${owed ? '+' : '−'}${formatCurrency(Math.abs(net))}`;
-          const balSub = settled ? 'settled up' : owed ? "you're owed" : 'you owe';
+          const balSub = settled
+            ? 'settled up'
+            : left
+              ? owed
+                ? 'you were owed'
+                : 'you owed'
+              : owed
+                ? "you're owed"
+                : 'you owe';
           return (
             <Pressable
               key={g.id}
               onPress={() => setContext(g.id)}
               className="w-full flex-row items-center gap-3 px-4 py-3"
-              style={i > 0 ? { borderTopWidth: 1, borderTopColor: theme.border } : undefined}
+              style={[
+                i > 0 ? { borderTopWidth: 1, borderTopColor: theme.border } : undefined,
+                nonActive ? { opacity: 0.6 } : undefined
+              ]}
             >
               <View className="w-9 h-9 rounded-xl items-center justify-center" style={{ backgroundColor: accent }}>
                 <Icon name={TYPE_ICON[g.type] ?? 'ti-users-group'} size={18} color="#fff" />
@@ -99,6 +114,7 @@ export function HomeGroupsCard() {
                 <Text className="text-sm font-semibold text-primary" numberOfLines={1}>
                   {g.name || 'Group'}
                   {g.status === 'closed' && <Text className="text-[10px] text-tertiary font-normal"> · closed</Text>}
+                  {left && <Text className="text-[10px] text-tertiary font-normal"> · you left</Text>}
                 </Text>
                 <Text className="text-[11px] text-tertiary">
                   {s?.memberCount ?? 0} member{(s?.memberCount ?? 0) === 1 ? '' : 's'} · {s?.expenseCount ?? 0} expense

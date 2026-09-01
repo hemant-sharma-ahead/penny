@@ -1,18 +1,20 @@
 # Contributing to Penny
 
-Penny is a pnpm workspace with three platform surfaces sharing one business-logic
-package. This doc covers running and contributing to all of them. If you only need "how
-do I run the app," jump to [Running `apps/web-react`](#running-appsweb-react-the-web-app)
-or [Running `apps/mobile`](#running-appsmobile-expo--react-native).
+Penny is a pnpm workspace: one app (`apps/mobile`) sharing business logic with one
+package (`packages/core`), plus independent Cloudflare Workers. This doc covers running
+and contributing to it. If you only need "how do I run the app," jump to
+[Running `apps/mobile`](#running-appsmobile-expo--react-native).
+
+> `apps/web-react` (the original React 19 + Vite + Tailwind app) was retired and deleted
+> 2026-08-29 — it had been frozen since 2026-07-31 and was fully superseded by
+> `apps/mobile`. If you're looking for it, see `docs/ARCHITECTURE.md`'s matching
+> decision-log entry; there is nothing left to run.
 
 ## Repo layout
 
 ```
 packages/core/    Platform-agnostic business logic — crypto, db, calculators, all core/* domains
-apps/web-react/   The web app (React 19 + Vite + Tailwind) — currently the source of truth
-                  for functionality/behavior/design that apps/mobile is ported against
-apps/mobile/      React Native (Expo) port of apps/web-react — in progress, see
-                  docs/plans/mobile-migration.md and docs/MOBILE_PARITY.md
+apps/mobile/      React Native (Expo) — the one app
 workers/          Independent Cloudflare Workers (api-proxy, auth, groups) — each has its
                   own package.json/lockfile and its own README.md; not part of the pnpm
                   workspace (excluded deliberately, see pnpm-workspace.yaml)
@@ -23,9 +25,9 @@ docs/             Deep reference — see docs/README.md for the full index
 **Root-level config** (`tsconfig.json`, `eslint.config.js`, `.prettierrc`, `.nvmrc`,
 `package.json`) is genuinely shared across `packages/*` and `apps/*` — a single
 TypeScript project-references build, one lint config enforcing cross-package architecture
-rules, one formatting standard. It is not legacy from before the workspace split; each
-app already owns its own complete build config (`apps/web-react/vite.config.ts`,
-`apps/mobile/metro.config.js`, etc.) and the root only orchestrates.
+rules, one formatting standard. It is not legacy from before the workspace split; the app
+already owns its own complete build config (`apps/mobile/metro.config.js`, etc.) and the
+root only orchestrates.
 
 ## Prerequisites
 
@@ -33,20 +35,20 @@ app already owns its own complete build config (`apps/web-react/vite.config.ts`,
 - `pnpm` (`npm install -g pnpm` if you don't have it)
 - From the repo root: `pnpm install` (sets up the whole workspace at once)
 
-## Quick reference — running the apps
+## Quick reference — running the app
 
-One glance to pick a surface and get moving; each column links to its full section below
+One glance to pick a target and get moving; each column links to its full section below
 for flags, troubleshooting, and prerequisites.
 
-|                                                                                                   | [web-react](#running-appsweb-react-the-web-app) | [web-react + Capacitor](#running-appsweb-react-wrapped-in-capacitor-android-emulator-side-by-side-comparison)       | [apps/mobile](#running-appsmobile-expo--react-native)                                                                                                                                                         | [RN Web](#running-appsmobile-expo--react-native)                                                  |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Dev command**                                                                                   | `pnpm dev` (repo root)                          | `cd apps/web-react && npx cap open android` (no package-script shortcut yet — Capacitor isn't installed, see below) | `pnpm android` / `pnpm ios` (from `apps/mobile`)<br>— or directly: `npx expo run:android` / `run:ios`                                                                                                         | `pnpm web` (from `apps/mobile`)<br>— or with a forced cache clear: `npx expo start --web --clear` |
-| **Runs at**                                                                                       | `http://localhost:5173`                         | Android Studio emulator/device                                                                                      | Emulator/AVD or a paired device, via a dev client                                                                                                                                                             | `http://localhost:8081` (or `:8082` if `:8081` is taken) in a browser                             |
-| **Prerequisite**                                                                                  | None — `pnpm install` is enough                 | `@capacitor/*` packages (not currently installed — see below) + Android Studio                                      | Android Studio (Android) or Xcode (iOS) — **not** Expo Go                                                                                                                                                     | Just Expo, no native toolchain                                                                    |
-| **Picks up code changes via**                                                                     | Vite HMR — instant                              | `pnpm build && npx cap sync android`, then re-run from Android Studio                                               | Fast Refresh for JS/TS; full native rebuild only for native deps, `metro.config.js`, `app.json`, or `android/`/`ios/` project file changes                                                                    | `react-native-web` + Fast Refresh, same as web                                                    |
-| **Status**                                                                                        | Source of truth for functionality/design        | Dormant — perf/behavior comparison tool only, not the primary mobile path                                           | In progress — see `docs/MOBILE_PARITY.md`                                                                                                                                                                     | Same JS as `apps/mobile`, rendered as real DOM — useful for quick browser checks of mobile code   |
-| **Force a JS-only relaunch** (no rebuild — a stuck screen/state, not a stale Metro server)        | Just refresh the browser tab                    | Re-run from Android Studio, or the same `adb`/simulator commands as `apps/mobile`                                   | Android: `adb shell am force-stop com.anonymous.penny && adb shell monkey -p com.anonymous.penny -c android.intent.category.LAUNCHER 1`.<br>iOS: relaunch from the Simulator (⌘⇧H twice, or Device → Restart) | Just refresh the browser tab                                                                      |
-| **Full native rebuild + reinstall** (native dep changed, or `app.json`/`android/`/`ios/` changed) | N/A — no native step                            | `pnpm build && npx cap sync android`, then re-run from Android Studio                                               | `npx expo run:android` / `run:ios` again — recompiles, bakes in the current `app.json`, reinstalls onto the emulator/device                                                                                   | N/A — restart Metro (`npx expo start --web --clear`) is enough, no native step                    |
+|                                                                                                   | [apps/mobile](#running-appsmobile-expo--react-native)                                                                                                                                               | [RN Web](#running-appsmobile-expo--react-native)                                                  |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **Dev command**                                                                                   | `pnpm android` / `pnpm ios` (from `apps/mobile`)<br>— or directly: `npx expo run:android` / `run:ios`                                                                                               | `pnpm web` (from `apps/mobile`)<br>— or with a forced cache clear: `npx expo start --web --clear` |
+| **Runs at**                                                                                       | Emulator/AVD or a paired device, via a dev client                                                                                                                                                   | `http://localhost:8081` (or `:8082` if `:8081` is taken) in a browser                             |
+| **Prerequisite**                                                                                  | Android Studio (Android) or Xcode (iOS) — **not** Expo Go                                                                                                                                           | Just Expo, no native toolchain                                                                    |
+| **Picks up code changes via**                                                                     | Fast Refresh for JS/TS; full native rebuild only for native deps, `metro.config.js`, `app.json`, or `android/`/`ios/` project file changes                                                          | `react-native-web` + Fast Refresh, same as web                                                    |
+| **Status**                                                                                        | The one app                                                                                                                                                                                         | Same JS as `apps/mobile`, rendered as real DOM — useful for quick browser checks                  |
+| **Force a JS-only relaunch** (no rebuild — a stuck screen/state, not a stale Metro server)        | Android: `adb shell am force-stop com.hesh.penny && adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1`.<br>iOS: relaunch from the Simulator (⌘⇧H twice, or Device → Restart) | Just refresh the browser tab                                                                      |
+| **Full native rebuild + reinstall** (native dep changed, or `app.json`/`android/`/`ios/` changed) | `npx expo run:android` / `run:ios` again — recompiles, bakes in the current `app.json`, reinstalls onto the emulator/device                                                                         | N/A — restart Metro (`npx expo start --web --clear`) is enough, no native step                    |
 
 `--clear` wipes the Metro bundler cache — worth adding any time you've hit a bundle that
 seems stuck on old code, or after changing `app.json`'s `extra` config; drop it for a
@@ -66,11 +68,11 @@ next opens as if freshly installed. Useful for testing onboarding, or getting un
 a bad local state — this is a data reset, not a code reload; nothing here touches source
 files or the dev server.
 
-|                    | web-react (browser)                                                                                                                                                        | apps/mobile (Android, via `adb`)                                                                                                                                                          | apps/mobile (iOS Simulator)                                                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Command**        | In the browser's DevTools console:<br>`localStorage.clear();`<br>`indexedDB.deleteDatabase('penny');`<br>`window.location.reload();`                                       | `adb shell pm clear com.anonymous.penny`<br>then relaunch: `adb shell am force-stop com.anonymous.penny && adb shell monkey -p com.anonymous.penny -c android.intent.category.LAUNCHER 1` | Long-press the app icon → Remove App → Delete App (or `xcrun simctl uninstall booted <bundle-id>`), then reinstall: `npx expo run:ios`               |
-| **What it clears** | Dexie (IndexedDB) + any `localStorage` (theme pref, plain caches like news/market)                                                                                         | Everything in the app's private storage — `op-sqlite` DB, `AsyncStorage`, session/DMK                                                                                                     | Same as Android — a full uninstall is the only guaranteed full wipe (no `pm clear` equivalent on iOS)                                                |
-| **Notes**          | `indexedDB.deleteDatabase('penny')` must run before/without another tab holding the DB open, or it silently queues instead of deleting — close other tabs of the app first | Package name is `com.anonymous.penny` (from `app.json`'s `android.package`) — reinstalling isn't needed, `pm clear` alone resets state                                                    | iOS bundle id isn't set explicitly in `app.json` yet (defaults to one derived from the app slug) — check Xcode/the Simulator once `ios/` is prebuilt |
+|                    | apps/mobile (Android, via `adb`)                                                                                                                                           | apps/mobile (iOS Simulator)                                                                                                                                                     |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Command**        | `adb shell pm clear com.hesh.penny`<br>then relaunch: `adb shell am force-stop com.hesh.penny && adb shell monkey -p com.hesh.penny -c android.intent.category.LAUNCHER 1` | Long-press the app icon → Remove App → Delete App (or `xcrun simctl uninstall booted <bundle-id>`), then reinstall: `npx expo run:ios`                                          |
+| **What it clears** | Everything in the app's private storage — `op-sqlite` DB, `AsyncStorage`, session/DMK                                                                                      | Same as Android — a full uninstall is the only guaranteed full wipe (no `pm clear` equivalent on iOS)                                                                           |
+| **Notes**          | Package name is `com.hesh.penny` (from `app.json`'s `android.package`) — reinstalling isn't needed, `pm clear` alone resets state                                          | `app.json`'s `ios.bundleIdentifier` is set (`com.hesh.penny`, 2026-08-16) but iOS isn't built yet — no Xcode/`ios/` prebuild has happened, so there's nothing to reset here yet |
 
 ## Sharing a test file with the Android emulator (for testing file-picker flows)
 
@@ -127,25 +129,6 @@ way to run them. First-time setup per worker (creating KV/D1 resources, running
 migrations, `wrangler secret put`, etc.) isn't repeated here — see each worker's own
 README, linked in the header row above.
 
-## Running `apps/web-react` (the web app)
-
-```bash
-pnpm dev            # from repo root — delegates to apps/web-react's own Vite dev server
-```
-
-App runs at `http://localhost:5173`. DevTools → 390px viewport to see the mobile layout.
-You usually don't need to set any environment variables — the app runs fully on local/
-simulated data by default. See `apps/web-react/.env.example` for what's supported;
-`.env.production` (committed, non-secret) points at the deployed API Proxy Worker so
-market/NAV/vehicle data works out of the box. **Never put secrets in a `VITE_*` var** —
-they're public in the shipped bundle.
-
-**Backend worker (optional):** the API Proxy Worker lives in
-[`workers/api-proxy/`](workers/api-proxy/README.md) — run it locally with `wrangler dev`
-or deploy it (see its own README). Point `apps/web-react/.env.local` at
-`VITE_API_PROXY=http://localhost:8787` to use a local worker instead of the deployed one,
-or leave it unset to force direct, no-backend calls.
-
 ## Running `apps/mobile` (Expo / React Native)
 
 Full detail (troubleshooting, the hot-reload-vs-native-rebuild rule, run modes) lives in
@@ -182,66 +165,119 @@ if one doesn't exist) / `pnpm web` (via `react-native-web`, no native modules in
 `npx expo run:android` (above) builds and installs onto an emulator/device in one step, but
 doesn't leave you a standalone `.apk` file. To produce one, run these in order:
 
-**Step 0, non-negotiable — bump the version first.** Every APK checked into
+**Step 0, non-negotiable — bump the version, in ALL THREE places.** Every APK checked into
 `apps/mobile/builds/` (see below) MUST carry a version distinct from whatever was there
-before, reflecting what's actually changed since the last one. Before 2026-08-15, every
-rebuild left `"version"` at the original `"1.0.0"` in both `apps/mobile/app.json` and
-`apps/mobile/package.json` regardless of how much had changed since the last build (visible
-in git log as several `chore(mobile): rebuild debug/release APKs with latest features`
-commits, none of which bumped it) — meaning two APKs with completely different feature sets
-were indistinguishable by version number alone. Bump both files' `"version"` (semver:
-patch for a fix/small addition, minor for a real feature) before step 1 below, every time.
+before, reflecting what's actually changed since the last one. This has broken two different
+ways so far — fix all three files together, every time, not just the JSON ones:
+
+- Before 2026-08-15, every rebuild left `"version"` at the original `"1.0.0"` in both
+  `apps/mobile/app.json` and `apps/mobile/package.json` regardless of how much had changed
+  since the last build (visible in git log as several `chore(mobile): rebuild debug/release
+APKs with latest features` commits, none of which bumped it) — meaning two APKs with
+  completely different feature sets were indistinguishable by version number alone.
+- On 2026-08-19, the reverse happened: `app.json`/`package.json` were bumped to `1.3.1` in a
+  commit that _didn't_ rebuild the APK, and the next APK build used the stale
+  `android/app/build.gradle` `versionName`/`versionCode` (still `"1.3.0"`/`1`) — because
+  **step 2 below is skippable once `android/` already exists**, and nothing else re-syncs
+  that file from `app.json`. The committed release APK silently kept shipping the old
+  version string.
+
+So: bump `"version"` (semver: patch for a fix/small addition, minor for a real feature) in
+**`apps/mobile/app.json`** and **`apps/mobile/package.json`**, AND update
+**`android/app/build.gradle`**'s `defaultConfig { versionCode ...; versionName "..." }`
+to match (`versionName` = the same semver string, `versionCode` incremented by 1) — before
+step 1 below, every time. After building, verify the APK actually carries what you just set,
+don't assume it: `<Android-SDK>/build-tools/<ver>/aapt dump badging
+app-arm64-v8a-release.apk | grep version`.
 
 ```bash
 # 1. From the repo root — installs deps with the pnpm hoisting this build needs (see note below)
 pnpm install
 
-# 2. Regenerate the native android/ project from app.json + assets (skip if android/ already exists)
+# 2. Regenerate the native android/ project from app.json + assets (skip if android/ already
+#    exists — but if you skip this, step 0's build.gradle edit above is what keeps the version
+#    in sync instead; don't skip both)
 cd apps/mobile
 npx expo prebuild --platform android
 
-# 3. Build the debug variant
+# 3. Build the release variant (the only variant checked into apps/mobile/builds/ — see below)
 cd android
-./gradlew assembleDebug
-
-# 4. Build the release variant — as its OWN separate command, not combined with step 3 (see note below)
 ./gradlew assembleRelease
 ```
 
-Copy the resulting `arm64-v8a` APKs (the variant to actually install/test with — see the ABI
-note below) into `apps/mobile/builds/` as `app-arm64-v8a-debug.apk`/
-`app-arm64-v8a-release.apk`, overwriting the previous ones, and commit them alongside the
-version bump above in the same commit.
+**Gradle can silently skip re-bundling the JS — always check for the "Android Bundled" line, not
+just "BUILD SUCCESSFUL."** Found 2026-08-28: `assembleRelease` reported `createBundleReleaseJsAndAssets
+UP-TO-DATE`/`packageRelease UP-TO-DATE` and produced an APK that looked freshly built but still ran
+the PREVIOUS source snapshot — a real `packages/core` change never made it into the installed app,
+even though the build genuinely succeeded. Before trusting a release build, confirm the output
+actually contains a line like `Android Bundled 15161ms apps/mobile/index.ts (8603 modules)` — if it
+instead says `UP-TO-DATE`, force a real re-bundle:
 
-Each command produces **four `.apk` files, one per CPU architecture**, not one combined
-file:
+```bash
+rm -rf apps/mobile/android/app/build/generated/assets/react
+cd apps/mobile/android && ./gradlew assembleRelease
+```
 
-| Variant | Output location                                               |
-| ------- | ------------------------------------------------------------- |
-| Debug   | `android/app/build/outputs/apk/debug/app-<abi>-debug.apk`     |
-| Release | `android/app/build/outputs/apk/release/app-<abi>-release.apk` |
+**Step 4, non-negotiable — verify it actually launches, on a real connected device, before
+committing.** This has broken multiple times (2026-08-23's v1.5.2, 2026-08-24's v1.6.0, both
+root-caused in `docs/ARCHITECTURE.md`'s matching decision-log entries) — a build that compiles
+cleanly is not evidence it runs; a release build goes through paths (Hermes bytecode compilation,
+`assembleRelease`'s own task graph) a debug build/Metro dev session never exercises, and a bug can
+be specific to exactly one of those paths.
 
-`<abi>` is one of `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`. **`arm64-v8a` is the one to
-install on a real device** — virtually every Android phone from the last several years uses
-it. `armeabi-v7a` is for older 32-bit devices; `x86`/`x86_64` are only for Intel-based
-emulators (an Apple Silicon Mac's emulator is `arm64-v8a` too).
+Run the one script that does this correctly, rather than retyping the steps by hand (that's
+exactly how this got skipped before — not malice, just a manual step that's easy to shortcut under
+time pressure):
+
+```bash
+apps/mobile/scripts/verify-release-apk.sh apps/mobile/builds/app-arm64-v8a-release.apk
+```
+
+It runs a genuinely fresh install (`adb uninstall` first, not an upgrade over existing data) **and**
+3 warm relaunches of that same install without reinstalling — **both are required, one alone has
+missed a real crash before**: 2026-08-24's crash reproduced 100% of the time on a fresh install
+going through Onboarding, and 0% of the time on a warm relaunch of an existing account. It exits
+non-zero and prints the logcat crash signature if either check fails. If it fails, do not commit
+the APK — find and fix the actual cause (see "Debugging a native-only crash" below), or at minimum
+revert whatever change is suspected and re-run the script before shipping anything. If no device is
+available to run it against, say so explicitly rather than shipping unverified — this is a judgment
+call for whoever's asking for the build, not something to silently skip (the script itself refuses
+to report success with no device connected, but that only helps if it's actually run).
+
+Copy the resulting `arm64-v8a` APK (the variant to actually install/test with — see the ABI
+note below) into `apps/mobile/builds/` as `app-arm64-v8a-release.apk`, overwriting the
+previous one, and commit it alongside the version bump above in the same commit.
+
+**Release only, not debug — as of 2026-08-19.** This project used to also build and commit a
+debug APK, but it was never actually used for real-device testing (see the gotcha below on
+why it isn't self-contained), so it's no longer built or checked in. If you need a debug
+build for local development, `./gradlew assembleDebug` still works standalone — it's just not
+part of this checked-in-APK process anymore.
+
+Each `gradlew` command produces **four `.apk` files, one per CPU architecture**, not one
+combined file, at `android/app/build/outputs/apk/release/app-<abi>-release.apk`. `<abi>` is
+one of `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`. **`arm64-v8a` is the one to install on a
+real device** — virtually every Android phone from the last several years uses it.
+`armeabi-v7a` is for older 32-bit devices; `x86`/`x86_64` are only for Intel-based emulators
+(an Apple Silicon Mac's emulator is `arm64-v8a` too).
 
 Notes / gotchas, if something above doesn't behave as expected:
 
-- **Don't combine steps 3 and 4 into one `./gradlew assembleDebug assembleRelease` call** —
-  that spawns two concurrent Metro bundler subprocesses that race each other and can fail
-  with an obscure `Cannot read properties of undefined (reading 'transformFile')` error. Two
-  separate `gradlew` invocations avoids it.
-- **The debug APK is not self-contained.** This project's debug build type doesn't embed a
-  JS bundle (`bundleInDebug` isn't set), so it loads JS from a Metro dev server (`npx expo
-start`) at runtime instead — sideloading it alone, with no Metro running nearby, installs
-  fine but shows a red-box "Could not connect to development server" error on launch. To
-  actually run it on a **real device**, Metro needs to be reachable from that device: either
-  **USB** (`adb reverse tcp:8081 tcp:8081` while it's connected to the machine running `npx
-expo start`) or **same WiFi** (the in-app dev menu — shake gesture — pointed at that
-  machine's LAN IP:8081). The **release APK** _is_ self-contained (JS bundled, minified,
-  resources shrunk) — that's the one to hand someone for standalone testing with no dev
-  server involved at all.
+- **If you do also build a local debug APK** (`./gradlew assembleDebug`, standalone dev use
+  only — not part of the checked-in process above), run it as its own separate `gradlew`
+  invocation, never combined with `assembleRelease` in one command — that spawns two
+  concurrent Metro bundler subprocesses that race each other and can fail with an obscure
+  `Cannot read properties of undefined (reading 'transformFile')` error.
+- **A debug APK is not self-contained**, which is exactly why it's no longer part of the
+  committed build process. This project's debug build type doesn't embed a JS bundle
+  (`bundleInDebug` isn't set), so it loads JS from a Metro dev server (`npx expo start`) at
+  runtime instead — sideloading it alone, with no Metro running nearby, installs fine but
+  shows a red-box "Could not connect to development server" error on launch. To run one on a
+  **real device**, Metro needs to be reachable from that device: either **USB** (`adb reverse
+tcp:8081 tcp:8081` while it's connected to the machine running `npx expo start`) or **same
+  WiFi** (the in-app dev menu — shake gesture — pointed at that machine's LAN IP:8081). The
+  **release APK** _is_ self-contained (JS bundled, minified, resources shrunk) — that's the
+  one to hand someone for standalone testing with no dev server involved at all.
 - **Release signing** falls back to the same auto-generated debug keystore as the debug
   build (`android/app/build.gradle`'s `release` block) — there's no dedicated release
   keystore configured. Fine for internal testing; **not** fine for actual Play Store
@@ -291,36 +327,6 @@ divergence, 2026-08-13) in one pass:
    emulator) once the fix is verified**, before running the normal pre-commit verification
    sweep.
 
-## Running `apps/web-react` wrapped in Capacitor (Android emulator, side-by-side comparison)
-
-A second way to see the web app on Android — useful for direct perf/behavior comparisons
-against `apps/mobile` (this is how the two were compared during the mobile migration's
-storage-engine investigation), **not** the primary mobile path (that's `apps/mobile`
-above). Wraps the built `apps/web-react` bundle in a native Android shell via
-[Capacitor](https://capacitorjs.com/).
-
-**Status: dormant, not currently installed.** `apps/web-react/capacitor.config.ts` exists
-(moved there from the repo root — it only ever wraps this one app's build, never
-`apps/mobile`), but the `@capacitor/*` packages aren't currently in any `package.json` —
-they were last used ad hoc and need reinstalling fresh, from **`apps/web-react/`**:
-
-```bash
-cd apps/web-react
-npm install --save @capacitor/core @capacitor/android   # or pnpm add
-npm install --save-dev @capacitor/cli
-pnpm build                           # builds this app, output at ./dist
-npx cap add android                  # creates the native android/ project, copies dist/ in
-npx cap open android                 # opens it in Android Studio — wait for Gradle sync
-```
-
-The rebuild loop after a code change (from `apps/web-react/`): `pnpm build && npx cap sync
-android`, then re-run from Android Studio or `cd android && ./gradlew assembleDebug`.
-
-The `android/` folder itself is git-ignored (generated, like `dist/`) — regenerate it with
-the commands above on a fresh clone. Full step-by-step (AVD creation, terminal-only flow,
-keyboard setup, troubleshooting table, the Phase-2 storage-persistence to-do) lives in
-[`docs/ANDROID_EMULATOR.md`](docs/ANDROID_EMULATOR.md).
-
 ## Running the Workers
 
 Each worker under `workers/` is independent (own `package.json`, own lockfile, own
@@ -336,7 +342,9 @@ and [`docs/BACKEND_STRATEGY.md`](docs/BACKEND_STRATEGY.md) for the architecture 
 ## Architecture rules (enforced by ESLint)
 
 - `@anthropic-ai/sdk` may only be imported from `packages/core/src/core/ai-safety/anthropicClient.ts`
-- `dexie` may only be imported from `packages/core/src/core/db/`
+- `dexie` is retired (2026-08-29, `apps/web-react` removal) and must never be reintroduced
+  anywhere — `packages/core/src/core/db/schema.ts` is a plain in-memory `RowStore`, and
+  `apps/mobile` runs on `schema.native.ts`/op-sqlite
 - Feature modules (`apps/*/src/features/`) must not cross-import — only from `core/`,
   `components/`, `context/`, `hooks/`, `lib/`
 - `no-console` is a warning — never log PII
@@ -350,7 +358,7 @@ platform-variance-minimization principle.
 
 ## The encryption boundary
 
-**Never access Dexie tables directly from feature code.** Always go through
+**Never access a database table directly from feature code.** Always go through
 `EncryptedRepository<T>` in `packages/core/src/core/db/repository.ts`:
 
 ```ts
@@ -375,17 +383,17 @@ never skip or weaken it.
 
 ## Scripts (from the repo root)
 
-| Script              | What it does                                                   |
-| ------------------- | -------------------------------------------------------------- |
-| `pnpm dev`          | Start `apps/web-react`'s Vite dev server                       |
-| `pnpm build`        | `tsc -b` (repo-wide) + `apps/web-react`'s Vite build           |
-| `pnpm lint`         | ESLint across `packages/*/src apps/*/src`                      |
-| `pnpm lint:fix`     | ESLint auto-fix                                                |
-| `pnpm format`       | Prettier write                                                 |
-| `pnpm format:check` | Prettier check (used in CI)                                    |
-| `pnpm type-check`   | `tsc -b`                                                       |
-| `pnpm test`         | `packages/core` tests + `apps/web-react` tests + workers tests |
-| `pnpm test:workers` | Just the workers' own test suite                               |
+| Script              | What it does                                                                  |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `pnpm dev`          | Start `apps/mobile`'s Expo dev server (`expo start`)                          |
+| `pnpm build`        | `tsc -b` (repo-wide) — see the APK build steps above for a real release build |
+| `pnpm lint`         | ESLint across `packages/*/src apps/*/src`                                     |
+| `pnpm lint:fix`     | ESLint auto-fix                                                               |
+| `pnpm format`       | Prettier write                                                                |
+| `pnpm format:check` | Prettier check (used in CI)                                                   |
+| `pnpm type-check`   | `tsc -b`                                                                      |
+| `pnpm test`         | `packages/core` tests + workers tests                                         |
+| `pnpm test:workers` | Just the workers' own test suite                                              |
 
 `apps/mobile` currently has no dedicated test suite of its own — logic it depends on lives
 in `packages/core` and is tested there.
@@ -428,6 +436,14 @@ itself** (`.husky/pre-commit` only runs lint-staged + the PII gate + tests) — 
   definition rather than forcing every call site into a conditional spread.
 - **No implicit returns** in a function that returns a value — every code path must
   explicitly return.
+- **`react-hooks/set-state-in-effect`** — never call a state setter (or an async function that
+  eventually calls one) directly in a `useEffect` body. Wrap the actual state-setting work in a
+  same-tick `setTimeout(fn, 0)` (or the effect's own real debounce delay, if it already has one)
+  with a matching `clearTimeout` in the cleanup — established first in
+  `apps/mobile/src/features/portfolio/holdings/equity/useLivePrice.ts`, reused since in
+  `RetirementSheets.tsx`'s PPF calc-prefill effect and `BackupHistoryModal.tsx`'s load-on-mount
+  effect. Don't reach for a suppressing comment here; this mechanical rewrite is the established
+  fix.
 
 ## Branch rules
 
@@ -469,18 +485,16 @@ automatically after finishing a step; present what changed and ask).
 
 ## Key documents
 
-| File                           | What it covers                                                                                      |
-| ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `CLAUDE.md`                    | Orientation for Claude Code sessions — identity, non-negotiable rules, reference table              |
-| `CONTRIBUTING.md`              | This file — setup, branching, commits, CI, PR rules                                                 |
-| `docs/README.md`               | Documentation index — navigate all docs from here                                                   |
-| `docs/BRD.md`                  | Product vision, users, competitive positioning                                                      |
-| `docs/ARCHITECTURE.md`         | Codebase map (dirs, components, hooks) + architectural decision log                                 |
-| `docs/SCHEMA.md`               | All Dexie stores with field definitions                                                             |
-| `docs/EXTERNAL_APIS.md`        | Registry of every external API Penny calls                                                          |
-| `docs/PRIVACY.md`              | PII definitions, anonymisation rules, privacy architecture                                          |
-| `docs/ROADMAP.md`              | Shipped history, decided/in-progress phases, future ideas                                           |
-| `docs/MOBILE_PARITY.md`        | Current per-module `apps/mobile` vs `apps/web-react` parity status                                  |
-| `docs/features/`               | Per-feature documentation — what's built, data model, planned improvements                          |
-| `.claude/skills/parity-sweep/` | The methodology for auditing mobile against web for parity gaps                                     |
-| `.claude/agents/`              | Specialized subagents (mobile-developer, web-developer, parity-auditor, code-reviewer, test-writer) |
+| File                    | What it covers                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `CLAUDE.md`             | Orientation for Claude Code sessions — identity, non-negotiable rules, reference table |
+| `CONTRIBUTING.md`       | This file — setup, branching, commits, CI, PR rules                                    |
+| `docs/README.md`        | Documentation index — navigate all docs from here                                      |
+| `docs/BRD.md`           | Product vision, users, competitive positioning                                         |
+| `docs/ARCHITECTURE.md`  | Codebase map (dirs, components, hooks) + architectural decision log                    |
+| `docs/SCHEMA.md`        | All database stores with field definitions                                             |
+| `docs/EXTERNAL_APIS.md` | Registry of every external API Penny calls                                             |
+| `docs/PRIVACY.md`       | PII definitions, anonymisation rules, privacy architecture                             |
+| `docs/ROADMAP.md`       | Shipped history, decided/in-progress phases, future ideas                              |
+| `docs/features/`        | Per-feature documentation — what's built, data model, planned improvements             |
+| `.claude/agents/`       | Specialized subagents (mobile-developer, code-reviewer, test-writer, ui-designer)      |

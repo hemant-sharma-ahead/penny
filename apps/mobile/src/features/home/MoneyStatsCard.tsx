@@ -4,7 +4,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { formatCompact, formatCurrency } from '@/lib/formatters';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
-import { useHomeStats } from './useHomeStats';
+import type { HomeMoneyStats } from './useHomeStats';
 import { HomeEmptyPromptCard } from './HomeEmptyPromptCard';
 
 /**
@@ -21,9 +21,13 @@ import { HomeEmptyPromptCard } from './HomeEmptyPromptCard';
  * only entry point to Insurance/Loans/Accounts anywhere in the app). Tax story is gated on
  * `stats.spentThisMonth > 0` too — with no real expense activity yet there's no real tax story to tell,
  * so it stays hidden until "Spent" itself has something real to show (2026-08-05 follow-up).
+ *
+ * **`stats` is a prop, not its own `useHomeStats()` call** (2026-08-31 fix) — `useHomeStats()` is now
+ * owned by `HomePage.tsx` so its `reload` can be folded into that screen's own pull-to-refresh gesture;
+ * see that hook's own doc comment for the real bug this fixes (a stale "Track Insurance" prompt that
+ * neither a live write elsewhere nor a manual pull-to-refresh could clear).
  */
-export function MoneyStatsCard() {
-  const stats = useHomeStats();
+export function MoneyStatsCard({ stats }: { stats: HomeMoneyStats | null }) {
   const theme = useThemeColors();
   const navigation = useNavigation<NativeStackNavigationProp<ParamListBase>>();
   if (!stats) return null;

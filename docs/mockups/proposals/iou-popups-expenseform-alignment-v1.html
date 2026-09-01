@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — Add IOU / Settle Up: align with ExpenseForm's visual language</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --primary:#00a86b; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:22px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:14px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 34px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:820px; margin:0 auto 14px; line-height:1.65; }
+      .groundnote { max-width:820px; margin:0 auto 20px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+
+      .gallery { display:flex; flex-wrap:wrap; gap:36px 22px; justify-content:center; align-items:flex-start; padding:6px 20px 10px; }
+      .frame-wrap { width:270px; }
+      .frame-wrap.wide { width:300px; }
+      .vtitle { font-size:12.5px; font-weight:800; margin:0 2px 3px; color:#fff; display:flex; align-items:center; gap:6px; }
+      .vtitle .tag { font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:#232b35; color:#9aa5b1; }
+      .vtitle .tag.cur { background:#3a2412; color:#f0b060; }
+      .vtitle .tag.rec { background:#123524; color:#7ee6b8; }
+      .vsub { font-size:10.5px; color:#9aa5b1; margin:0 2px 12px; line-height:1.5; }
+
+      .phone { width:270px; background:var(--bg); border-radius:28px; border:8px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 18px 40px rgba(0,0,0,.5); }
+      .phone.wide { width:300px; }
+      .statusbar { height:16px; background:var(--bg); flex-shrink:0; }
+      .header { height:38px; display:flex; align-items:center; padding:0 12px; flex-shrink:0; border-bottom:1px solid var(--border); gap:8px; }
+      .header .x { width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:14px; border:1px solid var(--border); border-radius:8px; }
+      .htitle { flex:1; text-align:center; font-size:13px; font-weight:700; color:var(--text); }
+      .content { padding:10px 12px 12px; flex:1; }
+      .footer { padding:10px 12px; border-top:1px solid var(--border); display:flex; gap:8px; }
+      .btn { flex:1; text-align:center; padding:9px 0; border-radius:10px; font-size:11.5px; font-weight:700; }
+      .btn.primary { background:var(--primary); color:#04140d; }
+      .btn.secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
+
+      .flabel { font-size:9.5px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em; margin-bottom:5px; }
+      .helptext { font-size:9.5px; color:var(--text3); margin-top:6px; line-height:1.5; }
+
+      /* ── Option-tile grid (today's Add IOU / Settle Up look) ─────────────────────────── */
+      .optgrid { display:flex; flex-wrap:wrap; gap:6px; }
+      .opttile { width:47%; display:flex; align-items:center; gap:7px; border:1.5px solid var(--border); border-radius:11px; padding:9px 8px; }
+      .opttile.selected { border-color:#db2777; background:rgba(219,39,119,.1); }
+      .opttile.disabled { opacity:.4; }
+      .opttile i { font-size:15px; color:var(--text2); }
+      .opttile.selected i { color:#db2777; }
+      .opttile span { font-size:10.5px; font-weight:700; color:var(--text); }
+
+      /* ── Chip row (AccountChips/PaymentModeChips/CategoryPicker QuickPickRow — the REAL app-wide
+           pattern this section proposes reusing for the 4 IOU categories too) ───────────────────── */
+      .chiprow { display:flex; gap:9px; overflow-x:auto; padding-bottom:2px; }
+      .chip { display:flex; flex-direction:column; align-items:center; gap:4px; width:52px; flex-shrink:0; }
+      .chipring { padding:2px; border-radius:12px; border:2px solid transparent; }
+      .chipring.on { border-color:var(--ringcolor); background:var(--bg); }
+      .chipicon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+      .chipicon i { font-size:15px; color:#fff; }
+      .chip span { font-size:8px; font-weight:600; color:var(--text2); text-align:center; line-height:1.15; }
+      .chip.disabled { opacity:.32; }
+      .chip.disabled .chipicon { filter:grayscale(1); }
+
+      /* ── ExtraCircle row (today vs fixed) ─────────────────────────────────────────────── */
+      .circlerow { display:flex; justify-content:center; gap:8px; }
+      .circle { display:flex; flex-direction:column; align-items:center; gap:3px; width:56px; }
+      .circleicon { width:40px; height:40px; border-radius:999px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; background:var(--surface2); position:relative; }
+      .circleicon.active { border-color:var(--primary); background:rgba(0,168,107,.14); }
+      .circleicon i { font-size:16px; color:var(--text3); }
+      .circleicon.active i { color:var(--primary); }
+      .circle span { font-size:9px; font-weight:600; color:var(--text3); }
+      .circle span.active { color:var(--text); }
+      /* Fixed disabled treatment: lower opacity + a small lock badge, distinct from an ordinary
+         not-yet-toggled-on circle (Tags/Receipt/Repeat) which stays full-opacity, just unfilled. */
+      .circleicon.lockdim { opacity:.35; }
+      .lockbadge { position:absolute; bottom:-2px; right:-2px; width:15px; height:15px; border-radius:999px; background:var(--surface3); border:1px solid var(--bg); display:flex; align-items:center; justify-content:center; }
+      .lockbadge i { font-size:8px; color:var(--text3); }
+
+      .toastfake { position:absolute; left:10px; right:10px; bottom:44px; background:#232b35; border-radius:10px; padding:8px 10px; font-size:9.5px; color:#e6edf3; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.4); }
+
+      /* ── Full-popup mock (ExpenseForm-language redesign) ──────────────────────────────── */
+      .amtrow { display:flex; align-items:center; gap:8px; margin:2px 0 10px; }
+      .amthero { flex:1; text-align:right; font-size:20px; font-weight:800; color:var(--text); }
+      .cattile2 { width:60px; border:1.5px dashed var(--border); border-radius:13px; padding:8px 6px; display:flex; flex-direction:column; align-items:center; gap:5px; }
+      .cattile2.filled { border-style:solid; }
+      .cattile2 .icnbox { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
+      .cattile2 .icnbox i { font-size:13px; color:#fff; }
+      .cattile2 .lbl { font-size:7.5px; font-weight:700; color:var(--text2); text-align:center; }
+      .fieldbox { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; font-size:11px; color:var(--text); margin-bottom:8px; }
+      .rowline { display:flex; align-items:center; justify-content:between; gap:8px; }
+      .sectionhead { display:flex; align-items:center; justify-content:space-between; margin:10px 0 5px; }
+      .sectionhead .t { font-size:9.5px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.03em; }
+
+      .recommend { max-width:860px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:16px 20px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:860px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:5px; }
+    </style>
+  </head>
+  <body>
+    <h1>Add IOU / Settle Up — align with ExpenseForm's own visual language</h1>
+    <p class="sub">Three related asks in one pass: (1) the secondary-action circles (Lent, Tags, Receipt…) don't
+      visually distinguish "off" from "can't be turned on" — they look identical either way; (2) Settle Up's
+      account field is a plain dropdown while every other account picker in the app is an icon chip row; (3) Add
+      IOU / Settle Up's 4-category picker uses a different tile shape than the real category picker's own
+      chip-row look. Grounded in <code>ExtraCircle.tsx</code>, <code>SettleUpModal.tsx</code>,
+      <code>EntryForm.tsx</code>, <code>AccountChips.tsx</code>, and <code>CategoryPickerModal.tsx</code>'s real
+      current code — nothing here is built yet.</p>
+    <div class="topnav">
+      <a href="#s1">① The gap, grounded</a>
+      <a href="#s2">② Fix — disabled ExtraCircle clarity</a>
+      <a href="#s3">③ Fix — 4 categories as an icon-chip row</a>
+      <a href="#s4">④ Fix — Settle Up's account as icons</a>
+      <a href="#s5">⑤ Full redesign — Add IOU</a>
+      <a href="#s6">⑥ Full redesign — Settle Up</a>
+      <a href="#s7">⑦ Recommendation</a>
+    </div>
+
+    <!-- ================= SECTION 1 ================= -->
+    <div class="sectionband" id="s1">
+      <div class="sectiontitle"><span class="num">1</span>The gap, grounded in the real current code</div>
+      <div class="groundnote">
+        <b style="color:#fff">Three separate, confirmed gaps:</b><br/>
+        (a) <code>ExtraCircle.tsx</code>'s <code>disabled</code> prop only blocks the tap — it changes nothing
+        visually (no opacity change, no styling branch on <code>disabled</code> at all). A permanently-inert Lent
+        circle and a normal, just-not-toggled-on Tags circle render pixel-identical.<br/>
+        (b) <code>SettleUpModal.tsx</code> still uses a plain bordered <code>SelectInput</code> dropdown for the
+        account field — every other account picker in this app (<code>ExpenseForm.tsx</code>,
+        <code>EntryForm.tsx</code>) already uses <code>AccountChips</code>' icon-chip row.<br/>
+        (c) <code>EntryForm.tsx</code>/<code>SettleUpModal.tsx</code>'s 4-category picker uses
+        <code>OptionButton</code> — a wide rectangular tile (icon + label side-by-side, 2 per row) — while the
+        REAL category picker (<code>CategoryPickerModal.tsx</code>'s <code>QuickPickRow</code>, and
+        <code>AccountChips</code>/<code>PaymentModeChips</code>, all the exact same visual) is a colored
+        rounded-square icon with a small label underneath, in a horizontally-scrollable single row. Three
+        different "pick one of a few things" visuals already exist in this one popup.
+      </div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Add IOU circle row <span class="tag cur">Current</span></div>
+          <div class="vsub">Lent (permanently gated to 4 categories) and Tags (a normal toggle) look exactly
+            the same — both dim, both look equally "off".</div>
+          <div class="phone" style="height:120px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="circlerow">
+                <div class="circle"><div class="circleicon"><i class="ti ti-users"></i></div><span>Lent</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-hash"></i></div><span>Tags</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-camera"></i></div><span>Receipt</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-repeat"></i></div><span>Repeat</span></div>
+              </div>
+              <div class="helptext" style="text-align:center">Category is "Groceries" here — Lent can never
+                activate, but nothing shows that.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Settle Up account field <span class="tag cur">Current</span></div>
+          <div class="vsub">A plain dropdown — no icon, no bank/wallet color, unlike everywhere else.</div>
+          <div class="phone" style="height:120px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Received in</div>
+              <div class="fieldbox" style="display:flex;align-items:center;justify-content:space-between">
+                SBI XX3384 <i class="ti ti-chevron-down" style="color:var(--text3)"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Add IOU category picker <span class="tag cur">Current</span></div>
+          <div class="vsub"><code>OptionButton</code> 2×2 grid — wide rectangular tiles, icon beside label.</div>
+          <div class="phone" style="height:140px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="optgrid">
+                <div class="opttile selected"><i class="ti ti-cash-move"></i><span>Lending</span></div>
+                <div class="opttile"><i class="ti ti-cash-move-back"></i><span>Borrowed Money</span></div>
+                <div class="opttile"><i class="ti ti-cash-minus"></i><span>Return Borrowed</span></div>
+                <div class="opttile"><i class="ti ti-receipt-refund"></i><span>Collected Money</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Real category picker's own tile <span class="tag">Reference — what it actually looks like elsewhere</span></div>
+          <div class="vsub"><code>CategoryPickerModal.tsx</code>'s <code>QuickPickRow</code> — the same visual
+            <code>AccountChips</code>/<code>PaymentModeChips</code> already use everywhere else.</div>
+          <div class="phone" style="height:140px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="chiprow">
+                <div class="chip"><div class="chipring on" style="--ringcolor:#3ecf8e"><div class="chipicon" style="background:#3ecf8e"><i class="ti ti-tools-kitchen-2"></i></div></div><span>Groceries</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#f59e0b"><i class="ti ti-car"></i></div></div><span>Transport</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#3b82f6"><i class="ti ti-movie"></i></div></div><span>Entertainment</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 2 ================= -->
+    <div class="sectionband" id="s2">
+      <div class="sectiontitle"><span class="num">2</span>Fix — disabled ExtraCircle needs its own look</div>
+      <div class="sectionsub">Adds a real disabled visual to <code>ExtraCircle.tsx</code> — lower opacity plus a
+        tiny lock badge — so "can't be turned on right now" reads differently from "off, tap to turn on".</div>
+      <div class="groundnote">Keeps the existing toast explanation (already shipped 2026-08-26) as the
+        <i>reason</i>; this section is purely about the at-a-glance visual, before anyone even taps it.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Category = Groceries <span class="tag rec">After — Lent visibly locked</span></div>
+          <div class="vsub">Lent dims further than an ordinary off-toggle and gets a small lock badge; Tags/
+            Receipt/Repeat stay exactly as before (they're genuinely just "off, tap me").</div>
+          <div class="phone" style="height:130px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="circlerow">
+                <div class="circle">
+                  <div class="circleicon lockdim"><i class="ti ti-users"></i><div class="lockbadge"><i class="ti ti-lock"></i></div></div>
+                  <span>Lent</span>
+                </div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-hash"></i></div><span>Tags</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-camera"></i></div><span>Receipt</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-repeat"></i></div><span>Repeat</span></div>
+              </div>
+              <div class="toastfake">Only enabled for Lending / Return Borrowed categories.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Category = Lending <span class="tag rec">After — Lent active, no lock</span></div>
+          <div class="vsub">Once a valid category is picked, Lent looks exactly like today's "active" circle —
+            the lock only ever appears while it's actually inert.</div>
+          <div class="phone" style="height:110px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="circlerow">
+                <div class="circle"><div class="circleicon active"><i class="ti ti-users"></i></div><span class="active">Lent</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-hash"></i></div><span>Tags</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-camera"></i></div><span>Receipt</span></div>
+                <div class="circle"><div class="circleicon"><i class="ti ti-repeat"></i></div><span>Repeat</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 3 ================= -->
+    <div class="sectionband" id="s3">
+      <div class="sectiontitle"><span class="num">3</span>Fix — the 4 IOU categories as a chip row, not a tile grid</div>
+      <div class="sectionsub">Swaps <code>OptionButton</code>'s 2×2 grid for the exact
+        <code>AccountChips</code>/<code>QuickPickRow</code> visual — colored rounded-square icon, tiny label
+        below, one horizontally-scrollable row. All 4 fit in one row at this size with room to spare.</div>
+      <div class="groundnote">Real colors/icons, unchanged from <code>defaultCategories.ts</code>: Lending
+        <code>#db2777</code>/<code>ti-cash-move</code>, Borrowed Money <code>#a855f7</code>/<code>ti-cash-move-back</code>,
+        Return Borrowed <code>#9333ea</code>/<code>ti-cash-minus</code>, Collected Money
+        <code>#ec4899</code>/<code>ti-receipt-refund</code> — same "never hardcode category data" rule this file
+        already follows, just a different tile shape reading those same fields.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Add IOU — all 4 enabled <span class="tag rec">After</span></div>
+          <div class="vsub">"Lending" selected (ring in its own color, halo pattern identical to
+            AccountChips). One row, no wrapping.</div>
+          <div class="phone" style="height:120px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="chiprow">
+                <div class="chip"><div class="chipring on" style="--ringcolor:#db2777"><div class="chipicon" style="background:#db2777"><i class="ti ti-cash-move"></i></div></div><span>Lending</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#a855f7"><i class="ti ti-cash-move-back"></i></div></div><span>Borrowed<br/>Money</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#9333ea"><i class="ti ti-cash-minus"></i></div></div><span>Return<br/>Borrowed</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#ec4899"><i class="ti ti-receipt-refund"></i></div></div><span>Collected<br/>Money</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-wrap">
+          <div class="vtitle">Settle Up — 2 of 4 disabled <span class="tag rec">After — they owe you</span></div>
+          <div class="vsub">Same row and same disabled visual as §2's fix — Lending/Borrowed Money dim+lock
+            (settling never creates new debt); of the 2 settlement tiles, only "Collected Money" is live.</div>
+          <div class="phone" style="height:120px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="chiprow">
+                <div class="chip disabled"><div class="chipring"><div class="chipicon" style="background:#db2777"><i class="ti ti-cash-move"></i></div></div><span>Lending</span></div>
+                <div class="chip disabled"><div class="chipring"><div class="chipicon" style="background:#a855f7"><i class="ti ti-cash-move-back"></i></div></div><span>Borrowed<br/>Money</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#9333ea"><i class="ti ti-cash-minus"></i></div></div><span>Return<br/>Borrowed</span></div>
+                <div class="chip"><div class="chipring on" style="--ringcolor:#ec4899"><div class="chipicon" style="background:#ec4899"><i class="ti ti-receipt-refund"></i></div></div><span>Collected<br/>Money</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 4 ================= -->
+    <div class="sectionband" id="s4">
+      <div class="sectiontitle"><span class="num">4</span>Fix — Settle Up's account field becomes real <code>AccountChips</code></div>
+      <div class="sectionsub">Drop-in swap — <code>EntryForm.tsx</code> already made this exact change; Settle Up
+        just never got it.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap">
+          <div class="vtitle">Settle Up <span class="tag rec">After</span></div>
+          <div class="vsub">Real bank logo/color, "+ Add" at the end — identical to every other account picker.</div>
+          <div class="phone" style="height:120px">
+            <div class="statusbar"></div>
+            <div class="content">
+              <div class="flabel">Received in</div>
+              <div class="chiprow">
+                <div class="chip"><div class="chipring on" style="--ringcolor:#004c8f"><div class="chipicon" style="background:#004c8f"><i class="ti ti-building-bank"></i></div></div><span>SBI XX3384</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#00a86b"><i class="ti ti-cash"></i></div></div><span>Cash</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#6b7280;border:1.5px dashed #8b949e"><i class="ti ti-plus"></i></div></div><span>Add</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 5 ================= -->
+    <div class="sectionband" id="s5">
+      <div class="sectiontitle"><span class="num">5</span>Full redesign — Add IOU, in ExpenseForm's own language</div>
+      <div class="sectionsub">Not just the two fields above — the whole popup restructured to read like the
+        Expense/Income form the user already knows: a big amount on the right, a category tile on the left of
+        it, then the same chip-row pattern for every "pick one of a few" field below, secondary fields last.</div>
+      <div class="groundnote">Reuses <code>ExpenseForm.tsx</code>'s own section order (category+amount hero →
+        person/account/payment-mode chip rows → optional fields) rather than inventing a new layout — same
+        components, same rhythm, different fields.</div>
+
+      <div class="gallery">
+        <div class="frame-wrap wide">
+          <div class="vtitle">Add IOU — full redesign <span class="tag rec">After</span></div>
+          <div class="vsub">Category tile + amount hero row (exactly <code>ExpenseForm</code>'s own layout),
+            then Person, Account, Paid via — all the same chip-row language.</div>
+          <div class="phone wide" style="height:430px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Add IOU</div><div class="x"><i class="ti ti-x"></i></div></div>
+            <div class="content">
+              <div class="amtrow">
+                <div class="cattile2 filled" style="border-color:#db2777">
+                  <div class="icnbox" style="background:#db2777"><i class="ti ti-cash-move"></i></div>
+                  <div class="lbl">Lending</div>
+                </div>
+                <div class="amthero">₹5,000</div>
+              </div>
+              <div class="chiprow">
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#a855f7"><i class="ti ti-cash-move-back"></i></div></div><span>Borrowed<br/>Money</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#9333ea"><i class="ti ti-cash-minus"></i></div></div><span>Return<br/>Borrowed</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#ec4899"><i class="ti ti-receipt-refund"></i></div></div><span>Collected<br/>Money</span></div>
+              </div>
+
+              <div class="sectionhead"><div class="t">Person</div></div>
+              <div class="fieldbox">Monu Bhaiya</div>
+
+              <div class="sectionhead"><div class="t">Account</div></div>
+              <div class="chiprow">
+                <div class="chip"><div class="chipring on" style="--ringcolor:#004c8f"><div class="chipicon" style="background:#004c8f"><i class="ti ti-building-bank"></i></div></div><span>SBI XX3384</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#00a86b"><i class="ti ti-cash"></i></div></div><span>Cash</span></div>
+              </div>
+
+              <div class="sectionhead"><div class="t">Paid via</div></div>
+              <div class="chiprow">
+                <div class="chip"><div class="chipring on" style="--ringcolor:#3b82f6"><div class="chipicon" style="background:#3b82f6"><i class="ti ti-qrcode"></i></div></div><span>UPI</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#00a86b"><i class="ti ti-cash"></i></div></div><span>Cash</span></div>
+              </div>
+            </div>
+            <div class="footer"><div class="btn primary">I lent this</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SECTION 6 ================= -->
+    <div class="sectionband" id="s6">
+      <div class="sectiontitle"><span class="num">6</span>Full redesign — Settle Up, same treatment</div>
+      <div class="sectionsub">Identical structural change — category chip row (2 of 4 live) up top next to the
+        amount, account as chips, payment mode as chips (already shipped 2026-08-26, just re-homed visually).</div>
+
+      <div class="gallery">
+        <div class="frame-wrap wide">
+          <div class="vtitle">Settle Up — full redesign <span class="tag rec">After</span></div>
+          <div class="vsub">"Collected Money" pre-selected (they owe you) — same locked/dim treatment for the 2
+            not-applicable tiles as §3.</div>
+          <div class="phone wide" style="height:430px">
+            <div class="statusbar"></div>
+            <div class="header"><div class="htitle">Settle up with Monu Bhaiya</div><div class="x"><i class="ti ti-x"></i></div></div>
+            <div class="content">
+              <div class="amtrow">
+                <div class="cattile2 filled" style="border-color:#ec4899">
+                  <div class="icnbox" style="background:#ec4899"><i class="ti ti-receipt-refund"></i></div>
+                  <div class="lbl">Collected</div>
+                </div>
+                <div class="amthero">₹5,000</div>
+              </div>
+              <div class="chiprow">
+                <div class="chip disabled"><div class="chipring"><div class="chipicon" style="background:#db2777"><i class="ti ti-cash-move"></i></div></div><span>Lending</span></div>
+                <div class="chip disabled"><div class="chipring"><div class="chipicon" style="background:#a855f7"><i class="ti ti-cash-move-back"></i></div></div><span>Borrowed<br/>Money</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#9333ea"><i class="ti ti-cash-minus"></i></div></div><span>Return<br/>Borrowed</span></div>
+              </div>
+              <div class="helptext">Monu Bhaiya owes you ₹5,000. Record what was actually paid — settle in your
+                own UPI/bank app.</div>
+
+              <div class="sectionhead"><div class="t">Note (optional)</div></div>
+              <div class="fieldbox" style="color:var(--text3)">e.g. UPI, cash</div>
+
+              <div class="sectionhead"><div class="t">Received in</div></div>
+              <div class="chiprow">
+                <div class="chip"><div class="chipring on" style="--ringcolor:#004c8f"><div class="chipicon" style="background:#004c8f"><i class="ti ti-building-bank"></i></div></div><span>SBI XX3384</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#00a86b"><i class="ti ti-cash"></i></div></div><span>Cash</span></div>
+              </div>
+
+              <div class="sectionhead"><div class="t">Paid via</div></div>
+              <div class="chiprow">
+                <div class="chip"><div class="chipring on" style="--ringcolor:#3b82f6"><div class="chipicon" style="background:#3b82f6"><i class="ti ti-qrcode"></i></div></div><span>UPI</span></div>
+                <div class="chip"><div class="chipring"><div class="chipicon" style="background:#00a86b"><i class="ti ti-cash"></i></div></div><span>Cash</span></div>
+              </div>
+            </div>
+            <div class="footer"><div class="btn primary">Record settlement</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CLOSING ================= -->
+    <div class="recommend">
+      <b>Recommendation: do all four.</b> §2 (disabled-circle clarity) and §4 (AccountChips in Settle Up) are
+      small, mechanical, low-risk swaps — ship those regardless. §3 (chip-row categories) and §5/§6 (the full
+      layout redesign) are really one decision: once the category picker becomes a chip row, restructuring the
+      rest of the popup to match <code>ExpenseForm</code>'s section order is a natural, small follow-on, not a
+      separate redesign — I'd do them together rather than half-converting the popup to one visual language and
+      leaving the rest stacked-label-and-value.
+      <ul>
+        <li>This also fixes something not explicitly asked but worth calling out: today's <code>OptionButton</code>
+          tiles show the category <b>name</b> prominently and the icon small/secondary; the chip-row style flips
+          that (icon prominent, name tiny below) — matching how the user already reads every other category/
+          account/payment-mode picker in this app, so recognition should if anything get faster, not slower.</li>
+      </ul>
+    </div>
+
+    <div class="legend">
+      <h2>Judgment calls &amp; open questions for review</h2>
+      <ol>
+        <li><b>§2 lock badge</b> — a small padlock glyph on the circle's corner, on top of extra dimming. An
+          alternative would be dimming alone (no badge) — simpler, but less explicit about <i>why</i> it's
+          inert vs. just currently off. Included the badge as the more explicit option; easy to drop if it
+          reads as clutter at 40px.</li>
+        <li><b>§3 two-line labels</b> ("Borrowed Money" → "Borrowed" / "Money" on two lines) — needed at this
+          chip width (52px) for the two longer category names to stay legible instead of truncating. Matches
+          <code>AccountChips</code>' own <code>numberOfLines={2}</code> allowance, not a new pattern.</li>
+        <li><b>§5/§6 footer button copy</b> — kept <code>EntryForm.tsx</code>'s existing per-category save label
+          ("I lent this"/"I paid this back"/etc.) and <code>SettleUpModal.tsx</code>'s "Record settlement"
+          unchanged; this redesign only touches layout/field visuals, not copy.</li>
+        <li><b>Scope note</b> — this is layout/visual only. None of the three real logic fixes from the previous
+          round (category-gating, settlement-kind bug, delete/edit-tap unification, Settle Up's tile-disable
+          rule) change here; this reskins the same already-correct behavior.</li>
+      </ol>
+    </div>
+  </body>
+</html>

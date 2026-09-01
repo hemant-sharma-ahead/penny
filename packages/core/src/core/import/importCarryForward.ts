@@ -7,35 +7,23 @@ import type { ParsedRow } from './importParsers';
  * calendar month per account, purely as a continuity/bookkeeping artifact — never a real transaction
  * and never a transfer (there's no second account to pair with). Penny doesn't need MoneyView's
  * monthly buckets at all: it computes a running balance as `Account.openingBalance + sum of every
- * transaction's delta`, so only the chronologically-EARLIEST marker per account represents real money
- * that existed before tracked history began — every LATER marker for the same account is redundant,
- * because the real transactions in between already account for that same leftover amount. Importing a
- * later one too would double-count it and compound every subsequent month.
+ * transaction's delta`, so importing ANY carry-forward marker would double-count money already
+ * represented by the real transactions around it.
  *
- * Grouping is per `row.account` (not per category name, and not a single global cut) — each account's
- * carry-forward timeline is independent of every other account's.
+ * 2026-08-23 (item 72, 8th batch real-device testing pass): previously the chronologically-EARLIEST
+ * marker per account was deliberately kept OUT of this excluded set, on the theory that it represented a
+ * real opening-balance-like row rather than a redundant repeat. Per explicit decision, every
+ * carry-forward row — including the earliest — is now treated identically and excluded; accounts
+ * created during import still seed `openingBalance: 0` exactly as every other import-created account
+ * already does (`AccountsSection.tsx`/`useImport.ts` both hardcode this) — this function's job is purely
+ * "exclude every carry-forward row," nothing else.
  *
- * Returns the indices into `rows` (matching `ParsedRow[]` order) of every REDUNDANT (non-earliest)
- * carry-forward row. The earliest row per account is NOT included — it flows through the normal
- * category-tile resolution flow like any other row, just never pre-suggested as a transfer (see
- * `isLikelyCarryForward` no longer being part of `isLikelyTransfer`'s keyword list).
+ * Returns the indices into `rows` (matching `ParsedRow[]` order) of every carry-forward row.
  */
 export function identifyRedundantCarryForwardRows(rows: ParsedRow[]): Set<number> {
-  const byAccount = new Map<string, { index: number; date: number }[]>();
-
+  const excluded = new Set<number>();
   rows.forEach((row, index) => {
-    if (!isLikelyCarryForward(row.categoryName)) return;
-    const key = row.account?.trim() || '';
-    const entries = byAccount.get(key) ?? [];
-    entries.push({ index, date: row.date });
-    byAccount.set(key, entries);
+    if (isLikelyCarryForward(row.categoryName)) excluded.add(index);
   });
-
-  const redundant = new Set<number>();
-  for (const entries of byAccount.values()) {
-    if (entries.length <= 1) continue;
-    const sortedByDate = [...entries].sort((a, b) => a.date - b.date);
-    for (const entry of sortedByDate.slice(1)) redundant.add(entry.index);
-  }
-  return redundant;
+  return excluded;
 }

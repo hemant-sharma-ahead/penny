@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Penny — CSV Import: full-screen transaction browser for high-volume category groups (v2 — corrected)</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+    <style>
+      :root {
+        --bg:#0b0f14; --surface:#161b22; --surface2:#1c2128; --surface3:#20262f; --text:#e6edf3; --text2:#8b949e; --text3:#6e7681;
+        --border:#2d333b; --borderstrong:#444c56; --primary:#00a86b; --danger:#ef4444; --warning:#f59e0b; --success:#10b981; --info:#3b82f6; --neutral:#8b949e;
+      }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#05070a; color:var(--text); -webkit-font-smoothing:antialiased; }
+      h1 { text-align:center; margin:30px 16px 4px; font-size:21px; color:#fff; }
+      .sub { text-align:center; margin:0 16px 14px; color:#9aa5b1; font-size:13.5px; max-width:920px; margin-left:auto; margin-right:auto; line-height:1.65; }
+      .topnav { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin:0 16px 20px; }
+      .topnav a { font-size:12px; font-weight:700; color:#cfe9db; background:#0f2419; border:1px solid #1c3d2a; padding:7px 14px; border-radius:999px; text-decoration:none; }
+      .topnav a:hover { background:#123524; }
+
+      .groundnote { max-width:900px; margin:0 auto 14px; background:#12181f; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:#9aa5b1; font-size:11.5px; line-height:1.6; }
+      .groundnote code { background:#1c2128; padding:1px 5px; border-radius:5px; font-size:10.5px; color:#c3ccd6; }
+      .groundnote.changed { border-color:rgba(0,168,107,.4); background:rgba(0,168,107,.08); color:#d3f5e6; }
+      .groundnote.changed b { color:#7ee6b8; }
+      .groundnote.changed ol { margin:6px 0 0; padding-left:18px; }
+      .groundnote.changed li { margin-bottom:5px; }
+      .calloutnote { max-width:900px; margin:0 auto 18px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.35); border-radius:12px; padding:12px 16px; color:#fbdca0; font-size:11.5px; line-height:1.65; display:flex; gap:8px; }
+      .calloutnote i { color:var(--warning); font-size:16px; flex-shrink:0; margin-top:1px; }
+      .calloutnote b { color:#ffd98a; }
+      .calloutnote.good { background:rgba(16,185,129,.1); border-color:rgba(16,185,129,.35); color:#d3f5e6; }
+      .calloutnote.good i { color:var(--success); }
+      .calloutnote.good b { color:#7ee6b8; }
+      .calloutnote.bad { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.35); color:#fbd3d3; }
+      .calloutnote.bad i { color:var(--danger); }
+      .calloutnote.bad b { color:#ff9a9a; }
+
+      .sectionband { border-top:1px solid #1b222b; padding-top:36px; margin-top:10px; }
+      .sectiontitle { text-align:center; font-size:16px; font-weight:800; color:#fff; margin:0 0 4px; }
+      .sectiontitle .num { display:inline-block; width:22px; height:22px; border-radius:50%; background:var(--primary); color:#04140d; font-size:12px; line-height:22px; margin-right:8px; }
+      .sectionsub { text-align:center; color:#9aa5b1; font-size:12.5px; max-width:840px; margin:0 auto 14px; line-height:1.65; }
+
+      .viewwrap { display:flex; flex-direction:row; justify-content:center; gap:22px; flex-wrap:wrap; }
+      .viewcol { display:flex; flex-direction:column; align-items:center; gap:10px; }
+      .stagelabel { font-size:11px; font-weight:800; color:#fff; text-align:center; max-width:390px; }
+      .tapline { text-align:center; font-size:11px; color:var(--text2); max-width:390px; line-height:1.65; }
+      .tapline b { color:#fff; }
+
+      /* ===== Real device frame — 390×844, full height always ===== */
+      .phone { width:390px; height:844px; background:var(--bg); border-radius:44px; border:10px solid #1c2128; overflow:hidden; position:relative; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.55); flex-shrink:0; }
+      .statusbar { height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; padding:0 26px 0 24px; font-size:14px; font-weight:700; color:var(--text); }
+      .statusbar .sbicons { display:flex; gap:5px; align-items:center; color:var(--text); font-size:13px; }
+      .appheader { height:48px; display:flex; align-items:center; padding:0 14px; flex-shrink:0; border-bottom:1px solid var(--border); gap:10px; }
+      .appheader .back2 { width:22px; height:22px; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:16px; }
+      .appheader .htitle2 { flex:1; font-size:13px; font-weight:700; color:var(--text); }
+      .appheader .hcount { font-size:10.5px; color:var(--text3); }
+      .content { padding:12px 14px 16px; flex:1; overflow-y:auto; }
+
+      .banner { border-radius:11px; border:1px solid; padding:9px 10px; display:flex; gap:7px; font-size:10px; line-height:1.55; margin-bottom:10px; }
+      .banner.info { border-color:rgba(59,130,246,.35); background:rgba(59,130,246,.12); color:#c8ddfb; }
+      .banner.info i { color:var(--info); font-size:13px; margin-top:1px; }
+
+      /* ===== Bucket card wrapper (real BucketCard.tsx) ===== */
+      .rbucket { border-radius:12px; overflow:hidden; background:var(--surface); border:1px solid var(--border); margin-bottom:9px; }
+      .rbhead { display:flex; align-items:center; gap:8px; padding:10px 12px; }
+      .rbdot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+      .rbtitle { font-size:11.5px; font-weight:700; color:var(--text); flex:1; }
+      .rbcount { background:var(--surface3); border-radius:999px; padding:2px 7px; font-size:9.5px; font-weight:800; color:var(--text2); }
+      .rbbody { border-top:1px solid var(--border); padding:9px 10px 10px; display:flex; flex-direction:column; gap:8px; }
+
+      /* ===== CategoryTile.tsx accordion (real pattern, shared by before/after) ===== */
+      .cattile { border-radius:12px; overflow:hidden; border:1px solid var(--border); }
+      .cattile.ready .cthead { background:rgba(16,185,129,.1); }
+      .cattile.attn .cthead { background:rgba(245,158,11,.16); }
+      .cthead { padding:10px 11px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+      .ctsrc { font-size:11.5px; font-weight:700; color:var(--text); }
+      .ctarrow { color:var(--text3); font-size:10px; }
+      .cttarget { font-size:11.5px; font-weight:700; color:var(--text); }
+      .cttarget.transfer { color:var(--info); }
+      .ctbadge { font-size:7.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:2px 6px; border-radius:999px; display:inline-flex; align-items:center; gap:3px; }
+      .ctbadge.high { background:rgba(16,185,129,.16); color:#7ee6b8; }
+      .ctbadge.low { background:rgba(139,148,158,.18); color:var(--text2); }
+      .ctcountpill { margin-left:auto; background:var(--surface3); border-radius:999px; padding:2px 7px; font-size:9.5px; font-weight:800; color:var(--text2); flex-shrink:0; }
+      .ctchev { color:var(--text3); font-size:12px; flex-shrink:0; }
+      .ctbody { border-top:1px solid var(--border); padding:9px 11px; background:var(--surface); display:flex; flex-direction:column; gap:8px; }
+      .ctfoot { border-top:1px solid var(--border); padding:9px 11px; display:flex; gap:8px; background:var(--surface); }
+      .cfbtn { flex:1; text-align:center; padding:9px 0; border-radius:10px; font-size:11px; font-weight:700; border:1px solid var(--border); background:var(--surface3); color:var(--text); cursor:pointer; font-family:inherit; }
+      .cfbtn:disabled { opacity:.4; cursor:default; }
+      .cfbtn.ghost { flex:0 0 auto; padding:9px 12px; border:none; background:none; color:var(--text2); }
+
+      /* ===== TileRowList.tsx — real inline pattern (unchanged in v2 — kept, not replaced) ===== */
+      .selectallrow { display:flex; align-items:center; gap:7px; padding-bottom:6px; cursor:pointer; }
+      .selectallrow span { font-size:10.5px; font-weight:700; color:var(--text2); }
+      .scrollbox4 { max-height:260px; overflow-y:auto; border-top:1px dashed var(--border); }
+      .oldrow { display:flex; align-items:center; gap:7px; padding:6px 0; border-top:1px dashed var(--border); }
+      .oldrow:first-child { border-top:none; }
+      .oldrowmid { flex:1; min-width:0; }
+      .oldrowmid .l1 { font-size:10.5px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .oldrowmid .l2 { font-size:9px; color:var(--text3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .oldrowamt { font-size:10.5px; font-weight:700; color:var(--danger); flex-shrink:0; }
+      .loadmorebtn { text-align:center; padding:9px 0 2px; font-size:11px; font-weight:700; color:var(--primary); cursor:pointer; background:none; border:none; font-family:inherit; width:100%; }
+      /* "See all" reuses THIS exact class (v2 correction #2 — plain text link, no button chrome) with one
+         extra visual cue (a dashed top rule + small top margin) so it reads as a second, distinct
+         affordance stacked below the pagination link rather than a duplicate of it. */
+      .seealllink { margin-top:2px; border-top:1px dashed var(--border); padding-top:9px; }
+      .scrollnote { text-align:center; font-size:9px; color:var(--text3); padding-top:6px; }
+
+      /* checkbox — RowCheckbox.tsx exact visual */
+      .rowchk { width:15px; height:15px; border-radius:4px; flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+      .rowchk.off { border:1.75px solid var(--borderstrong); background:var(--surface3); }
+      .rowchk.on { border:1px solid var(--primary); background:var(--primary); }
+      .rowchk i { font-size:9px; color:#fff; }
+
+      /* ===== Full-screen popup — same centred Modal.tsx primitive, near full-height card ===== */
+      .backdrop2 { position:absolute; inset:0; background:rgba(0,0,0,.62); display:flex; align-items:center; justify-content:center; padding:56px 16px 72px; z-index:9; }
+      .popup2 { width:100%; max-width:358px; height:100%; background:var(--surface); border:1px solid var(--border); border-radius:18px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.55); }
+      .pophead2 { display:flex; align-items:flex-start; gap:8px; padding:14px 14px 4px; flex-shrink:0; }
+      .ptitle2 { flex:1; min-width:0; }
+      .ptitle2 .pt1 { font-size:13px; font-weight:800; color:#fff; }
+      .ptitle2 .pt2 { font-size:10px; color:var(--text3); margin-top:1px; }
+      .pxbtn2 { color:var(--text2); cursor:pointer; background:none; border:none; font-size:18px; font-family:inherit; flex-shrink:0; }
+      .statline2 { padding:2px 14px 8px; font-size:11px; font-weight:700; color:var(--text); flex-shrink:0; }
+      .statline2 span { color:var(--primary); }
+      .selectrow2 { display:flex; align-items:center; justify-content:space-between; padding:0 14px 10px; flex-shrink:0; gap:8px; }
+      .selectrow2 .sr-l { display:flex; align-items:center; gap:7px; cursor:pointer; flex-shrink:0; }
+      .selectrow2 .sr-l span { font-size:10.5px; font-weight:700; color:var(--text2); }
+      .selectrow2 .sr-r { font-size:9.5px; font-weight:700; color:var(--text3); text-align:right; }
+
+      .scrubwrap { display:flex; align-items:center; gap:5px; padding:8px 10px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+      .allchip { flex-shrink:0; padding:8px 12px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); font-size:10.5px; font-weight:800; color:var(--text2); cursor:pointer; font-family:inherit; }
+      .allchip.active { background:var(--primary); color:#04140d; border-color:transparent; }
+      .scrubtrack { flex:1; display:flex; gap:6px; overflow-x:auto; scroll-behavior:smooth; scrollbar-width:none; -ms-overflow-style:none; }
+      .scrubtrack::-webkit-scrollbar { display:none; height:0; width:0; }
+      .scrubchip { flex-shrink:0; padding:7px 11px; border-radius:10px; background:var(--surface2); border:1px solid var(--border); font-size:10.5px; font-weight:700; color:var(--text2); cursor:pointer; white-space:nowrap; font-family:inherit; }
+      .scrubchip.active { background:var(--primary); color:#04140d; border-color:transparent; }
+      .calbtn { flex-shrink:0; width:32px; height:32px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--text2); cursor:pointer; font-size:14px; }
+      .scrubmeta { display:flex; justify-content:space-between; padding:6px 14px 4px; font-size:9px; color:var(--text3); flex-shrink:0; }
+
+      .content3 { flex:1; overflow-y:auto; padding:2px 14px 10px; }
+      .datehdr3 { font-size:9.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--text3); padding:10px 2px 4px; }
+      .datehdr3:first-child { padding-top:2px; }
+      .txrow2 { display:flex; align-items:center; gap:9px; padding:8px 2px; border-bottom:1px solid var(--border); cursor:pointer; }
+      .txrow2:last-child { border-bottom:none; }
+      .ricn2 { width:30px; height:30px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+      .ricn2 i { font-size:14px; }
+      .txmid2 { flex:1; min-width:0; }
+      .txmid2 .t1b { font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .txmid2 .t2b { font-size:9.5px; color:var(--text3); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .cptychip { display:inline-flex; align-items:center; gap:3px; border-radius:999px; padding:1px 6px; font-size:8px; font-weight:700; background:rgba(59,130,246,.15); color:#8fb4e6; margin-left:3px; }
+      .cptychip.self { background:rgba(139,148,158,.18); color:var(--text2); }
+      .txright2 { text-align:right; flex-shrink:0; }
+      .txright2 .amtb { font-size:11.5px; font-weight:700; }
+      .txright2 .accb { font-size:8.5px; color:var(--text3); margin-top:1px; }
+
+      .pfoot2 { padding:10px 14px 14px; border-top:1px solid var(--border); flex-shrink:0; }
+      .confirmbtn2 { width:100%; text-align:center; padding:12px 0; border-radius:11px; font-size:12.5px; font-weight:700; border:none; font-family:inherit; cursor:pointer; background:var(--primary); color:#04140d; }
+      .confirmbtn2:disabled { opacity:.4; cursor:default; }
+
+      .monthmodal-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:18px; z-index:12; }
+      .monthmodal { width:100%; max-width:280px; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+      .monthmodal .mmhead { display:flex; align-items:center; gap:8px; padding:14px 14px 6px; }
+      .monthmodal .mmtitle { flex:1; font-size:13px; font-weight:800; color:#fff; }
+      .monthmodal .mmbody { padding:10px 14px 16px; }
+      .yearrow { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+      .yearrow .yr { font-size:14px; font-weight:700; color:var(--text); }
+      .yearbtn { width:26px; height:26px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--text2); background:none; border:none; cursor:pointer; }
+      .yearbtn:disabled { opacity:.3; cursor:default; }
+      .monthgrid { display:flex; flex-wrap:wrap; gap:7px; }
+      .monthtile { width:22.5%; padding:9px 0; border-radius:9px; text-align:center; font-size:10.5px; font-weight:600; background:var(--surface3); color:var(--text2); cursor:pointer; border:none; font-family:inherit; }
+      .monthtile:disabled { opacity:.3; cursor:default; }
+      .monthtile.sel { background:var(--primary); color:#04140d; }
+
+      .recommend { max-width:900px; margin:16px auto 6px; background:#0f2419; border:1px solid #1c3d2a; border-radius:16px; padding:18px 22px; color:#d7f5e6; font-size:12.5px; line-height:1.7; }
+      .recommend b { color:#7ee6b8; }
+      .recommend ul { margin:6px 0 0; padding-left:18px; }
+      .legend { max-width:900px; margin:14px auto 60px; background:#0e141b; border:1px solid #1e2733; border-radius:16px; padding:20px 24px; color:#c3ccd6; font-size:12.5px; line-height:1.7; }
+      .legend h2 { font-size:14px; margin:0 0 8px; color:#fff; }
+      .legend code { background:#1c2128; padding:1px 6px; border-radius:5px; font-size:11px; }
+      .legend ol, .legend ul { padding-left:20px; margin:6px 0 14px; }
+      .legend li { margin-bottom:6px; }
+    </style>
+  </head>
+  <body>
+    <h1>CSV Import — full-screen transaction browser for high-volume category groups (v2)</h1>
+    <p class="sub">Grounded in <code>TileRowList.tsx</code>, <code>CategoryTile.tsx</code>, <code>ImportCategorizeModal.tsx</code>
+      and the already-shipped <code>MonthScrubBar.tsx</code> (approved via <code>fourth-batch-redesigns-v5.html</code> §4).
+      Two real on-device findings this fixes: (1) a category-resolution group with hundreds/thousands of rows is
+      unworkable to review in <code>TileRowList</code>'s 260px scroll box + "Show 60 more" pagination-in-place; (2)
+      <code>importCounterpartySplit.ts</code>'s per-counterparty explosion of MoneyView "A/c to A/c" rows is a
+      workaround for problem (1), not a real fix — once a group of hundreds is genuinely browsable, the split can be
+      removed and the group can stay ONE row.</p>
+
+    <div class="groundnote changed"><b>Changed since v1 (direct user feedback) — three localized corrections, §1 untouched:</b>
+      <ol>
+        <li><b>§2's tile no longer replaces the inline preview.</b> The tile keeps rendering its real, unchanged
+          <code>TileRowList</code> inline list (select-all row + 260px scroll box + "Show N more") exactly as it does
+          today. "See all N →" is now an ADDITIONAL affordance below that list, not a replacement for it.</li>
+        <li><b>"See all N →" is now a plain text link</b>, reusing <code>TileRowList</code>'s own real
+          <code>loadmorebtn</code> styling verbatim (small, coloured text, no fill/border) — the heavy filled/bordered
+          button from v1 is gone.</li>
+        <li><b>Inside the popup, "Select all"/"Clear" now scope to whatever the month-scrub-bar has active</b> — a
+          specific month if one's picked, the whole group if "All" is active — reversing v1's judgment call #2
+          outright. Demonstrated live in §2 below, not just described.</li>
+      </ol>
+    </div>
+
+    <div class="topnav">
+      <a href="#before">① Before — today's cramped pagination</a>
+      <a href="#after">② New — "See all" → full-screen browser popup</a>
+      <a href="#closing">Recommendation &amp; open questions</a>
+    </div>
+
+    <!-- ================= BEFORE (unchanged from v1 — user confirmed this state is fine) ================= -->
+    <div class="sectionband" id="before">
+      <div class="sectiontitle"><span class="num">1</span>Before — today's real behavior</div>
+      <div class="sectionsub">Two real problems, side by side. Left: <code>TileRowList.tsx</code>'s always-expanded
+        260px scroll box with a 60-row initial cap and a "Show 60 more" button that just appends more rows to the
+        same tiny area — try clicking it a few times. Right: <code>importCounterpartySplit.ts</code> exploding one
+        real capability ("A/c to A/c" self-transfers) into a separate top-level tile per detected counterparty —
+        the same 812 real transactions, spread across 4 tiles instead of browsable as one.</div>
+      <div class="groundnote">Both frames below render the real, current <code>CategoryTile.tsx</code> accordion
+        shell (header → target pill/badges/count/chevron, expanded body, "Categorize N selected ›" + "Skip" footer) —
+        nothing invented. The left tile is pre-expanded to show the actual pain; try "Show 60 more" a few times to
+        feel how little progress it makes against 1,639 rows.</div>
+
+      <div class="viewwrap">
+        <div class="viewcol">
+          <div class="stagelabel">"Chai snacks" — 1,639 rows of one recurring description, real on-device report</div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Transactions</div><div class="hcount">2,451 rows</div></div>
+            <div class="content">
+              <div class="banner info"><i class="ti ti-info-circle"></i><span>Categories are already set from the last step. Double-check the actual transactions in each group before importing.</span></div>
+              <div class="rbucket">
+                <div class="rbhead"><div class="rbdot" style="background:var(--success)"></div><div class="rbtitle">Staged — ready to import</div><div class="rbcount">1,639</div></div>
+                <div class="rbbody">
+                  <div class="cattile ready">
+                    <div class="cthead">
+                      <span class="ctsrc">"Chai snacks"</span>
+                      <i class="ti ti-arrow-right ctarrow"></i>
+                      <span class="cttarget">Food &amp; Dining</span>
+                      <span class="ctcountpill">1639 txns</span>
+                      <i class="ti ti-chevron-up ctchev"></i>
+                    </div>
+                    <div class="ctbody">
+                      <div class="selectallrow" onclick="beforeToggleAll()"><div class="rowchk" id="before-allchk"></div><span id="before-alllabel">Unselect all</span></div>
+                      <div class="scrollbox4" id="before-scrollbox"></div>
+                      <div id="before-loadmore"></div>
+                    </div>
+                    <div class="ctfoot">
+                      <button class="cfbtn">Categorize 1639 selected ›</button>
+                      <button class="cfbtn ghost">Skip</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tapline">Click <b>"Show 60 more"</b> a few times — each tap barely dents 1,639 rows, all
+            inside a box that's already scrolling. Deciding what to exclude here is unworkable.</div>
+        </div>
+
+        <div class="viewcol">
+          <div class="stagelabel">"A/c to A/c" — same 812 real rows, exploded by counterparty today</div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Transactions</div><div class="hcount">2,451 rows</div></div>
+            <div class="content">
+              <div class="banner info"><i class="ti ti-info-circle"></i><span>Categories are already set from the last step. Double-check the actual transactions in each group before importing.</span></div>
+              <div class="rbucket">
+                <div class="rbhead"><div class="rbdot" style="background:var(--warning)"></div><div class="rbtitle">Needs your input</div><div class="rbcount">812</div></div>
+                <div class="rbbody">
+                  <div class="cattile attn"><div class="cthead">
+                    <span class="ctsrc">— Ramesh Kumar</span>
+                    <span class="ctbadge high"><i class="ti ti-user-check"></i>Matches Person</span>
+                    <i class="ti ti-arrow-right ctarrow"></i><span class="cttarget transfer">Transfer</span>
+                    <span class="ctcountpill">312</span><i class="ti ti-chevron-down ctchev"></i>
+                  </div></div>
+                  <div class="cattile attn"><div class="cthead">
+                    <span class="ctsrc">— Priya S</span>
+                    <span class="ctbadge high"><i class="ti ti-user-check"></i>Matches Person</span>
+                    <i class="ti ti-arrow-right ctarrow"></i><span class="cttarget transfer">Transfer</span>
+                    <span class="ctcountpill">198</span><i class="ti ti-chevron-down ctchev"></i>
+                  </div></div>
+                  <div class="cattile attn"><div class="cthead">
+                    <span class="ctsrc">— Vikram</span>
+                    <span class="ctbadge low"><i class="ti ti-help-circle"></i>No person match</span>
+                    <i class="ti ti-arrow-right ctarrow"></i><span class="cttarget transfer">Transfer</span>
+                    <span class="ctcountpill">146</span><i class="ti ti-chevron-down ctchev"></i>
+                  </div></div>
+                  <div class="cattile attn"><div class="cthead">
+                    <span class="ctsrc">— (no clear person)</span>
+                    <span class="ctbadge low"><i class="ti ti-arrows-left-right"></i>Residual</span>
+                    <i class="ti ti-arrow-right ctarrow"></i><span class="cttarget transfer">Transfer</span>
+                    <span class="ctcountpill">156</span><i class="ti ti-chevron-down ctchev"></i>
+                  </div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tapline">One real capability ("what to do with A/c-to-A/c rows") reachable from
+            <b>4 separate tiles</b> — each still capped/cramped internally the same way if expanded.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= AFTER ================= -->
+    <div class="sectionband" id="after">
+      <div class="sectiontitle"><span class="num">2</span>New — "See all" opens a full-screen browser</div>
+      <div class="sectionsub">One tile per source again (counterparty split removed — see the callout below). The
+        tile's body is unchanged from today — the real <code>TileRowList</code> inline preview (select-all row,
+        260px scroll box, "Show N more") still renders exactly as it does now. Once a tile's row count exceeds 60,
+        a plain text link — "See all N transactions →", styled identically to "Show N more" — appears BELOW that
+        inline list as one more way to reach the same rows, in a real interactive popup: month-scrub-bar narrowing
+        (exact visual/behavior of the already-shipped <code>MonthScrubBar.tsx</code>), a running "N of M selected"
+        count, per-row checkboxes, and the same real "Categorize N selected ›" footer.</div>
+      <div class="calloutnote good"><i class="ti ti-bulb"></i><span><b>Judgment call — counterparty split removed.</b>
+        <code>importCounterpartySplit.ts</code> exists only because a group of hundreds/thousands was unbrowsable as
+        one tile. With this popup, that's no longer true — "A/c to A/c" ships as ONE tile again, and each row inside
+        the popup carries its own small counterparty chip (still visible, still traceable to a Person match) instead
+        of being pre-split into separate top-level rows. This mockup renders that removal but doesn't implement it —
+        confirm before any <code>useImport.ts</code>/<code>importTransactionsGrouping.ts</code> code change.</span></div>
+      <div class="calloutnote good"><i class="ti ti-arrows-left-right"></i><span><b>Corrected from v1 — "Select all"
+        inside the popup now scopes to the active month filter, not the whole group.</b> Narrow to a specific month
+        via the scrub bar, then "Select all" only checks/unchecks that month's rows — other months' selections are
+        left exactly as they were. Switch to "All" and the same control covers the entire group again, same as
+        before. Deliberately labelled <b>"Select all" / "Clear"</b> here — not "Select all" / "Unselect all" — so it
+        never gets mistaken for the tile's own inline select-all row below (which stays whole-group, unscoped,
+        matching <code>TileRowList.tsx</code> exactly, since that control has no concept of a month filter). Try it:
+        open a popup, pick a month, tap "Select all" (only that month's rows check, the top "N of M" count rises by
+        just that month's size), pick a different month, tap "Select all" again (the first month's checks are still
+        there — counts compound), then tap "Clear" on the currently active month (only it unchecks) and switch to
+        "All" (still covers everything, as before).</span></div>
+      <div class="calloutnote"><i class="ti ti-alert-triangle"></i><span><b>Judgment call — "All" still uses the
+        existing 60-row cap + "Show N more", just full-screen now.</b> Per <code>docs/ARCHITECTURE.md</code>'s rule
+        against an unbounded <code>.map()</code> over bulk data, "All" was never going to render all 1,639 rows in
+        one shot even with the room a popup gives it — the cap just matters far less now that a month chip can jump
+        straight to a specific slice instead of clicking "show more" repeatedly.</span></div>
+      <div class="calloutnote bad"><i class="ti ti-git-compare"></i><span><b>Cross-platform finding — the two
+        platforms already disagree here, and this doesn't fix that.</b> <code>apps/web-react</code>'s own
+        <code>CategoryTile.tsx</code> has no cap/pagination logic at all — it hard-slices to
+        <code>rows.slice(0, 8)</code> with no way to see the remaining rows, ever. That's a worse gap than mobile's
+        60-row cap even had. Per <code>CLAUDE.md</code>, <code>apps/web-react</code> is frozen (historical reference
+        only) — this mockup and any resulting implementation is mobile-only by policy, not because the platforms
+        agree; flagging it since it's a real, pre-existing disagreement, not a new one this change creates.</span></div>
+
+      <div class="viewwrap">
+        <div class="viewcol" style="max-width:390px">
+          <div class="stagelabel">Transactions stage — the inline list is real and interactive; tap "See all" (or scroll the box) either way</div>
+          <div class="phone">
+            <div class="statusbar"><span>9:41</span><span class="sbicons"><i class="ti ti-signal-4g"></i><i class="ti ti-wifi"></i><i class="ti ti-battery-4"></i></span></div>
+            <div class="appheader"><div class="back2"><i class="ti ti-chevron-left"></i></div><div class="htitle2">Transactions</div><div class="hcount">2,451 rows</div></div>
+            <div class="content">
+              <div class="banner info"><i class="ti ti-info-circle"></i><span>Categories are already set from the last step. Double-check the actual transactions in each group before importing.</span></div>
+
+              <div class="rbucket">
+                <div class="rbhead"><div class="rbdot" style="background:var(--warning)"></div><div class="rbtitle">Needs your input</div><div class="rbcount">812</div></div>
+                <div class="rbbody">
+                  <div class="cattile attn">
+                    <div class="cthead">
+                      <span class="ctsrc">"A/c to A/c"</span>
+                      <i class="ti ti-arrow-right ctarrow"></i>
+                      <span class="cttarget transfer">Transfer (self / IOU-suspect)</span>
+                      <span class="ctcountpill">812 txns</span>
+                      <i class="ti ti-chevron-up ctchev"></i>
+                    </div>
+                    <div class="ctbody">
+                      <div class="selectallrow" onclick="toggleSelectAll('a2a')"><div class="rowchk" id="after-a2a-allchk"></div><span id="after-a2a-alllabel"></span></div>
+                      <div class="scrollbox4" id="after-a2a-scrollbox"></div>
+                      <div id="after-a2a-loadmore"></div>
+                      <button class="loadmorebtn seealllink" onclick="openPopup('a2a')">See all 812 transactions →</button>
+                    </div>
+                    <div class="ctfoot">
+                      <button class="cfbtn" id="after-a2a-categorize">Categorize 812 selected ›</button>
+                      <button class="cfbtn ghost">Skip</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rbucket">
+                <div class="rbhead"><div class="rbdot" style="background:var(--success)"></div><div class="rbtitle">Staged — ready to import</div><div class="rbcount">1,639</div></div>
+                <div class="rbbody">
+                  <div class="cattile ready">
+                    <div class="cthead">
+                      <span class="ctsrc">"Chai snacks"</span>
+                      <i class="ti ti-arrow-right ctarrow"></i>
+                      <span class="cttarget">Food &amp; Dining</span>
+                      <span class="ctcountpill">1639 txns</span>
+                      <i class="ti ti-chevron-up ctchev"></i>
+                    </div>
+                    <div class="ctbody">
+                      <div class="selectallrow" onclick="toggleSelectAll('chai')"><div class="rowchk" id="after-chai-allchk"></div><span id="after-chai-alllabel"></span></div>
+                      <div class="scrollbox4" id="after-chai-scrollbox"></div>
+                      <div id="after-chai-loadmore"></div>
+                      <button class="loadmorebtn seealllink" onclick="openPopup('chai')">See all 1,639 transactions →</button>
+                    </div>
+                    <div class="ctfoot">
+                      <button class="cfbtn" id="after-chai-categorize">Categorize 1639 selected ›</button>
+                      <button class="cfbtn ghost">Skip</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="popupRoot"></div>
+          </div>
+          <div class="tapline">Tick a row (or use "Unselect all") right in the inline list, then open "See all" —
+            the popup shows the same selection, because it's the same underlying state, exactly like the real
+            <code>CategoryTile</code> owning <code>uncheckedIndices</code> today. Close the popup and the inline list
+            reflects whatever you changed inside it too.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CLOSING NOTES ================= -->
+    <div id="closing"></div>
+    <div class="recommend">
+      <b>Recommendation:</b> ship the "See all" popup as designed here, and remove the counterparty-name split as
+      part of the same change (not a follow-up) — the split's only reason to exist goes away the moment this popup
+      ships, and keeping both would leave two ways to browse the same kind of large group.
+      <ul>
+        <li>Threshold matches today's exactly (60 rows) — a tile with ≤60 rows keeps rendering the plain inline
+          list exactly as it does now, with no "See all" link at all; nothing changes for the common case.</li>
+        <li>The inline list itself is <b>never replaced</b> — "See all" is purely additive, so a user who's happy
+          scrolling/paginating in place loses nothing.</li>
+        <li>The popup reuses three things verbatim rather than inventing anything: the centred <code>Modal</code>
+          primitive (near-full-height via a scrollable body, not a bottom sheet), <code>MonthScrubBar.tsx</code>'s
+          exact chip/pinned-All/calendar-icon pattern, and <code>ImportCategorizeModal</code> unchanged (opened by
+          the same "Categorize N selected ›" button, not redesigned).</li>
+        <li>Per-row visual is upgraded from <code>TileRowList</code>'s plain two-line text row to the real
+          <code>TransactionsTab.tsx</code> row convention (tinted category-color icon rail + amount/account) — a
+          small, deliberate improvement now that there's room for it, not required by the "See all" mechanic itself.</li>
+        <li><b>New in v2:</b> the popup's "Select all"/"Clear" scopes to the active month filter (or the whole group
+          under "All") — reversing v1's opposite judgment call after explicit feedback. The tile's own inline
+          select-all row is intentionally left whole-group/unscoped, matching <code>TileRowList.tsx</code> exactly,
+          since it has no month concept to scope to.</li>
+      </ul>
+    </div>
+    <div class="legend">
+      <h2>Open questions / follow-ups for the user</h2>
+      <ol>
+        <li><b>Counterparty removal scope.</b> This mockup shows the end state (one merged "A/c to A/c" tile) but
+          doesn't touch <code>importCounterpartySplit.ts</code>/<code>useImport.ts</code> — confirm you want that
+          code change bundled with this popup's implementation, or shipped as a separate, explicit follow-up.</li>
+        <li><b>Row-visual upgrade.</b> Confirm the richer per-row treatment (icon rail, tinted by category/type) is
+          wanted inside the popup specifically, vs. keeping <code>TileRowList</code>'s plainer row style for
+          consistency with the still-existing ≤60-row inline case. Both are shown as one candidate here, not two
+          options — flag if you'd rather compare them side by side first.</li>
+        <li><b>Web parity.</b> No action proposed — <code>apps/web-react</code> stays frozen/un-mirrored per policy;
+          noted only as an existing, worse gap on that platform.</li>
+      </ol>
+    </div>
+
+    <script>
+      var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var REAL_CURRENT_YEAR = 2026;
+      var REAL_CURRENT_MONTH = 7; // Aug, 0-indexed — "today" per this session
+
+      // ---- Shared month list: Jan 2015 → Aug 2026 (real span reported: 2015-2025 data, extended to the
+      // real current month so the "hide year when current" rule in MonthScrubBar/monthChipLabel has a
+      // genuine case to exercise, same as fourth-batch-redesigns-v5.html §4's own reasoning). ----
+      var MONTHS = [];
+      (function () {
+        var y = 2015, m = 0;
+        while (y < REAL_CURRENT_YEAR || (y === REAL_CURRENT_YEAR && m <= REAL_CURRENT_MONTH)) {
+          MONTHS.push({ y: y, m: m });
+          m++;
+          if (m > 11) { m = 0; y++; }
+        }
+      })();
+      function chipLabel(entry) {
+        return entry.y === REAL_CURRENT_YEAR ? MONTHS_SHORT[entry.m] : MONTHS_SHORT[entry.m] + ' ' + entry.y;
+      }
+
+      // ---- Two realistic populated groups ----
+      var GROUPS = {
+        chai: {
+          key: 'chai', title: '"Chai snacks"', targetLabel: 'Food & Dining', targetClass: '',
+          icon: 'ti-cup', iconColor: '#f59e0b', iconBg: 'rgba(245,158,11,.15)',
+          count: 1639, desc: 'Chai / Snacks - Office Canteen', account: 'HDFC •••1234',
+          amountMin: 15, amountMax: 65,
+          endDate: new Date(2026, 7, 18), startDate: new Date(2015, 0, 12)
+        },
+        a2a: {
+          key: 'a2a', title: '"A/c to A/c"', targetLabel: 'Transfer (self / IOU-suspect)', targetClass: 'transfer',
+          icon: 'ti-arrows-left-right', iconColor: '#3b82f6', iconBg: 'rgba(59,130,246,.15)',
+          count: 812, desc: 'A/c to A/c', account: null,
+          counterparties: ['Ramesh Kumar', 'Priya S', 'Vikram', 'Landlord', 'Cash', '(no clear person)'],
+          accounts: ['HDFC •••1234', 'ICICI •••7788', 'SBI •••4410'],
+          amountMin: 300, amountMax: 28000,
+          endDate: new Date(2026, 6, 29), startDate: new Date(2015, 2, 3)
+        }
+      };
+
+      function stepMs(g) { return (g.endDate.getTime() - g.startDate.getTime()) / (g.count - 1); }
+      function rowDate(g, i) { return new Date(g.endDate.getTime() - i * stepMs(g)); }
+      function prand(i, salt) { var x = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453; return x - Math.floor(x); }
+      function rowAt(g, i) {
+        var date = rowDate(g, i);
+        var r = prand(i, g.key.length + 3);
+        var amount = Math.round(g.amountMin + r * (g.amountMax - g.amountMin));
+        if (g.key === 'chai') {
+          return { i: i, date: date, amount: amount, account: g.account, counterparty: null };
+        }
+        var cpIdx = Math.floor(prand(i, 55) * g.counterparties.length);
+        var accIdx = Math.floor(prand(i, 91) * g.accounts.length);
+        return { i: i, date: date, amount: amount, account: g.accounts[accIdx], counterparty: g.counterparties[cpIdx] };
+      }
+      function iForDate(g, d) { return (g.endDate.getTime() - d.getTime()) / stepMs(g); }
+      function monthRowRange(g, y, m) {
+        var monthStart = new Date(y, m, 1, 0, 0, 0);
+        var monthEnd = new Date(y, m + 1, 0, 23, 59, 59);
+        var iMin = Math.max(0, Math.ceil(iForDate(g, monthEnd)));
+        var iMax = Math.min(g.count - 1, Math.floor(iForDate(g, monthStart)));
+        if (iMin > iMax) return null;
+        return [iMin, iMax];
+      }
+      function fmtDate(d) { return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
+
+      // ---- Selection + filter state — persists across popup open/close AND is shared with the tile's own
+      // inline TileRowList preview (2026-08-20, matches TileRowList.tsx's own opt-out model living in the
+      // PARENT tile, not the modal — the popup is just another consumer of the same state, same as the
+      // real CategoryTile owning `uncheckedIndices` and handing it to whichever view renders it). ----
+      var uncheckedSets = { chai: new Set(), a2a: new Set() };
+      var viewState = {
+        chai: { mode: 'all', monthIdx: null, visibleCount: 60 },
+        a2a: { mode: 'all', monthIdx: null, visibleCount: 60 }
+      };
+      var afterVisible = { chai: 60, a2a: 60 };
+      var currentPopupKey = null;
+
+      function checkedCount(key) { return GROUPS[key].count - uncheckedSets[key].size; }
+
+      /** All row indices currently "in scope" for the popup's Select all/Clear control — the whole group
+       *  under "All", or just the active month's rows otherwise (v2 correction #3). */
+      function scopeIndices(key) {
+        var g = GROUPS[key];
+        var st = viewState[key];
+        if (st.mode === 'all') {
+          var arr = [];
+          for (var i = 0; i < g.count; i++) arr.push(i);
+          return arr;
+        }
+        var entry = MONTHS[st.monthIdx];
+        var range = monthRowRange(g, entry.y, entry.m);
+        if (!range) return [];
+        var arr2 = [];
+        for (var j = range[0]; j <= range[1]; j++) arr2.push(j);
+        return arr2;
+      }
+
+      /** Re-renders every view currently showing this group's state — the always-visible inline tile
+       *  preview, plus the popup if it's the one currently open. Single source of truth, multiple views. */
+      function renderAll(key) {
+        renderAfterTile(key);
+        if (currentPopupKey === key) renderPopupBody();
+      }
+
+      function toggleRow(key, i) {
+        var s = uncheckedSets[key];
+        if (s.has(i)) s.delete(i); else s.add(i);
+        renderAll(key);
+      }
+
+      /** Whole-group toggle — used ONLY by the tile's own inline "Select all"/"Unselect all" row, matching
+       *  TileRowList.tsx's real `onToggleAll` exactly (always the whole group; no month concept exists at
+       *  that layer). Deliberately NOT used by the popup's scoped control below. */
+      function toggleSelectAll(key) {
+        var s = uncheckedSets[key];
+        if (s.size === 0) {
+          for (var i = 0; i < GROUPS[key].count; i++) s.add(i);
+        } else {
+          s.clear();
+        }
+        renderAll(key);
+      }
+
+      /** Scoped toggle (v2 correction #3) — used ONLY by the popup's "Select all"/"Clear" control. Only
+       *  touches indices within the current scope (the active month, or everything under "All") — every
+       *  other index's checked state is left exactly as it was. */
+      function toggleSelectAllScoped(key) {
+        var scope = scopeIndices(key);
+        var s = uncheckedSets[key];
+        var scopeCheckedCount = scope.filter(function (i) { return !s.has(i); }).length;
+        var allCheckedInScope = scope.length > 0 && scopeCheckedCount === scope.length;
+        if (allCheckedInScope) {
+          scope.forEach(function (i) { s.add(i); }); // "Clear" — deselect just this scope
+        } else {
+          scope.forEach(function (i) { s.delete(i); }); // "Select all" — select just this scope
+        }
+        renderAll(key);
+      }
+
+      function txRowHtml(g, row) {
+        var checked = !uncheckedSets[g.key].has(row.i);
+        var cptyHtml = row.counterparty ? '<span class="cptychip' + (row.counterparty === '(no clear person)' ? ' self' : '') + '">' + row.counterparty + '</span>' : '';
+        var subtitle = g.key === 'chai' ? g.targetLabel : ('Transfer' + (cptyHtml ? ' ' + cptyHtml : ''));
+        return '' +
+          '<div class="txrow2" onclick="toggleRow(\'' + g.key + '\',' + row.i + ')">' +
+            '<div class="rowchk ' + (checked ? 'on' : 'off') + '">' + (checked ? '<i class="ti ti-check"></i>' : '') + '</div>' +
+            '<div class="ricn2" style="background:' + g.iconBg + '"><i class="ti ' + g.icon + '" style="color:' + g.iconColor + '"></i></div>' +
+            '<div class="txmid2"><div class="t1b">' + g.desc + '</div><div class="t2b">' + subtitle + ' · ' + fmtDate(row.date) + '</div></div>' +
+            '<div class="txright2"><div class="amtb" style="color:var(--danger)">-₹' + row.amount.toLocaleString('en-IN') + '</div><div class="accb">' + row.account + '</div></div>' +
+          '</div>';
+      }
+
+      function renderList(key) {
+        var g = GROUPS[key];
+        var st = viewState[key];
+        var html = '';
+        if (st.mode === 'all') {
+          var visible = Math.min(g.count, st.visibleCount);
+          var lastMonthKey = null;
+          for (var i = 0; i < visible; i++) {
+            var row = rowAt(g, i);
+            var mk = row.date.getFullYear() + '-' + row.date.getMonth();
+            if (mk !== lastMonthKey) {
+              html += '<div class="datehdr3">' + MONTHS_SHORT[row.date.getMonth()] + ' ' + row.date.getFullYear() + '</div>';
+              lastMonthKey = mk;
+            }
+            html += txRowHtml(g, row);
+          }
+          var remaining = g.count - visible;
+          if (remaining > 0) {
+            html += '<button class="loadmorebtn" onclick="showMore(\'' + key + '\')">Show ' + Math.min(remaining, 60) + ' more (' + remaining + ' left)</button>';
+          } else {
+            html += '<div class="scrollnote">' + g.count + ' rows total · every one shown</div>';
+          }
+        } else {
+          var entry = MONTHS[st.monthIdx];
+          var range = monthRowRange(g, entry.y, entry.m);
+          if (!range) {
+            html += '<div class="scrollnote" style="padding-top:24px">No transactions in ' + chipLabel(entry) + '</div>';
+          } else {
+            var lastDayKey = null;
+            for (var j = range[0]; j <= range[1]; j++) {
+              var r2 = rowAt(g, j);
+              var dk = r2.date.getDate();
+              if (dk !== lastDayKey) {
+                html += '<div class="datehdr3">' + fmtDate(r2.date) + '</div>';
+                lastDayKey = dk;
+              }
+              html += txRowHtml(g, r2);
+            }
+          }
+        }
+        document.getElementById('pop-list').innerHTML = html;
+      }
+
+      function showMore(key) {
+        viewState[key].visibleCount += 60;
+        renderList(key);
+      }
+
+      function renderScrubTrack(key) {
+        var g = GROUPS[key];
+        var st = viewState[key];
+        var track = document.getElementById('pop-track');
+        track.innerHTML = MONTHS.map(function (entry, i) {
+          var active = st.mode === 'month' && st.monthIdx === i;
+          return '<button class="scrubchip' + (active ? ' active' : '') + '" onclick="pickMonth(\'' + key + '\',' + i + ')">' + chipLabel(entry) + '</button>';
+        }).join('');
+        document.getElementById('pop-allchip').classList.toggle('active', st.mode === 'all');
+        if (st.mode === 'month') {
+          var chip = track.children[st.monthIdx];
+          if (chip) chip.scrollIntoView({ inline: 'center' });
+        } else {
+          track.scrollLeft = track.scrollWidth;
+        }
+      }
+
+      function renderMeta(key) {
+        var g = GROUPS[key];
+        var st = viewState[key];
+        var left;
+        if (st.mode === 'all') {
+          left = 'Viewing: All time';
+        } else {
+          var entry = MONTHS[st.monthIdx];
+          var range = monthRowRange(g, entry.y, entry.m);
+          var n = range ? (range[1] - range[0] + 1) : 0;
+          left = 'Viewing: ' + MONTHS_SHORT[entry.m] + ' ' + entry.y + ' · ' + n + ' in this month';
+        }
+        document.getElementById('pop-meta-l').textContent = left;
+        document.getElementById('pop-meta-r').textContent = MONTHS.length + ' months scrollable — Jan 2015 → ' + MONTHS_SHORT[REAL_CURRENT_MONTH] + ' ' + REAL_CURRENT_YEAR;
+      }
+
+      function pickMonth(key, i) {
+        viewState[key].mode = 'month';
+        viewState[key].monthIdx = i;
+        renderScrubTrack(key);
+        renderMeta(key);
+        renderPopupBody();
+      }
+      function pickAll(key) {
+        viewState[key].mode = 'all';
+        renderScrubTrack(key);
+        renderMeta(key);
+        renderPopupBody();
+      }
+
+      /** Updates the popup's "Select all"/"Clear" row — label, checkbox state, and the small scoped
+       *  fraction on the right (v2 correction #3). Under "All" the right-hand fraction is left blank
+       *  since the stat line above already shows the identical whole-group "N of M selected" figure —
+       *  showing it twice would be redundant (per the design guidelines' "no redundant information
+       *  display" rule). Under a specific month, it shows THAT month's own checked/total, which is new
+       *  information not shown anywhere else. */
+      function updateSelectAllRow(key) {
+        var scope = scopeIndices(key);
+        var s = uncheckedSets[key];
+        var scopeCheckedCount = scope.filter(function (i) { return !s.has(i); }).length;
+        var allCheckedInScope = scope.length > 0 && scopeCheckedCount === scope.length;
+        document.getElementById('pop-selectall-label').textContent = allCheckedInScope ? 'Clear' : 'Select all';
+        document.getElementById('pop-selectall-chk').className = 'rowchk ' + (allCheckedInScope ? 'on' : 'off');
+        document.getElementById('pop-selectall-chk').innerHTML = allCheckedInScope ? '<i class="ti ti-check"></i>' : '';
+        var st = viewState[key];
+        var scopeLabel = '';
+        if (st.mode === 'month') {
+          scopeLabel = scope.length > 0 ? (scopeCheckedCount + '/' + scope.length + ' this month') : 'none this month';
+        }
+        document.getElementById('pop-selectall-scope').textContent = scopeLabel;
+      }
+
+      function renderPopupBody() {
+        var key = currentPopupKey;
+        if (!key) return;
+        var count = checkedCount(key);
+        var total = GROUPS[key].count;
+        document.getElementById('pop-stat').innerHTML = '<span>' + count + '</span> of ' + total + ' selected';
+        updateSelectAllRow(key);
+        document.getElementById('pop-confirm').textContent = 'Categorize ' + count + ' selected ›';
+        document.getElementById('pop-confirm').disabled = count === 0;
+        renderList(key);
+        renderAfterTile(key); // keep the inline tile behind the popup in sync too
+      }
+
+      function openPopup(key) {
+        currentPopupKey = key;
+        var g = GROUPS[key];
+        var html = '' +
+          '<div class="backdrop2" onclick="if(event.target===this) return;">' +
+            '<div class="popup2">' +
+              '<div class="pophead2">' +
+                '<div class="ptitle2"><div class="pt1">' + g.title + ' → ' + g.targetLabel + '</div><div class="pt2">Browse &amp; select which transactions to categorize</div></div>' +
+                '<button class="pxbtn2" onclick="closePopup()">✕</button>' +
+              '</div>' +
+              '<div class="statline2" id="pop-stat"></div>' +
+              '<div class="selectrow2">' +
+                '<div class="sr-l" onclick="toggleSelectAllScoped(\'' + key + '\')"><div class="rowchk" id="pop-selectall-chk"></div><span id="pop-selectall-label"></span></div>' +
+                '<span class="sr-r" id="pop-selectall-scope"></span>' +
+              '</div>' +
+              '<div class="scrubwrap">' +
+                '<button class="allchip" id="pop-allchip" onclick="pickAll(\'' + key + '\')">All</button>' +
+                '<div class="scrubtrack" id="pop-track"></div>' +
+                '<button class="calbtn" onclick="openMonthModal(\'' + key + '\')"><i class="ti ti-calendar"></i></button>' +
+              '</div>' +
+              '<div class="scrubmeta"><span id="pop-meta-l"></span><span id="pop-meta-r"></span></div>' +
+              '<div class="content3" id="pop-list"></div>' +
+              '<div class="pfoot2"><button class="confirmbtn2" id="pop-confirm" onclick="fakeCategorize()"></button></div>' +
+            '</div>' +
+          '</div>' +
+          '<div id="pop-monthmodal"></div>';
+        document.getElementById('popupRoot').innerHTML = html;
+        renderScrubTrack(key);
+        renderMeta(key);
+        renderPopupBody();
+      }
+      function closePopup() {
+        document.getElementById('popupRoot').innerHTML = '';
+        currentPopupKey = null;
+      }
+      function fakeCategorize() {
+        alert('Opens the real, unchanged ImportCategorizeModal for the ' + checkedCount(currentPopupKey) + ' checked transactions — not redesigned here.');
+      }
+
+      function openMonthModal(key) {
+        var st = viewState[key];
+        var entry = st.mode === 'month' ? MONTHS[st.monthIdx] : MONTHS[MONTHS.length - 1];
+        renderMonthModal(key, entry.y);
+      }
+      function renderMonthModal(key, year) {
+        var st = viewState[key];
+        var maxYear = REAL_CURRENT_YEAR;
+        var grid = MONTHS_SHORT.map(function (label, i) {
+          var disabled = year === maxYear && i > REAL_CURRENT_MONTH;
+          var sel = st.mode === 'month' && MONTHS[st.monthIdx].y === year && MONTHS[st.monthIdx].m === i;
+          var idx = MONTHS.findIndex(function (e) { return e.y === year && e.m === i; });
+          return '<button class="monthtile' + (sel ? ' sel' : '') + '" ' + (disabled || idx === -1 ? 'disabled' : '') + ' onclick="pickFromModal(\'' + key + '\',' + year + ',' + i + ')">' + label + '</button>';
+        }).join('');
+        document.getElementById('pop-monthmodal').innerHTML =
+          '<div class="monthmodal-backdrop"><div class="monthmodal">' +
+            '<div class="mmhead"><div class="mmtitle">Select Month</div><button class="pxbtn2" onclick="closeMonthModal()">✕</button></div>' +
+            '<div class="mmbody"><div class="yearrow"><button class="yearbtn" ' + (year <= 2015 ? 'disabled' : '') + ' onclick="renderMonthModal(\'' + key + '\',' + (year - 1) + ')"><i class="ti ti-chevron-left"></i></button><span class="yr">' + year + '</span><button class="yearbtn" ' + (year >= maxYear ? 'disabled' : '') + ' onclick="renderMonthModal(\'' + key + '\',' + (year + 1) + ')"><i class="ti ti-chevron-right"></i></button></div>' +
+            '<div class="monthgrid">' + grid + '</div></div>' +
+          '</div></div>';
+      }
+      function pickFromModal(key, year, m) {
+        var idx = MONTHS.findIndex(function (e) { return e.y === year && e.m === m; });
+        if (idx === -1) return;
+        closeMonthModal();
+        pickMonth(key, idx);
+      }
+      function closeMonthModal() { document.getElementById('pop-monthmodal').innerHTML = ''; }
+
+      // ---- "Before" section — real TileRowList.tsx cap/pagination behavior, wired up so the pain is
+      // genuinely felt (not just described) ----
+      var beforeVisible = 60;
+      var beforeUnchecked = new Set();
+      var BEFORE_TOTAL = 1639;
+      function beforeRow(i) { return rowAt(GROUPS.chai, i); }
+      function renderBefore() {
+        var box = document.getElementById('before-scrollbox');
+        var html = '';
+        for (var i = 0; i < beforeVisible; i++) {
+          var row = beforeRow(i);
+          var checked = !beforeUnchecked.has(i);
+          html += '<div class="oldrow" onclick="beforeToggleRow(' + i + ')">' +
+            '<div class="rowchk ' + (checked ? 'on' : 'off') + '">' + (checked ? '<i class="ti ti-check"></i>' : '') + '</div>' +
+            '<div class="oldrowmid"><div class="l1">Chai / Snacks - Office Canteen</div><div class="l2">' + fmtDate(row.date) + ' · HDFC •••1234</div></div>' +
+            '<div class="oldrowamt">-₹' + row.amount.toLocaleString('en-IN') + '</div>' +
+          '</div>';
+        }
+        box.innerHTML = html;
+        var remaining = BEFORE_TOTAL - beforeVisible;
+        document.getElementById('before-loadmore').innerHTML = remaining > 0
+          ? '<button class="loadmorebtn" onclick="beforeShowMore()">Show ' + Math.min(remaining, 60) + ' more (' + remaining + ' left)</button>'
+          : '<div class="scrollnote">' + BEFORE_TOTAL + ' rows total · scroll for more</div>';
+        var allChecked = beforeUnchecked.size === 0;
+        document.getElementById('before-allchk').className = 'rowchk ' + (allChecked ? 'on' : 'off');
+        document.getElementById('before-allchk').innerHTML = allChecked ? '<i class="ti ti-check"></i>' : '';
+        document.getElementById('before-alllabel').textContent = allChecked ? 'Unselect all' : 'Select all';
+      }
+      function beforeShowMore() { beforeVisible = Math.min(BEFORE_TOTAL, beforeVisible + 60); renderBefore(); }
+      function beforeToggleRow(i) { if (beforeUnchecked.has(i)) beforeUnchecked.delete(i); else beforeUnchecked.add(i); renderBefore(); }
+      function beforeToggleAll() {
+        if (beforeUnchecked.size === 0) { for (var i = 0; i < BEFORE_TOTAL; i++) beforeUnchecked.add(i); }
+        else { beforeUnchecked.clear(); }
+        renderBefore();
+      }
+      renderBefore();
+
+      // ---- "After" section — the tile's real, UNCHANGED inline TileRowList preview (v2 correction #1),
+      // now genuinely interactive and sharing `uncheckedSets`/`afterVisible` with the popup rather than a
+      // static placeholder — so checking a row here and opening "See all" shows the identical state. ----
+      function afterRowHtml(g, i) {
+        var row = rowAt(g, i);
+        var checked = !uncheckedSets[g.key].has(i);
+        var line2 = fmtDate(row.date) + (row.account ? ' · ' + row.account : '');
+        return '<div class="oldrow" onclick="toggleRow(\'' + g.key + '\',' + i + ')">' +
+          '<div class="rowchk ' + (checked ? 'on' : 'off') + '">' + (checked ? '<i class="ti ti-check"></i>' : '') + '</div>' +
+          '<div class="oldrowmid"><div class="l1">' + g.desc + '</div><div class="l2">' + line2 + '</div></div>' +
+          '<div class="oldrowamt">-₹' + row.amount.toLocaleString('en-IN') + '</div>' +
+        '</div>';
+      }
+      function renderAfterTile(key) {
+        var box = document.getElementById('after-' + key + '-scrollbox');
+        if (!box) return;
+        var g = GROUPS[key];
+        var visible = Math.min(g.count, afterVisible[key]);
+        var html = '';
+        for (var i = 0; i < visible; i++) html += afterRowHtml(g, i);
+        box.innerHTML = html;
+        var remaining = g.count - visible;
+        document.getElementById('after-' + key + '-loadmore').innerHTML = remaining > 0
+          ? '<button class="loadmorebtn" onclick="afterShowMore(\'' + key + '\')">Show ' + Math.min(remaining, 60) + ' more (' + remaining + ' left)</button>'
+          : '<div class="scrollnote">' + g.count + ' rows total · scroll for more</div>';
+        var allChecked = uncheckedSets[key].size === 0;
+        document.getElementById('after-' + key + '-allchk').className = 'rowchk ' + (allChecked ? 'on' : 'off');
+        document.getElementById('after-' + key + '-allchk').innerHTML = allChecked ? '<i class="ti ti-check"></i>' : '';
+        document.getElementById('after-' + key + '-alllabel').textContent = allChecked ? 'Unselect all' : 'Select all';
+        var checked = checkedCount(key);
+        var btn = document.getElementById('after-' + key + '-categorize');
+        btn.textContent = 'Categorize ' + checked + ' selected ›';
+        btn.disabled = checked === 0;
+      }
+      function afterShowMore(key) {
+        afterVisible[key] = Math.min(GROUPS[key].count, afterVisible[key] + 60);
+        renderAfterTile(key);
+      }
+      renderAfterTile('a2a');
+      renderAfterTile('chai');
+    </script>
+  </body>
+</html>

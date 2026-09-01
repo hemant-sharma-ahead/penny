@@ -104,7 +104,11 @@ export function PlannerSummaryCard({ planner, masked }: PlannerSummaryCardProps)
       } else {
         const { File, Paths } = await import('expo-file-system');
         const file = new File(Paths.cache, data.filename);
-        file.write(bytes);
+        // `File.write()` is async (`Promise<void>`) — this used to fire the share sheet without waiting
+        // for the write to land, racing a real disk write against `shareAsync` (found 2026-08-21
+        // investigating backup restore failures; same missing-`await` bug, independently, in several
+        // other native export flows — see `AutoBackupCard.tsx`'s fix note for the full writeup).
+        await file.write(bytes);
 
         const Sharing = await import('expo-sharing');
         if (await Sharing.isAvailableAsync()) {

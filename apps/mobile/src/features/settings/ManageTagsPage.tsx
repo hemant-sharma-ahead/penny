@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ListContainer, SearchInput, Toggle } from '~/components/ui';
+import { TipNudgeBanner } from '~/components/shared';
 import { Icon } from '~/components/Icon';
 import { useThemeColors } from '~/theme/useThemeColors';
 import { useRepository } from '@/hooks/useRepository';
 import { notifyTagsChanged } from '@/hooks/useDataRefresh';
 import { hashtagsRepo } from '@/core/db/repositories';
+import { dismissTip } from '~/lib/tipsStorage';
+import { shouldNudgeSetAside } from '@/core/tips/tipTriggers';
 import { useModeBackgroundColor } from '~/theme/useModeBackgroundColor';
 import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
+import { usePullToRefresh } from '~/hooks/usePullToRefresh';
 
 /**
  * RN port of apps/web-react/src/features/settings/ManageTagsPage.tsx. The only place an *existing*
@@ -18,10 +22,11 @@ import { useDefaultHeaderBack } from '~/navigation/HeaderBackContext';
 export function ManageTagsPage() {
   const modeBg = useModeBackgroundColor();
   const theme = useThemeColors();
-  const { items: hashtags, save: saveHashtag, loading } = useRepository(hashtagsRepo);
+  const { items: hashtags, save: saveHashtag, loading, reload } = useRepository(hashtagsRepo);
   const [search, setSearch] = useState('');
   const [showInfo, setShowInfo] = useState(false);
   useDefaultHeaderBack('ManageTags');
+  const { refreshing, onRefresh } = usePullToRefresh(reload);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -31,9 +36,25 @@ export function ManageTagsPage() {
 
   return (
     <SafeAreaView edges={[]} className="flex-1" style={{ backgroundColor: modeBg }}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
+      >
         <View className="px-4 py-4 gap-4">
           <SearchInput value={search} onChange={setSearch} placeholder="Search tags…" />
+
+          {/* Tier 1 "Did you know" nudge (2026-08-16) — fires once, ever, once there are a few tags but
+              none has ever been marked Set Aside. Suppressed permanently on dismiss OR the moment the
+              user actually turns Set Aside on for any tag (see the Toggle's onChange below). */}
+          <TipNudgeBanner
+            id="tag-set-aside"
+            text="Did you know “Set Aside” keeps a tag’s spend out of your daily-living total — without hiding it? Try it on any tag below."
+            active={shouldNudgeSetAside(
+              hashtags.length,
+              hashtags.some((h) => h.setAside)
+            )}
+          />
 
           <View>
             <View className="flex-row items-center gap-1.5 mb-1">
@@ -80,15 +101,19 @@ export function ManageTagsPage() {
                     </View>
                     <Toggle
                       value={!!h.setAside}
-                      onChange={(setAside) =>
+                      onChange={(setAside) => {
+                        // The user just did the exact thing the Set-Aside nudge above points at —
+                        // suppress it for good, same "dismissed OR acted upon" rule every Tier 1 nudge
+                        // follows (regardless of which specific tag they toggled it on for).
+                        if (setAside) void dismissTip('tag-set-aside');
                         // Turning Set Aside on defaults Safe Mode visibility to match, same smart default as a
                         // brand-new tag gets — still independently editable in Settings → Safe Mode → Tags.
                         void saveHashtag({
                           ...h,
                           setAside,
                           hideInSafeMode: setAside ? true : h.hideInSafeMode
-                        }).then(notifyTagsChanged)
-                      }
+                        }).then(notifyTagsChanged);
+                      }}
                       accessibilityLabel={`Set aside #${h.name}`}
                     />
                   </View>

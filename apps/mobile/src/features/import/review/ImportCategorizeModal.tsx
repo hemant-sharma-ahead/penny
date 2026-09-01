@@ -1,11 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { Modal, Button, Banner, SelectInput, TextInput } from '~/components/ui';
 import { Icon } from '~/components/Icon';
 import { tint } from '~/lib/color';
 import { useThemeColors } from '~/theme/useThemeColors';
-import type { Account, ExpenseCategory, Person } from '@/core/db/types';
-import { IOU_MANDATORY_CATEGORY_IDS } from '@/core/db/defaultCategories';
+import type { Account, ExpenseCategory, Hashtag, Person } from '@/core/db/types';
+import { IOU_MANDATORY_CATEGORY_IDS, INTENT_GROUP_META } from '@/core/db/defaultCategories';
+import { buildParentCategoryMap } from '@/core/expenses/categoryGroups';
 import {
   isLikelyTransfer,
   intentGroupLabel,
@@ -14,6 +15,7 @@ import {
   type CategoryAction
 } from '@/core/import/importCategoryResolution';
 import { CategoryPickerModal } from '~/features/expenses/categories/CategoryPickerModal';
+import { CategoryEditorModal, type GroupOption } from '~/features/expenses/categories/CategoryEditorModal';
 import { ExtraCircle } from '~/components/shared/ExtraCircle';
 
 /** Same border-notched-label wrapper `CategoryTile.tsx`/`AccountsSection.tsx` each already have their own
@@ -95,7 +97,6 @@ interface ImportCategorizeModalProps {
   categories: ExpenseCategory[];
   transferAccountOptions: Account[];
   txnCountByCategory: Map<string, number>;
-  groupOptions: { value: string; label: string }[];
   pickerType: 'expense' | 'income';
   /** "Remembered — {categoryName}" (2026-08-13, review redesign issue #8) — a one-tap prefill, moved in
    *  here from the tile header (bucket-tiles redesign) since it's a resolution-affecting shortcut like
@@ -105,18 +106,21 @@ interface ImportCategorizeModalProps {
    *  empty) to hide suggestions; the free-text field itself still works either way, same as
    *  `BulkCategorizeModal`'s own IOU panel. */
   iouPersons?: Person[];
+  /** Tag field suggestions (2026-08-20, item 41 real-device testing pass) — "Frequent" (top-5 by
+   *  `usageCount`) + live `startsWith` suggestions as the user types, ported from
+   *  `BulkHashtagModal.tsx`'s identical pattern. Omit (or pass empty) to render the tag field with no
+   *  suggestions at all — it still works as a plain free-text field either way. */
+  hashtags?: Hashtag[];
   /** Seed value for the Lent/Borrowed person field (2026-08-14, redesign §9.6/§7's 2026-08-14
-   *  clarification) — pre-fills from the Categories stage's own per-row counterparty detection when one
-   *  exists (a `CounterpartyGroup`'s matched Person name, or its raw low-confidence candidate text),
-   *  still fully editable. A row with no detected counterparty (the residual group, or a plain
-   *  non-split category) starts blank. */
+   *  clarification) — pre-fills from the per-row counterparty detection when one exists (a
+   *  `CounterpartyGroup`'s matched Person name, or its raw low-confidence candidate text), still fully
+   *  editable. A row with no detected counterparty (the residual group, or a plain non-split category)
+   *  starts blank. */
   initialIouPersonName?: string;
   /** Whether this modal instance should show/require the Lent/Borrowed panel at all (2026-08-14,
-   *  redesign §3/§9.6) — supplying the IOU person is explicitly a TRANSACTIONS-stage concern, never a
-   *  Categories-stage gate (the doc's own sequencing: Categories only decides the category KIND; a
-   *  category that happens to be IOU-mandatory still doesn't block Categories-stage "Continue" on a
-   *  missing person). Defaults to `true` (Transactions stage's own standing-override usage); the
-   *  Categories stage passes `false` explicitly. */
+   *  redesign §3/§9.6). Defaults to `true` (the Transactions stage's own standing-override usage, the
+   *  only caller today — the "Categories" wizard stage this was once also conditional on was removed
+   *  2026-08-20, item 41 flow redesign). */
   enforceIouPerson?: boolean;
   /** Applies to the WHOLE tile (every one of its rows) — used whenever `isPartialSelection` is false.
    *  `iouPersonName` is set only when the applied category is `IOU_MANDATORY_CATEGORY_IDS`-gated. */
@@ -129,6 +133,10 @@ interface ImportCategorizeModalProps {
    *  CURRENT 'create' suggestion as-is, without changing it. Only ever rendered for a whole-tile
    *  selection whose suggestion is already 'create' and not yet decided. */
   onAcknowledge: () => void;
+  /** Creates a real `ExpenseCategory` immediately (2026-08-20, item 41 flow redesign) — backs the
+   *  "Create" kind's real `CategoryEditorModal` below (replacing the old bespoke inline Group+Name
+   *  fields). See `useImport.ts`'s `createCategory` doc comment. */
+  onCreateCategory: (cat: ExpenseCategory) => Promise<void>;
   onClose: () => void;
 }
 
@@ -151,24 +159,69 @@ export function ImportCategorizeModal({
   categories,
   transferAccountOptions,
   txnCountByCategory,
-  groupOptions,
   pickerType,
   rememberedSuggestion,
   iouPersons = [],
+  hashtags = [],
   initialIouPersonName = '',
   enforceIouPerson = true,
   onApplyFull,
   onApplyPartial,
   onAcknowledge,
+  onCreateCategory,
   onClose
 }: ImportCategorizeModalProps) {
   const theme = useThemeColors();
   const [localSuggestion, setLocalSuggestion] = useState<CategoryAction>(suggestion);
   const [tag, setTag] = useState(initialTag);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  // Real category-creation flow (2026-08-20, item 41 flow redesign) — replaces the old bespoke inline
+  // Group+Name fields with the real `CategoryEditorModal` (name/icon-grid/color-swatches/group). Opens
+  // whenever the user ACTIVELY taps the "Create" `KindTile` (see `handleKindChange` below); if the
+  // tile's own suggestion was ALREADY 'create' when this modal first opened (an unconfirmed smart
+  // guess, never actively picked this session), a quiet summary row shows instead with its own "Edit ›"
+  // link into this same editor — never force-opened on top of the modal the instant it renders.
+  const [showCategoryEditor, setShowCategoryEditor] = useState(false);
   const [touched, setTouched] = useState(false);
   const [showIouPanel, setShowIouPanel] = useState(false);
   const [iouPersonName, setIouPersonName] = useState(initialIouPersonName);
+
+  // Group options for the real category editor (2026-08-20) — mirrors `CategoryPickerModal.tsx`'s own
+  // `groupOptions` memo: fixed intent groups first, then user-created parent categories, both filtered
+  // to this modal's `pickerType`. Computed locally (rather than threaded down as a prop, the way the now-
+  // removed bespoke inline Group field used to be) since only `CategoryEditorModal.GroupOption`'s fuller
+  // shape (with `isParent`) is needed, and only here.
+  const parentCategoryMap = useMemo(() => buildParentCategoryMap(categories), [categories]);
+  const editorGroupOptions = useMemo<GroupOption[]>(() => {
+    const opts: GroupOption[] = [];
+    for (const [key, meta] of Object.entries(INTENT_GROUP_META)) {
+      const isIncome = key === 'income';
+      if (pickerType === 'income' ? !isIncome : isIncome || key === 'transfers') continue;
+      opts.push({ value: key, label: meta.label, isParent: false });
+    }
+    for (const parent of parentCategoryMap.values()) {
+      const applies =
+        pickerType === 'income'
+          ? parent.applicableTo === 'income'
+          : !parent.applicableTo || parent.applicableTo === 'expense';
+      if (applies) opts.push({ value: parent.id, label: parent.name, isParent: true });
+    }
+    return opts;
+  }, [parentCategoryMap, pickerType]);
+
+  // Tag field suggestions (2026-08-20, item 41) — same "Frequent"/live-suggestion pattern as
+  // `BulkHashtagModal.tsx`. Normalized only for MATCHING purposes here, same as that component's own
+  // `normalizedAdd` — the actual `tag` state stays exactly what the user typed until the real write path
+  // (`importPipeline.ts`) normalizes it at commit time, same as every other entry point into this field.
+  const normalizedTag = tag.replace(/^#/, '').trim().toLowerCase();
+  const frequentTags = useMemo(() => [...hashtags].sort((a, b) => b.usageCount - a.usageCount).slice(0, 5), [hashtags]);
+  const tagSuggestions = useMemo(
+    () =>
+      normalizedTag.length > 0
+        ? hashtags.filter((h) => h.name.startsWith(normalizedTag) && h.name !== normalizedTag).slice(0, 5)
+        : [],
+    [hashtags, normalizedTag]
+  );
 
   const transferOptions = transferCategoryOptions().map((c) => ({ value: c.id, label: c.name }));
   const suggestedTransfer = localSuggestion.kind !== 'transfer' && isLikelyTransfer(sourceName);
@@ -220,6 +273,10 @@ export function ImportCategorizeModal({
       const suggestedIntentGroup =
         localSuggestion.kind === 'create' ? localSuggestion.suggestedIntentGroup : suggestIntentGroup(sourceName);
       setLocalSuggestion({ kind: 'create', suggestedName: sourceName, suggestedIntentGroup });
+      // Active choice (2026-08-20, item 41 flow redesign) — opens the real editor right away; if the
+      // user cancels without saving, the tile is left in the quiet-summary 'create' state below, still
+      // applicable as-is (unedited) via the modal's own Apply button.
+      setShowCategoryEditor(true);
     } else {
       setLocalSuggestion({ kind: 'skip' });
     }
@@ -392,8 +449,7 @@ export function ImportCategorizeModal({
 
         {/* Lent/Borrowed lock-open panel (2026-08-14, redesign §9.6, Issue #8) — ported from
          *  `BulkCategorizeModal.tsx`'s identical pattern. Only ever relevant for `kind === 'existing'`,
-         *  AND only when `enforceIouPerson` (Transactions-stage usage) — the Categories stage passes
-         *  `enforceIouPerson={false}` since supplying the person is explicitly not its concern. */}
+         *  AND only when `enforceIouPerson` (true by default). */}
         {enforceIouPerson && iouApplicable && (
           <View className="flex-row justify-center pt-1">
             <ExtraCircle
@@ -490,37 +546,37 @@ export function ImportCategorizeModal({
           </View>
         )}
 
+        {/* "Create" — real `CategoryEditorModal` now backs this (2026-08-20, item 41 flow redesign),
+         *  replacing the old bespoke inline Group+Name fields. This quiet summary row is the PASSIVE
+         *  state — the tile's own auto-suggested create guess, not yet actively edited this session — with
+         *  its own "Edit ›" link into the same editor `handleKindChange` already opens on an active tap.
+         *  Applying directly from here (no edit) still works exactly as before: `canApply`/`handleApply`
+         *  below are unchanged for this kind, so `useImport.ts`'s existing deferred-at-commit creation
+         *  (default gray/tag icon) is the fallback for anyone who never bothers customizing. */}
         {localSuggestion.kind === 'create' && (
-          <View className="flex-row gap-2">
-            <View style={{ flex: 2 }}>
-              <BorderLabelField label="Group">
-                <SelectInput
-                  value={localSuggestion.suggestedIntentGroup}
-                  onChange={(v) =>
-                    setLocalSuggestion({
-                      kind: 'create',
-                      suggestedName: (localSuggestion as { suggestedName: string }).suggestedName,
-                      suggestedIntentGroup: v
-                    })
-                  }
-                  options={groupOptions}
-                />
-              </BorderLabelField>
+          <View
+            className="flex-row items-center gap-2 rounded-xl border px-3 py-2.5"
+            style={{ borderColor: theme.border, backgroundColor: theme.surfaceTertiary }}
+          >
+            <View
+              className="w-7 h-7 rounded-lg items-center justify-center"
+              style={{ backgroundColor: tint(theme.primary, 15) }}
+            >
+              <Icon name="ti-square-plus" size={14} color={theme.primary} />
             </View>
-            <View style={{ flex: 3 }}>
-              <BorderLabelField label="New category name">
-                <TextInput
-                  value={localSuggestion.suggestedName}
-                  onChange={(v) =>
-                    setLocalSuggestion({
-                      kind: 'create',
-                      suggestedName: v,
-                      suggestedIntentGroup: (localSuggestion as { suggestedIntentGroup: string }).suggestedIntentGroup
-                    })
-                  }
-                />
-              </BorderLabelField>
+            <View className="flex-1">
+              <Text className="text-xs font-semibold text-primary" numberOfLines={1}>
+                New category: {localSuggestion.suggestedName}
+              </Text>
+              <Text className="text-[10px] text-tertiary">
+                {intentGroupLabel(localSuggestion.suggestedIntentGroup)}
+              </Text>
             </View>
+            <Pressable onPress={() => setShowCategoryEditor(true)} hitSlop={6}>
+              <Text className="text-xs font-bold" style={{ color: theme.primary }}>
+                Edit ›
+              </Text>
+            </Pressable>
           </View>
         )}
 
@@ -548,6 +604,37 @@ export function ImportCategorizeModal({
             onChange={setTag}
             disabled={localSuggestion.kind === 'skip'}
           />
+          {frequentTags.length > 0 && (
+            <View>
+              <Text className="text-[10px] font-semibold uppercase tracking-wide text-tertiary mb-1">Frequent</Text>
+              <View className="flex-row flex-wrap gap-1">
+                {frequentTags.map((h) => (
+                  <Button
+                    key={h.id}
+                    variant={h.name === normalizedTag ? 'primary' : 'secondary'}
+                    size="sm"
+                    onPress={() => setTag(h.name)}
+                  >
+                    #{h.name}
+                  </Button>
+                ))}
+              </View>
+            </View>
+          )}
+          {tagSuggestions.length > 0 && (
+            <View className="flex-row flex-wrap gap-1">
+              {tagSuggestions.map((s) => (
+                <Button
+                  key={s.id}
+                  variant={s.name === normalizedTag ? 'primary' : 'secondary'}
+                  size="sm"
+                  onPress={() => setTag(s.name)}
+                >
+                  #{s.name}
+                </Button>
+              ))}
+            </View>
+          )}
         </View>
       </Modal>
 
@@ -563,6 +650,29 @@ export function ImportCategorizeModal({
             setShowCategoryPicker(false);
           }}
           onClose={() => setShowCategoryPicker(false)}
+        />
+      )}
+
+      {/* Real category editor (2026-08-20, item 41 flow redesign) — replaces the old bespoke inline
+       *  Group+Name "Create" fields. Always create mode (`editing` omitted) — this modal never edits an
+       *  existing category, only creates a brand-new one. `moveTargets`/`onMove`/`onDelete` are
+       *  unreachable in create mode (`txnCount={0}` and no `editing` hide both the move and delete UI —
+       *  see `CategoryEditorModal.tsx`'s own `canDelete`/move-section conditions), so plain no-op stubs
+       *  are safe here rather than threading real implementations neither of these two props could ever
+       *  invoke. */}
+      {showCategoryEditor && (
+        <CategoryEditorModal
+          type={pickerType}
+          groupOptions={editorGroupOptions}
+          moveTargets={[]}
+          txnCount={0}
+          onSave={async (cat) => {
+            await onCreateCategory(cat);
+            setLocalSuggestion({ kind: 'existing', categoryId: cat.id, categoryName: cat.name });
+          }}
+          onMove={async () => {}}
+          onDelete={async () => {}}
+          onClose={() => setShowCategoryEditor(false)}
         />
       )}
     </>

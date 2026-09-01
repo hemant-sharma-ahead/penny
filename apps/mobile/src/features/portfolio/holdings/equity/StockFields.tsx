@@ -11,12 +11,9 @@ interface StockFieldsProps {
   avgCostPrice: string;
   setAvgCostPrice: (v: string) => void;
   fetchedPrice: number | null;
-  setFetchedPrice: (v: number | null) => void;
   fetchedName: string;
-  setFetchedName: (v: string) => void;
   priceFetching: boolean;
   stockFetchAttempted: boolean;
-  setStockFetchAttempted: (v: boolean) => void;
 }
 
 // Stock fields: NSE symbol with live price/name lookup, shares + avg buy price,
@@ -29,12 +26,9 @@ export function StockFields({
   avgCostPrice,
   setAvgCostPrice,
   fetchedPrice,
-  setFetchedPrice,
   fetchedName,
-  setFetchedName,
   priceFetching,
-  stockFetchAttempted,
-  setStockFetchAttempted
+  stockFetchAttempted
 }: StockFieldsProps) {
   const theme = useThemeColors();
 
@@ -45,13 +39,20 @@ export function StockFields({
           label="NSE symbol"
           placeholder="e.g. RELIANCE, INFY, TCS, HDFCBANK"
           value={symbol}
-          onChange={(v) => {
-            setSymbol(v.toUpperCase());
-            setStockFetchAttempted(false);
-            setFetchedPrice(null);
-            setFetchedName('');
-          }}
+          // Store exactly what the native keyboard hands back — do NOT re-inject a
+          // JS-transformed (.toUpperCase()) string into this controlled value. Feeding a
+          // transformed string back into a controlled TextInput's `value` desyncs the
+          // native text buffer from React state, which on Android caused typed characters
+          // to get duplicated/re-inserted (found + fixed 2026-08-24). `autoCapitalize`
+          // below already makes the keyboard type uppercase directly, so this is rarely
+          // even visibly wrong — but don't rely on the keyboard alone for correctness:
+          // the actual price lookup (useLivePrice.ts -> fetchStockQuote) and the final
+          // saved value (holdingMappers.ts's applyStockFields) both uppercase the symbol
+          // themselves at their point of use, independent of what's typed here.
+          onChange={setSymbol}
           autoComplete="off"
+          autoCapitalize="characters"
+          autoCorrect={false}
         />
         {priceFetching && (
           <View className="flex-row items-center gap-1.5 mt-1">

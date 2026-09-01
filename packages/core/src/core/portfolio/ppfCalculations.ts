@@ -72,6 +72,26 @@ export function fyLabel(fyStartYear: number): string {
   return `FY ${fyStartYear}-${String(fyStartYear + 1).slice(2)}`;
 }
 
+/** Manual-entry FY-order guard (2026-08-24) — the matching safeguard for the class of bug just fixed
+ *  in `ppfReconciliation.ts` (CSV-import interest recalculation missing a prior FY's own credited
+ *  interest from the balance basis), applied to `PpfTransactionSheet`'s add/edit form instead of the
+ *  import path. Given every past FY still missing its own interest record
+ *  (`findMissingPpfInterestFys`'s output) and the date a user is trying to save a transaction under,
+ *  returns the earliest such FY if that transaction should be BLOCKED — or `null` if it's fine.
+ *
+ *  Rule: a transaction dated in a financial year strictly AFTER the earliest missing-interest FY is
+ *  blocked (that later year's own balance basis can't be trusted until the gap closes). A transaction
+ *  dated WITHIN or BEFORE the gap year itself is never blocked — depositing into FY2023-24 right up to
+ *  its own year-end is completely normal even if FY2023-24's interest hasn't been credited yet.
+ *  Pure/pushed into `packages/core` (rather than left as inline logic in the mobile sheet) specifically
+ *  so this decision is real-test-covered — `apps/mobile` has no test harness of its own. */
+export function earliestBlockingPpfFy(missingFys: number[], candidateDate: number): number | null {
+  if (missingFys.length === 0) return null;
+  const earliestMissingFy = Math.min(...missingFys);
+  const candidateFy = dateToFyStartYear(candidateDate);
+  return candidateFy > earliestMissingFy ? earliestMissingFy : null;
+}
+
 /** Running balance as of the end of a given financial year (deposits/interest add, withdrawals
  *  subtract) — the input the partial-withdrawal formula below needs (balance "at the end of" a
  *  specific year, not the account's current balance). */
@@ -115,6 +135,18 @@ export function ppfWithdrawalEligibility(
   const base = Math.min(fourthPrecedingBalance, immediatePrecedingBalance);
   const maxWithdrawable = Math.max(0, Math.round(base * 0.5));
   return { eligible, eligibleFromFy, maxWithdrawable };
+}
+
+/** The account's real current balance — every deposit/interest credit adds, every withdrawal
+ *  subtracts, summed straight over the full ledger (no date cutoff needed; every recorded
+ *  transaction already happened on or before "now" by definition). This is the one live source of
+ *  truth for "what is this PPF account actually worth right now" — `holding.investedAmount` is a
+ *  separately-stored snapshot of this figure (kept in sync by whoever saves the holding, see
+ *  `RetirementSection.tsx`'s `saveHolding` choke point — the same pattern already used to keep
+ *  EPF's `currentValue` in sync with its own transaction ledger), not a second, independently
+ *  meaningful number. */
+export function ppfCurrentBalance(txns: PpfTransaction[]): number {
+  return txns.reduce((sum, t) => sum + (t.type === 'withdrawal' ? -t.amount : t.amount), 0);
 }
 
 export function ppfBuildCardData(meta: AssetMeta, balance: number): PpfCardData {

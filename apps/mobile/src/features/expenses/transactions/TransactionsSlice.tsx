@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
-import { View, Pressable, ScrollView, Text } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Pressable, ScrollView, Text, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchInput, DismissibleChip, ConfirmDialog } from '~/components/ui';
 import { Icon } from '~/components/Icon';
@@ -22,13 +22,19 @@ import type { ExpenseSeedIntent } from '@/core/iou/expenseLink';
 import type { ExpenseGoalIntent } from '@/core/goals/goalLink';
 import type { AccountInput } from '~/hooks/useAccountForm';
 import { toMonthYearKey } from '@/lib/formatters';
-import { monthLabel } from '@/lib/date';
+import { offsetMonth } from '@/lib/date';
 import { TransactionsTab } from './TransactionsTab';
 import { ExpenseForm } from '~/components/shared/ExpenseForm';
 import { CategoryPickerModal } from '../categories/CategoryPickerModal';
 import { FilterModal } from './FilterModal';
 import { MonthPickerModal } from './MonthPickerModal';
+import { MonthScrubBar } from './MonthScrubBar';
 import { BulkAccountPaymentModal } from './BulkAccountPaymentModal';
+import { BulkHashtagModal } from './BulkHashtagModal';
+import { BulkAddToIouModal } from './BulkAddToIouModal';
+import { TipNudgeBanner } from '~/components/shared';
+import { dismissTip } from '~/lib/tipsStorage';
+import { shouldNudgeBulkHashtag } from '@/core/tips/tipTriggers';
 import { RecurringInboxModal } from './RecurringInboxModal';
 import { ShareToGroupModal } from './ShareToGroupModal';
 import type { useTransactionFilters } from './useTransactionFilters';
@@ -51,9 +57,23 @@ interface TransactionsSliceProps {
   shouldMask: (sensitive: boolean | undefined) => boolean;
   onSaveExpense: (e: Expense, newTagSetAside?: Record<string, boolean>) => Promise<void>;
   onDeleteExpense: (id: string) => Promise<void>;
+  /** Pull-to-refresh — `useExpenses.ts`'s `reloadExpenses`. */
+  onRefresh: () => void;
   iouPersons: Person[];
   onSeedIou: (expenseId: string, intent: ExpenseSeedIntent | null) => Promise<void>;
+  /** Bulk-add-to-IOU (item 11, 2026-08-18) — `useExpenses.ts`'s `bulkAddToIou`. Assigns a whole
+   *  multi-select batch to one person's ledger; see `BulkAddToIouModal.tsx`'s own doc comment. */
+  onBulkAddToIou: (
+    expenseIds: string[],
+    personName: string,
+    categoryByType: { expense?: string; income?: string }
+  ) => Promise<void>;
   iouLinkByTxn: Map<string, { personName: string }>;
+  /** Every transaction that backs an IOU ledger entry of ANY origin, not just expense-seeded ones
+   *  (`useExpenses.ts`'s `iouLinkedTxnIds`) — powers the edit form's type-switch block (item 6), which
+   *  must catch a link created from the IOU tab's own "record transaction" toggle too, not just one
+   *  seeded from this form's own Lent/Borrowed panel. */
+  iouLinkedTxnIds: Set<string>;
   goals: Goal[];
   onSeedGoal: (expenseId: string, intent: ExpenseGoalIntent | null) => Promise<void>;
   goalLinkByTxn: Map<string, { goalId: string; goalName: string }>;
@@ -81,6 +101,12 @@ interface TransactionsSliceProps {
     patch: Partial<Pick<Expense, 'categoryId' | 'accountId' | 'paymentMode'>>
   ) => Promise<void>;
   onRemoveExpenses: (ids: string[]) => Promise<void>;
+  /** Additive-only bulk tag (2026-08-16) — adds `tag` to every selected transaction's existing tags,
+   *  never replaces them. See `BulkHashtagModal`'s own doc comment. */
+  onBulkAddHashtag: (ids: string[], tag: string) => Promise<void>;
+  /** Symmetric bulk tag removal (2026-08-18) — removes `tag` from whichever selected transactions
+   *  actually carry it; a no-op for any that don't. See `BulkHashtagModal`'s own doc comment. */
+  onBulkRemoveHashtag: (ids: string[], tag: string) => Promise<void>;
   searchMerchant: (type: TransactionType, query: string) => MerchantMemory[];
   dueRecurring: DueRecurring[];
   onPostRecurring: (d: DueRecurring) => Promise<void>;
@@ -109,9 +135,12 @@ export function TransactionsSlice({
   shouldMask,
   onSaveExpense,
   onDeleteExpense,
+  onRefresh,
   iouPersons,
   onSeedIou,
+  onBulkAddToIou,
   iouLinkByTxn,
+  iouLinkedTxnIds,
   goals,
   onSeedGoal,
   goalLinkByTxn,
@@ -126,6 +155,8 @@ export function TransactionsSlice({
   onOpenBudgets,
   onPatchExpenses,
   onRemoveExpenses,
+  onBulkAddHashtag,
+  onBulkRemoveHashtag,
   searchMerchant,
   dueRecurring,
   onPostRecurring,
@@ -152,6 +183,8 @@ export function TransactionsSlice({
     setEventFilters,
     monthFilter,
     setMonthFilter,
+    earliestMonth,
+    monthsWithTxns,
     paymentModeMismatchOnly,
     setPaymentModeMismatchOnly,
     activeFilterCount,
@@ -175,8 +208,35 @@ export function TransactionsSlice({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkCategory, setShowBulkCategory] = useState(false);
   const [showAcctPay, setShowAcctPay] = useState(false);
+  const [showBulkHashtag, setShowBulkHashtag] = useState(false);
+  const [showBulkAddToIou, setShowBulkAddToIou] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Single-row delete confirmation (item 1) — the swipe-to-delete action used to call onDeleteExpense
+  // immediately, Undo-toast only. The edit-form's own Delete button now confirms internally
+  // (ExpenseForm.tsx); this covers the other single-delete path, the swipe action, the same way.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  // Item 43 (docs/plans/real-device-testing-pass.md Phase 5) — the scrub bar's chip range, ascending
+  // oldest → newest, spanning `earliestMonth` (useTransactionFilters.ts's one-time Math.min scan)
+  // through the current calendar month. Memoized on `earliestMonth` alone, since that's the only
+  // input that can actually change it (the "now" ceiling is captured once per computation, same as
+  // every other `toMonthYearKey()` call-site in this file). The 1200-month (100-year) guard is just a
+  // safety net against a malformed/future floor date freezing the UI in a `while` loop — real
+  // transaction history should never come close to it.
+  const scrubMonths = useMemo(() => {
+    const current = toMonthYearKey();
+    const list: string[] = [];
+    let m = earliestMonth;
+    let guard = 0;
+    while (m <= current && guard < 1200) {
+      list.push(m);
+      m = offsetMonth(m, 1);
+      guard++;
+    }
+    return list.length > 0 ? list : [current];
+  }, [earliestMonth]);
 
   const allFilteredIds = useMemo(() => grouped.flatMap((g) => g.items.map((i) => i.id)), [grouped]);
   // A bulk selection is overwhelmingly one direction in practice — pick whichever the majority of the
@@ -197,6 +257,32 @@ export function TransactionsSlice({
     const incomeCount = selectedExpenses.filter((e) => e.type === 'income').length;
     return incomeCount > selectedExpenses.length / 2 ? 'income' : 'expense';
   }, [showBulkCategory, grouped, selected]);
+
+  // Union of tags actually present across the current selection — Remove mode's only source of chips
+  // (see `BulkHashtagModal`'s own doc comment). Same "only scan while its own modal is open" guard as
+  // `bulkPickerType` above, for the same reason (found 2026-08-14): this would otherwise re-scan the
+  // entire filtered dataset on every selection change, not just while the modal driving it is open.
+  const selectedTags: string[] = useMemo(() => {
+    if (!showBulkHashtag) return [];
+    const selectedExpenses = grouped.flatMap((g) => g.items).filter((e) => selected.has(e.id));
+    const tags = new Set<string>();
+    for (const e of selectedExpenses) for (const t of e.hashtags) tags.add(t);
+    return [...tags].sort();
+  }, [showBulkHashtag, grouped, selected]);
+
+  // Expense-/income-type counts within the current selection — `BulkAddToIouModal`'s only source for
+  // which direction question(s) to ask (a direction with zero selected rows is skipped entirely).
+  // Transfer-type rows in the selection are counted in neither (no IOU direction) and are left untouched
+  // by the bulk apply. Same "only scan while its own modal is open" guard as `bulkPickerType`/
+  // `selectedTags` above, for the same reason (found 2026-08-14).
+  const bulkIouCounts = useMemo(() => {
+    if (!showBulkAddToIou) return { expense: 0, income: 0 };
+    const selectedExpenses = grouped.flatMap((g) => g.items).filter((e) => selected.has(e.id));
+    return {
+      expense: selectedExpenses.filter((e) => e.type === 'expense').length,
+      income: selectedExpenses.filter((e) => e.type === 'income').length
+    };
+  }, [showBulkAddToIou, grouped, selected]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -223,6 +309,20 @@ export function TransactionsSlice({
     setSelected(new Set());
   }
 
+  // Item 34 (docs/plans/real-device-testing-pass.md Phase 4) — Android hardware back used to fall
+  // through to React Navigation's default (exiting the tab entirely), stranding select-mode state
+  // instead of just backing out of it. Same `BackHandler` pattern as `ChangePinPage.tsx`/
+  // `ImportPage.tsx`: only registered while `selectMode` is true, consumes the event (returns `true`,
+  // so navigation never sees it) and exits select mode instead.
+  useEffect(() => {
+    if (!selectMode) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      exitSelect();
+      return true;
+    });
+    return () => sub.remove();
+  }, [selectMode]);
+
   async function applyBulkPatch(patch: Partial<Pick<Expense, 'categoryId' | 'accountId' | 'paymentMode'>>) {
     if (selected.size === 0) return;
     await onPatchExpenses([...selected], patch);
@@ -239,6 +339,31 @@ export function TransactionsSlice({
     }
   }
 
+  async function handleBulkAddHashtag(tag: string) {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      await onBulkAddHashtag([...selected], tag);
+      // The user just did the exact thing the bulk-hashtag nudge (§ below) points at — suppress it for
+      // good, same "dismissed OR acted upon" rule every Tier 1 nudge follows.
+      void dismissTip('txn-bulk-hashtag');
+      exitSelect();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkRemoveHashtag(tag: string) {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      await onBulkRemoveHashtag([...selected], tag);
+      exitSelect();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   async function handleBulkDelete() {
     setBulkBusy(true);
     try {
@@ -248,6 +373,15 @@ export function TransactionsSlice({
     } finally {
       setBulkBusy(false);
     }
+  }
+
+  /** `BulkAddToIouModal`'s own "Apply" — busy/loading state is owned by the modal itself (its footer
+   *  Apply button), not `bulkBusy` (unlike the other bulk actions above) since the modal stays open
+   *  through its own multi-step flow and only calls this once, right before closing. */
+  async function handleBulkAddToIou(personName: string, categoryByType: { expense?: string; income?: string }) {
+    await onBulkAddToIou([...selected], personName, categoryByType);
+    setShowBulkAddToIou(false);
+    exitSelect();
   }
 
   function openAdd(type: TransactionType = 'expense') {
@@ -299,14 +433,32 @@ export function TransactionsSlice({
     setPrefill(null);
   }
 
+  // Item 30 (docs/plans/real-device-testing-pass.md Phase 4) — scrolls to a transaction just added as a
+  // brand-new entry (never an edit — `editingExpense` is only non-null while editing an existing row) via
+  // `TransactionsTab`'s `scrollToNewTxnId` prop, once the form closes after a successful save.
+  const [justAddedTxnId, setJustAddedTxnId] = useState<string | null>(null);
+
   async function handleSaveExpense(expense: Expense, newTagSetAside?: Record<string, boolean>) {
+    const isNewEntry = !editingExpense;
     await onSaveExpense(expense, newTagSetAside);
     closeForm();
+    if (isNewEntry) setJustAddedTxnId(expense.id);
   }
 
   async function handleDeleteExpense(id: string) {
     await onDeleteExpense(id);
     closeForm();
+  }
+
+  async function confirmSwipeDelete() {
+    if (!confirmDeleteId) return;
+    setDeleteBusy(true);
+    try {
+      await onDeleteExpense(confirmDeleteId);
+    } finally {
+      setDeleteBusy(false);
+      setConfirmDeleteId(null);
+    }
   }
 
   const hasChipFilters =
@@ -334,30 +486,39 @@ export function TransactionsSlice({
             </Text>
           </Pressable>
         </View>
-      ) : (
-        /* Filter bar */
-        <View className="border-b border-theme">
-          <View className="flex-row items-center gap-2 px-4 py-2">
+      ) : null}
+
+      {/* Tier 1 "Did you know" nudge (2026-08-16) — fires once, ever, the first time 3+ rows are
+          selected, pointing at bulk-hashtag specifically (the newest bulk action, easiest to miss).
+          Suppressed permanently on dismiss OR the moment the user actually uses bulk-hashtag (see
+          `handleBulkAddHashtag` above). */}
+      {selectMode && (
+        <View className="px-4 pt-2">
+          <TipNudgeBanner
+            id="txn-bulk-hashtag"
+            text="Did you know you can bulk-tag these with a hashtag too — not just category or account?"
+            active={shouldNudgeBulkHashtag(selected.size)}
+          />
+        </View>
+      )}
+
+      {!selectMode && (
+        /* Filter bar. Each row below owns its own bottom border (matching the mockup's `.filterbar`/
+         *  `.scrubwrap` — two independently-bordered rows, not one shared border for the whole
+         *  block) rather than one border shared across the whole outer container, now that the
+         *  month-scrub bar sits between the icon row and the optional chip-filters row. */
+        <View>
+          <View className="flex-row items-center gap-2 px-4 py-2 border-b border-theme">
+            {/* 2026-08-18: reordered Budget → Month → Search → Filter → Select (was Month → Search →
+             *  Filter → Select → Budget) per real-device testing feedback — pure reorder, no behavior
+             *  change to any individual control. The Month trigger itself was later replaced (item 43,
+             *  2026-08-20) by the persistent `MonthScrubBar` rendered below this row — see there. */}
             <Pressable
-              onPress={() => setShowTxnMonthPicker(true)}
-              className="shrink-0 flex-row items-center gap-1.5 px-3 py-2 rounded-xl border border-theme bg-surface-2"
+              onPress={onOpenBudgets}
+              className="shrink-0 w-9 h-9 items-center justify-center rounded-xl border border-theme bg-surface-2"
+              accessibilityLabel="Open budgets"
             >
-              <Icon name="ti-calendar" size={14} color={monthFilter ? theme.primary : theme.textSecondary} />
-              <Text
-                className="text-sm font-medium"
-                style={{ color: monthFilter ? theme.primary : theme.textSecondary }}
-              >
-                {monthFilter ? monthLabel(monthFilter) : 'All'}
-              </Text>
-              {monthFilter && (
-                <Pressable
-                  onPress={() => setMonthFilter(null)}
-                  className="ml-0.5"
-                  accessibilityLabel="Clear month filter"
-                >
-                  <Icon name="ti-x" size={11} color={theme.textSecondary} />
-                </Pressable>
-              )}
+              <Icon name="ti-target-arrow" size={18} color={theme.textSecondary} />
             </Pressable>
             <SearchInput value={search} onChange={setSearch} className="flex-1 min-w-0" />
             <Pressable
@@ -365,7 +526,7 @@ export function TransactionsSlice({
               className="relative shrink-0 w-9 h-9 items-center justify-center rounded-xl border border-theme bg-surface-2"
               accessibilityLabel="Open filters"
             >
-              <Icon name="ti-adjustments-horizontal" size={18} color={theme.textSecondary} />
+              <Icon name="ti-filter" size={18} color={theme.textSecondary} />
               {activeFilterCount > 0 && (
                 <View
                   className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full items-center justify-center"
@@ -384,20 +545,25 @@ export function TransactionsSlice({
             >
               <Icon name="ti-list-check" size={18} color={theme.textSecondary} />
             </Pressable>
-            <Pressable
-              onPress={onOpenBudgets}
-              className="shrink-0 w-9 h-9 items-center justify-center rounded-xl border border-theme bg-surface-2"
-              accessibilityLabel="Open budgets"
-            >
-              <Icon name="ti-target-arrow" size={18} color={theme.textSecondary} />
-            </Pressable>
           </View>
+
+          {/* Item 43 (docs/plans/real-device-testing-pass.md Phase 5) — persistent month-scrub bar,
+              replacing the old single month-chip trigger that used to live in the icon row above. */}
+          <MonthScrubBar
+            months={scrubMonths}
+            monthsWithTxns={monthsWithTxns}
+            selected={monthFilter}
+            onSelectMonth={setMonthFilter}
+            onSelectAll={() => setMonthFilter(null)}
+            onOpenPicker={() => setShowTxnMonthPicker(true)}
+          />
 
           {hasChipFilters && (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingBottom: 8 }}
+              className="border-b border-theme"
+              contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 }}
             >
               {typeFilter !== 'all' && (
                 <DismissibleChip
@@ -525,7 +691,7 @@ export function TransactionsSlice({
         hashtags={hashtags}
         shouldMask={shouldMask}
         onEdit={openEdit}
-        onDelete={onDeleteExpense}
+        onDelete={setConfirmDeleteId}
         onDuplicate={handleDuplicate}
         onShare={shareGroups.length > 0 ? setSharingExpense : undefined}
         selectMode={selectMode}
@@ -534,13 +700,19 @@ export function TransactionsSlice({
         onLongPressSelect={handleLongPressSelect}
         goalLinkedTxnIds={goalLinkedTxnIds}
         paymentModeMismatchTxnIds={paymentModeMismatchTxnIds}
+        onRefresh={onRefresh}
+        scrollToNewTxnId={justAddedTxnId}
       />
 
-      {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` third — the previous
-          `flexBasis: '33%'` didn't account for the row's own `gap`/`px` overhead, so the 3 items'
-          combined width exceeded the container and `flex-wrap` pushed the third icon onto its own row
+      {/* Bulk action bar (select mode). Each Pressable is a plain `flex: 1` — the previous
+          `flexBasis: '33%'` didn't account for the row's own `gap`/`px` overhead, so the items'
+          combined width exceeded the container and `flex-wrap` pushed the last icon onto its own row
           (found 2026-08-05). `flex: 1` always sums to exactly the available width, so wrap never
-          triggers regardless of gap/padding. */}
+          triggers regardless of gap/padding — holds for 5 icons the same as it did for 3/4.
+          Hashtag added 2026-08-16 (real user report: "assigning bulk tag to the selected ones should
+          also be there"); Person added 2026-08-18 (item 11) — both before Delete, same position
+          CategoryPickerModal/BulkAccountPaymentModal's own icons occupy relative to the destructive
+          action staying last. */}
       {selectMode && selected.size > 0 && (
         <View
           className="absolute left-0 right-0 flex-row gap-1 px-2 py-2 border-t border-theme bg-surface"
@@ -561,6 +733,22 @@ export function TransactionsSlice({
           >
             <Icon name="ti-wallet" size={19} color={theme.textSecondary} />
             <Text className="text-[10px] font-medium text-secondary">Account/Pay</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowBulkHashtag(true)}
+            className="items-center gap-1 py-2 rounded-xl"
+            style={{ flex: 1 }}
+          >
+            <Icon name="ti-hash" size={19} color={theme.textSecondary} />
+            <Text className="text-[10px] font-medium text-secondary">Hashtag</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowBulkAddToIou(true)}
+            className="items-center gap-1 py-2 rounded-xl"
+            style={{ flex: 1 }}
+          >
+            <Icon name="ti-users" size={19} color={theme.textSecondary} />
+            <Text className="text-[10px] font-medium text-secondary">Person</Text>
           </Pressable>
           <Pressable
             onPress={() => setConfirmBulkDelete(true)}
@@ -603,6 +791,7 @@ export function TransactionsSlice({
           accounts={accounts}
           categories={categories}
           goals={goals}
+          hashtags={hashtags}
           hasPaymentModeMismatches={paymentModeMismatchTxnIds.size > 0}
           initial={filterState}
           onApply={applyFilters}
@@ -624,34 +813,64 @@ export function TransactionsSlice({
       )}
 
       {/* Transaction form */}
-      {showForm && (
-        <ExpenseForm
-          categories={categories}
-          hashtags={hashtags}
-          editing={editingExpense}
-          prefill={prefill}
-          activeEvents={events}
-          accountBalances={accountBalances}
-          shareGroups={shareGroups}
-          onShareToGroup={onShareToGroup}
-          initialType={initialTransactionType}
-          onSave={handleSaveExpense}
-          onDelete={handleDeleteExpense}
-          iouPersons={iouPersons}
-          onSeedIou={onSeedIou}
-          linkedIou={editingExpense ? iouLinkByTxn.get(editingExpense.id) : undefined}
-          goals={goals}
-          onSeedGoal={onSeedGoal}
-          linkedGoal={editingExpense ? goalLinkByTxn.get(editingExpense.id) : undefined}
-          linkedBankStatementLines={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
-          saveAccount={saveAccount}
-          searchMerchant={searchMerchant}
-          onDuplicate={handleDuplicate}
-          onSaveTemplate={onSaveTemplate}
-          categoryManager={categoryManager}
-          onClose={closeForm}
-        />
-      )}
+      {showForm &&
+        (() => {
+          // Item 6 — the edit form's type-switch block: an IOU-linked, group-shared, or goal-linked
+          // transaction can't be safely re-typed without leaving its linked record referring to a type
+          // it no longer matches. `iouLinkedTxnIds`/`goalLinkedTxnIds` cover ANY link origin (not just
+          // this form's own expense-seeded ones) — a link created from the IOU tab's "record
+          // transaction" toggle, or Groups' own sharing, must block the switch too. Builds one
+          // explanatory sentence naming whichever link(s) actually apply (usually just one).
+          let typeSwitchBlockReason: string | null = null;
+          if (editingExpense) {
+            const reasons: string[] = [];
+            if (iouLinkedTxnIds.has(editingExpense.id)) {
+              const personName = iouLinkByTxn.get(editingExpense.id)?.personName;
+              reasons.push(personName ? `linked to ${personName}'s IOU ledger` : 'linked to an IOU ledger entry');
+            }
+            const sharedGroupId = editingExpense.shareWith?.[0];
+            if (sharedGroupId) {
+              const groupName = shareGroups.find((g) => g.id === sharedGroupId)?.name;
+              reasons.push(groupName ? `shared to ${groupName}` : 'shared to a group');
+            }
+            if (goalLinkedTxnIds.has(editingExpense.id)) {
+              const goalName = goalLinkByTxn.get(editingExpense.id)?.goalName;
+              reasons.push(goalName ? `linked to your "${goalName}" goal` : 'linked to a goal contribution');
+            }
+            if (reasons.length > 0) {
+              typeSwitchBlockReason = `this transaction is ${reasons.join(' and ')}. Remove the link first if you need to switch it.`;
+            }
+          }
+          return (
+            <ExpenseForm
+              categories={categories}
+              hashtags={hashtags}
+              editing={editingExpense}
+              prefill={prefill}
+              activeEvents={events}
+              accountBalances={accountBalances}
+              shareGroups={shareGroups}
+              onShareToGroup={onShareToGroup}
+              initialType={initialTransactionType}
+              onSave={handleSaveExpense}
+              onDelete={handleDeleteExpense}
+              iouPersons={iouPersons}
+              onSeedIou={onSeedIou}
+              linkedIou={editingExpense ? iouLinkByTxn.get(editingExpense.id) : undefined}
+              goals={goals}
+              onSeedGoal={onSeedGoal}
+              linkedGoal={editingExpense ? goalLinkByTxn.get(editingExpense.id) : undefined}
+              typeSwitchBlockReason={typeSwitchBlockReason}
+              linkedBankStatementLines={editingExpense ? bankImportLinkByTxn.get(editingExpense.id) : undefined}
+              saveAccount={saveAccount}
+              searchMerchant={searchMerchant}
+              onDuplicate={handleDuplicate}
+              onSaveTemplate={onSaveTemplate}
+              categoryManager={categoryManager}
+              onClose={closeForm}
+            />
+          );
+        })()}
 
       {/* Share-later picker (Track E) */}
       {sharingExpense && shareGroups.length > 0 && (
@@ -690,6 +909,30 @@ export function TransactionsSlice({
         />
       )}
 
+      {/* Bulk: add/remove a tag (Add/Remove toggle — see BulkHashtagModal's own doc comment) */}
+      {showBulkHashtag && (
+        <BulkHashtagModal
+          hashtags={hashtags}
+          selectedTags={selectedTags}
+          count={selected.size}
+          onApplyAdd={handleBulkAddHashtag}
+          onApplyRemove={handleBulkRemoveHashtag}
+          onClose={() => setShowBulkHashtag(false)}
+        />
+      )}
+
+      {/* Bulk: add to a person's IOU ledger (item 11) — see BulkAddToIouModal's own doc comment */}
+      {showBulkAddToIou && (
+        <BulkAddToIouModal
+          categories={categories}
+          persons={iouPersons}
+          expenseCount={bulkIouCounts.expense}
+          incomeCount={bulkIouCounts.income}
+          onApply={handleBulkAddToIou}
+          onClose={() => setShowBulkAddToIou(false)}
+        />
+      )}
+
       {/* Bulk: account + payment mode (coupled) */}
       {showAcctPay && (
         <BulkAccountPaymentModal
@@ -713,6 +956,17 @@ export function TransactionsSlice({
         confirmLabel="Delete"
         confirmVariant="danger"
         loading={bulkBusy}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDeleteId !== null}
+        onClose={() => setConfirmDeleteId(null)}
+        onConfirm={() => void confirmSwipeDelete()}
+        title="Delete transaction?"
+        message="You can undo right after."
+        confirmLabel="Delete"
+        confirmVariant="danger"
+        loading={deleteBusy}
       />
     </View>
   );
